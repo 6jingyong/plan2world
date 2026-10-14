@@ -36,9 +36,10 @@ The underlying editor already provides:
 Plan2World adds the image reconstruction layer:
 
 - upload PNG, JPEG, or WebP floor-plan images from the welcome screen;
-- optionally provide a scale hint such as a known dimension or drawing scale;
+- optionally provide a known real-world length when the image itself has no readable dimension;
 - call the configured vision-capable provider directly from the browser;
 - prefer visible dimensions and scale bars before estimating scale;
+- never treat a bare ratio such as `1:100` as sufficient to calibrate an arbitrary raster screenshot unless physical page size/DPI or another usable scale reference is preserved;
 - label estimated scale explicitly instead of presenting guessed measurements as exact;
 - reconstruct straight walls, doors, and windows into `plan2world-draft-v1`;
 - validate references and geometry before converting into the native editor project;
@@ -72,6 +73,8 @@ Keep the first useful version small:
 6. import into the existing editor;
 7. manual correction and furniture placement;
 8. first-person walkthrough.
+
+Furniture is intentionally **not** inferred from the source image in v1. The model reconstructs architecture; users furnish the result with the existing catalog. This avoids fragile guesses about product/category IDs and keeps the most interactive part of the workflow under user control.
 
 Not v1: BIM/Revit, structural analysis, automatic architectural-code checking, photorealistic rendering, or automatic interior-design recommendations.
 
@@ -145,11 +148,9 @@ The upstream project contains a much larger browser regression suite and renderi
 1. Open Plan2World and choose **Generate from floor-plan image**.
 2. Expand **AI provider → Configure** on first use and save a vision-capable provider/model.
 3. Drop in a PNG, JPEG, or WebP plan.
-4. If the drawing has no usable dimensions, optionally add a scale hint.
+4. If the drawing has no usable dimensions but you know one real-world length, enter that length as the optional hint.
 5. Generate the editable home.
-6. Correct any uncertain geometry in 2D, place furniture, then switch to 3D/walkthrough.
-
-Furniture recognition from the source plan is optional and off by default. The intended workflow is to reconstruct the architecture first and use the existing catalog for furnishing.
+6. Correct any uncertain geometry in 2D, place furniture from the catalog, then switch to 3D/walkthrough.
 
 ## Working with Codex or another external agent
 
@@ -162,6 +163,7 @@ Read AGENTS.md and docs/plan2world-draft-v1.md.
 Inspect the attached floor-plan image.
 Create a plan2world-draft-v1 JSON file using visible dimensions where available.
 Do not invent precise measurements when the scale is unknown; record assumptions.
+Do not infer furniture; leave furniture empty for manual placement in Plan2World.
 Validate references between walls, doors, and windows.
 ```
 
