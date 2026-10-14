@@ -18,7 +18,6 @@
   let file = $state<File | null>(null);
   let previewUrl = $state('');
   let scaleHint = $state('');
-  let includeFurniture = $state(false);
   let busy = $state(false);
   let status = $state('');
   let error = $state('');
@@ -71,7 +70,7 @@
       const draft = await reconstructFloorPlanImage(
         get(openAISettings),
         image,
-        { scaleHint, includeFurniture },
+        { scaleHint },
         fetch,
         controller.signal,
       );
@@ -107,7 +106,7 @@
   <div class="flex items-start justify-between gap-4 mb-5">
     <div>
       <h2 class="text-2xl font-bold text-gray-800">Create 3D home from floor plan</h2>
-      <p class="text-sm text-gray-500 mt-1">Upload a normal floor-plan image. AI extracts geometry; Plan2World turns it into the existing editable Three.js scene.</p>
+      <p class="text-sm text-gray-500 mt-1">Upload a normal floor-plan image. AI extracts the architecture; Plan2World turns it into the existing editable Three.js scene.</p>
     </div>
     <button type="button" onclick={close} disabled={busy} aria-label="Close"
       class="shrink-0 w-9 h-9 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40">✕</button>
@@ -133,21 +132,13 @@
     {/if}
   </button>
 
-  <div class="mt-5 grid gap-4 sm:grid-cols-2">
-    <label class="block sm:col-span-2">
-      <span class="text-sm font-medium text-gray-700">Scale hint <span class="font-normal text-gray-400">optional</span></span>
+  <div class="mt-5">
+    <label class="block">
+      <span class="text-sm font-medium text-gray-700">Known length <span class="font-normal text-gray-400">optional</span></span>
       <input bind:value={scaleHint} disabled={busy} type="text"
-        placeholder="e.g. the bottom dimension is 360 cm, or drawing scale is 1:100"
+        placeholder="e.g. the bottom exterior wall is 360 cm, or the marked doorway is 900 mm"
         class="mt-1.5 w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100" />
-      <span class="block text-xs text-gray-400 mt-1">If the drawing already has dimensions, leave this blank. The model will use visible dimensions first.</span>
-    </label>
-
-    <label class="flex items-start gap-3 rounded-xl border border-gray-200 p-3 sm:col-span-2">
-      <input type="checkbox" bind:checked={includeFurniture} disabled={busy} class="mt-1" />
-      <span>
-        <span class="block text-sm font-medium text-gray-700">Try to recognize furniture already drawn on the plan</span>
-        <span class="block text-xs text-gray-400 mt-0.5">Off by default. Furniture is easier and safer to place manually after the geometry is correct.</span>
-      </span>
+      <span class="block text-xs text-gray-400 mt-1">Leave this blank when the plan already contains readable dimensions. A bare ratio such as 1:100 is not enough to calibrate an arbitrary screenshot.</span>
     </label>
   </div>
 
@@ -173,6 +164,10 @@
         <OpenAISettings />
       </div>
     {/if}
+  </div>
+
+  <div class="mt-4 rounded-xl border border-gray-200 px-4 py-3 text-xs text-gray-500">
+    Furniture is intentionally not inferred in v1. Reconstruct the walls and openings first, then use the existing furniture catalog to furnish the editable plan.
   </div>
 
   {#if status}
