@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/6jingyong/plan2world/blob/main/schemas/plan2world-draft-v1.schema.json",
+  "title": "Plan2World Draft v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "name", "units", "scale", "floors"],
+  "properties": {
+    "schemaVersion": { "const": "plan2world-draft-v1" },
+    "name": { "type": "string", "minLength": 1 },
+    "units": { "const": "cm" },
+    "scale": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "confidence"],
+      "properties": {
+        "mode": { "enum": ["measured", "provided", "estimated"] },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "basis": { "type": "string" }
+      }
+    },
+    "assumptions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "floors": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/floor" }
+    }
+  },
+  "$defs": {
+    "point": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y"],
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" }
+      }
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "wall": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "start", "end"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "start": { "$ref": "#/$defs/point" },
+        "end": { "$ref": "#/$defs/point" },
+        "thickness": { "type": "number", "exclusiveMinimum": 0 },
+        "height": { "type": "number", "exclusiveMinimum": 0 },
+        "kind": { "enum": ["interior", "exterior", "unknown"] },
+        "confidence": { "$ref": "#/$defs/confidence" }
+      }
+    },
+    "door": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "wallId", "position", "width"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "wallId": { "type": "string", "minLength": 1 },
+        "position": { "type": "number", "minimum": 0, "maximum": 1 },
+        "width": { "type": "number", "exclusiveMinimum": 0 },
+        "height": { "type": "number", "exclusiveMinimum": 0 },
+        "type": { "enum": ["single", "double", "sliding", "french", "pocket", "bifold", "opening", "garage"] },
+        "swingDirection": { "enum": ["left", "right"] },
+        "flipSide": { "type": "boolean" },
+        "confidence": { "$ref": "#/$defs/confidence" }
+      }
+    },
+    "window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "wallId", "position", "width"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "wallId": { "type": "string", "minLength": 1 },
+        "position": { "type": "number", "minimum": 0, "maximum": 1 },
+        "width": { "type": "number", "exclusiveMinimum": 0 },
+        "height": { "type": "number", "exclusiveMinimum": 0 },
+        "sillHeight": { "type": "number", "minimum": 0 },
+        "type": { "enum": ["standard", "fixed", "casement", "sliding", "bay"] },
+        "confidence": { "$ref": "#/$defs/confidence" }
+      }
+    },
+    "furniture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "catalogId", "position"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "catalogId": { "type": "string", "minLength": 1 },
+        "position": { "$ref": "#/$defs/point" },
+        "rotation": { "type": "number" },
+        "confidence": { "$ref": "#/$defs/confidence" }
+      }
+    },
+    "floor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "level", "walls"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "level": { "type": "integer" },
+        "elevation": { "type": "number" },
+        "walls": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/wall" }
+        },
+        "doors": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/door" },
+          "default": []
+        },
+        "windows": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/window" },
+          "default": []
+        },
+        "furniture": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/furniture" },
+          "default": []
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,106 @@
+{
+  "schemaVersion": "plan2world-draft-v1",
+  "name": "Simple apartment example",
+  "units": "cm",
+  "scale": {
+    "mode": "provided",
+    "confidence": 1,
+    "basis": "User supplied 500 cm overall width"
+  },
+  "assumptions": [
+    "Wall height defaults to 280 cm where the source plan does not specify it.",
+    "Window sill heights are estimated because they are not visible in the floor plan."
+  ],
+  "floors": [
+    {
+      "id": "floor-0",
+      "name": "Ground Floor",
+      "level": 0,
+      "elevation": 0,
+      "walls": [
+        {
+          "id": "w1",
+          "start": { "x": 0, "y": 0 },
+          "end": { "x": 500, "y": 0 },
+          "thickness": 20,
+          "height": 280,
+          "kind": "exterior",
+          "confidence": 0.99
+        },
+        {
+          "id": "w2",
+          "start": { "x": 500, "y": 0 },
+          "end": { "x": 500, "y": 400 },
+          "thickness": 20,
+          "height": 280,
+          "kind": "exterior",
+          "confidence": 0.99
+        },
+        {
+          "id": "w3",
+          "start": { "x": 500, "y": 400 },
+          "end": { "x": 0, "y": 400 },
+          "thickness": 20,
+          "height": 280,
+          "kind": "exterior",
+          "confidence": 0.99
+        },
+        {
+          "id": "w4",
+          "start": { "x": 0, "y": 400 },
+          "end": { "x": 0, "y": 0 },
+          "thickness": 20,
+          "height": 280,
+          "kind": "exterior",
+          "confidence": 0.99
+        },
+        {
+          "id": "w5",
+          "start": { "x": 300, "y": 0 },
+          "end": { "x": 300, "y": 400 },
+          "thickness": 12,
+          "height": 280,
+          "kind": "interior",
+          "confidence": 0.95
+        }
+      ],
+      "doors": [
+        {
+          "id": "d1",
+          "wallId": "w4",
+          "position": 0.72,
+          "width": 90,
+          "height": 210,
+          "type": "single",
+          "swingDirection": "left",
+          "flipSide": false,
+          "confidence": 0.94
+        },
+        {
+          "id": "d2",
+          "wallId": "w5",
+          "position": 0.55,
+          "width": 80,
+          "height": 210,
+          "type": "single",
+          "swingDirection": "right",
+          "flipSide": false,
+          "confidence": 0.9
+        }
+      ],
+      "windows": [
+        {
+          "id": "win1",
+          "wallId": "w1",
+          "position": 0.42,
+          "width": 160,
+          "height": 120,
+          "sillHeight": 90,
+          "type": "sliding",
+          "confidence": 0.88
+        }
+      ],
+      "furniture": []
+    }
+  ]
+}

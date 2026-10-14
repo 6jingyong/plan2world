@@ -3,10 +3,20 @@ import type { Project } from '$lib/models/types';
 import { currentProject, loadProject } from '$lib/stores/project';
 import { autoSave, saveError, saveState } from '$lib/stores/saveStatus';
 import { readProject } from '$lib/utils/projectValidation';
+import { draftToProject, PLAN2WORLD_DRAFT_VERSION } from '$lib/plan2world/draft';
 import { localStore } from './datastore';
 import { prepareToLeave } from './deployment';
 
 let latestRequest = 0;
+
+function isPlan2WorldDraft(value: unknown): boolean {
+  return Boolean(
+    value &&
+    typeof value === 'object' &&
+    !Array.isArray(value) &&
+    (value as Record<string, unknown>).schemaVersion === PLAN2WORLD_DRAFT_VERSION,
+  );
+}
 
 /** Validate first, preserve the current plan, then open a separate local project. */
 export async function openProject(
@@ -19,7 +29,8 @@ export async function openProject(
   const superseded = () => signal?.aborted || request !== latestRequest || get(currentProject)?.id !== originId;
   try {
     if (signal?.aborted) return null;
-    const candidate = readProject(await readCandidate());
+    const rawCandidate = await readCandidate();
+    const candidate = readProject(isPlan2WorldDraft(rawCandidate) ? draftToProject(rawCandidate) : rawCandidate);
     if (superseded()) return null;
     const previous = get(currentProject);
     if (!await prepareToLeave()) {
