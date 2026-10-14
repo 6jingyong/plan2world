@@ -76,6 +76,12 @@ Keep the first useful version small:
 
 Furniture is intentionally **not** inferred from the source image in v1. The model reconstructs architecture; users furnish the result with the existing catalog. This avoids fragile guesses about product/category IDs and keeps the most interactive part of the workflow under user control.
 
+### Furniture as game pieces
+
+Furniture should stay deliberately lightweight rather than becoming a miniature asset pipeline. A piece is primarily defined by its **category, footprint (width × depth), position, rotation, and palette color**. In the 2D editor it can render as a colored footprint/glyph; in 3D it can render as a simple box, prism, or similarly cheap low-poly marker using the same footprint.
+
+The footprint is the gameplay-relevant truth: a bed occupies more space than a chair, a sofa has a different shape from a table, and colors make categories readable at a glance. Detailed GLTF furniture can remain an optional visual skin later, rather than being required by the core project format or the image-reconstruction model.
+
 Not v1: BIM/Revit, structural analysis, automatic architectural-code checking, photorealistic rendering, or automatic interior-design recommendations.
 
 ## Draft format
