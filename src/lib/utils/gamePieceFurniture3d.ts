@@ -72,12 +72,13 @@ export function createGamePieceFurnitureModel(
   const markerWidth = Math.max(6, Math.min(def.width * 0.28, 34));
   const markerDepth = Math.max(2, Math.min(def.depth * 0.05, 5));
   const markerHeight = Math.max(2, Math.min(baseHeight * 0.45, 4));
+  const ghost = Boolean(appearance.ghost);
   const markerMaterial = new THREE.MeshStandardMaterial({
-    color: appearance.ghost ? 0xcfe2ff : 0xf8fafc,
+    color: ghost ? 0xcfe2ff : 0xf8fafc,
     roughness: 0.8,
-    transparent: appearance.ghost,
-    opacity: appearance.ghost ? 0.58 : 0.9,
-    depthWrite: !appearance.ghost,
+    transparent: ghost,
+    opacity: ghost ? 0.58 : 0.9,
+    depthWrite: !ghost,
   });
   const marker = new THREE.Mesh(
     new THREE.BoxGeometry(markerWidth, markerHeight, markerDepth),
