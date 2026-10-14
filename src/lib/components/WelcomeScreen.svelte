@@ -5,6 +5,7 @@
   import { isRoomPlanJson } from '$lib/utils/roomplanValidation';
   import { openProject } from '$lib/services/projectOpening';
   import ImportError from '$lib/components/ImportError.svelte';
+  import FloorPlanImageDialog from '$lib/components/FloorPlanImageDialog.svelte';
   import { goto } from '$app/navigation';
   import { base } from '$app/paths';
   import { createDefaultProject } from '$lib/stores/project';
@@ -17,6 +18,7 @@
 
   let importError = $state<string | null>(null);
   let showTour = $state(false);
+  let showImageImport = $state(false);
   let tourStep = $state(0);
 
   const tourSteps = $derived([
@@ -97,7 +99,9 @@
 
 <!-- Backdrop -->
 <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-  {#if showTour}
+  {#if showImageImport}
+    <FloorPlanImageDialog onclose={() => showImageImport = false} oncreated={markSeen} />
+  {:else if showTour}
     <!-- Tour overlay -->
     <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 text-center">
       <div class="text-5xl mb-4">{tourSteps[tourStep].icon}</div>
@@ -147,6 +151,17 @@
       <p class="text-gray-500 mb-8">{$t('welcome.subtitle')}</p>
 
       <div class="space-y-3">
+        <button
+          onclick={() => showImageImport = true}
+          class="w-full flex items-center gap-3 px-5 py-3.5 rounded-xl border-2 border-blue-300 bg-blue-50 hover:border-blue-500 hover:bg-blue-100 transition-all text-left"
+        >
+          <span class="text-2xl">🪄</span>
+          <div>
+            <div class="font-semibold text-gray-800">Generate from floor-plan image</div>
+            <div class="text-xs text-gray-500">AI extracts walls, doors, and windows, then opens an editable 3D home</div>
+          </div>
+        </button>
+
         <button
           onclick={startFromScratch}
           class="w-full flex items-center gap-3 px-5 py-3.5 rounded-xl border-2 border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-all text-left"

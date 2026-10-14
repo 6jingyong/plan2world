@@ -107,7 +107,7 @@ async function request(
       const hint = response.status === 401 || response.status === 403 ? 'Check the provider key and account access.'
         : response.status === 429 ? 'The provider rate or spending limit was reached. Try again later.'
         : response.status === 400 || response.status === 404 || response.status === 422
-          ? 'Check the base URL and model. Rendering requires POST /responses with the image_generation tool.'
+          ? 'Check the base URL, model, and whether that provider supports the requested Responses API capability.'
           : 'Check the provider status and try again.';
       throw new Error(`Provider request failed (HTTP ${response.status}). ${hint}`);
     }
@@ -125,9 +125,54 @@ async function request(
   }
 }
 
+function responseOutputText(data: unknown): string {
+  if (!isRecord(data)) throw new Error('The provider returned an unsupported response shape.');
+  if (data.status === 'incomplete') throw new Error('The provider returned an incomplete response. Try a simpler plan or a model with a larger output limit.');
+  const output = Array.isArray(data.output) ? data.output : [];
+  const refusals: string[] = [];
+  const chunks: string[] = [];
+  for (const item of output) {
+    if (!isRecord(item) || item.type !== 'message' || !Array.isArray(item.content)) continue;
+    for (const content of item.content) {
+      if (!isRecord(content)) continue;
+      if (content.type === 'output_text' && typeof content.text === 'string') chunks.push(content.text);
+      if (content.type === 'refusal' && typeof content.refusal === 'string') refusals.push(content.refusal);
+    }
+  }
+  if (refusals.length) throw new Error(`The provider refused the reconstruction request: ${refusals.join(' ')}`);
+  const text = chunks.join('\n').trim();
+  if (!text) throw new Error('The provider returned no text output. Choose a vision-capable Responses model.');
+  return text;
+}
+
 export async function fetchOpenAIModels(config: OpenAIConfig, customFetch: typeof fetch = fetch, signal?: AbortSignal): Promise<string[]> {
   // Model discovery must remain available even when the currently typed model is incompatible.
   return parseModelsResponse(await request({ ...config, model: DEFAULT_OPENAI_MODEL }, 'models', undefined, customFetch, signal));
+}
+
+export async function generateOpenAIJsonFromImage(
+  config: OpenAIConfig,
+  base64Image: string,
+  mimeType: 'image/png' | 'image/jpeg' | 'image/webp',
+  prompt: string,
+  customFetch: typeof fetch = fetch,
+  signal?: AbortSignal,
+): Promise<unknown> {
+  if (!base64Image || !/^[A-Za-z0-9+/\r\n]+={0,2}$/.test(base64Image)) {
+    throw new Error('The selected image could not be encoded for the provider.');
+  }
+  const data = await request(config, 'responses', {
+    model: getEffectiveModel(config),
+    store: false,
+    input: [{ role: 'user', content: [
+      { type: 'input_image', image_url: `data:${mimeType};base64,${base64Image}` },
+      { type: 'input_text', text: prompt },
+    ] }],
+    text: { format: { type: 'json_object' } },
+  }, customFetch, signal);
+  const text = responseOutputText(data);
+  try { return JSON.parse(text); }
+  catch { throw new Error('The provider returned text, but it was not valid JSON. Try another vision-capable model.'); }
 }
 
 export async function generateOpenAIRenderImage(
