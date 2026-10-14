@@ -3,6 +3,7 @@
   import { goto } from '$app/navigation';
   import { onDestroy } from 'svelte';
   import { get } from 'svelte/store';
+  import OpenAISettings from '$lib/components/ai/OpenAISettings.svelte';
   import { openAISettings } from '$lib/stores/aiKeys';
   import { openProject } from '$lib/services/projectOpening';
   import {
@@ -21,12 +22,8 @@
   let busy = $state(false);
   let status = $state('');
   let error = $state('');
+  let showProviderSettings = $state(false);
   let controller: AbortController | null = null;
-
-  const settings = $derived(get(openAISettings));
-  const providerSummary = $derived(settings.model
-    ? `${settings.model} · ${settings.baseUrl || 'https://api.openai.com/v1'}`
-    : 'Configure a vision-capable model in Settings → AI');
 
   function revokePreview() {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -86,6 +83,7 @@
     } catch (cause) {
       if (!controller?.signal.aborted) {
         error = cause instanceof Error ? cause.message : 'The floor plan could not be reconstructed.';
+        if (error.includes('API key') || error.includes('provider') || error.includes('model')) showProviderSettings = true;
       }
     } finally {
       busy = false;
@@ -154,9 +152,27 @@
   </div>
 
   <div class="mt-5 rounded-xl bg-slate-50 border border-slate-200 px-4 py-3">
-    <div class="text-xs uppercase tracking-wide font-semibold text-slate-500">AI provider</div>
-    <div class="text-sm text-slate-700 mt-1 break-all">{providerSummary}</div>
-    <div class="text-xs text-slate-400 mt-1">The image is sent directly from your browser to the provider you configured. Plan2World does not proxy or store it.</div>
+    <div class="flex items-start justify-between gap-3">
+      <div class="min-w-0">
+        <div class="text-xs uppercase tracking-wide font-semibold text-slate-500">AI provider</div>
+        <div class="text-sm text-slate-700 mt-1 break-all">
+          {$openAISettings.model
+            ? `${$openAISettings.model} · ${$openAISettings.baseUrl || 'https://api.openai.com/v1'}`
+            : 'Not configured yet'}
+        </div>
+      </div>
+      <button type="button" disabled={busy} onclick={() => showProviderSettings = !showProviderSettings}
+        aria-expanded={showProviderSettings}
+        class="shrink-0 px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 bg-white hover:bg-slate-100 disabled:opacity-40">
+        {showProviderSettings ? 'Hide settings' : 'Configure'}
+      </button>
+    </div>
+    <div class="text-xs text-slate-400 mt-1">The image is sent directly from your browser to the provider you configure. Plan2World does not proxy or store it.</div>
+    {#if showProviderSettings}
+      <div class="mt-4 pt-1">
+        <OpenAISettings />
+      </div>
+    {/if}
   </div>
 
   {#if status}
