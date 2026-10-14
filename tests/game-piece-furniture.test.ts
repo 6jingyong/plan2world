@@ -46,6 +46,7 @@ describe('game-piece furniture', () => {
       depth: 90,
       height: 80,
       color: '#a78bfa',
+      scale: { x: 1, y: 1, z: 1 },
     };
     const model = createPlacedFurnitureModel(item);
     expect(model).not.toBeNull();
