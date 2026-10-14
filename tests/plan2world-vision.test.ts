@@ -28,12 +28,14 @@ const draft = {
 };
 
 describe('Plan2World vision reconstruction', () => {
-  it('builds an evidence-first prompt and includes a user scale hint', () => {
+  it('builds an evidence-first prompt and includes a real-length scale hint', () => {
     const prompt = buildFloorPlanVisionPrompt({ scaleHint: 'bottom wall is 360 cm' });
-    expect(prompt).toContain('visible dimensions first');
+    expect(prompt).toContain('visible dimensions');
     expect(prompt).toContain('bottom wall is 360 cm');
     expect(prompt).toContain('straight centreline segments');
-    expect(prompt).toContain('Do not include furniture');
+    expect(prompt).toContain('Do not output furniture');
+    expect(prompt).toContain('bare drawing ratio');
+    expect(prompt).toContain('NOT enough');
   });
 
   it('sends the image through Responses JSON mode and validates the returned draft', async () => {
@@ -63,5 +65,22 @@ describe('Plan2World vision reconstruction', () => {
     expect(result.floors[0].walls).toHaveLength(4);
     expect(result.floors[0].doors?.[0].wallId).toBe('w1');
     expect(customFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('surfaces provider refusals instead of trying to import them', async () => {
+    const customFetch = vi.fn(async () => new Response(JSON.stringify({
+      status: 'completed',
+      output: [{
+        type: 'message', role: 'assistant', status: 'completed',
+        content: [{ type: 'refusal', refusal: 'Cannot process this image.' }],
+      }],
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+
+    await expect(reconstructFloorPlanImage(
+      { baseUrl: 'https://example.test/v1', apiKey: 'test', model: 'vision-model' },
+      image,
+      {},
+      customFetch as typeof fetch,
+    )).rejects.toThrow(/refused/i);
   });
 });
