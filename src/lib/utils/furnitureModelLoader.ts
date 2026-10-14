@@ -1,11 +1,10 @@
-/** Lazy GLB furniture with an immediate procedural fallback. */
+/** Lightweight built-in furniture plus optional custom project models. */
 import * as THREE from 'three';
-import { createFurnitureModel } from './furnitureModels3d';
+import { createGamePieceFurnitureModel } from './gamePieceFurniture3d';
 import { getCatalogItem, type FurnitureDef } from './furnitureCatalog';
 import type { FurnitureItem, Project } from '$lib/models/types';
-import { getModelFile } from './furnitureModelFiles';
 import { furnitureFinishes } from './furnitureFinishes';
-import { disposeModel, isModelDisposed, loadCatalogModel, releaseWithModel } from './furnitureModelResources';
+import { disposeModel, isModelDisposed, releaseWithModel } from './furnitureModelResources';
 
 export interface FurnitureAppearance { color?: string; material?: string; ghost?: boolean }
 
@@ -17,7 +16,6 @@ function applyAppearance(model: THREE.Group, appearance: FurnitureAppearance, ti
       if (seen.has(material)) continue;
       seen.add(material);
       if (!(material instanceof THREE.MeshStandardMaterial)) continue;
-      // A tint keeps the source model's texture and contrasting material detail.
       if (tint && appearance.color) material.color.multiply(new THREE.Color(appearance.color));
       const finish = appearance.material && Object.hasOwn(furnitureFinishes, appearance.material) ? furnitureFinishes[appearance.material] : undefined;
       if (finish) {
@@ -34,7 +32,7 @@ function applyAppearance(model: THREE.Group, appearance: FurnitureAppearance, ti
   });
 }
 
-/** Match the complete model's footprint, center it, and place its bottom at zero. */
+/** Match the complete custom model's footprint, center it, and place its bottom at zero. */
 export function fitFurnitureModel(model: THREE.Group, def: FurnitureDef) {
   const bounds = new THREE.Box3().setFromObject(model), size = bounds.getSize(new THREE.Vector3());
   if ([size.x, size.y, size.z, def.width, def.height, def.depth].some(value => !Number.isFinite(value) || value <= 0)) {
@@ -48,41 +46,31 @@ export function fitFurnitureModel(model: THREE.Group, def: FurnitureDef) {
   model.updateMatrixWorld(true);
 }
 
+/**
+ * Compatibility entry point used by the 3D viewer and placement ghost.
+ * Built-in catalog furniture is deliberately represented as a cheap game piece;
+ * detailed catalog GLBs are no longer required by the default path.
+ */
 export function createFurnitureModelWithGLB(
-  catalogId: string, def: FurnitureDef, onLoaded?: (model: THREE.Group) => void,
+  catalogId: string, def: FurnitureDef, _onLoaded?: (model: THREE.Group) => void,
   appearance: FurnitureAppearance = {},
 ): THREE.Group {
   const container = new THREE.Group();
   container.name = `furniture_${catalogId}`;
-  const procedural = createFurnitureModel(catalogId, def);
-  applyAppearance(procedural, appearance, false);
-  container.add(procedural);
-  const file = getModelFile(catalogId);
-  if (file) void loadCatalogModel(file).then(model => {
-    if (!model) return;
-    if (isModelDisposed(container)) { disposeModel(model); return; }
-    try {
-      fitFurnitureModel(model, def);
-      applyAppearance(model, appearance, true);
-    } catch {
-      disposeModel(model);
-      return; // The original fallback remains intact and usable.
-    }
-    container.remove(procedural); disposeModel(procedural);
-    container.add(model);
-    onLoaded?.(container);
-  }).catch(error => { console.warn(`[FurnitureLoader] Model unavailable for ${catalogId}:`, error); });
+  const piece = createGamePieceFurnitureModel(def, { color: appearance.color });
+  applyAppearance(piece, { material: appearance.material, ghost: appearance.ghost }, false);
+  container.add(piece);
   return container;
 }
 
-
-/** Retain the procedural fallback until a verified project source is ready. */
+/** Retain a game-piece fallback until a verified custom project source is ready. */
 function createProjectFurniture(item: FurnitureItem, def: FurnitureDef, project?: Project, onLoaded?: (model: THREE.Group) => void) {
   const container = new THREE.Group();
   container.name = `furniture_${item.customModelId}`;
   const appearance = { color: item.color, material: item.material };
-  const fallback = createFurnitureModel(item.catalogId, def);
-  applyAppearance(fallback, appearance, false); container.add(fallback);
+  const fallback = createGamePieceFurnitureModel(def, { color: item.color });
+  applyAppearance(fallback, { material: item.material }, false);
+  container.add(fallback);
   if (!project) return container;
   void import('$lib/services/customModelResources').then(async ({ acquireCustomModel }) => {
     if (isModelDisposed(container)) return;
@@ -120,9 +108,11 @@ export function createPlacedFurnitureModel(item: FurnitureItem, onLoaded?: (mode
     height: item.height ?? custom?.height ?? catalog?.height ?? 50,
     color: item.color ?? catalog?.color ?? '#888888',
   };
-  const model = item.customModelId ? createProjectFurniture(item, definition, project, onLoaded) : createFurnitureModelWithGLB(item.catalogId, definition, onLoaded, {
-    color: item.color, material: item.material,
-  });
+  const model = item.customModelId
+    ? createProjectFurniture(item, definition, project, onLoaded)
+    : createFurnitureModelWithGLB(item.catalogId, definition, onLoaded, {
+      color: item.color, material: item.material,
+    });
   model.position.set(item.position.x, 1.5, item.position.y);
   model.rotation.y = -item.rotation * Math.PI / 180;
   // The plan's Y scale is world Z; height uses the saved Z magnitude.
