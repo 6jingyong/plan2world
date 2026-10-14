@@ -34,7 +34,7 @@ function observe(page: Page) {
     if (/^https?:/.test(request.url()) && new URL(request.url()).origin !== 'http://127.0.0.1:4188') external.push(request.url());
     if (/\.glb$/.test(request.url())) models.push(request.url());
   });
-  return { models, check: () => { expect(errors).toEqual([]); expect(external).toEqual([]); } };
+  return { models, check: () => { expect(errors).toEqual([]); expect(external).toEqual([]); expect(models).toEqual([]); } };
 }
 async function download(page: Page, button: string) {
   const pending = page.waitForEvent('download');
@@ -82,8 +82,7 @@ for (const width of [1440, 390]) test(`saved legacy furniture refreshes without 
   await page.getByRole('button', { name: '3D', exact: true }).click();
   await expect(page.getByRole('region', { name: '3D floor plan viewer' }).locator('canvas').first()).toBeVisible({ timeout: 60_000 });
   await page.waitForLoadState('networkidle');
-  for (const file of ['loungeDesignSofa', 'bedDouble', 'tableCross', 'bathroomSink', 'washerDryerStacked']) expect(models.filter(url => url.includes(`/${file}.`))).toHaveLength(1);
-  expect(models).toHaveLength(5);
+  expect(models).toEqual([]);
   await testInfo.attach(`legacy-previews-${width}`, { body: await page.screenshot(), contentType: 'image/png' });
   check();
 });
