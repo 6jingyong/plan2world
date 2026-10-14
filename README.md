@@ -33,16 +33,17 @@ The underlying editor is already capable of:
 - local project persistence and JSON import/export;
 - material and lighting controls.
 
-Plan2World-specific work is now focused on the missing front end of the pipeline: **image → reliable architectural draft → native project import**.
-
-The first bootstrap adds:
+The Plan2World bootstrap now adds:
 
 - [`AGENTS.md`](AGENTS.md) — repository instructions for coding agents;
 - [`docs/plan2world-draft-v1.md`](docs/plan2world-draft-v1.md) — the model-independent geometry contract;
 - [`schemas/plan2world-draft-v1.schema.json`](schemas/plan2world-draft-v1.schema.json) — machine-readable validation schema;
-- [`examples/plan2world-draft-v1.example.json`](examples/plan2world-draft-v1.example.json) — a complete example.
+- [`examples/plan2world-draft-v1.example.json`](examples/plan2world-draft-v1.example.json) — a complete example;
+- [`src/lib/plan2world/draft.ts`](src/lib/plan2world/draft.ts) — validation, defaults, native `Project` conversion, and room detection;
+- support for opening a `plan2world-draft-v1` file through the editor's existing JSON import path;
+- regression tests for conversion and invalid wall references.
 
-**The image importer itself is not implemented yet.** The next engineering step is a pure TypeScript validator/normalizer and converter from `plan2world-draft-v1` into the existing `Project` model in `src/lib/models/types.ts`.
+**The remaining missing front end is the image → draft step.** For now, a vision-capable agent can generate the draft JSON, and that JSON can already be imported into the editor.
 
 ## v1 scope
 
@@ -119,11 +120,11 @@ npm run build
 
 The upstream project contains a much larger browser regression suite and rendering benchmarks; see [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`FEATURES.md`](FEATURES.md).
 
-## Working with Codex or another coding agent
+## Working with Codex or another vision-capable agent
 
 Open this repository as the working directory and give the agent the source floor-plan image. `AGENTS.md` defines the architectural contract and v1 constraints.
 
-Until the importer UI exists, the intended agent task is roughly:
+A useful task is:
 
 ```text
 Read AGENTS.md and docs/plan2world-draft-v1.md.
@@ -133,7 +134,9 @@ Do not invent precise measurements when the scale is unknown; record assumptions
 Validate references between walls, doors, and windows.
 ```
 
-Once the converter is implemented, the same draft can be loaded directly into the editor.
+Then run Plan2World and use its existing JSON import action to open the generated draft. The importer validates the draft, fills editable defaults, converts it into the existing project model, and runs the existing room detector.
+
+This keeps Codex, DeepSeek Harness, or another model interchangeable: the application contract is JSON, not a provider API.
 
 ## Upstream and license
 
