@@ -30,7 +30,7 @@ const draft = {
 describe('Plan2World vision reconstruction', () => {
   it('builds an evidence-first prompt and includes a real-length scale hint', () => {
     const prompt = buildFloorPlanVisionPrompt({ scaleHint: 'bottom wall is 360 cm' });
-    expect(prompt).toContain('visible dimensions');
+    expect(prompt).toContain('printed dimensions, scale bars');
     expect(prompt).toContain('bottom wall is 360 cm');
     expect(prompt).toContain('straight centreline segments');
     expect(prompt).toContain('Do not output furniture');
