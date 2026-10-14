@@ -96,7 +96,7 @@ test('import, numeric edit, undo/redo, save/reload and export preserve a multi-f
   expect(externalRequests).toEqual([]);
 });
 
-test('catalog and 3D use bounded, cacheable assets with zero startup model downloads', async ({ page, context }, testInfo) => {
+test('catalog and 3D use bounded, cacheable assets with zero built-in model downloads', async ({ page, context }, testInfo) => {
   // Cold catalog/3D loading and offline reload verification share one workflow.
   test.slow();
   const errors: string[] = [];
@@ -112,7 +112,6 @@ test('catalog and 3D use bounded, cacheable assets with zero startup model downl
   });
   await page.goto('/editor');
   await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeVisible();
-  // Let deferred startup work settle: old eager thumbnail generation would fetch 94 GLBs here.
   await page.waitForLoadState('networkidle');
   expect(assets.filter(x => x.url.endsWith('.glb'))).toHaveLength(0);
   const startup = await page.evaluate(() => performance.getEntriesByType('resource').map(entry => {
@@ -122,12 +121,10 @@ test('catalog and 3D use bounded, cacheable assets with zero startup model downl
   await importJSON(page, fixture);
   await expect(page.getByRole('combobox', { name: 'Current floor' }).locator('option')).toHaveCount(3);
   await page.getByRole('button', { name: 'Objects', exact: true }).click();
-  await expect.poll(() => assets.filter(x => x.url.endsWith('.glb')).length).toBeGreaterThan(0);
   await page.waitForLoadState('networkidle');
   await Promise.all(pending);
   const catalogModels = assets.filter(x => x.url.endsWith('.glb'));
-  expect(new Set(catalogModels.map(x => x.url)).size).toBeLessThan(25);
-  expect(catalogModels.reduce((sum, x) => sum + x.bytes, 0)).toBeLessThan(400_000);
+  expect(catalogModels).toHaveLength(0);
   await page.getByPlaceholder('Search furniture...').fill('Dining Chair');
   await expect(page.getByRole('button', { name: /Dining Chair/ }).first()).toBeVisible();
 
@@ -137,6 +134,7 @@ test('catalog and 3D use bounded, cacheable assets with zero startup model downl
   await expect(page.getByRole('button', { name: 'Active Floor Only', exact: true })).toBeVisible();
   await page.waitForLoadState('networkidle');
   await Promise.all(pending);
+  expect(assets.filter(x => x.url.endsWith('.glb'))).toHaveLength(0);
   await testInfo.attach('stacked-3d', { body: await page.screenshot(), contentType: 'image/png' });
   const oak = assets.find(x => /floor-light-oak\.[\w-]+\.webp$/.test(x.url));
   expect(oak).toBeTruthy();
@@ -166,7 +164,7 @@ test('catalog and 3D use bounded, cacheable assets with zero startup model downl
   await expect(page.getByText('Saved ✓', { exact: true })).toBeVisible();
   await page.reload();
   await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeVisible();
-  // Prove the previously loaded 3D assets remain usable without network access.
+  // Prove the remaining texture assets stay usable without network access.
   // WebKit can report zero cached encodedBodySize, and Firefox can reuse an
   // image without a new timing entry. Decode/hash offline instead of relying
   // on those engine-specific timing fields as the cache proof.
@@ -175,6 +173,7 @@ test('catalog and 3D use bounded, cacheable assets with zero startup model downl
   await expect(page.getByRole('region', { name: '3D floor plan viewer' }).locator('canvas').first()).toBeVisible();
   await page.waitForLoadState('networkidle');
   await Promise.all(pending);
+  expect(assets.filter(x => x.url.endsWith('.glb'))).toHaveLength(0);
   const warmPixels = await decodedOak();
   expect(warmPixels).toEqual(coldPixels);
   const warm = await page.evaluate(() => performance.getEntriesByType('resource').map(entry => {
