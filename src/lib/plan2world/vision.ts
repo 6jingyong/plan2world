@@ -8,7 +8,6 @@ export const MAX_FLOOR_PLAN_IMAGE_BYTES = 12 * 1024 * 1024;
 
 export interface FloorPlanVisionOptions {
   scaleHint?: string;
-  includeFurniture?: boolean;
 }
 
 export interface EncodedFloorPlanImage {
@@ -47,9 +46,6 @@ export async function encodeFloorPlanImage(file: File): Promise<EncodedFloorPlan
 
 export function buildFloorPlanVisionPrompt(options: FloorPlanVisionOptions = {}): string {
   const scaleHint = options.scaleHint?.trim();
-  const furnitureRule = options.includeFurniture
-    ? 'If furniture symbols are visually clear and map confidently to ordinary categories, you may include them. Otherwise omit furniture.'
-    : 'Do not include furniture. The user will place furniture interactively after reconstruction.';
 
   return `You are reconstructing one architectural floor-plan image into Plan2World draft JSON.
 Return ONLY one JSON object. Do not wrap it in markdown and do not include commentary outside JSON.
@@ -57,12 +53,13 @@ Return ONLY one JSON object. Do not wrap it in markdown and do not include comme
 Required contract:
 - schemaVersion must be "plan2world-draft-v1".
 - units must be "cm".
-- Use exactly one floor for this first version unless the supplied image itself is clearly a single level from a multi-level sheet and only one level is being reconstructed.
+- Use exactly one floor for this first version.
 - x increases to the right of the image; y increases downward.
 - Walls are straight centreline segments. Prefer one wall segment per continuous straight wall run.
 - Doors and windows MUST reference an existing wall id. Their position is a number from 0 to 1 measured from the wall start toward its end.
 - Keep IDs short and unique, for example w1, w2, d1, win1.
 - Do not output rooms. Plan2World derives rooms from wall geometry.
+- Do not output furniture. The user will place furniture interactively in the editor after the architecture is reconstructed.
 - For exterior walls, kind="exterior"; interior partitions use kind="interior". If unclear, use "unknown".
 - Typical editable defaults are wall height 280 cm, interior wall thickness 12 cm, exterior wall thickness 20 cm, door height 210 cm, window height 120 cm, and sill height 90 cm. Omit values rather than pretending they were visibly measured.
 - confidence values, when present, must be between 0 and 1.
@@ -73,16 +70,15 @@ Required contract:
 Scale rules:
 1. First look for printed dimensions, scale bars, grid dimensions, or clearly labelled lengths.
 2. If a trustworthy dimension exists, set scale.mode="measured", explain it in scale.basis, and use it to calibrate all coordinates.
-3. If the user supplied a scale hint below, use scale.mode="provided" when the hint is sufficiently explicit.
-4. Otherwise estimate from architectural conventions, preferably a clearly drawn ordinary door around 80–90 cm wide. Set scale.mode="estimated", lower scale.confidence, and state the assumption.
+3. If the user supplied a known real-world length below, use scale.mode="provided" when the hint is sufficiently explicit.
+4. A bare drawing ratio such as "1:100" is NOT enough to calibrate an arbitrary raster image unless the image also preserves a known physical page size/DPI or contains a usable scale bar. Do not treat the ratio alone as a real-world length.
+5. Otherwise estimate from architectural conventions, preferably a clearly drawn ordinary door around 80–90 cm wide. Set scale.mode="estimated", lower scale.confidence, and state the assumption.
 ${scaleHint ? `User scale hint: ${scaleHint}` : 'User scale hint: none.'}
 
 Openings:
 - A door/window must sit on the wall it visually interrupts.
 - Estimate opening width only when not labelled; lower confidence accordingly.
 - Infer swing direction only when the swing arc is clear; otherwise use a conservative single door and default orientation.
-
-${furnitureRule}
 
 The JSON object must have this shape:
 {
