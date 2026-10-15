@@ -67,7 +67,7 @@ describe('Plan2World reconstruction trace', () => {
   });
 
   it('preserves quadratic curve control points for SVG trace rendering', () => {
-    const draft = registeredDraft();
+    const draft: any = registeredDraft();
     draft.floors[0].walls[0].curvePoint = { x: 200, y: 100 };
     const trace = buildReconstructionTrace(draft, source)!;
     expect(trace.walls[0].curvePoint).toEqual({ x: 500, y: 300 });
