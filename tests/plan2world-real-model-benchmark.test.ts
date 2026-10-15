@@ -19,6 +19,11 @@ it('scores the first real-model reconstruction against the real floor-plan basel
   const model = parsePlan2WorldDraft(modelJson);
   const baselineFloor = baseline.floors[0];
   const modelFloor = model.floors[0];
+  const baselineDoors = baselineFloor.doors ?? [];
+  const baselineWindows = baselineFloor.windows ?? [];
+  const modelDoors = modelFloor.doors ?? [];
+  const modelWindows = modelFloor.windows ?? [];
+  const modelFurniture = modelFloor.furniture ?? [];
 
   expect(inspectPlan2WorldDraftGeometry(model)).toEqual([]);
   expect(model.scale.mode).toBe('measured');
@@ -30,9 +35,9 @@ it('scores the first real-model reconstruction against the real floor-plan basel
   expect(modelExtent.depth).toBeCloseTo(baselineExtent.depth, 6);
 
   expect(modelFloor.walls.length).toBe(baselineFloor.walls.length);
-  expect(modelFloor.doors.length).toBe(9);
-  expect(modelFloor.windows.length).toBe(6);
-  expect(modelFloor.furniture).toHaveLength(0);
+  expect(modelDoors.length).toBe(9);
+  expect(modelWindows.length).toBe(6);
+  expect(modelFurniture).toHaveLength(0);
 
   const modelProject = draftToProject(model, new Date('2026-10-15T00:00:00Z'));
   const modelNativeFloor = modelProject.floors[0];
@@ -41,15 +46,15 @@ it('scores the first real-model reconstruction against the real floor-plan basel
   const result = {
     baseline: {
       walls: baselineFloor.walls.length,
-      doors: baselineFloor.doors.length,
-      windows: baselineFloor.windows.length,
+      doors: baselineDoors.length,
+      windows: baselineWindows.length,
       rooms: draftToProject(baseline, new Date('2026-10-15T00:00:00Z')).floors[0].rooms.length,
       extent: baselineExtent,
     },
     model: {
       walls: modelFloor.walls.length,
-      doors: modelFloor.doors.length,
-      windows: modelFloor.windows.length,
+      doors: modelDoors.length,
+      windows: modelWindows.length,
       rooms: modelNativeFloor.rooms.length,
       extent: modelExtent,
     },
