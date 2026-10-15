@@ -51,7 +51,7 @@ describe('walkthrough cadence', () => {
     const before = camera.quaternion.clone();
     run(60, ['KeyW', 'KeyA'], false, camera);
     expect(1 - Math.abs(camera.quaternion.dot(before))).toBeLessThan(1e-12);
-    expect(camera.position.x).toBeGreaterThan(0); // forward at +90° yaw points toward -X; left strafe adds +Z, net X remains negative/positive depending handedness
+    expect(camera.position.x).toBeLessThan(0);
     expect(Math.hypot(camera.position.x, camera.position.z)).toBeGreaterThan(60);
   });
 
