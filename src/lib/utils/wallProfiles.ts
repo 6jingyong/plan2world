@@ -121,15 +121,42 @@ export function roomCeilingHeight(wallIds: string[], walls: Wall[]): number | un
   return height > 0 && boundary.every(w => Math.abs(getWallStartHeight(w!) - height) < 0.01 && Math.abs(getWallEndHeight(w!) - height) < 0.01) ? height : undefined;
 }
 
-/** Pose for the slightly open 3D door leaf, in world X/Z coordinates. */
+function wallPointAndTangent(wall: Wall, position: number): { point: Point; tangent: Point } {
+  const t = Math.max(0, Math.min(1, Number.isFinite(position) ? position : 0));
+  if (!wall.curvePoint) {
+    return {
+      point: {
+        x: wall.start.x + (wall.end.x - wall.start.x) * t,
+        y: wall.start.y + (wall.end.y - wall.start.y) * t,
+      },
+      tangent: { x: wall.end.x - wall.start.x, y: wall.end.y - wall.start.y },
+    };
+  }
+  const u = 1 - t;
+  return {
+    point: {
+      x: u * u * wall.start.x + 2 * u * t * wall.curvePoint.x + t * t * wall.end.x,
+      y: u * u * wall.start.y + 2 * u * t * wall.curvePoint.y + t * t * wall.end.y,
+    },
+    tangent: {
+      x: 2 * u * (wall.curvePoint.x - wall.start.x) + 2 * t * (wall.end.x - wall.curvePoint.x),
+      y: 2 * u * (wall.curvePoint.y - wall.start.y) + 2 * t * (wall.end.y - wall.curvePoint.y),
+    },
+  };
+}
+
+/** Pose for the slightly open 3D door leaf, in world X/Z coordinates. Curved
+ * walls use the quadratic point and local tangent rather than the end-point chord.
+ */
 export function doorPanelPose(wall: Wall, door: Door): { x: number; z: number; yaw: number } {
-  const angle = Math.atan2(wall.end.y - wall.start.y, wall.end.x - wall.start.x);
+  const { point, tangent } = wallPointAndTangent(wall, door.position);
+  const angle = Math.atan2(tangent.y, tangent.x);
   const hingeSide = door.swingDirection === 'left' ? 1 : -1;
   const face = door.flipSide ? -1 : 1;
   const hinge = hingeSide * door.width / 2;
   return {
-    x: wall.start.x + (wall.end.x - wall.start.x) * door.position + hinge * Math.cos(angle) - Math.sin(angle) * face * 2,
-    z: wall.start.y + (wall.end.y - wall.start.y) * door.position + hinge * Math.sin(angle) + Math.cos(angle) * face * 2,
+    x: point.x + hinge * Math.cos(angle) - Math.sin(angle) * face * 2,
+    z: point.y + hinge * Math.sin(angle) + Math.cos(angle) * face * 2,
     yaw: angle + (hingeSide === 1 ? Math.PI : 0) - hingeSide * face * 0.26,
   };
 }
