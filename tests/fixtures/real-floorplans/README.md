@@ -14,3 +14,9 @@ The repository does **not** redistribute the source raster. The JSON fixture is 
 - **B / vision quality:** can the configured vision model produce a draft close to this baseline from the original image?
 
 The baseline is not architectural ground truth. Small/blurred door-window widths and the upper service-zone partitions are explicitly approximate. The important structural invariants for the first sample are an approximately 6.90 m × 12.00 m overall extent, the stepped right-side outline, 18 wall segments, 10 doors/openings, 7 windows, and 11 detected enclosed regions from the current wall graph.
+
+## `wikimedia-two-bedroom-gpt56-sol.json`
+
+This is the first saved **B-side model reconstruction**. GPT-5.6 Sol was given the original Wikimedia raster using the same Plan2World vision contract as `buildFloorPlanVisionPrompt`, with **no user scale hint**. The result is preserved as returned/reconstructed for deterministic evaluation rather than hand-corrected toward the A fixture.
+
+This is an engineering benchmark, not a strict blind scientific benchmark: the A fixture already exists in the same project/conversation context. Treat it as evidence that a real vision-model draft can survive the Plan2World parser/geometry/native-project path and as a first estimate of structural recall. Newly introduced floor-plan samples should be treated as the stronger blind-quality test.
