@@ -150,6 +150,17 @@ function depenetrate(point: Point, world: WalkthroughCollisionWorld, radius: num
   return next;
 }
 
+/** Place the player at the requested point, nudging it out of walls/furniture if necessary. */
+export function resolveWalkthroughStart(
+  point: Point,
+  world: WalkthroughCollisionWorld,
+  radius = DEFAULT_WALKTHROUGH_PLAYER_RADIUS,
+): Point {
+  if (![point.x, point.y, radius].every(Number.isFinite) || radius <= 0) return { ...point };
+  if (!world.obstacles.length) return { ...point };
+  return depenetrate(point, world, radius);
+}
+
 /**
  * Move a circular player through plan-space rectangles. Small deterministic
  * substeps prevent tunnelling; depenetration removes only the inward component,

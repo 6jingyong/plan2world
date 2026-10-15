@@ -72,6 +72,7 @@ export function readProject(value: unknown): Project {
     if (!Number.isSafeInteger(floor.level)) fail(`${path}.level`, 'must be an integer');
     if (floor.elevation !== undefined) number(floor.elevation, `${path}.elevation`);
     if (floor.slabThickness !== undefined) positive(floor.slabThickness, `${path}.slabThickness`);
+    if (floor.walkthroughStart !== undefined) point(floor.walkthroughStart, `${path}.walkthroughStart`);
     const seen = new Set<string>();
     const elements = (key: string, validate: (item: Record<string, any>, path: string) => void, optional = true) => {
       for (const [i, item] of list(floor, key, path, optional).entries()) {
