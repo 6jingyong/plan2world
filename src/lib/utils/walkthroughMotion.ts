@@ -26,11 +26,22 @@ export class WalkthroughMotion {
   private forwardVelocity = 0;
   private rotation = new Euler(0, 0, 0, 'YXZ');
 
+  private anyHeld(...codes: string[]) {
+    return codes.some(code => this.held.has(code));
+  }
+
+  private movementAxes() {
+    // WASD is the primary game-style control scheme. Arrow keys remain aliases
+    // for older users, but pressing both aliases for one direction must not
+    // double the requested speed.
+    const right = Number(this.anyHeld('KeyD', 'ArrowRight')) - Number(this.anyHeld('KeyA', 'ArrowLeft'));
+    const forward = Number(this.anyHeld('KeyW', 'ArrowUp')) - Number(this.anyHeld('KeyS', 'ArrowDown'));
+    return { right, forward };
+  }
+
   get active() {
-    const held = (code: string) => Number(this.held.has(code));
-    return Boolean(this.rightVelocity || this.forwardVelocity
-      || held('ArrowRight') !== held('ArrowLeft') || held('ArrowUp') !== held('ArrowDown')
-      || held('KeyA') !== held('KeyD') || held('KeyW') !== held('KeyS'));
+    const { right, forward } = this.movementAxes();
+    return Boolean(this.rightVelocity || this.forwardVelocity || right || forward);
   }
 
   /** Wake from the input event's clock, without counting the preceding idle time. */
@@ -74,15 +85,11 @@ export class WalkthroughMotion {
     // separately discard all held input, momentum and elapsed background time.
     const delta = Math.min((timestamp - this.previous) / 1000, 0.25);
     this.previous = timestamp;
-    const held = (code: string) => Number(this.held.has(code));
     const speed = this.held.has('ShiftLeft') || this.held.has('ShiftRight')
       ? settings.sprintSpeed : settings.moveSpeed;
-    const right = held('ArrowRight') - held('ArrowLeft');
-    const forward = held('ArrowUp') - held('ArrowDown');
+    const { right, forward } = this.movementAxes();
     const length = Math.hypot(right, forward) || 1;
-    const yawSpeed = (held('KeyA') - held('KeyD')) * 2;
-    const pitchSpeed = (held('KeyW') - held('KeyS')) * 2;
-    if (!right && !forward && !yawSpeed && !pitchSpeed && !this.rightVelocity && !this.forwardVelocity) return;
+    if (!right && !forward && !this.rightVelocity && !this.forwardVelocity) return;
 
     const collisionWorld = settings.collisionWorld;
     const playerRadius = settings.playerRadius ?? DEFAULT_WALKTHROUGH_PLAYER_RADIUS;
@@ -102,41 +109,39 @@ export class WalkthroughMotion {
       camera.position.z = next.y;
     };
 
-    // Preserve the old slider's acceleration/drag balance (800 gives 80 cm/s
-    // once settled). Integrate dv/dt = acceleration - 10v analytically, so
-    // acceleration, coasting and sprint changes do not depend on frame cadence.
+    // Preserve the established slider's acceleration/drag balance (800 gives
+    // 80 cm/s once settled). Integrate dv/dt = acceleration - 10v analytically,
+    // so acceleration, coasting and sprint changes do not depend on frame cadence.
     const targetRight = right / length * speed / 10;
     const targetForward = forward / length * speed / 10;
-    // Short substeps also keep simultaneous turning/movement consistent. They
-    // update only the camera pose; the scene is still drawn once per RAF.
+    // Mouse/pointer-lock owns camera look. Read its current yaw every frame and
+    // never write the quaternion here, so movement cannot fight mouse rotation.
+    this.rotation.setFromQuaternion(camera.quaternion, 'YXZ');
+    const yaw = this.rotation.y;
+    // Short substeps keep collision and acceleration stable. They update only
+    // the camera position; the scene is still drawn once per RAF.
     const steps = Math.max(1, Math.ceil(delta * 120 - 1e-8));
     const step = delta / steps;
     const decay = Math.exp(-10 * step);
     const integral = -Math.expm1(-10 * step) / 10;
-    this.rotation.setFromQuaternion(camera.quaternion, 'YXZ');
     for (let i = 0; i < steps; i++) {
       const rightDistance = targetRight * step + (this.rightVelocity - targetRight) * integral;
       const forwardDistance = targetForward * step + (this.forwardVelocity - targetForward) * integral;
       this.rightVelocity = targetRight + (this.rightVelocity - targetRight) * decay;
       this.forwardVelocity = targetForward + (this.forwardVelocity - targetForward) * decay;
-      const yaw = this.rotation.y + yawSpeed * step / 2;
       movePlan(
         Math.cos(yaw) * rightDistance - Math.sin(yaw) * forwardDistance,
         -(Math.sin(yaw) * rightDistance + Math.cos(yaw) * forwardDistance),
       );
-      this.rotation.y += yawSpeed * step;
-      this.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, this.rotation.x + pitchSpeed * step));
     }
     // Finish the sub-pixel coasting tail rather than drawing forever as the
     // exponential approaches zero. Remaining travel is at most 0.001 cm.
     if (!right && !forward && Math.hypot(this.rightVelocity, this.forwardVelocity) < 0.01) {
-      const yaw = this.rotation.y;
       movePlan(
         (Math.cos(yaw) * this.rightVelocity - Math.sin(yaw) * this.forwardVelocity) / 10,
         -(Math.sin(yaw) * this.rightVelocity + Math.cos(yaw) * this.forwardVelocity) / 10,
       );
       this.rightVelocity = this.forwardVelocity = 0;
     }
-    camera.quaternion.setFromEuler(this.rotation);
   }
 }

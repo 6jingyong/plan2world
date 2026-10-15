@@ -268,12 +268,21 @@ test('Portuguese walkthrough keeps keyboard movement and field controls usable w
   await openWalkthrough(page, false, 'pt');
   await page.getByRole('button', { name: 'Entrar no modo de passeio', exact: true }).click();
   await expect(page.getByText('Controles de passeio', { exact: true })).toBeVisible();
-  await expect(page.getByRole('status')).toContainText('Use WASD para olhar e as setas para se mover.');
+  await expect(page.getByRole('status')).toBeVisible();
+
   const initial = position(await step(page, 0, 1));
+  await page.keyboard.down('w');
+  const movedByWasd = position(await step(page));
+  await page.keyboard.up('w');
+  expect(movedByWasd.distanceTo(initial)).toBeGreaterThan(20);
+
+  await step(page, 1000 / 60, 120);
+  const beforeArrow = position(await step(page));
   await page.keyboard.down('ArrowUp');
-  const moved = position(await step(page));
+  const movedByArrow = position(await step(page));
   await page.keyboard.up('ArrowUp');
-  expect(moved.distanceTo(initial)).toBeGreaterThan(20);
+  expect(movedByArrow.distanceTo(beforeArrow)).toBeGreaterThan(20);
+
   await step(page, 1000 / 60, 120);
   const height = page.getByRole('slider', { name: /Altura dos olhos/ });
   const before = position(await step(page));
