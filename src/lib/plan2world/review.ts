@@ -1,4 +1,4 @@
-import { parsePlan2WorldDraft, type Plan2WorldDraft } from './draft';
+import { parsePlan2WorldDraft, type DraftWall, type Plan2WorldDraft } from './draft';
 import {
   inspectPlan2WorldDraftGeometry,
   type DraftGeometryIssue,
@@ -24,11 +24,28 @@ export interface DraftReviewSummary {
   geometryWarningCount: number;
 }
 
+function wallSample(wall: DraftWall, t: number) {
+  if (!wall.curvePoint) {
+    return {
+      x: wall.start.x + (wall.end.x - wall.start.x) * t,
+      y: wall.start.y + (wall.end.y - wall.start.y) * t,
+    };
+  }
+  const u = 1 - t;
+  return {
+    x: u * u * wall.start.x + 2 * u * t * wall.curvePoint.x + t * t * wall.end.x,
+    y: u * u * wall.start.y + 2 * u * t * wall.curvePoint.y + t * t * wall.end.y,
+  };
+}
+
 function primaryExtent(draft: Plan2WorldDraft): DraftPlanExtent | undefined {
   const walls = draft.floors[0]?.walls ?? [];
   if (walls.length === 0) return undefined;
-  const xs = walls.flatMap(wall => [wall.start.x, wall.end.x]);
-  const ys = walls.flatMap(wall => [wall.start.y, wall.end.y]);
+  const points = walls.flatMap(wall => wall.curvePoint
+    ? Array.from({ length: 17 }, (_, index) => wallSample(wall, index / 16))
+    : [wall.start, wall.end]);
+  const xs = points.map(point => point.x);
+  const ys = points.map(point => point.y);
   return {
     width: Math.max(...xs) - Math.min(...xs),
     depth: Math.max(...ys) - Math.min(...ys),
@@ -92,6 +109,9 @@ export function calibratePlan2WorldDraft(
         ...wall,
         start: { x: wall.start.x * factor, y: wall.start.y * factor },
         end: { x: wall.end.x * factor, y: wall.end.y * factor },
+        curvePoint: wall.curvePoint
+          ? { x: wall.curvePoint.x * factor, y: wall.curvePoint.y * factor }
+          : undefined,
         thickness: scaled(wall.thickness, factor),
       })),
       doors: floor.doors?.map(door => ({ ...door, width: door.width * factor })),
