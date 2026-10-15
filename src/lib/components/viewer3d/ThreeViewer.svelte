@@ -23,6 +23,7 @@
   import { assembleFloorStack } from '$lib/utils/floorStack';
   import { setFloorCameraPose } from '$lib/utils/floorCamera';
   import { frameScene } from '$lib/utils/frameScene';
+  import { ARCHITECTURAL_CUT_HEIGHT_CM, architecturalCutPlanes } from '$lib/utils/architecturalCut';
   import { updateOrbitDamping } from '$lib/utils/orbitDamping';
   import { portableRenderSceneJSON } from '$lib/utils/portableRenderScene';
   import { sceneSignature } from '$lib/utils/sceneSignature';
@@ -82,6 +83,8 @@
   let wallsTransparent = $state(false);
   // Multi-floor stacking
   let showAllFloors = $state(false);
+  // Architectural plan view: the live 3D scene clipped at a conventional 1.20 m.
+  let architecturalCutMode = $state(false);
   let activeFloorElevation = $state(0);
   let sceneGround: THREE.Mesh;
   // Stacked geometry uses the same floor levels as the 2D reference layer.
@@ -793,6 +796,7 @@
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.2;
     renderer.domElement.dataset.plan3dCanvas = 'true';
+    applyArchitecturalCut();
     container.appendChild(renderer.domElement);
 
     controls = new OrbitControls(camera, renderer.domElement);
@@ -1842,6 +1846,43 @@
     markSceneDirty();
   }
 
+  function applyArchitecturalCut() {
+    renderer.clippingPlanes = architecturalCutPlanes(architecturalCutMode, activeFloorElevation);
+    if (architecturalCutMode) {
+      renderer.domElement.dataset.architecturalCut = String(activeFloorElevation + ARCHITECTURAL_CUT_HEIGHT_CM);
+    } else {
+      delete renderer.domElement.dataset.architecturalCut;
+    }
+  }
+
+  function disableArchitecturalCut() {
+    if (!architecturalCutMode) return;
+    architecturalCutMode = false;
+    applyArchitecturalCut();
+    markSceneDirty();
+  }
+
+  function toggleAllFloors() {
+    if (!showAllFloors) disableArchitecturalCut();
+    showAllFloors = !showAllFloors;
+    rebuildScene();
+  }
+
+  function toggleArchitecturalCut() {
+    if (architecturalCutMode) {
+      disableArchitecturalCut();
+      return;
+    }
+    if (walkthroughMode) exitWalkthroughMode();
+    if (showAllFloors) {
+      showAllFloors = false;
+      rebuildScene();
+    }
+    architecturalCutMode = true;
+    applyArchitecturalCut();
+    viewTopDown();
+  }
+
   function viewTopDown() {
     if (walkthroughMode) exitWalkthroughMode();
     // Consume pending orbit/pan deltas before setting the requested view. This
@@ -1865,6 +1906,7 @@
   }
 
   function enterWalkthroughMode() {
+    disableArchitecturalCut();
     cancelAIRender();
     cameraPlacementMode = false;
     cameraPreviewOpen = false;
@@ -2079,7 +2121,7 @@
   <div class="absolute top-4 right-4 z-50 flex gap-1.5">
     <!-- Multi-Floor Stacking Toggle -->
     <button
-      onclick={() => { showAllFloors = !showAllFloors; rebuildScene(); }}
+      onclick={toggleAllFloors}
       class="p-2 rounded-lg transition-colors {showAllFloors ? 'bg-purple-600 text-white ring-2 ring-purple-300' : 'bg-black/70 text-white hover:bg-black/80'}"
       title={showAllFloors ? $t('viewerNav.activeFloor') : $t('viewerNav.allFloors')}
       aria-label={showAllFloors ? $t('viewerNav.activeFloor') : $t('viewerNav.allFloors')}
@@ -2105,6 +2147,17 @@
         <line x1="2" y1="12" x2="6" y2="12"/>
         <line x1="18" y1="12" x2="22" y2="12"/>
       </svg>
+    </button>
+
+    <!-- Architectural Cut View: same live 3D geometry, clipped at 1.20 m -->
+    <button
+      onclick={toggleArchitecturalCut}
+      aria-pressed={architecturalCutMode}
+      class="min-w-10 px-2 py-2 rounded-lg text-[10px] font-semibold leading-none transition-colors {architecturalCutMode ? 'bg-emerald-600 text-white ring-2 ring-emerald-300' : 'bg-black/70 text-white hover:bg-black/80'}"
+      title={`${$t('viewerNav.top')} · 1.20 m`}
+      aria-label={`${$t('viewerNav.top')} · 1.20 m`}
+    >
+      1.20m
     </button>
 
     <!-- Wall Transparency Toggle -->
