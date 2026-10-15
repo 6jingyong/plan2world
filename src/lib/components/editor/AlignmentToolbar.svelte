@@ -2,6 +2,7 @@
   import { t } from '$lib/i18n';
   import { selectedElementIds, activeFloor } from '$lib/stores/project';
   import { alignElements, alignmentItems, type AlignmentOp } from '$lib/utils/alignment';
+  import WalkthroughStartOverlay from './WalkthroughStartOverlay.svelte';
 
   const multiCount = $derived($selectedElementIds.size);
   const supported = $derived($activeFloor ? alignmentItems($activeFloor,$selectedElementIds) : []);
@@ -22,6 +23,8 @@
     { op: 'distribute-v', title: $t('alignment.distributeVertically'), icon: 'M3 4h18M3 20h18M8 9v6M16 9v6' },
   ]);
 </script>
+
+<WalkthroughStartOverlay />
 
 {#if multiCount >= 2}
   <div class="fixed top-16 left-1/2 -translate-x-1/2 z-50 flex items-center gap-0.5 bg-white rounded-lg shadow-lg border border-gray-200 px-1.5 py-1">
