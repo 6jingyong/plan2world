@@ -180,15 +180,18 @@ function floorIssues(floor: DraftFloor): DraftGeometryIssue[] {
 
   const components = connectedComponents(floor.walls);
   if (components.length > 1) {
-    const largest = Math.max(...components.map(component => component.length));
-    for (const component of components) {
-      if (component.length === largest) continue;
-      const ids = component.map(index => floor.walls[index].id);
+    const primaryIndex = components.reduce(
+      (best, component, index) => component.length > components[best].length ? index : best,
+      0,
+    );
+    components.forEach((component, index) => {
+      if (index === primaryIndex) return;
+      const ids = component.map(wallIndex => floor.walls[wallIndex].id);
       issues.push({
         code: 'disconnected-component', severity: 'warning', floorId: floor.id, elementIds: ids,
         message: `A disconnected wall group (${ids.join(', ')}) is separate from the main plan.`,
       });
-    }
+    });
   }
 
   issues.push(...endpointNearMisses(floor), ...openingIssues(floor));
