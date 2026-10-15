@@ -4,6 +4,7 @@ import { parsePlan2WorldDraft } from '$lib/plan2world/draft';
 import {
   draftToProjectWithSourceBackground,
   sourceBackgroundForRegistration,
+  sourceImageDistanceInPlanCm,
 } from '$lib/plan2world/sourceBackground';
 
 const source = {
@@ -71,6 +72,22 @@ describe('Plan2World source registration', () => {
     expect(background?.locked).toBe(true);
   });
 
+  it('maps a clicked source-image line to the reconstructed plan distance', () => {
+    const parsed = parsePlan2WorldDraft(rectangleDraft());
+    expect(sourceImageDistanceInPlanCm(
+      parsed,
+      source,
+      { x: 0.1, y: 0.125 },
+      { x: 0.9, y: 0.125 },
+    )).toBeCloseTo(400, 8);
+    expect(sourceImageDistanceInPlanCm(
+      parsed,
+      source,
+      { x: 0.1, y: 0.125 },
+      { x: 0.1, y: 0.875 },
+    )).toBeCloseTo(300, 8);
+  });
+
   it('solves rotation as well as scale and translation from endpoint anchors', () => {
     const draft = parsePlan2WorldDraft({
       schemaVersion: 'plan2world-draft-v1',
@@ -103,6 +120,12 @@ describe('Plan2World source registration', () => {
     expect(background?.scale).toBeCloseTo(1, 8);
     expect(background?.position.x).toBeCloseTo(400, 8);
     expect(background?.position.y).toBeCloseTo(300, 8);
+    expect(sourceImageDistanceInPlanCm(
+      calibrated,
+      source,
+      { x: 0.1, y: 0.125 },
+      { x: 0.9, y: 0.125 },
+    )).toBeCloseTo(800, 8);
   });
 
   it('falls back to deterministic wall-bounds fitting when three AI anchors are inconsistent', () => {
