@@ -1,4 +1,5 @@
 import type { BackgroundImage, Project, Wall } from '$lib/models/types';
+import { wallPathSpans } from '$lib/utils/wallProfiles';
 import {
   draftToProject,
   parsePlan2WorldDraft,
@@ -32,8 +33,9 @@ function positiveFinite(value: number, label: string): number {
 
 function wallBounds(walls: Wall[]): Bounds | null {
   if (!walls.length) return null;
-  const xs = walls.flatMap(wall => [wall.start.x, wall.end.x]);
-  const ys = walls.flatMap(wall => [wall.start.y, wall.end.y]);
+  const points = walls.flatMap(wall => wallPathSpans(wall).flatMap(span => [span.start, span.end]));
+  const xs = points.map(point => point.x);
+  const ys = points.map(point => point.y);
   const minX = Math.min(...xs), minY = Math.min(...ys), maxX = Math.max(...xs), maxY = Math.max(...ys);
   if (![minX, minY, maxX, maxY].every(Number.isFinite) || maxX <= minX || maxY <= minY) return null;
   return { minX, minY, maxX, maxY };
@@ -61,6 +63,7 @@ export async function decodeSourceFloorPlanImage(dataUrl: string): Promise<Sourc
 
 /**
  * Fit the source raster around reconstructed wall bounds without stretching it.
+ * Curved walls use the same faceted path as the editor rather than only their chord endpoints.
  * This remains the deterministic fallback when AI source-registration anchors are absent or inconsistent.
  */
 export function sourceBackgroundForWalls(

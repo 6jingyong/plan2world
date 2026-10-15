@@ -87,6 +87,7 @@
         "id": { "type": "string", "minLength": 1 },
         "start": { "$ref": "#/$defs/point" },
         "end": { "$ref": "#/$defs/point" },
+        "curvePoint": { "$ref": "#/$defs/point" },
         "thickness": { "type": "number", "exclusiveMinimum": 0 },
         "height": { "type": "number", "exclusiveMinimum": 0 },
         "kind": { "enum": ["interior", "exterior", "unknown"] },

@@ -29,6 +29,8 @@ export interface DraftWall {
   id: string;
   start: DraftPoint;
   end: DraftPoint;
+  /** Optional quadratic Bezier control point. Missing means a straight wall. */
+  curvePoint?: DraftPoint;
   thickness?: number;
   height?: number;
   kind?: 'interior' | 'exterior' | 'unknown';
@@ -180,6 +182,7 @@ function parseWall(value: unknown, path: string): DraftWall {
     id: stringValue(v.id, `${path}.id`),
     start: point(v.start, `${path}.start`),
     end: point(v.end, `${path}.end`),
+    curvePoint: v.curvePoint === undefined ? undefined : point(v.curvePoint, `${path}.curvePoint`),
     thickness: optionalPositive(v.thickness, `${path}.thickness`),
     height: optionalPositive(v.height, `${path}.height`),
     kind,
@@ -349,6 +352,7 @@ function toFloor(draft: DraftFloor): Floor {
     id: wall.id,
     start: { ...wall.start },
     end: { ...wall.end },
+    curvePoint: wall.curvePoint ? { ...wall.curvePoint } : undefined,
     thickness: wallThickness(wall),
     height: wall.height ?? DEFAULTS.wallHeight,
     color: '#eeeeee',

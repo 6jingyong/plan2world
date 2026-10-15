@@ -32,7 +32,10 @@ describe('Plan2World vision reconstruction', () => {
     const prompt = buildFloorPlanVisionPrompt({ scaleHint: 'bottom wall is 360 cm' });
     expect(prompt).toContain('printed dimensions, scale bars');
     expect(prompt).toContain('bottom wall is 360 cm');
-    expect(prompt).toContain('straight centreline segments');
+    expect(prompt).toContain('centreline paths');
+    expect(prompt).toContain('curvePoint');
+    expect(prompt).toContain('quadratic');
+    expect(prompt).toContain('many tiny straight facets');
     expect(prompt).toContain('Do not output furniture');
     expect(prompt).toContain('bare drawing ratio');
     expect(prompt).toContain('NOT enough');
