@@ -1,0 +1,74 @@
+name: Patch geometry health review UI
+
+on:
+  push:
+    branches: [feature/draft-geometry-health-v1]
+    paths: [.github/workflows/patch-geometry-health-ui.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: feature/draft-geometry-health-v1
+      - name: Add health findings to reconstruction review
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/lib/components/FloorPlanImageDialog.svelte')
+          text = path.read_text()
+          marker = '''    {#if review.assumptions.length}
+      <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+        <div class="text-sm font-semibold text-amber-900">AI assumptions</div>
+        <ul class="mt-2 space-y-1 text-sm text-amber-800 list-disc pl-5">
+          {#each review.assumptions as assumption}
+            <li>{assumption}</li>
+          {/each}
+        </ul>
+      </div>
+    {/if}
+'''
+          addition = marker + '''
+    {#if review.geometryIssues.length}
+      <div class="mt-4 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="text-sm font-semibold text-orange-950">Geometry check</div>
+          <div class="flex gap-2 text-xs">
+            {#if review.geometryErrorCount}
+              <span class="rounded-full bg-red-100 text-red-700 px-2 py-0.5 font-semibold">{review.geometryErrorCount} likely error{review.geometryErrorCount === 1 ? '' : 's'}</span>
+            {/if}
+            {#if review.geometryWarningCount}
+              <span class="rounded-full bg-amber-100 text-amber-700 px-2 py-0.5 font-semibold">{review.geometryWarningCount} warning{review.geometryWarningCount === 1 ? '' : 's'}</span>
+            {/if}
+          </div>
+        </div>
+        <p class="mt-1 text-xs text-orange-800">These are deterministic geometry checks, not another AI judgment. You can still open the editor and correct the highlighted structure against the source image.</p>
+        <ul class="mt-2 space-y-1 text-sm text-orange-900 list-disc pl-5">
+          {#each review.geometryIssues.slice(0, 6) as issue}
+            <li><span class={issue.severity === 'error' ? 'font-semibold text-red-700' : ''}>{issue.message}</span></li>
+          {/each}
+        </ul>
+        {#if review.geometryIssues.length > 6}
+          <div class="mt-2 text-xs text-orange-700">+ {review.geometryIssues.length - 6} more geometry finding{review.geometryIssues.length - 6 === 1 ? '' : 's'}</div>
+        {/if}
+      </div>
+    {/if}
+'''
+          count = text.count(marker)
+          if count != 1:
+            raise SystemExit(f'Expected one assumptions block, got {count}')
+          path.write_text(text.replace(marker, addition))
+          PY
+          git diff --check
+          git diff -- src/lib/components/FloorPlanImageDialog.svelte
+      - name: Commit review UI
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/lib/components/FloorPlanImageDialog.svelte
+          git commit -m "Show deterministic geometry health in review"
+          git push origin HEAD:feature/draft-geometry-health-v1
