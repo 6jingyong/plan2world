@@ -2,7 +2,6 @@ import type { BackgroundImage, Project, Wall } from '$lib/models/types';
 import {
   draftToProject,
   parsePlan2WorldDraft,
-  type DraftFloor,
   type DraftPoint,
   type DraftSourceRegistration,
   type Plan2WorldDraft,
