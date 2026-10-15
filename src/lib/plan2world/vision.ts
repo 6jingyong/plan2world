@@ -55,8 +55,10 @@ Required contract:
 - units must be "cm".
 - Use exactly one floor for this first version.
 - x increases to the right of the image; y increases downward.
-- Walls are straight centreline segments. Prefer one wall segment per continuous straight wall run.
-- Doors and windows MUST reference an existing wall id. Their position is a number from 0 to 1 measured from the wall start toward its end.
+- Walls are centreline paths. A normal wall uses straight start/end points. A visibly curved wall may additionally use one quadratic Bezier control point named curvePoint.
+- Prefer one wall per continuous straight run or smooth quadratic arc. Do NOT approximate a simple visible curve with many tiny straight facets when one curvePoint describes it well. Split the wall only when curvature genuinely changes or a junction requires it.
+- curvePoint is a plan-space control point in centimetres, in the same coordinate system as start/end. Omit it for straight walls; never invent curvature just to smooth noisy raster lines.
+- Doors and windows MUST reference an existing wall id. Their position is a number from 0 to 1 measured from the wall start toward its end. For a curved wall, position follows the quadratic wall parameter from start to end.
 - Keep IDs short and unique, for example w1, w2, d1, win1.
 - Do not output rooms. Plan2World derives rooms from wall geometry.
 - Do not output furniture. The user will place furniture interactively in the editor after the architecture is reconstructed.
@@ -113,6 +115,7 @@ The JSON object must have this shape:
       "id": "w1",
       "start": { "x": 0, "y": 0 },
       "end": { "x": 400, "y": 0 },
+      "curvePoint": { "x": 200, "y": -80 },
       "thickness": 20,
       "height": 280,
       "kind": "exterior",
