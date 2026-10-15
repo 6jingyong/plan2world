@@ -7,6 +7,7 @@
   import { openAISettings } from '$lib/stores/aiKeys';
   import { openProject } from '$lib/services/projectOpening';
   import type { Plan2WorldDraft } from '$lib/plan2world/draft';
+  import { buildReconstructionTrace } from '$lib/plan2world/reconstructionTrace';
   import {
     calibratePlan2WorldDraft,
     summarizePlan2WorldDraft,
@@ -34,6 +35,7 @@
   let status = $state('');
   let error = $state('');
   let showProviderSettings = $state(false);
+  let showTrace = $state(true);
   let controller: AbortController | null = null;
   let draft = $state<Plan2WorldDraft | null>(null);
   let sourceImage = $state<SourceFloorPlanImage | null>(null);
@@ -42,6 +44,14 @@
   let calibrationMessage = $state('');
 
   const review = $derived(draft ? summarizePlan2WorldDraft(draft) : null);
+  const trace = $derived.by(() => {
+    if (!draft || !sourceImage) return null;
+    try {
+      return buildReconstructionTrace(draft, sourceImage) ?? null;
+    } catch {
+      return null;
+    }
+  });
   const reconstructedReference = $derived.by(() => {
     if (!draft || !sourceImage || calibrationPoints.length !== 2) return null;
     try {
@@ -65,7 +75,19 @@
   function resetReview() {
     draft = null;
     sourceImage = null;
+    showTrace = true;
     resetCalibration();
+  }
+
+  function traceStroke(severity: 'warning' | 'error' | undefined, confidence: number | undefined) {
+    if (severity === 'error') return '#dc2626';
+    if (severity === 'warning') return '#f59e0b';
+    if ((confidence ?? 1) < 0.65) return '#ca8a04';
+    return '#059669';
+  }
+
+  function traceDash(severity: 'warning' | 'error' | undefined, confidence: number | undefined) {
+    return !severity && (confidence ?? 1) < 0.65 ? '7 5' : undefined;
   }
 
   function selectFile(next: File | null) {
@@ -198,7 +220,7 @@
       <h2 class="text-2xl font-bold text-gray-800">{draft ? 'Review reconstructed plan' : 'Create 3D home from floor plan'}</h2>
       <p class="text-sm text-gray-500 mt-1">
         {draft
-          ? 'Check the inferred scale and assumptions before opening the editable home. The source image will stay underneath the 2D plan for tracing.'
+          ? 'Compare the reconstructed trace with the source image, then check scale and assumptions before opening the editable home.'
           : 'Upload a normal floor-plan image. AI extracts the architecture; Plan2World turns it into the existing editable Three.js scene.'}
       </p>
     </div>
@@ -213,7 +235,55 @@
       <div class="rounded-xl border border-gray-200 bg-gray-50 overflow-hidden mb-5">
         <div class="bg-white p-2 flex justify-center">
           <div class="relative inline-block max-w-full">
-            <img src={previewUrl} alt="Source floor plan" draggable="false" class="block max-w-full max-h-72 w-auto h-auto select-none" />
+            <img src={previewUrl} alt="Source floor plan" draggable="false" class="block max-w-full max-h-96 w-auto h-auto select-none" />
+            {#if showTrace && trace}
+              <svg
+                class="absolute inset-0 z-[5] w-full h-full pointer-events-none"
+                viewBox={`0 0 ${trace.width} ${trace.height}`}
+                aria-label="AI reconstruction trace"
+              >
+                {#each trace.walls as wall}
+                  <path
+                    d={wall.curvePoint
+                      ? `M ${wall.start.x} ${wall.start.y} Q ${wall.curvePoint.x} ${wall.curvePoint.y} ${wall.end.x} ${wall.end.y}`
+                      : `M ${wall.start.x} ${wall.start.y} L ${wall.end.x} ${wall.end.y}`}
+                    fill="none"
+                    stroke={traceStroke(wall.severity, wall.confidence)}
+                    stroke-width={wall.severity === 'error' ? 4 : 3}
+                    stroke-dasharray={traceDash(wall.severity, wall.confidence)}
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    vector-effect="non-scaling-stroke"
+                    opacity="0.92"
+                  />
+                {/each}
+                {#each trace.openings as opening}
+                  {#if opening.kind === 'door'}
+                    <circle
+                      cx={opening.point.x}
+                      cy={opening.point.y}
+                      r="5"
+                      fill={opening.severity === 'error' ? '#dc2626' : opening.severity === 'warning' ? '#f59e0b' : '#a21caf'}
+                      stroke="white"
+                      stroke-width="2"
+                      vector-effect="non-scaling-stroke"
+                    />
+                  {:else}
+                    <rect
+                      x={opening.point.x - 4}
+                      y={opening.point.y - 4}
+                      width="8"
+                      height="8"
+                      rx="1.5"
+                      fill={opening.severity === 'error' ? '#dc2626' : opening.severity === 'warning' ? '#f59e0b' : '#0891b2'}
+                      stroke="white"
+                      stroke-width="2"
+                      vector-effect="non-scaling-stroke"
+                    />
+                  {/if}
+                {/each}
+              </svg>
+            {/if}
             <button type="button" onclick={pickCalibrationPoint} disabled={busy}
               aria-label="Pick two endpoints on the source image for scale calibration"
               title={calibrationPoints.length === 0 ? 'Pick first calibration point' : calibrationPoints.length === 1 ? 'Pick second calibration point' : 'Click to start a new measurement'}
@@ -236,11 +306,28 @@
           </div>
         </div>
         <div class="px-3 py-2 text-xs text-gray-500">
-          <div class="flex items-center justify-between gap-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
             <div class="truncate">Source: {file?.name}</div>
-            <div class="shrink-0 font-medium text-blue-700">{calibrationPoints.length}/2 scale points</div>
+            <div class="flex items-center gap-3 shrink-0">
+              {#if trace}
+                <button type="button" onclick={() => showTrace = !showTrace}
+                  class="font-semibold text-emerald-700 hover:underline">
+                  {showTrace ? 'Hide AI trace' : 'Show AI trace'}
+                </button>
+              {/if}
+              <span class="font-medium text-blue-700">{calibrationPoints.length}/2 scale points</span>
+            </div>
           </div>
-          <div class="mt-1 text-gray-400">Click two endpoints of any feature whose real length you know. The same image will stay attached as the locked 2D tracing background.</div>
+          {#if trace && showTrace}
+            <div class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
+              <span class="text-emerald-700">━ wall</span>
+              <span class="text-fuchsia-700">● door</span>
+              <span class="text-cyan-700">■ window</span>
+              <span class="text-amber-700">━ warning / low confidence</span>
+              <span class="text-red-700">━ likely error</span>
+            </div>
+          {/if}
+          <div class="mt-1 text-gray-400">The trace uses the exact same source-image registration as the editor underlay. Click two endpoints of any known feature to calibrate scale.</div>
         </div>
       </div>
     {/if}
@@ -306,7 +393,7 @@
             {/if}
           </div>
         </div>
-        <p class="mt-1 text-xs text-orange-800">Deterministic geometry checks, not another AI judgment. You can still open the editor and correct the structure against the source image.</p>
+        <p class="mt-1 text-xs text-orange-800">Deterministic geometry checks, not another AI judgment. Matching elements are colored in the source-image trace above when they can be localized.</p>
         <ul class="mt-2 space-y-1 text-sm text-orange-900 list-disc pl-5">
           {#each review.geometryIssues.slice(0, 6) as issue}
             <li><span class={issue.severity === 'error' ? 'font-semibold text-red-700' : ''}>{issue.message}</span></li>
