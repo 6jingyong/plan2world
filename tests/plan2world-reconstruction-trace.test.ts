@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { calibratePlan2WorldDraft } from '$lib/plan2world/review';
-import { buildReconstructionTrace, planPointToSourcePixel } from '$lib/plan2world/reconstructionTrace';
+import {
+  buildReconstructionTrace,
+  planPointToSourcePixel,
+  traceElementMatchesIssue,
+} from '$lib/plan2world/reconstructionTrace';
 import { sourceBackgroundForDraft } from '$lib/plan2world/sourceBackground';
 
 const source = {
@@ -64,6 +68,13 @@ describe('Plan2World reconstruction trace', () => {
       point: { x: 900, y: 400 },
       severity: 'error',
     });
+  });
+
+  it('matches a selected geometry finding to its wall or hosted opening', () => {
+    expect(traceElementMatchesIssue({ id: 'right' }, ['right'])).toBe(true);
+    expect(traceElementMatchesIssue({ id: 'bad-window', wallId: 'right' }, ['right'])).toBe(true);
+    expect(traceElementMatchesIssue({ id: 'bad-window', wallId: 'right' }, ['bad-window'])).toBe(true);
+    expect(traceElementMatchesIssue({ id: 'door', wallId: 'top' }, ['right'])).toBe(false);
   });
 
   it('preserves quadratic curve control points for SVG trace rendering', () => {
