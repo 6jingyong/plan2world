@@ -220,6 +220,8 @@ export interface Floor {
   elevation?: number;
   /** Room slab depth below the floor surface in cm; defaults to 5. */
   slabThickness?: number;
+  /** Preferred first-person entry point in plan coordinates. Missing means automatic placement. */
+  walkthroughStart?: Point;
   walls: Wall[];
   rooms: Room[];
   doors: Door[];
