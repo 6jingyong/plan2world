@@ -14,6 +14,11 @@ export interface SourceFloorPlanImage {
   height: number;
 }
 
+export interface NormalizedImagePoint {
+  x: number;
+  y: number;
+}
+
 interface Bounds {
   minX: number;
   minY: number;
@@ -28,6 +33,14 @@ interface Correspondence {
 
 function positiveFinite(value: number, label: string): number {
   if (!Number.isFinite(value) || value <= 0) throw new Error(`${label} must be greater than zero.`);
+  return value;
+}
+
+function normalizedPoint(value: NormalizedImagePoint, label: string): NormalizedImagePoint {
+  if (!Number.isFinite(value.x) || !Number.isFinite(value.y)
+    || value.x < 0 || value.x > 1 || value.y < 0 || value.y > 1) {
+    throw new Error(`${label} must lie inside the source image.`);
+  }
   return value;
 }
 
@@ -196,6 +209,44 @@ export function sourceBackgroundForRegistration(
   }
   const anchors = resolveRegistrationAnchors(draft, registration, source);
   return similarityBackground(anchors, source, opacity);
+}
+
+/** Resolve the same source-image transform that will be attached to the editor. */
+export function sourceBackgroundForDraft(
+  input: unknown,
+  source: SourceFloorPlanImage,
+  opacity = 0.35,
+): BackgroundImage | undefined {
+  const draft = parsePlan2WorldDraft(input);
+  const registered = sourceBackgroundForRegistration(draft, source, draft.sourceRegistration, opacity);
+  if (registered) return registered;
+  const project = draftToProject(draft);
+  const floor = project.floors.find(item => item.id === draft.sourceRegistration?.floorId) ?? project.floors[0];
+  return floor ? sourceBackgroundForWalls(floor.walls, source, opacity) : undefined;
+}
+
+/**
+ * Convert a user-picked line on the source raster into its current reconstructed
+ * plan length. Because source registration is a similarity transform, rotation and
+ * translation do not affect the length; only pixel distance and uniform scale matter.
+ */
+export function sourceImageDistanceInPlanCm(
+  input: unknown,
+  source: SourceFloorPlanImage,
+  start: NormalizedImagePoint,
+  end: NormalizedImagePoint,
+): number {
+  const a = normalizedPoint(start, 'First calibration point');
+  const b = normalizedPoint(end, 'Second calibration point');
+  const width = positiveFinite(source.width, 'Source image width');
+  const height = positiveFinite(source.height, 'Source image height');
+  const pixelDistance = Math.hypot((b.x - a.x) * width, (b.y - a.y) * height);
+  if (pixelDistance <= 1e-6) throw new Error('Pick two different points on the source image.');
+  const background = sourceBackgroundForDraft(input, source);
+  if (!background || !Number.isFinite(background.scale) || background.scale <= 0) {
+    throw new Error('The source image could not be mapped to the reconstructed plan.');
+  }
+  return pixelDistance * background.scale;
 }
 
 export function draftToProjectWithSourceBackground(

@@ -4,6 +4,7 @@ import { readProject } from '$lib/utils/projectValidation';
 import {
   draftToProjectWithSourceBackground,
   sourceBackgroundForWalls,
+  sourceImageDistanceInPlanCm,
 } from '$lib/plan2world/sourceBackground';
 
 const walls: Wall[] = [
@@ -47,6 +48,31 @@ describe('Plan2World source floor-plan background', () => {
     expect(background?.opacity).toBe(0.35);
     expect(background?.rotation).toBe(0);
     expect(background?.locked).toBe(true);
+  });
+
+  it('converts two source-image points through the same fallback scale used by the underlay', () => {
+    const distance = sourceImageDistanceInPlanCm(
+      draft,
+      source,
+      { x: 0.2, y: 0.4 },
+      { x: 0.7, y: 0.4 },
+    );
+    expect(distance).toBeCloseTo(300, 8); // 500 source pixels × 0.6 cm/pixel
+  });
+
+  it('rejects unusable image measurement points instead of silently applying a bad scale', () => {
+    expect(() => sourceImageDistanceInPlanCm(
+      draft,
+      source,
+      { x: 0.5, y: 0.5 },
+      { x: 0.5, y: 0.5 },
+    )).toThrow(/different points/i);
+    expect(() => sourceImageDistanceInPlanCm(
+      draft,
+      source,
+      { x: -0.1, y: 0.5 },
+      { x: 0.5, y: 0.5 },
+    )).toThrow(/inside the source image/i);
   });
 
   it('attaches the underlay to the native project without changing reconstructed geometry', () => {
