@@ -46,10 +46,11 @@
   let calibrationMessage = $state('');
 
   const review = $derived(draft ? summarizePlan2WorldDraft(draft) : null);
-  const focusedIssueElementIds = $derived.by(() => {
-    if (!review || !focusedIssueKey) return [];
-    return review.geometryIssues.find(issue => geometryIssueKey(issue) === focusedIssueKey)?.elementIds ?? [];
+  const focusedIssue = $derived.by(() => {
+    if (!review || !focusedIssueKey) return null;
+    return review.geometryIssues.find(issue => geometryIssueKey(issue) === focusedIssueKey) ?? null;
   });
+  const focusedIssueElementIds = $derived.by(() => focusedIssue?.elementIds ?? []);
   const trace = $derived.by(() => {
     if (!draft || !sourceImage) return null;
     try {
@@ -217,7 +218,12 @@
       const project = await openProject(() => candidate, 'import', controller.signal);
       if (!project) return;
       oncreated();
-      await goto(`${base}/editor?id=${encodeURIComponent(project.id)}`);
+      const params = new URLSearchParams({ id: project.id });
+      if (focusedIssue) {
+        params.set('focusFloor', focusedIssue.floorId);
+        for (const elementId of focusedIssue.elementIds) params.append('focus', elementId);
+      }
+      await goto(`${base}/editor?${params.toString()}`);
     } catch (cause) {
       if (!controller?.signal.aborted) {
         error = cause instanceof Error ? cause.message : 'The reconstructed plan could not be opened.';
@@ -557,7 +563,7 @@
       </button>
       <button type="button" onclick={openDraft} disabled={busy || !sourceImage}
         class="px-5 py-2.5 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:bg-gray-300 disabled:text-gray-500">
-        {busy ? 'Opening…' : 'Open editable home'}
+        {busy ? 'Opening…' : focusedIssue ? 'Open editable home at finding' : 'Open editable home'}
       </button>
     {:else}
       <button type="button" onclick={generate} disabled={!file || busy}

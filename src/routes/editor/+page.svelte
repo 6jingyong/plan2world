@@ -9,7 +9,9 @@
   import { replaceState } from '$app/navigation';
   import { page } from '$app/state';
   import { reportLoadingFailure } from '$lib/services/deployment';
-  import { currentProject, viewMode, selectedElementId, selectedRoomId, createDefaultProject, loadProject, selectedTool, placingFurnitureId, elevationWallId, elevationPickMode } from '$lib/stores/project';
+  import { currentProject, viewMode, selectedElementId, selectedElementIds, selectedRoomId, createDefaultProject, loadProject, setActiveFloor, selectedTool, placingFurnitureId, elevationWallId, elevationPickMode } from '$lib/stores/project';
+  import { editorFocusRequest } from '$lib/stores/editorFocus';
+  import { resolveReviewFocus } from '$lib/plan2world/reviewFocus';
   import { localStore, storageErrorMessage, downloadLibraryBackup } from '$lib/services/datastore';
   import { autoSave, markClean, saveState } from '$lib/stores/saveStatus';
   import { createProjectFromRoomPlan, isRoomPlanJson } from '$lib/utils/roomplanImport';
@@ -128,6 +130,26 @@
     }
   });
 
+  function applyReviewFocus(url: URL) {
+    const hasFocus = url.searchParams.has('focusFloor') || url.searchParams.has('focus');
+    if (!hasFocus) return;
+    const project = get(currentProject);
+    const target = project
+      ? resolveReviewFocus(project, url.searchParams.get('focusFloor'), url.searchParams.getAll('focus'))
+      : null;
+    url.searchParams.delete('focusFloor');
+    url.searchParams.delete('focus');
+    if (target) {
+      setActiveFloor(target.floorId);
+      selectedTool.set('select');
+      selectedRoomId.set(null);
+      selectedElementIds.set(target.elementIds.length > 1 ? new Set(target.elementIds) : new Set());
+      selectedElementId.set(target.primaryId);
+      editorFocusRequest.set(target);
+    }
+    replaceState(`${url.pathname}${url.search}${url.hash}`, page.state);
+  }
+
   async function initializeEditor() {
     loadError = null;
     try {
@@ -152,7 +174,11 @@
       if (id) {
         // A new/imported project may exist only in memory if its first save failed.
         const pending = get(currentProject);
-        if (pending?.id === id && get(saveState) !== 'saved') { ready = true; return; }
+        if (pending?.id === id && get(saveState) !== 'saved') {
+          applyReviewFocus(new URL(window.location.href));
+          ready = true;
+          return;
+        }
         const project = await localStore.load(id);
         if (project) {
           loadProject(project);
@@ -169,6 +195,7 @@
         await autoSave();
         replaceState(`${base}/editor?id=${p.id}`, page.state);
       }
+      applyReviewFocus(new URL(window.location.href));
       ready = true;
     } catch (error) {
       loadError = storageErrorMessage(error);
