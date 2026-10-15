@@ -4,6 +4,7 @@ import type { Door, Floor, FurnitureItem, Wall, Window } from '../src/lib/models
 import {
   createWalkthroughCollisionWorld,
   resolveWalkthroughMove,
+  resolveWalkthroughStart,
   type WalkthroughCollisionWorld,
 } from '../src/lib/utils/walkthroughCollision';
 import { WalkthroughMotion } from '../src/lib/utils/walkthroughMotion';
@@ -41,6 +42,29 @@ function move(world: WalkthroughCollisionWorld, start: { x: number; y: number },
 describe('walkthrough collision', () => {
   it('preserves free movement when there are no plan obstacles', () => {
     expect(move({ obstacles: [] }, { x: 5, y: 7 }, { x: 20, y: -3 })).toEqual({ x: 25, y: 4 });
+  });
+
+  it('keeps a free explicit walkthrough start unchanged', () => {
+    const world = createWalkthroughCollisionWorld(floorWith({ walls: [wall()] }));
+    expect(resolveWalkthroughStart({ x: 50, y: -100 }, world, 20)).toEqual({ x: 50, y: -100 });
+  });
+
+  it('nudges an explicit walkthrough start out of a wall using the player radius', () => {
+    const world = createWalkthroughCollisionWorld(floorWith({ walls: [wall()] }));
+    const result = resolveWalkthroughStart({ x: 0, y: 0 }, world, 20);
+    expect(result.x).toBeCloseTo(0, 5);
+    expect(Math.abs(result.y)).toBeGreaterThanOrEqual(30 - 1e-4); // 10 cm half-wall + 20 cm player
+  });
+
+  it('nudges an explicit walkthrough start out of blocking furniture', () => {
+    const furniture: FurnitureItem = {
+      id: 'sofa', catalogId: 'sofa', position: { x: 0, y: 0 }, rotation: 0,
+      scale: { x: 1, y: 1, z: 1 },
+    };
+    const world = createWalkthroughCollisionWorld(floorWith({ furniture: [furniture] }));
+    const result = resolveWalkthroughStart({ x: 0, y: 0 }, world, 20);
+    expect(Math.hypot(result.x, result.y)).toBeGreaterThan(20);
+    expect(result).not.toEqual({ x: 0, y: 0 });
   });
 
   it('blocks a player from crossing a solid wall even with a large movement delta', () => {
