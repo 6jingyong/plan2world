@@ -1,4 +1,8 @@
 import { parsePlan2WorldDraft, type Plan2WorldDraft } from './draft';
+import {
+  inspectPlan2WorldDraftGeometry,
+  type DraftGeometryIssue,
+} from './geometryHealth';
 
 export interface DraftPlanExtent {
   width: number;
@@ -15,6 +19,9 @@ export interface DraftReviewSummary {
   scaleBasis?: string;
   assumptions: string[];
   primaryExtent?: DraftPlanExtent;
+  geometryIssues: DraftGeometryIssue[];
+  geometryErrorCount: number;
+  geometryWarningCount: number;
 }
 
 function primaryExtent(draft: Plan2WorldDraft): DraftPlanExtent | undefined {
@@ -30,6 +37,7 @@ function primaryExtent(draft: Plan2WorldDraft): DraftPlanExtent | undefined {
 
 export function summarizePlan2WorldDraft(input: unknown): DraftReviewSummary {
   const draft = parsePlan2WorldDraft(input);
+  const geometryIssues = inspectPlan2WorldDraftGeometry(draft);
   return {
     floorCount: draft.floors.length,
     wallCount: draft.floors.reduce((total, floor) => total + floor.walls.length, 0),
@@ -40,6 +48,9 @@ export function summarizePlan2WorldDraft(input: unknown): DraftReviewSummary {
     scaleBasis: draft.scale.basis,
     assumptions: [...(draft.assumptions ?? [])],
     primaryExtent: primaryExtent(draft),
+    geometryIssues,
+    geometryErrorCount: geometryIssues.filter(issue => issue.severity === 'error').length,
+    geometryWarningCount: geometryIssues.filter(issue => issue.severity === 'warning').length,
   };
 }
 
