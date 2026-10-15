@@ -1,0 +1,41 @@
+name: "Patch geometry health review UI v2"
+
+on:
+  push:
+    branches:
+      - "feature/draft-geometry-health-v1"
+    paths:
+      - ".github/workflows/patch-geometry-health-ui-v2.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: "feature/draft-geometry-health-v1"
+      - name: Patch review component
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("src/lib/components/FloorPlanImageDialog.svelte")
+          s = p.read_text()
+          needle = """    <div class=\"mt-4 rounded-xl border border-blue-200 bg-blue-50/60 p-4\">\n      <div class=\"text-sm font-semibold text-blue-900\">Optional scale correction</div>\n"""
+          block = """    {#if review.geometryIssues.length}\n      <div class=\"mt-4 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3\">\n        <div class=\"flex flex-wrap items-center justify-between gap-2\">\n          <div class=\"text-sm font-semibold text-orange-950\">Geometry check</div>\n          <div class=\"flex gap-2 text-xs\">\n            {#if review.geometryErrorCount}\n              <span class=\"rounded-full bg-red-100 text-red-700 px-2 py-0.5 font-semibold\">{review.geometryErrorCount} likely error{review.geometryErrorCount === 1 ? '' : 's'}</span>\n            {/if}\n            {#if review.geometryWarningCount}\n              <span class=\"rounded-full bg-amber-100 text-amber-700 px-2 py-0.5 font-semibold\">{review.geometryWarningCount} warning{review.geometryWarningCount === 1 ? '' : 's'}</span>\n            {/if}\n          </div>\n        </div>\n        <p class=\"mt-1 text-xs text-orange-800\">Deterministic geometry checks, not another AI judgment. You can still open the editor and correct the structure against the source image.</p>\n        <ul class=\"mt-2 space-y-1 text-sm text-orange-900 list-disc pl-5\">\n          {#each review.geometryIssues.slice(0, 6) as issue}\n            <li><span class={issue.severity === 'error' ? 'font-semibold text-red-700' : ''}>{issue.message}</span></li>\n          {/each}\n        </ul>\n        {#if review.geometryIssues.length > 6}\n          <div class=\"mt-2 text-xs text-orange-700\">+ {review.geometryIssues.length - 6} more finding{review.geometryIssues.length - 6 === 1 ? '' : 's'}</div>\n        {/if}\n      </div>\n    {/if}\n\n"""
+          if s.count(needle) != 1:
+              raise SystemExit(f"expected one scale card marker, got {s.count(needle)}")
+          p.write_text(s.replace(needle, block + needle))
+          PY
+          git diff --check
+      - name: Commit patch
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/lib/components/FloorPlanImageDialog.svelte
+          git commit -m "Show deterministic geometry health in review"
+          git push origin HEAD:feature/draft-geometry-health-v1
