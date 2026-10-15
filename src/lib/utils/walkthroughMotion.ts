@@ -1,4 +1,9 @@
 import { Euler, type Camera } from 'three';
+import {
+  DEFAULT_WALKTHROUGH_PLAYER_RADIUS,
+  resolveWalkthroughMove,
+  type WalkthroughCollisionWorld,
+} from './walkthroughCollision';
 
 const keys = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
   'KeyW', 'KeyS', 'KeyA', 'KeyD', 'ShiftLeft', 'ShiftRight']);
@@ -8,6 +13,8 @@ export interface WalkthroughSettings {
   sprintSpeed: number;
   eyeHeight: number;
   floorElevation: number;
+  collisionWorld?: WalkthroughCollisionWorld | null;
+  playerRadius?: number;
 }
 
 /** Local walkthrough input and motion; independent of rendering and pointer lock. */
@@ -77,6 +84,24 @@ export class WalkthroughMotion {
     const pitchSpeed = (held('KeyW') - held('KeyS')) * 2;
     if (!right && !forward && !yawSpeed && !pitchSpeed && !this.rightVelocity && !this.forwardVelocity) return;
 
+    const collisionWorld = settings.collisionWorld;
+    const playerRadius = settings.playerRadius ?? DEFAULT_WALKTHROUGH_PLAYER_RADIUS;
+    const movePlan = (dx: number, dz: number) => {
+      if (!collisionWorld) {
+        camera.position.x += dx;
+        camera.position.z += dz;
+        return;
+      }
+      const next = resolveWalkthroughMove(
+        { x: camera.position.x, y: camera.position.z },
+        { x: dx, y: dz },
+        collisionWorld,
+        playerRadius,
+      );
+      camera.position.x = next.x;
+      camera.position.z = next.y;
+    };
+
     // Preserve the old slider's acceleration/drag balance (800 gives 80 cm/s
     // once settled). Integrate dv/dt = acceleration - 10v analytically, so
     // acceleration, coasting and sprint changes do not depend on frame cadence.
@@ -95,8 +120,10 @@ export class WalkthroughMotion {
       this.rightVelocity = targetRight + (this.rightVelocity - targetRight) * decay;
       this.forwardVelocity = targetForward + (this.forwardVelocity - targetForward) * decay;
       const yaw = this.rotation.y + yawSpeed * step / 2;
-      camera.position.x += Math.cos(yaw) * rightDistance - Math.sin(yaw) * forwardDistance;
-      camera.position.z -= Math.sin(yaw) * rightDistance + Math.cos(yaw) * forwardDistance;
+      movePlan(
+        Math.cos(yaw) * rightDistance - Math.sin(yaw) * forwardDistance,
+        -(Math.sin(yaw) * rightDistance + Math.cos(yaw) * forwardDistance),
+      );
       this.rotation.y += yawSpeed * step;
       this.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, this.rotation.x + pitchSpeed * step));
     }
@@ -104,8 +131,10 @@ export class WalkthroughMotion {
     // exponential approaches zero. Remaining travel is at most 0.001 cm.
     if (!right && !forward && Math.hypot(this.rightVelocity, this.forwardVelocity) < 0.01) {
       const yaw = this.rotation.y;
-      camera.position.x += (Math.cos(yaw) * this.rightVelocity - Math.sin(yaw) * this.forwardVelocity) / 10;
-      camera.position.z -= (Math.sin(yaw) * this.rightVelocity + Math.cos(yaw) * this.forwardVelocity) / 10;
+      movePlan(
+        (Math.cos(yaw) * this.rightVelocity - Math.sin(yaw) * this.forwardVelocity) / 10,
+        -(Math.sin(yaw) * this.rightVelocity + Math.cos(yaw) * this.forwardVelocity) / 10,
+      );
       this.rightVelocity = this.forwardVelocity = 0;
     }
     camera.quaternion.setFromEuler(this.rotation);
