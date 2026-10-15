@@ -35,6 +35,15 @@ export interface ReconstructionTrace {
   openings: ReconstructionTraceOpening[];
 }
 
+/** Match a rendered trace element to the deterministic geometry finding that owns it. */
+export function traceElementMatchesIssue(
+  element: { id: string; wallId?: string },
+  issueElementIds: readonly string[],
+): boolean {
+  return issueElementIds.includes(element.id)
+    || (element.wallId !== undefined && issueElementIds.includes(element.wallId));
+}
+
 function severityByElement(draft: Plan2WorldDraft): Map<string, DraftGeometryIssueSeverity> {
   const severity = new Map<string, DraftGeometryIssueSeverity>();
   for (const issue of inspectPlan2WorldDraftGeometry(draft)) {

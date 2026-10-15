@@ -7,7 +7,8 @@
   import { openAISettings } from '$lib/stores/aiKeys';
   import { openProject } from '$lib/services/projectOpening';
   import type { Plan2WorldDraft } from '$lib/plan2world/draft';
-  import { buildReconstructionTrace } from '$lib/plan2world/reconstructionTrace';
+  import type { DraftGeometryIssue } from '$lib/plan2world/geometryHealth';
+  import { buildReconstructionTrace, traceElementMatchesIssue } from '$lib/plan2world/reconstructionTrace';
   import {
     calibratePlan2WorldDraft,
     summarizePlan2WorldDraft,
@@ -36,6 +37,7 @@
   let error = $state('');
   let showProviderSettings = $state(false);
   let showTrace = $state(true);
+  let focusedIssueKey = $state('');
   let controller: AbortController | null = null;
   let draft = $state<Plan2WorldDraft | null>(null);
   let sourceImage = $state<SourceFloorPlanImage | null>(null);
@@ -44,6 +46,10 @@
   let calibrationMessage = $state('');
 
   const review = $derived(draft ? summarizePlan2WorldDraft(draft) : null);
+  const focusedIssueElementIds = $derived.by(() => {
+    if (!review || !focusedIssueKey) return [];
+    return review.geometryIssues.find(issue => geometryIssueKey(issue) === focusedIssueKey)?.elementIds ?? [];
+  });
   const trace = $derived.by(() => {
     if (!draft || !sourceImage) return null;
     try {
@@ -76,7 +82,27 @@
     draft = null;
     sourceImage = null;
     showTrace = true;
+    focusedIssueKey = '';
     resetCalibration();
+  }
+
+  function geometryIssueKey(issue: DraftGeometryIssue) {
+    return `${issue.code}:${issue.floorId}:${issue.elementIds.join('|')}`;
+  }
+
+  function toggleGeometryIssue(issue: DraftGeometryIssue) {
+    const key = geometryIssueKey(issue);
+    focusedIssueKey = focusedIssueKey === key ? '' : key;
+    if (focusedIssueKey) showTrace = true;
+  }
+
+  function traceIsFocused(element: { id: string; wallId?: string }) {
+    return Boolean(focusedIssueKey) && traceElementMatchesIssue(element, focusedIssueElementIds);
+  }
+
+  function traceOpacity(element: { id: string; wallId?: string }) {
+    if (!focusedIssueKey) return 0.92;
+    return traceIsFocused(element) ? 1 : 0.14;
   }
 
   function traceStroke(severity: 'warning' | 'error' | undefined, confidence: number | undefined) {
@@ -249,12 +275,12 @@
                       : `M ${wall.start.x} ${wall.start.y} L ${wall.end.x} ${wall.end.y}`}
                     fill="none"
                     stroke={traceStroke(wall.severity, wall.confidence)}
-                    stroke-width={wall.severity === 'error' ? 4 : 3}
+                    stroke-width={traceIsFocused(wall) ? (wall.severity === 'error' ? 6 : 5) : (wall.severity === 'error' ? 4 : 3)}
                     stroke-dasharray={traceDash(wall.severity, wall.confidence)}
                     stroke-linecap="round"
                     stroke-linejoin="round"
                     vector-effect="non-scaling-stroke"
-                    opacity="0.92"
+                    opacity={traceOpacity(wall)}
                   />
                 {/each}
                 {#each trace.openings as opening}
@@ -262,23 +288,25 @@
                     <circle
                       cx={opening.point.x}
                       cy={opening.point.y}
-                      r="5"
+                      r={traceIsFocused(opening) ? 7 : 5}
                       fill={opening.severity === 'error' ? '#dc2626' : opening.severity === 'warning' ? '#f59e0b' : '#a21caf'}
                       stroke="white"
-                      stroke-width="2"
+                      stroke-width={traceIsFocused(opening) ? 3 : 2}
                       vector-effect="non-scaling-stroke"
+                      opacity={traceOpacity(opening)}
                     />
                   {:else}
                     <rect
-                      x={opening.point.x - 4}
-                      y={opening.point.y - 4}
-                      width="8"
-                      height="8"
+                      x={opening.point.x - (traceIsFocused(opening) ? 6 : 4)}
+                      y={opening.point.y - (traceIsFocused(opening) ? 6 : 4)}
+                      width={traceIsFocused(opening) ? 12 : 8}
+                      height={traceIsFocused(opening) ? 12 : 8}
                       rx="1.5"
                       fill={opening.severity === 'error' ? '#dc2626' : opening.severity === 'warning' ? '#f59e0b' : '#0891b2'}
                       stroke="white"
-                      stroke-width="2"
+                      stroke-width={traceIsFocused(opening) ? 3 : 2}
                       vector-effect="non-scaling-stroke"
+                      opacity={traceOpacity(opening)}
                     />
                   {/if}
                 {/each}
@@ -326,6 +354,9 @@
               <span class="text-amber-700">━ warning / low confidence</span>
               <span class="text-red-700">━ likely error</span>
             </div>
+            {#if focusedIssueKey}
+              <div role="status" class="mt-1 font-medium text-orange-700">Focused finding: matching geometry is emphasized; unrelated trace elements are dimmed.</div>
+            {/if}
           {/if}
           <div class="mt-1 text-gray-400">The trace uses the exact same source-image registration as the editor underlay. Click two endpoints of any known feature to calibrate scale.</div>
         </div>
@@ -393,10 +424,20 @@
             {/if}
           </div>
         </div>
-        <p class="mt-1 text-xs text-orange-800">Deterministic geometry checks, not another AI judgment. Matching elements are colored in the source-image trace above when they can be localized.</p>
-        <ul class="mt-2 space-y-1 text-sm text-orange-900 list-disc pl-5">
+        <p class="mt-1 text-xs text-orange-800">Deterministic geometry checks, not another AI judgment. Select a finding to isolate its matching wall or opening in the source-image trace above.</p>
+        <ul class="mt-2 space-y-1 text-sm text-orange-900">
           {#each review.geometryIssues.slice(0, 6) as issue}
-            <li><span class={issue.severity === 'error' ? 'font-semibold text-red-700' : ''}>{issue.message}</span></li>
+            <li>
+              <button
+                type="button"
+                onclick={() => toggleGeometryIssue(issue)}
+                aria-pressed={focusedIssueKey === geometryIssueKey(issue)}
+                class={`w-full rounded-lg px-2 py-1.5 text-left transition-colors ${focusedIssueKey === geometryIssueKey(issue) ? 'bg-white ring-1 ring-orange-300 shadow-sm' : 'hover:bg-white/70'}`}
+              >
+                <span class={issue.severity === 'error' ? 'font-semibold text-red-700' : ''}>{issue.message}</span>
+                <span class="ml-2 text-xs font-semibold text-orange-700">{focusedIssueKey === geometryIssueKey(issue) ? 'Showing on source' : 'Show on source'}</span>
+              </button>
+            </li>
           {/each}
         </ul>
         {#if review.geometryIssues.length > 6}
