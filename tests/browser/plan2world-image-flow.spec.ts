@@ -18,7 +18,9 @@ test('image upload reaches the provider, pauses for review, then opens the edita
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
 
-  await page.goto('/editor');
+  // The welcome screen is the public image-import entry point. Existing browser
+  // coverage opens it from `/`; `/editor` intentionally skips this chooser.
+  await page.goto('/');
   await page.getByRole('button', { name: /Generate from floor-plan image/ }).click();
   await page.getByRole('button', { name: 'Configure', exact: true }).click();
   await page.getByLabel('Provider base URL', { exact: true }).fill(`${providerURL}/v1`);
