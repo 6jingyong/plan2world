@@ -3,6 +3,7 @@ import type { Door, Wall } from '$lib/models/types';
 import { draftToProject, parsePlan2WorldDraft } from '$lib/plan2world/draft';
 import { inspectPlan2WorldDraftGeometry } from '$lib/plan2world/geometryHealth';
 import { calibratePlan2WorldDraft, summarizePlan2WorldDraft } from '$lib/plan2world/review';
+import { sourceBackgroundForWalls } from '$lib/plan2world/sourceBackground';
 import { doorPanelPose } from '$lib/utils/wallProfiles';
 
 function curvedRoomDraft() {
@@ -52,6 +53,15 @@ describe('Plan2World curved draft walls', () => {
     const calibrated = calibratePlan2WorldDraft(curvedRoomDraft(), 400, 200);
     expect(calibrated.floors[0].walls[2].curvePoint).toEqual({ x: 100, y: 250 });
     expect(summarizePlan2WorldDraft(calibrated).primaryExtent).toEqual({ width: 200, depth: 200 });
+  });
+
+  it('includes the curve bulge when fitting the fallback source-image background', () => {
+    const project = draftToProject(curvedRoomDraft(), new Date('2026-10-15T00:00:00Z'));
+    const background = sourceBackgroundForWalls(project.floors[0].walls, {
+      dataUrl: 'data:image/png;base64,AA==', width: 400, height: 400,
+    });
+    expect(background?.scale).toBeCloseTo(1);
+    expect(background?.position).toEqual({ x: 200, y: 200 });
   });
 
   it('uses curved path distance when checking whether an opening fits near a wall end', () => {
