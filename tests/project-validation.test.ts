@@ -9,6 +9,7 @@ function completeProject(): any {
   const project: any = roomProject(), floor = project.floors[0];
   project.description = 'Preserve notes'; project.extensions = { version: 7, note: 'future metadata' };
   floor.elevation = -325.125;
+  floor.walkthroughStart = { x: 125.5, y: -42.25 };
   floor.walls[0] = { ...floor.walls[0], thickness: 21.125, startHeight: 0, endHeight: 290.75, curvePoint: { x: 200.25, y: -45.125 }, extensions: { source: 'survey' } };
   floor.doors = [{ id: 'door', wallId: floor.walls[0].id, position: 0, width: 95.125, height: 207.25, type: 'double', swingDirection: 'right', flipSide: true }];
   floor.windows = [{ id: 'window', wallId: floor.walls[1].id, position: 1, width: 100.5, height: 120.25, sillHeight: 0, type: 'casement' }];
@@ -28,10 +29,11 @@ function completeProject(): any {
 }
 
 describe('native project reader', () => {
-  it('round trips complete geometry, mirrored objects, zero heights/sills, attachments and extension metadata without mutation', () => {
+  it('round trips complete geometry, mirrored objects, walkthrough start, attachments and extension metadata without mutation', () => {
     const source = completeProject(), before = structuredClone(source);
     const loaded = readProject(JSON.parse(JSON.stringify(source)));
     expect(loaded).toEqual(source); expect(source).toEqual(before);
+    expect(loaded.floors[0].walkthroughStart).toEqual({ x: 125.5, y: -42.25 });
     expect(loaded.floors[0]).not.toBe(source.floors[0]);
     expect(loaded.createdAt).toBeInstanceOf(Date);
   });
@@ -52,6 +54,7 @@ describe('native project reader', () => {
     expect(JSON.stringify(source)).toBe(before);
     expect(loaded).toMatchObject({ id: 'legacy', name: 'Untitled Project', activeFloorId: 'ground', createdAt: new Date(0), updatedAt: new Date(0) });
     expect(floor).toMatchObject({ name: 'Ground Floor', level: 0, rooms: [], furniture: [], windows: [], stairs: [], columns: [], guides: [], measurements: [], annotations: [], textAnnotations: [], groups: [] });
+    expect(floor.walkthroughStart).toBeUndefined();
     expect(floor.walls[0]).toMatchObject({ height: 280, color: '#444444', end: { x: 250.75, y: 0 } });
     expect(floor.doors[0]).toMatchObject({ width: 90.25, height: 210, flipSide: false, swingDirection: 'left', type: 'single' });
   });
@@ -69,6 +72,8 @@ describe('native project reader', () => {
     ['string coordinate', p => p.floors[0].walls[0].end.x = '20', 'walls[0].end.x'],
     ['nonfinite coordinate', p => p.floors[0].walls[0].end.y = Infinity, 'walls[0].end.y'],
     ['NaN coordinate', p => p.floors[0].furniture[0].position.x = NaN, 'furniture[0].position.x'],
+    ['invalid walkthrough start', p => p.floors[0].walkthroughStart.x = NaN, 'walkthroughStart.x'],
+    ['string walkthrough start', p => p.floors[0].walkthroughStart.y = '40', 'walkthroughStart.y'],
     ['negative thickness', p => p.floors[0].walls[0].thickness = -1, 'walls[0].thickness'],
     ['null height', p => p.floors[0].walls[0].height = null, 'walls[0].height'],
     ['negative endpoint height', p => p.floors[0].walls[0].startHeight = -1, 'walls[0].startHeight'],
