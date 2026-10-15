@@ -28,6 +28,26 @@ function wallBounds(walls: Wall[]): Bounds | null {
   return { minX, minY, maxX, maxY };
 }
 
+export async function decodeSourceFloorPlanImage(dataUrl: string): Promise<SourceFloorPlanImage> {
+  if (typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/')) {
+    throw new Error('Source floor-plan image must be an image data URL.');
+  }
+  return await new Promise<SourceFloorPlanImage>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => {
+      const width = image.naturalWidth || image.width;
+      const height = image.naturalHeight || image.height;
+      if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
+        reject(new Error('The source floor-plan image dimensions could not be read.'));
+        return;
+      }
+      resolve({ dataUrl, width, height });
+    };
+    image.onerror = () => reject(new Error('The source floor-plan image could not be decoded.'));
+    image.src = dataUrl;
+  });
+}
+
 /**
  * Fit the source raster around reconstructed wall bounds without stretching it.
  * The existing editor background controls remain authoritative for fine alignment
