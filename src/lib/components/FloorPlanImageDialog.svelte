@@ -14,6 +14,8 @@
   import {
     decodeSourceFloorPlanImage,
     draftToProjectWithSourceBackground,
+    sourceImageDistanceInPlanCm,
+    type NormalizedImagePoint,
     type SourceFloorPlanImage,
   } from '$lib/plan2world/sourceBackground';
   import {
@@ -35,23 +37,35 @@
   let controller: AbortController | null = null;
   let draft = $state<Plan2WorldDraft | null>(null);
   let sourceImage = $state<SourceFloorPlanImage | null>(null);
-  let reconstructedReference = $state('');
+  let calibrationPoints = $state<NormalizedImagePoint[]>([]);
   let actualReference = $state('');
   let calibrationMessage = $state('');
 
   const review = $derived(draft ? summarizePlan2WorldDraft(draft) : null);
+  const reconstructedReference = $derived.by(() => {
+    if (!draft || !sourceImage || calibrationPoints.length !== 2) return null;
+    try {
+      return sourceImageDistanceInPlanCm(draft, sourceImage, calibrationPoints[0], calibrationPoints[1]);
+    } catch {
+      return null;
+    }
+  });
 
   function revokePreview() {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     previewUrl = '';
   }
 
+  function resetCalibration() {
+    calibrationPoints = [];
+    actualReference = '';
+    calibrationMessage = '';
+  }
+
   function resetReview() {
     draft = null;
     sourceImage = null;
-    reconstructedReference = '';
-    actualReference = '';
-    calibrationMessage = '';
+    resetCalibration();
   }
 
   function selectFile(next: File | null) {
@@ -87,7 +101,6 @@
   async function generate() {
     if (!file || busy) return;
     error = '';
-    calibrationMessage = '';
     resetReview();
     status = 'Reading floor-plan image…';
     busy = true;
@@ -116,18 +129,30 @@
     }
   }
 
+  function pickCalibrationPoint(event: MouseEvent) {
+    if (busy) return;
+    const target = event.currentTarget as HTMLButtonElement;
+    const rect = target.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+    const point = {
+      x: Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)),
+      y: Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height)),
+    };
+    calibrationPoints = calibrationPoints.length >= 2 ? [point] : [...calibrationPoints, point];
+    calibrationMessage = '';
+    error = '';
+  }
+
   function applyCalibration() {
-    if (!draft) return;
+    if (!draft || !sourceImage || reconstructedReference === null) return;
     error = '';
     calibrationMessage = '';
     try {
-      const reconstructed = Number(reconstructedReference);
       const actual = Number(actualReference);
+      const reconstructed = reconstructedReference;
       draft = calibratePlan2WorldDraft(draft, reconstructed, actual);
       const factor = actual / reconstructed;
-      calibrationMessage = `Scale corrected by ${factor.toFixed(4)}×. Horizontal geometry is now calibrated from your known length.`;
-      reconstructedReference = '';
-      actualReference = '';
+      calibrationMessage = `Scale corrected by ${factor.toFixed(4)}×. The selected line now represents ${actual.toFixed(1)} cm in plan space.`;
     } catch (cause) {
       error = cause instanceof Error ? cause.message : 'The scale correction could not be applied.';
     }
@@ -186,10 +211,36 @@
   {#if draft && review}
     {#if previewUrl}
       <div class="rounded-xl border border-gray-200 bg-gray-50 overflow-hidden mb-5">
-        <img src={previewUrl} alt="Source floor plan" class="w-full max-h-56 object-contain bg-white" />
+        <div class="bg-white p-2 flex justify-center">
+          <div class="relative inline-block max-w-full">
+            <img src={previewUrl} alt="Source floor plan" draggable="false" class="block max-w-full max-h-72 w-auto h-auto select-none" />
+            <button type="button" onclick={pickCalibrationPoint} disabled={busy}
+              aria-label="Pick two endpoints on the source image for scale calibration"
+              title={calibrationPoints.length === 0 ? 'Pick first calibration point' : calibrationPoints.length === 1 ? 'Pick second calibration point' : 'Click to start a new measurement'}
+              class="absolute inset-0 z-10 cursor-crosshair bg-transparent disabled:cursor-default disabled:opacity-40"></button>
+            {#if calibrationPoints.length === 2}
+              <svg class="absolute inset-0 z-20 w-full h-full pointer-events-none text-blue-600" aria-hidden="true">
+                <line
+                  x1={`${calibrationPoints[0].x * 100}%`}
+                  y1={`${calibrationPoints[0].y * 100}%`}
+                  x2={`${calibrationPoints[1].x * 100}%`}
+                  y2={`${calibrationPoints[1].y * 100}%`}
+                  stroke="currentColor" stroke-width="3" vector-effect="non-scaling-stroke" />
+              </svg>
+            {/if}
+            {#each calibrationPoints as point, index}
+              <span aria-hidden="true"
+                class="absolute z-30 -translate-x-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-blue-600 border-2 border-white shadow-md text-[10px] leading-4 text-center font-bold text-white pointer-events-none"
+                style={`left:${point.x * 100}%;top:${point.y * 100}%;`}>{index + 1}</span>
+            {/each}
+          </div>
+        </div>
         <div class="px-3 py-2 text-xs text-gray-500">
-          <div class="truncate">Source: {file?.name}</div>
-          <div class="mt-1 text-gray-400">This image will be attached as a locked 35% opacity 2D tracing background. Use the editor's Background Image controls to align or calibrate it precisely.</div>
+          <div class="flex items-center justify-between gap-3">
+            <div class="truncate">Source: {file?.name}</div>
+            <div class="shrink-0 font-medium text-blue-700">{calibrationPoints.length}/2 scale points</div>
+          </div>
+          <div class="mt-1 text-gray-400">Click two endpoints of any feature whose real length you know. The same image will stay attached as the locked 2D tracing background.</div>
         </div>
       </div>
     {/if}
@@ -268,23 +319,36 @@
     {/if}
 
     <div class="mt-4 rounded-xl border border-blue-200 bg-blue-50/60 p-4">
-      <div class="text-sm font-semibold text-blue-900">Optional scale correction</div>
-      <p class="text-xs text-blue-700 mt-1">Use the same known feature in both fields. Example: if AI treated a doorway as 90 cm but you know it is 80 cm, enter 90 and 80. This rescales only horizontal plan geometry, not wall or opening heights.</p>
-      <div class="grid sm:grid-cols-2 gap-3 mt-3">
-        <label class="block">
-          <span class="text-xs font-medium text-blue-900">Reconstructed length (cm)</span>
-          <input bind:value={reconstructedReference} disabled={busy} type="number" min="0.01" step="0.01" placeholder="90"
-            class="mt-1 w-full px-3 py-2 border border-blue-200 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100" />
-        </label>
-        <label class="block">
-          <span class="text-xs font-medium text-blue-900">Actual length (cm)</span>
-          <input bind:value={actualReference} disabled={busy} type="number" min="0.01" step="0.01" placeholder="80"
-            class="mt-1 w-full px-3 py-2 border border-blue-200 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100" />
-        </label>
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <div class="text-sm font-semibold text-blue-900">Scale calibration from image</div>
+          <p class="text-xs text-blue-700 mt-1">Pick two endpoints directly on the source image above, then enter their real-world length. Plan2World calculates the current reconstructed length automatically and rescales horizontal geometry only.</p>
+        </div>
+        {#if calibrationPoints.length}
+          <button type="button" onclick={resetCalibration} disabled={busy}
+            class="shrink-0 text-xs font-semibold text-blue-700 hover:underline disabled:opacity-40">Clear</button>
+        {/if}
       </div>
-      <button type="button" onclick={applyCalibration} disabled={busy || !reconstructedReference || !actualReference}
+
+      <div class="mt-3 rounded-lg border border-blue-100 bg-white px-3 py-2 text-sm">
+        {#if reconstructedReference !== null}
+          <div class="flex items-center justify-between gap-3">
+            <span class="text-blue-700">Current reconstructed distance</span>
+            <span class="font-semibold text-blue-950">{reconstructedReference.toFixed(1)} cm</span>
+          </div>
+        {:else}
+          <div class="text-blue-500">{calibrationPoints.length === 0 ? 'Pick point 1 on the image.' : 'Now pick point 2 on the image.'}</div>
+        {/if}
+      </div>
+
+      <label class="block mt-3">
+        <span class="text-xs font-medium text-blue-900">Actual length (cm)</span>
+        <input bind:value={actualReference} disabled={busy} type="number" min="0.01" step="0.01" placeholder="e.g. 360"
+          class="mt-1 w-full px-3 py-2 border border-blue-200 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100" />
+      </label>
+      <button type="button" onclick={applyCalibration} disabled={busy || reconstructedReference === null || !actualReference}
         class="mt-3 px-3 py-2 rounded-lg bg-white border border-blue-300 text-blue-700 text-sm font-semibold hover:bg-blue-100 disabled:opacity-40">
-        Apply scale correction
+        Apply measured length
       </button>
       {#if calibrationMessage}
         <div role="status" class="mt-3 text-xs font-medium text-emerald-700">{calibrationMessage}</div>
@@ -315,7 +379,7 @@
         <input bind:value={scaleHint} disabled={busy} type="text"
           placeholder="e.g. the bottom exterior wall is 360 cm, or the marked doorway is 900 mm"
           class="mt-1.5 w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100" />
-        <span class="block text-xs text-gray-400 mt-1">Leave this blank when the plan already contains readable dimensions. A bare ratio such as 1:100 is not enough to calibrate an arbitrary screenshot.</span>
+        <span class="block text-xs text-gray-400 mt-1">Leave this blank when the plan already contains readable dimensions. A bare ratio such as 1:100 is not enough to calibrate an arbitrary screenshot. You can also calibrate precisely by clicking two points after reconstruction.</span>
       </label>
     </div>
 
