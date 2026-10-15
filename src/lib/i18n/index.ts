@@ -1,10 +1,14 @@
 import { derived, writable } from 'svelte/store';
 import { en } from './locales/en';
 import { pt } from './locales/pt';
+import { plan2WorldLocaleOverrides } from './plan2WorldLocaleOverrides';
 
 export type Locale = 'en' | 'pt';
 export type TranslationKey = keyof typeof en;
-const dictionaries: Record<Locale, Record<TranslationKey, string>> = { en, pt };
+const dictionaries: Record<Locale, Record<TranslationKey, string>> = {
+  en: { ...en, ...plan2WorldLocaleOverrides.en },
+  pt: { ...pt, ...plan2WorldLocaleOverrides.pt },
+};
 const preference = writable<Locale>('en');
 const isLocale = (value: unknown): value is Locale => value === 'en' || value === 'pt';
 
