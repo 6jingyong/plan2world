@@ -28,7 +28,7 @@ Estimated scale is allowed so that a rough 3D walkthrough can still be generated
 
 ## Walls
 
-Walls are straight centreline segments in v1.
+Walls are centreline paths. Straight walls use `start` and `end` only:
 
 ```json
 {
@@ -42,7 +42,21 @@ Walls are straight centreline segments in v1.
 }
 ```
 
-`thickness`, `height`, `kind`, and `confidence` are optional. The normalizer supplies editable defaults when dimensions are absent.
+A visibly curved wall can add a single quadratic Bezier `curvePoint` in the same plan-space centimetre coordinates:
+
+```json
+{
+  "id": "w2",
+  "start": { "x": 0, "y": 0 },
+  "end": { "x": 500, "y": 0 },
+  "curvePoint": { "x": 250, "y": -140 },
+  "kind": "exterior"
+}
+```
+
+The curve is the quadratic Bezier from `start` to `end` controlled by `curvePoint`. Omit `curvePoint` for straight walls. Prefer one smooth quadratic wall over many short straight facets when the source clearly shows a simple arc; split a curve only when its shape genuinely changes or a junction requires another wall boundary.
+
+`thickness`, `height`, `kind`, `curvePoint`, and `confidence` are optional. The normalizer supplies editable defaults when dimensions are absent.
 
 ## Openings
 
@@ -59,7 +73,7 @@ Doors and windows reference a wall by ID and use a normalized position along tha
 }
 ```
 
-`position = 0` is the wall start and `position = 1` is the wall end. Import validation must reject openings whose `wallId` does not exist.
+`position = 0` is the wall start and `position = 1` is the wall end. For a curved wall, position follows the quadratic wall parameter from start to end; the editor converts that parameter to the curved path for physical opening width. Import validation must reject openings whose `wallId` does not exist.
 
 ## Furniture
 
@@ -99,7 +113,7 @@ The conversion layer should:
 
 1. Validate schema and references.
 2. Assign defaults only where the draft omits editable architectural properties.
-3. Convert draft floors/walls/openings/furniture into the existing types in `src/lib/models/types.ts`.
+3. Convert draft floors/walls/openings/furniture into the existing types in `src/lib/models/types.ts`, preserving `curvePoint` for quadratic walls.
 4. Initialize editor-only arrays such as rooms, stairs, columns, guides, measurements, annotations, text annotations, and groups.
 5. Run the existing room-detection path when possible rather than asking the vision model to reproduce editor-derived room state.
 6. Preserve scale metadata and assumptions somewhere reviewable by the user.
