@@ -3,6 +3,10 @@ import {
   inspectPlan2WorldDraftGeometry,
   type DraftGeometryIssue,
 } from './geometryHealth';
+import {
+  inspectPlan2WorldDraftTopology,
+  type DraftTopologyIssue,
+} from './topologyHealth';
 
 export interface DraftPlanExtent {
   width: number;
@@ -14,6 +18,8 @@ export interface DraftReviewSummary {
   wallCount: number;
   doorCount: number;
   windowCount: number;
+  regionCount: number;
+  tinyRegionCount: number;
   scaleMode: Plan2WorldDraft['scale']['mode'];
   scaleConfidence: number;
   scaleBasis?: string;
@@ -22,6 +28,8 @@ export interface DraftReviewSummary {
   geometryIssues: DraftGeometryIssue[];
   geometryErrorCount: number;
   geometryWarningCount: number;
+  topologyIssues: DraftTopologyIssue[];
+  topologyWarningCount: number;
 }
 
 function primaryExtent(draft: Plan2WorldDraft): DraftPlanExtent | undefined {
@@ -38,11 +46,14 @@ function primaryExtent(draft: Plan2WorldDraft): DraftPlanExtent | undefined {
 export function summarizePlan2WorldDraft(input: unknown): DraftReviewSummary {
   const draft = parsePlan2WorldDraft(input);
   const geometryIssues = inspectPlan2WorldDraftGeometry(draft);
+  const topology = inspectPlan2WorldDraftTopology(draft);
   return {
     floorCount: draft.floors.length,
     wallCount: draft.floors.reduce((total, floor) => total + floor.walls.length, 0),
     doorCount: draft.floors.reduce((total, floor) => total + (floor.doors?.length ?? 0), 0),
     windowCount: draft.floors.reduce((total, floor) => total + (floor.windows?.length ?? 0), 0),
+    regionCount: topology.floors.reduce((total, floor) => total + floor.regionCount, 0),
+    tinyRegionCount: topology.floors.reduce((total, floor) => total + floor.tinyRegionCount, 0),
     scaleMode: draft.scale.mode,
     scaleConfidence: draft.scale.confidence,
     scaleBasis: draft.scale.basis,
@@ -51,6 +62,8 @@ export function summarizePlan2WorldDraft(input: unknown): DraftReviewSummary {
     geometryIssues,
     geometryErrorCount: geometryIssues.filter(issue => issue.severity === 'error').length,
     geometryWarningCount: geometryIssues.filter(issue => issue.severity === 'warning').length,
+    topologyIssues: topology.issues,
+    topologyWarningCount: topology.issues.length,
   };
 }
 
