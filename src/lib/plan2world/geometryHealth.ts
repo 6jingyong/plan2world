@@ -1,4 +1,5 @@
 import {
+  draftToProject,
   parsePlan2WorldDraft,
   type DraftFloor,
   type DraftPoint,
@@ -12,7 +13,10 @@ export type DraftGeometryIssueCode =
   | 'near-miss'
   | 'duplicate-wall'
   | 'disconnected-component'
-  | 'opening-outside-wall';
+  | 'opening-outside-wall'
+  | 'many-enclosed-regions'
+  | 'high-region-wall-ratio'
+  | 'many-tiny-regions';
 
 export interface DraftGeometryIssue {
   code: DraftGeometryIssueCode;
@@ -26,6 +30,10 @@ const CONNECT_TOLERANCE_CM = 1.5;
 const NEAR_MISS_MAX_CM = 10;
 const SHORT_WALL_CM = 25;
 const CURVE_FACETS = 16;
+const MANY_REGIONS = 24;
+const HIGH_RATIO_MIN_REGIONS = 16;
+const HIGH_REGION_WALL_RATIO = 0.68;
+const TINY_REGION_AREA_M2 = 1.5;
 
 interface DraftFacet {
   start: DraftPoint;
@@ -260,8 +268,60 @@ function floorIssues(floor: DraftFloor): DraftGeometryIssue[] {
   return issues;
 }
 
+function topologyIssues(draft: Plan2WorldDraft): DraftGeometryIssue[] {
+  const project = draftToProject(draft, new Date('2000-01-01T00:00:00.000Z'));
+  const sourceById = new Map(draft.floors.map(floor => [floor.id, floor]));
+  const issues: DraftGeometryIssue[] = [];
+
+  for (const floor of project.floors) {
+    const sourceFloor = sourceById.get(floor.id);
+    if (!sourceFloor) continue;
+    const regionCount = floor.rooms.length;
+    const wallCount = sourceFloor.walls.length;
+    const tinyRegionCount = floor.rooms.filter(room => Number.isFinite(room.area) && room.area > 0 && room.area < TINY_REGION_AREA_M2).length;
+    const ratio = wallCount > 0 ? regionCount / wallCount : 0;
+    const elementIds = sourceFloor.walls.map(wall => wall.id);
+
+    if (regionCount >= MANY_REGIONS) {
+      issues.push({
+        code: 'many-enclosed-regions',
+        severity: 'warning',
+        floorId: floor.id,
+        elementIds,
+        message: `${regionCount} enclosed regions were detected. This is unusually high for one floor; check for false or decorative partitions.`,
+      });
+    }
+
+    if (regionCount >= HIGH_RATIO_MIN_REGIONS && ratio >= HIGH_REGION_WALL_RATIO) {
+      issues.push({
+        code: 'high-region-wall-ratio',
+        severity: 'warning',
+        floorId: floor.id,
+        elementIds,
+        message: `${regionCount} regions from ${wallCount} walls form an unusually dense face graph. The reconstruction may be over-segmented even though the walls are geometrically valid.`,
+      });
+    }
+
+    const tinyLimit = Math.max(3, Math.ceil(regionCount * 0.15));
+    if (tinyRegionCount >= tinyLimit) {
+      issues.push({
+        code: 'many-tiny-regions',
+        severity: 'warning',
+        floorId: floor.id,
+        elementIds,
+        message: `${tinyRegionCount} enclosed regions are smaller than ${TINY_REGION_AREA_M2.toFixed(1)} m². Check the source image for slivers or false partitions.`,
+      });
+    }
+  }
+
+  return issues;
+}
+
 /** Deterministic, conservative checks intended to surface likely AI reconstruction mistakes. Curves use the same 16-facet approximation as the editor runtime. */
 export function inspectPlan2WorldDraftGeometry(input: unknown): DraftGeometryIssue[] {
   const draft: Plan2WorldDraft = parsePlan2WorldDraft(input);
-  return draft.floors.flatMap(floorIssues);
+  return [
+    ...draft.floors.flatMap(floorIssues),
+    ...topologyIssues(draft),
+  ];
 }
