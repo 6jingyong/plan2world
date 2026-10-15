@@ -27,6 +27,7 @@
   import { portableRenderSceneJSON } from '$lib/utils/portableRenderScene';
   import { sceneSignature } from '$lib/utils/sceneSignature';
   import { WalkthroughMotion } from '$lib/utils/walkthroughMotion';
+  import { createWalkthroughCollisionWorld, type WalkthroughCollisionWorld } from '$lib/utils/walkthroughCollision';
   import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
   import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
   import { getCatalogItem, furnitureCatalog, furnitureCategories } from '$lib/utils/furnitureCatalog';
@@ -89,6 +90,7 @@
   let walkthroughMode = $state(false);
   let walkthroughMouseUnavailable = $state(false);
   const walkthroughMotion = new WalkthroughMotion();
+  let walkthroughCollisionWorld: WalkthroughCollisionWorld | null = null;
   let moveSpeed = $state(800);
   let sprintSpeed = $state(1600);
   let eyeHeight = $state(160); // cm
@@ -1932,7 +1934,10 @@
     if (walkthroughMode) {
       lastOrbitFrame = undefined;
       const moving = walkthroughMotion.active;
-      walkthroughMotion.advance(timestamp, camera, { moveSpeed, sprintSpeed, eyeHeight, floorElevation: activeFloorElevation });
+      walkthroughMotion.advance(timestamp, camera, {
+        moveSpeed, sprintSpeed, eyeHeight, floorElevation: activeFloorElevation,
+        collisionWorld: walkthroughCollisionWorld,
+      });
       if (sceneDirty || moving) {
         sceneDirty = false;
         renderer.render(scene, camera);
@@ -2013,6 +2018,7 @@
         if (walkthroughMode) exitWalkthroughMode();
       }
       currentFloor = f;
+      walkthroughCollisionWorld = f ? createWalkthroughCollisionWorld(f) : null;
       if (f) rebuildScene();
     });
     // Room area labels are textures and must refresh when display units change.
