@@ -73,7 +73,7 @@ export function calibratePlan2WorldDraft(
     scale: {
       mode: 'provided',
       confidence: 1,
-      basis: `User calibration: ${reconstructed:g} cm reconstructed = ${actual:g} cm actual (${factor.toFixed(4)}×).${previousBasis}`.replace(':g', ''),
+      basis: `User calibration: ${reconstructed} cm reconstructed = ${actual} cm actual (${factor.toFixed(4)}×).${previousBasis}`,
     },
     floors: draft.floors.map(floor => ({
       ...floor,
