@@ -242,6 +242,31 @@
       </div>
     {/if}
 
+    {#if review.geometryIssues.length}
+      <div class="mt-4 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="text-sm font-semibold text-orange-950">Geometry check</div>
+          <div class="flex gap-2 text-xs">
+            {#if review.geometryErrorCount}
+              <span class="rounded-full bg-red-100 text-red-700 px-2 py-0.5 font-semibold">{review.geometryErrorCount} likely error{review.geometryErrorCount === 1 ? '' : 's'}</span>
+            {/if}
+            {#if review.geometryWarningCount}
+              <span class="rounded-full bg-amber-100 text-amber-700 px-2 py-0.5 font-semibold">{review.geometryWarningCount} warning{review.geometryWarningCount === 1 ? '' : 's'}</span>
+            {/if}
+          </div>
+        </div>
+        <p class="mt-1 text-xs text-orange-800">Deterministic geometry checks, not another AI judgment. You can still open the editor and correct the structure against the source image.</p>
+        <ul class="mt-2 space-y-1 text-sm text-orange-900 list-disc pl-5">
+          {#each review.geometryIssues.slice(0, 6) as issue}
+            <li><span class={issue.severity === 'error' ? 'font-semibold text-red-700' : ''}>{issue.message}</span></li>
+          {/each}
+        </ul>
+        {#if review.geometryIssues.length > 6}
+          <div class="mt-2 text-xs text-orange-700">+ {review.geometryIssues.length - 6} more finding{review.geometryIssues.length - 6 === 1 ? '' : 's'}</div>
+        {/if}
+      </div>
+    {/if}
+
     <div class="mt-4 rounded-xl border border-blue-200 bg-blue-50/60 p-4">
       <div class="text-sm font-semibold text-blue-900">Optional scale correction</div>
       <p class="text-xs text-blue-700 mt-1">Use the same known feature in both fields. Example: if AI treated a doorway as 90 cm but you know it is 80 cm, enter 90 and 80. This rescales only horizontal plan geometry, not wall or opening heights.</p>

@@ -24,7 +24,7 @@ function reviewDraft() {
   };
 }
 
-it('summarizes scale confidence, assumptions, counts, and primary footprint', () => {
+it('summarizes scale confidence, assumptions, counts, footprint, and geometry health', () => {
   const summary = summarizePlan2WorldDraft(reviewDraft());
   expect(summary).toMatchObject({
     floorCount: 1,
@@ -35,8 +35,25 @@ it('summarizes scale confidence, assumptions, counts, and primary footprint', ()
     scaleConfidence: 0.55,
     scaleBasis: 'Assumed 90 cm single door',
     primaryExtent: { width: 400, depth: 300 },
+    geometryErrorCount: 0,
+    geometryWarningCount: 0,
   });
   expect(summary.assumptions).toEqual(['Door width estimated from convention.']);
+  expect(summary.geometryIssues).toEqual([]);
+});
+
+it('surfaces deterministic geometry findings in the review summary', () => {
+  const broken = reviewDraft();
+  broken.floors[0].doors[0].position = 0.02;
+  broken.floors[0].doors[0].width = 120;
+  const summary = summarizePlan2WorldDraft(broken);
+  expect(summary.geometryErrorCount).toBe(1);
+  expect(summary.geometryWarningCount).toBe(0);
+  expect(summary.geometryIssues[0]).toMatchObject({
+    code: 'opening-outside-wall',
+    severity: 'error',
+    elementIds: ['d1', 'w1'],
+  });
 });
 
 it('calibrates horizontal plan geometry without scaling vertical dimensions', () => {
