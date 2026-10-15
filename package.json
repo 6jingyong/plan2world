@@ -56,6 +56,10 @@
 	"overrides": {
 		"@sveltejs/kit": {
 			"cookie": "^0.7.2"
-		}
+		},
+		"@grpc/grpc-js": "1.14.5",
+		"devalue": "5.9.3",
+		"dompurify": "3.4.16",
+		"source-map-js": "1.2.2"
 	}
 }

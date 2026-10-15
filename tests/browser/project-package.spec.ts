@@ -24,7 +24,7 @@ async function packageDownload(page: Page) {
   return readPackageZip(new Uint8Array(await readFile(path)));
 }
 
-for (const width of [1440, 390]) test(`furniture category previews and original identities survive local editing at ${width}px`, async ({ page }, testInfo) => {
+for (const width of [1440, 390]) test(`furniture game-piece previews and original identities survive local editing at ${width}px`, async ({ page }, testInfo) => {
   test.slow();
   await page.setViewportSize({ width, height: 900 });
   const check = observe(page), models: string[] = [];
@@ -56,10 +56,7 @@ for (const width of [1440, 390]) test(`furniture category previews and original 
   await page.getByRole('button', { name: '3D', exact: true }).click();
   await expect(page.getByRole('region', { name: '3D floor plan viewer' }).locator('canvas').first()).toBeVisible({ timeout: 60_000 });
   await page.waitForLoadState('networkidle');
-  for (const file of ['loungeDesignSofa', 'bedDouble', 'kitchenFridgeLarge', 'bathroomSink', 'washerDryerStacked']) {
-    expect(models.filter(url => url.includes(`/${file}.`))).toHaveLength(1);
-  }
-  expect(models).toHaveLength(5);
+  expect(models).toEqual([]);
   await testInfo.attach(`category-previews-${width}`, { body: await page.screenshot(), contentType: 'image/png' });
   check();
 });

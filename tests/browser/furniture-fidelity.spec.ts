@@ -3,7 +3,6 @@ import { resolve } from 'node:path';
 import { savedProjects } from './storage';
 
 const fixture = resolve('tests/fixtures/furniture-fidelity.openplan.json');
-const chairURL = /\/loungeChair\.[\w-]+\.glb$/;
 function observe(page: Page) {
   const errors: string[] = [], external: string[] = [], models: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
@@ -11,7 +10,14 @@ function observe(page: Page) {
     if (/^https?:/.test(request.url()) && new URL(request.url()).origin !== 'http://127.0.0.1:4188') external.push(request.url());
     if (/\.glb$/.test(request.url())) models.push(request.url());
   });
-  return { models, check() { expect(errors).toEqual([]); expect(external).toEqual([]); expect(models.some(url => /toaster/.test(url))).toBe(false); } };
+  return {
+    models,
+    check() {
+      expect(errors).toEqual([]);
+      expect(external).toEqual([]);
+      expect(models).toEqual([]);
+    },
+  };
 }
 async function openFixture(page: Page) {
   await page.goto('/editor');
@@ -45,14 +51,14 @@ async function open3D(page: Page) {
   await page.waitForLoadState('networkidle');
 }
 
-for (const width of [1440, 390]) test(`furniture tint, finish and resource reuse survive 3D rebuilds at ${width}px`, async ({ page }, testInfo) => {
+for (const width of [1440, 390]) test(`furniture tint, finish and zero-asset reuse survive 3D rebuilds at ${width}px`, async ({ page }, testInfo) => {
   test.slow();
   const observed = observe(page); await page.setViewportSize({ width, height: 900 });
   await openFixture(page); await open3D(page);
   await expect.poll(async () => (await colors(page)).green).toBeGreaterThan(50);
   expect((await colors(page)).red).toBeGreaterThan(50);
   expect((await colors(page)).blue).toBeLessThan(25);
-  expect(observed.models.filter(url => chairURL.test(url))).toHaveLength(1);
+  expect(observed.models).toEqual([]);
   await page.getByRole('button', { name: 'Make Walls Transparent', exact: true }).click();
   await expect.poll(async () => (await colors(page)).green).toBeGreaterThan(50);
   await page.getByRole('button', { name: 'Show Solid Walls', exact: true }).click();
@@ -67,15 +73,15 @@ for (const width of [1440, 390]) test(`furniture tint, finish and resource reuse
   await open3D(page);
   await expect.poll(async () => (await colors(page)).blue, { timeout: 60_000 }).toBeGreaterThan(50);
   expect((await colors(page)).green).toBeGreaterThan(50);
-  expect(observed.models.filter(url => chairURL.test(url))).toHaveLength(1);
+  expect(observed.models).toEqual([]);
   await testInfo.attach(`furniture-${width}`, { body: await page.screenshot(), contentType: 'image/png' });
 
   if (width === 1440) {
     await page.getByRole('button', { name: '2D', exact: true }).click();
     await page.getByRole('button', { name: 'Objects', exact: true }).click();
     await page.getByPlaceholder('Search furniture...').fill('Armchair');
-    await expect(page.getByRole('img', { name: 'Armchair', exact: true })).toBeVisible();
-    expect(observed.models.filter(url => chairURL.test(url))).toHaveLength(1);
+    await expect(page.getByRole('button', { name: /Armchair/ }).first()).toBeVisible();
+    expect(observed.models).toEqual([]);
   }
   await page.reload();
   await page.getByRole('button', { name: 'Save', exact: true }).press('l');
@@ -87,16 +93,14 @@ for (const width of [1440, 390]) test(`furniture tint, finish and resource reuse
   observed.check();
 });
 
-test('a model completing after 3D closes stays reusable without another download', async ({ page }) => {
+test('built-in game pieces remain reusable across 2D and 3D without model downloads', async ({ page }) => {
   const observed = observe(page);
-  let release!: () => void, arrived!: () => void;
-  const hold = new Promise<void>(resolve => { release = resolve; }), requested = new Promise<void>(resolve => { arrived = resolve; });
-  await page.route(chairURL, async route => { arrived(); await hold; await route.continue(); });
   await openFixture(page);
-  await page.getByRole('button', { name: '3D', exact: true }).click(); await requested;
-  await page.getByRole('button', { name: '2D', exact: true }).click(); release();
-  await page.waitForLoadState('networkidle'); await open3D(page);
+  await open3D(page);
   await expect.poll(async () => (await colors(page)).green).toBeGreaterThan(50);
-  expect(observed.models.filter(url => chairURL.test(url))).toHaveLength(1);
+  expect(observed.models).toEqual([]);
+  await page.getByRole('button', { name: '2D', exact: true }).click();
+  await open3D(page);
+  await expect.poll(async () => (await colors(page)).green).toBeGreaterThan(50);
   observed.check();
 });
