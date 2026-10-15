@@ -13,6 +13,8 @@ export interface DraftPlanExtent {
   depth: number;
 }
 
+export type DraftReviewIssue = DraftGeometryIssue | DraftTopologyIssue;
+
 export interface DraftReviewSummary {
   floorCount: number;
   wallCount: number;
@@ -25,7 +27,8 @@ export interface DraftReviewSummary {
   scaleBasis?: string;
   assumptions: string[];
   primaryExtent?: DraftPlanExtent;
-  geometryIssues: DraftGeometryIssue[];
+  /** Geometry and topology findings shown together by the existing deterministic review panel. */
+  geometryIssues: DraftReviewIssue[];
   geometryErrorCount: number;
   geometryWarningCount: number;
   topologyIssues: DraftTopologyIssue[];
@@ -47,6 +50,7 @@ export function summarizePlan2WorldDraft(input: unknown): DraftReviewSummary {
   const draft = parsePlan2WorldDraft(input);
   const geometryIssues = inspectPlan2WorldDraftGeometry(draft);
   const topology = inspectPlan2WorldDraftTopology(draft);
+  const reviewIssues: DraftReviewIssue[] = [...geometryIssues, ...topology.issues];
   return {
     floorCount: draft.floors.length,
     wallCount: draft.floors.reduce((total, floor) => total + floor.walls.length, 0),
@@ -59,9 +63,9 @@ export function summarizePlan2WorldDraft(input: unknown): DraftReviewSummary {
     scaleBasis: draft.scale.basis,
     assumptions: [...(draft.assumptions ?? [])],
     primaryExtent: primaryExtent(draft),
-    geometryIssues,
-    geometryErrorCount: geometryIssues.filter(issue => issue.severity === 'error').length,
-    geometryWarningCount: geometryIssues.filter(issue => issue.severity === 'warning').length,
+    geometryIssues: reviewIssues,
+    geometryErrorCount: reviewIssues.filter(issue => issue.severity === 'error').length,
+    geometryWarningCount: reviewIssues.filter(issue => issue.severity === 'warning').length,
     topologyIssues: topology.issues,
     topologyWarningCount: topology.issues.length,
   };
