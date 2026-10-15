@@ -75,6 +75,16 @@ Scale rules:
 5. Otherwise estimate from architectural conventions, preferably a clearly drawn ordinary door around 80–90 cm wide. Set scale.mode="estimated", lower scale.confidence, and state the assumption.
 ${scaleHint ? `User scale hint: ${scaleHint}` : 'User scale hint: none.'}
 
+Source-image registration:
+- Also return sourceRegistration when you can identify at least two reliable correspondences between the source raster and reconstructed wall endpoints.
+- sourceRegistration.floorId must identify the reconstructed floor.
+- Each anchor MUST point to an existing reconstructed wall endpoint using wallId + endpoint ("start" or "end").
+- anchor.image is the matching point in the ORIGINAL SOURCE IMAGE, normalized from 0 to 1 with (0,0) at the top-left and (1,1) at the bottom-right.
+- Prefer exact visible wall-centreline corners or T-junctions. Do not use text labels, dimension-arrow endpoints, furniture, or page corners.
+- Spread anchors across the plan. Use 3–6 anchors when reliable; 2 is the minimum. Avoid clustered anchors.
+- sourceRegistration.confidence describes confidence in image-to-wall correspondence, not architectural scale.
+- If fewer than two correspondences are reliable, omit sourceRegistration entirely. Do not invent anchors.
+
 Openings:
 - A door/window must sit on the wall it visually interrupts.
 - Estimate opening width only when not labelled; lower confidence accordingly.
@@ -87,6 +97,14 @@ The JSON object must have this shape:
   "units": "cm",
   "scale": { "mode": "measured|provided|estimated", "confidence": 0.0, "basis": "..." },
   "assumptions": ["..."],
+  "sourceRegistration": {
+    "floorId": "floor-0",
+    "confidence": 0.85,
+    "anchors": [
+      { "wallId": "w1", "endpoint": "start", "image": { "x": 0.12, "y": 0.18 } },
+      { "wallId": "w2", "endpoint": "end", "image": { "x": 0.82, "y": 0.76 } }
+    ]
+  },
   "floors": [{
     "id": "floor-0",
     "name": "Ground Floor",
@@ -116,7 +134,7 @@ The JSON object must have this shape:
   }]
 }
 
-Before answering, internally check that every opening references a wall that exists and that wall endpoints form the same connected topology shown in the source image.`;
+Before answering, internally check that every opening references a wall that exists, that sourceRegistration anchors reference endpoints that exist, and that wall endpoints form the same connected topology shown in the source image.`;
 }
 
 export async function reconstructFloorPlanImage(

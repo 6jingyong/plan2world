@@ -12,6 +12,19 @@ export interface DraftScale {
   basis?: string;
 }
 
+export interface DraftSourceAnchor {
+  wallId: string;
+  endpoint: 'start' | 'end';
+  /** Source-image coordinates normalized to 0..1 from the top-left corner. */
+  image: DraftPoint;
+}
+
+export interface DraftSourceRegistration {
+  floorId: string;
+  confidence: number;
+  anchors: DraftSourceAnchor[];
+}
+
 export interface DraftWall {
   id: string;
   start: DraftPoint;
@@ -70,6 +83,8 @@ export interface Plan2WorldDraft {
   units: 'cm';
   scale: DraftScale;
   assumptions?: string[];
+  /** Optional image-to-plan registration metadata. It is advisory and never required to import a draft. */
+  sourceRegistration?: DraftSourceRegistration;
   floors: DraftFloor[];
 }
 
@@ -130,6 +145,14 @@ function confidence(value: unknown, path: string): number | undefined {
 function point(value: unknown, path: string): DraftPoint {
   const v = record(value, path);
   return { x: finite(v.x, `${path}.x`), y: finite(v.y, `${path}.y`) };
+}
+
+function normalizedPoint(value: unknown, path: string): DraftPoint {
+  const p = point(value, path);
+  if (p.x < 0 || p.x > 1 || p.y < 0 || p.y > 1) {
+    throw new Plan2WorldDraftError(`${path} coordinates must be between 0 and 1`);
+  }
+  return p;
 }
 
 function enumValue<T extends string>(value: unknown, allowed: readonly T[], fallback: T, path: string): T {
@@ -243,6 +266,39 @@ function parseFloor(value: unknown, index: number): DraftFloor {
   };
 }
 
+/** Registration is optional advisory metadata. Ignore malformed registration rather than rejecting valid geometry. */
+function parseSourceRegistration(value: unknown, floors: DraftFloor[]): DraftSourceRegistration | undefined {
+  if (value === undefined) return undefined;
+  try {
+    const v = record(value, 'sourceRegistration');
+    const floorId = stringValue(v.floorId, 'sourceRegistration.floorId');
+    const floor = floors.find(item => item.id === floorId);
+    if (!floor) throw new Plan2WorldDraftError('sourceRegistration.floorId must refer to a draft floor');
+    const registrationConfidence = confidence(v.confidence, 'sourceRegistration.confidence');
+    if (registrationConfidence === undefined) throw new Plan2WorldDraftError('sourceRegistration.confidence is required');
+    if (!Array.isArray(v.anchors)) throw new Plan2WorldDraftError('sourceRegistration.anchors must be an array');
+    const walls = new Set(floor.walls.map(wall => wall.id));
+    const seen = new Set<string>();
+    const anchors: DraftSourceAnchor[] = [];
+    for (const [index, raw] of v.anchors.entries()) {
+      const path = `sourceRegistration.anchors[${index}]`;
+      const anchor = record(raw, path);
+      const wallId = stringValue(anchor.wallId, `${path}.wallId`);
+      if (!walls.has(wallId)) throw new Plan2WorldDraftError(`${path}.wallId must refer to a wall on the registration floor`);
+      const endpoint = enumValue(anchor.endpoint, ['start', 'end'] as const, 'start', `${path}.endpoint`);
+      const key = `${wallId}:${endpoint}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      anchors.push({ wallId, endpoint, image: normalizedPoint(anchor.image, `${path}.image`) });
+    }
+    if (anchors.length < 2) throw new Plan2WorldDraftError('sourceRegistration must contain at least two distinct anchors');
+    return { floorId, confidence: registrationConfidence, anchors: anchors.slice(0, 8) };
+  } catch (error) {
+    if (error instanceof Plan2WorldDraftError) return undefined;
+    throw error;
+  }
+}
+
 export function parsePlan2WorldDraft(input: unknown): Plan2WorldDraft {
   const v = record(input, 'draft');
   if (v.schemaVersion !== PLAN2WORLD_DRAFT_VERSION) {
@@ -278,6 +334,7 @@ export function parsePlan2WorldDraft(input: unknown): Plan2WorldDraft {
       basis: scaleRaw.basis === undefined ? undefined : stringValue(scaleRaw.basis, 'scale.basis'),
     },
     assumptions,
+    sourceRegistration: parseSourceRegistration(v.sourceRegistration, floors),
     floors,
   };
 }
