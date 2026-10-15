@@ -12,6 +12,11 @@
     summarizePlan2WorldDraft,
   } from '$lib/plan2world/review';
   import {
+    decodeSourceFloorPlanImage,
+    draftToProjectWithSourceBackground,
+    type SourceFloorPlanImage,
+  } from '$lib/plan2world/sourceBackground';
+  import {
     encodeFloorPlanImage,
     MAX_FLOOR_PLAN_IMAGE_BYTES,
     reconstructFloorPlanImage,
@@ -29,6 +34,7 @@
   let showProviderSettings = $state(false);
   let controller: AbortController | null = null;
   let draft = $state<Plan2WorldDraft | null>(null);
+  let sourceImage = $state<SourceFloorPlanImage | null>(null);
   let reconstructedReference = $state('');
   let actualReference = $state('');
   let calibrationMessage = $state('');
@@ -42,6 +48,7 @@
 
   function resetReview() {
     draft = null;
+    sourceImage = null;
     reconstructedReference = '';
     actualReference = '';
     calibrationMessage = '';
@@ -87,6 +94,8 @@
     controller = new AbortController();
     try {
       const image = await encodeFloorPlanImage(file);
+      sourceImage = await decodeSourceFloorPlanImage(image.dataUrl);
+      if (controller.signal.aborted) return;
       status = 'Reconstructing walls, doors, and windows…';
       draft = await reconstructFloorPlanImage(
         get(openAISettings),
@@ -125,13 +134,14 @@
   }
 
   async function openDraft() {
-    if (!draft || busy) return;
+    if (!draft || !sourceImage || busy) return;
     error = '';
     status = 'Opening editable 3D home…';
     busy = true;
     controller = new AbortController();
     try {
-      const project = await openProject(() => draft, 'import', controller.signal);
+      const candidate = draftToProjectWithSourceBackground(draft, sourceImage);
+      const project = await openProject(() => candidate, 'import', controller.signal);
       if (!project) return;
       oncreated();
       await goto(`${base}/editor?id=${encodeURIComponent(project.id)}`);
@@ -163,7 +173,7 @@
       <h2 class="text-2xl font-bold text-gray-800">{draft ? 'Review reconstructed plan' : 'Create 3D home from floor plan'}</h2>
       <p class="text-sm text-gray-500 mt-1">
         {draft
-          ? 'Check the inferred scale and assumptions before opening the editable home.'
+          ? 'Check the inferred scale and assumptions before opening the editable home. The source image will stay underneath the 2D plan for tracing.'
           : 'Upload a normal floor-plan image. AI extracts the architecture; Plan2World turns it into the existing editable Three.js scene.'}
       </p>
     </div>
@@ -177,7 +187,10 @@
     {#if previewUrl}
       <div class="rounded-xl border border-gray-200 bg-gray-50 overflow-hidden mb-5">
         <img src={previewUrl} alt="Source floor plan" class="w-full max-h-56 object-contain bg-white" />
-        <div class="px-3 py-2 text-xs text-gray-500 truncate">Source: {file?.name}</div>
+        <div class="px-3 py-2 text-xs text-gray-500">
+          <div class="truncate">Source: {file?.name}</div>
+          <div class="mt-1 text-gray-400">This image will be attached as a locked 35% opacity 2D tracing background. Use the editor's Background Image controls to align or calibrate it precisely.</div>
+        </div>
       </div>
     {/if}
 
@@ -297,7 +310,7 @@
           {showProviderSettings ? 'Hide settings' : 'Configure'}
         </button>
       </div>
-      <div class="text-xs text-slate-400 mt-1">The image is sent directly from your browser to the provider you configure. Plan2World does not proxy or store it.</div>
+      <div class="text-xs text-slate-400 mt-1">The image is sent directly from your browser to the provider you configure; Plan2World does not proxy it. A local copy is kept inside the generated project as its 2D tracing background.</div>
       {#if showProviderSettings}
         <div class="mt-4 pt-1">
           <OpenAISettings />
@@ -325,7 +338,7 @@
         class="px-4 py-2.5 rounded-xl border border-blue-300 text-blue-700 font-semibold hover:bg-blue-50 disabled:opacity-40">
         Re-run AI
       </button>
-      <button type="button" onclick={openDraft} disabled={busy}
+      <button type="button" onclick={openDraft} disabled={busy || !sourceImage}
         class="px-5 py-2.5 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:bg-gray-300 disabled:text-gray-500">
         {busy ? 'Opening…' : 'Open editable home'}
       </button>
