@@ -144,8 +144,11 @@ test(`Review focus keeps endpoint labels on the live wall at ${viewportWidth}px`
   // Canvas-local labels follow camera movement rather than floating over the sidebars.
   const canvas = page.getByLabel('Floor plan editor canvas', { exact: true });
   const rect = (await canvas.boundingBox())!;
+  // On compact layouts the zoom controls sit over the canvas centre, above
+  // the properties sheet. Send pointer input to an uncovered part of the canvas.
+  const interactionPoint = { x: rect.x + rect.width / 2, y: rect.y + 100 };
   const beforeZoom = await page.evaluate(() => (window as any).__endpointReferences['Reference A'].x);
-  await page.mouse.move(rect.x + rect.width / 2, rect.y + rect.height / 2);
+  await canvas.hover({ position: { x: rect.width / 2, y: 100 } });
   await page.mouse.wheel(0, -120);
   await expect.poll(() => page.evaluate(before =>
     Math.abs((window as any).__endpointReferences['Reference A'].x - before), beforeZoom)).toBeGreaterThan(1);
@@ -153,7 +156,7 @@ test(`Review focus keeps endpoint labels on the live wall at ${viewportWidth}px`
 
   const beforePan = await a.boundingBox();
   await page.mouse.down({ button: 'middle' });
-  await page.mouse.move(rect.x + rect.width / 2 + 35, rect.y + rect.height / 2 + 25, { steps: 5 });
+  await page.mouse.move(interactionPoint.x + 35, interactionPoint.y + 25, { steps: 5 });
   await page.mouse.up({ button: 'middle' });
   await expect.poll(async () => Math.abs((await a.boundingBox())!.x - beforePan!.x)).toBeGreaterThan(20);
   await expectEndpoints({ x: -50, y: 0 }, { x: 600.5, y: 0 });
