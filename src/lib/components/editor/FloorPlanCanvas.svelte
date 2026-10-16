@@ -10,12 +10,11 @@
   import { wallPointAt, wallTangentAt } from '$lib/utils/wallPath';
   import { connectedWallEndpoints } from '$lib/utils/wallEditing';
   import { createDrawScheduler } from '$lib/utils/drawScheduler';
-  import { activeFloor, selectedTool, selectedElementId, selectedElementIds, selectedRoomId, addWall, addDoor, addWindow, updateWall, moveWallsDuringDrag, updateDoor, updateWindow, addFurniture, moveFurniture, transformFurnitureDuringDrag, rotateFurniture, rotateSelection, setFurnitureRotation, scaleFurniture, removeElement, placingFurnitureId, placingRotation, placingDoorType, placingWindowType, detectedRoomsStore, duplicateDoor, duplicateWindow, duplicateFurniture, duplicateSelection, pasteSelection, splitWall, wallSplitIntersectsOpening, snapEnabled, placingStair, addStair, moveStair, updateStair, placingColumn, placingColumnShape, addColumn, moveColumn, updateColumn, calibrationMode, calibrationPoints, updateBackgroundImage, setBackgroundImage, canvasZoom, canvasMinimumZoom, canvasCamX, canvasCamY, panMode, showFurnitureStore, addGuide, moveGuide, removeGuide, beginUndoGroup, endUndoGroup, layerVisibility, updateRoom, addMeasurement, updateMeasurement, removeMeasurement, addAnnotation, removeAnnotation, updateAnnotation, addTextAnnotation, removeTextAnnotation, updateTextAnnotation, moveTextAnnotation, toggleFurnitureLock, toggleSelectionLock, createGroup, ungroupElements, findGroupForElement, placingEntourageId, addEntourageItem, moveEntourage, resizeEntourage, currentProject, elevationWallId, elevationPickMode } from '$lib/stores/project';
+  import { activeFloor, selectedTool, selectedElementId, selectedElementIds, selectedRoomId, addWall, addDoor, addWindow, updateWall, moveWallsDuringDrag, updateDoor, updateWindow, addFurniture, moveFurniture, transformFurnitureDuringDrag, rotateFurniture, rotateSelection, setFurnitureRotation, scaleFurniture, removeElement, placingFurnitureId, placingRotation, placingDoorType, placingWindowType, activeFloorAnalysis, duplicateDoor, duplicateWindow, duplicateFurniture, duplicateSelection, pasteSelection, splitWall, wallSplitIntersectsOpening, snapEnabled, placingStair, addStair, moveStair, updateStair, placingColumn, placingColumnShape, addColumn, moveColumn, updateColumn, calibrationMode, calibrationPoints, updateBackgroundImage, setBackgroundImage, canvasZoom, canvasMinimumZoom, canvasCamX, canvasCamY, panMode, showFurnitureStore, addGuide, moveGuide, removeGuide, beginUndoGroup, endUndoGroup, layerVisibility, updateRoom, addMeasurement, updateMeasurement, removeMeasurement, addAnnotation, removeAnnotation, updateAnnotation, addTextAnnotation, removeTextAnnotation, updateTextAnnotation, moveTextAnnotation, toggleFurnitureLock, toggleSelectionLock, createGroup, ungroupElements, findGroupForElement, placingEntourageId, addEntourageItem, moveEntourage, resizeEntourage, currentProject, elevationWallId, elevationPickMode } from '$lib/stores/project';
   import type { WallDragChange } from '$lib/stores/project';
   import type { Point, Wall, Door, Window as Win, FurnitureItem, Stair, Column, GuideLine, Measurement, Annotation, TextAnnotation, CustomEntourageDef } from '$lib/models/types';
   import type { Floor, Room } from '$lib/models/types';
-  import { resolveRoomGeometry, roomLabelPosition, roomCentroid } from '$lib/utils/roomDetection';
-  import { roomHoles } from '$lib/utils/roomNesting';
+  import { roomLabelPosition, roomCentroid } from '$lib/utils/roomDetection';
   import { getFloorBelow } from '$lib/utils/floors';
   import { detectOuterWalls } from '$lib/utils/outerWalls';
   import { getMaterial } from '$lib/utils/materials';
@@ -187,8 +186,6 @@
   let detectedRooms: Room[] = $state([]);
   let roomPolygons = new Map<string, Point[]>();
   let roomHolePolygons = new Map<string, Point[][]>();
-  let lastWallHash = '';
-  let lastRoomFloorId = '';
   // Storey directly beneath the active one, drawn as a dim reference underlay.
   let floorBelow: Floor | null = $state(null);
   // Its envelope walls. Cached because detection runs room detection, which is
@@ -848,30 +845,6 @@
     return floorBelowOuterIds;
   }
 
-  function updateDetectedRooms() {
-    if (!currentFloor) {
-      detectedRooms = [];
-      roomPolygons = new Map();
-      roomHolePolygons = new Map();
-      lastWallHash = '';
-      lastRoomFloorId = '';
-      detectedRoomsStore.set([]);
-      return;
-    }
-    const hash = currentFloor.id + JSON.stringify([currentFloor.walls, currentFloor.rooms]);
-    if (hash === lastWallHash) return;
-    lastWallHash = hash;
-    const previous = lastRoomFloorId === currentFloor.id ? detectedRooms : [];
-    const geometry = resolveRoomGeometry(currentFloor, previous);
-    const newRooms = geometry.map(item => item.room);
-    roomPolygons = new Map(geometry.map(({ room, polygon }) => [room.id, polygon]));
-    const holes = roomHoles(geometry.map(g => g.polygon));
-    roomHolePolygons = new Map(geometry.map((g,i) => [g.room.id,holes[i]]));
-    lastRoomFloorId = currentFloor.id;
-    detectedRooms = newRooms;
-    detectedRoomsStore.set(newRooms);
-  }
-
   function drawGuides() {
     if (!currentFloor) return;
     _drawGuides(getCS(), currentFloor, selectedGuideId, RULER_SIZE);
@@ -1114,7 +1087,6 @@
 
     const floor = currentFloor;
     if (!floor) return;
-    updateDetectedRooms();
     const selId = currentSelectedId;
     const multiIds = currentSelectedIds;
     function isSelected(id: string) { return id === selId || multiIds.has(id); }
@@ -1777,7 +1749,6 @@
         typedWallLength = '';
       }
       currentFloor = f;
-      updateDetectedRooms();
       markDirty();
       queueInitialFit();
     });
@@ -1811,7 +1782,12 @@
       if (t !== 'text') { editingTextAnnotationId = null; }
       markDirty();
     });
-    const unsub7 = detectedRoomsStore.subscribe((rooms) => { if (rooms.length > 0) detectedRooms = rooms; markDirty(); });
+    const unsub7 = activeFloorAnalysis.subscribe((analysis) => {
+      detectedRooms = analysis?.rooms ?? [];
+      roomPolygons = analysis?.polygons ?? new Map();
+      roomHolePolygons = analysis?.holes ?? new Map();
+      markDirty();
+    });
     const unsub8 = placingDoorType.subscribe((t) => { currentDoorType = t; markDirty(); });
     const unsub9 = placingWindowType.subscribe((t) => { currentWindowType = t; markDirty(); });
     const unsub10 = snapEnabled.subscribe((v) => { currentSnapEnabled = v; markDirty(); });
@@ -2743,7 +2719,8 @@
       if (!roomLabelDragOffset) beginUndoGroup();
       const newOffset = { x: roomLabelOrigOffset.x + dx / roomLabelDragZoom, y: roomLabelOrigOffset.y + dy / roomLabelDragZoom };
       roomLabelDragOffset = newOffset;
-      detectedRoomsStore.update(rooms => rooms.map(r => r.id === draggingRoomLabelId ? { ...r, labelOffset: newOffset } : r));
+      // Only this canvas previews the gesture; commit native metadata on release.
+      detectedRooms = detectedRooms.map(r => r.id === draggingRoomLabelId ? { ...r, labelOffset: newOffset } : r);
       return;
     }
 
@@ -3784,7 +3761,6 @@
       case 'reset-room-label':
         if (ctxMenuRoom) {
           updateRoom(ctxMenuRoom.id, { labelOffset: undefined });
-          detectedRoomsStore.update(rooms => rooms.map(room => room.id === ctxMenuRoom!.id ? { ...room, labelOffset: undefined } : room));
         }
         break;
       case 'rename-room':
@@ -3951,7 +3927,6 @@
         if (e.key === 'Enter') {
           e.preventDefault();
           updateRoom(editingRoomId!, { name: editingRoomName });
-          detectedRoomsStore.update(rooms => rooms.map(r => r.id === editingRoomId ? { ...r, name: editingRoomName } : r));
           editingRoomId = null;
           canvas.focus();
         } else if (e.key === 'Escape') {
@@ -3963,7 +3938,6 @@
       onblur={() => {
         if (editingRoomId) {
           updateRoom(editingRoomId, { name: editingRoomName });
-          detectedRoomsStore.update(rooms => rooms.map(r => r.id === editingRoomId ? { ...r, name: editingRoomName } : r));
           editingRoomId = null;
         }
       }}

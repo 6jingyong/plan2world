@@ -6,7 +6,6 @@ import { resolveRooms } from '$lib/utils/roomDetection';
 import { roomProject } from './fixtures/project';
 
 beforeEach(() => {
-  detectedRoomsStore.set([]);
   currentProject.set(JSON.parse(readFileSync('tests/fixtures/connected-dimensions.openplan.json', 'utf8')));
 });
 
@@ -31,9 +30,9 @@ it('still persists metadata for a newly detected room', () => {
   const room = project.floors[0].rooms[0];
   project.floors[0].rooms = [];
   currentProject.set(project);
-  detectedRoomsStore.set([room]);
-  updateRoom(room.id, { name: room.name });
-  expect(get(currentProject)!.floors[0].rooms).toEqual([room]);
+  const detected = get(detectedRoomsStore)[0];
+  updateRoom(detected.id, { name: room.name });
+  expect(get(currentProject)!.floors[0].rooms).toEqual([{ ...detected, name: room.name }]);
   undo();
   expect(get(currentProject)!.floors[0].rooms).toEqual([]);
 });
@@ -42,16 +41,17 @@ it.each([true, false])('restores grouped label drags without resurrecting previe
   const project = roomProject();
   const floor = project.floors[0];
   const detected = resolveRooms(floor);
-  const room = { ...detected[0], id: 'stable-label-room' };
+  let room = { ...detected[0], id: 'stable-label-room' };
   floor.rooms = saved ? [room] : [];
   currentProject.set(project);
-  detectedRoomsStore.set([room]);
+  room = get(detectedRoomsStore)[0];
   const before = structuredClone(floor.rooms);
   const offset = { x: 40, y: 15 };
 
   beginUndoGroup();
   const preview = [{ ...room, labelOffset: offset }];
-  detectedRoomsStore.set(preview);
+  // Gesture previews now stay in the canvas, outside the read-only analysis.
+  expect(get(detectedRoomsStore)[0].labelOffset).toBeUndefined();
   expect(get(currentProject)!.floors[0].rooms).toEqual(before);
   updateRoom(room.id, { labelOffset: offset });
   endUndoGroup('Move room label');
@@ -65,8 +65,11 @@ it.each([true, false])('restores grouped label drags without resurrecting previe
     const resolved = resolveRooms(restored, preview);
     expect(resolved[0].id).toBe(room.id);
     expect(resolved[0].labelOffset).toBeUndefined();
+    expect(get(detectedRoomsStore)[0]).toMatchObject({ id: room.id, name: room.name });
+    expect(get(detectedRoomsStore)[0].labelOffset).toBeUndefined();
     redo();
     expect(get(currentProject)!.floors[0].rooms).toEqual(edited);
     expect(resolveRooms(get(currentProject)!.floors[0], resolved)[0].labelOffset).toEqual(offset);
+    expect(get(detectedRoomsStore)[0].labelOffset).toEqual(offset);
   }
 });

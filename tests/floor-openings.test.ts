@@ -8,7 +8,7 @@ import { webToNative, nativeToWeb, applyNativeEdits, validatePackagePlan } from 
 
 it('saves a detected floor opening with one undo and restores its usable area', () => {
   const project=roomProject();loadProject(project);
-  const rooms=resolveRooms(project.floors[0]);detectedRoomsStore.set(rooms);
+  const rooms=get(detectedRoomsStore);
   updateRoom(rooms[0].id,{floorOpening:true});
   let floor=get(currentProject)!.floors[0];
   expect(floor.rooms[0].floorOpening).toBe(true);

@@ -1,6 +1,5 @@
 import type { PackageMapping, Project } from '$lib/models/types';
-import { resolveRoomGeometry } from '$lib/utils/roomDetection';
-import { roomHoles } from '$lib/utils/roomNesting';
+import { analyzeFloor } from '$lib/utils/floorAnalysis';
 import { interiorRoomArea } from '$lib/utils/interiorArea';
 
 type ObjectMap = Record<string, any>;
@@ -44,12 +43,11 @@ export function planStatistics(project: Project, plan: ObjectMap, mapping: Packa
   const ceiling = defaults.ceilingHeight ?? DEFAULT_CEILING, interior = defaults.interiorWallThickness ?? DEFAULT_INTERIOR_THICKNESS;
   const areas = new Map<string, number | null>();
   for (const floor of project.floors) {
-    const geometry = resolveRoomGeometry(floor);
-    const holes = roomHoles(geometry.map(item => item.polygon));
-    geometry.forEach((entry, i) => {
+    const { geometry, holes } = analyzeFloor(floor);
+    geometry.forEach(entry => {
       const nativeId = mapping.find(m => m.kind === 'rooms' && m.floorId === floor.id && m.webId === entry.room.id)?.id;
       if (!nativeId) return;
-      areas.set(key(nativeId), entry.room.floorOpening ? 0 : interiorRoomArea(entry.polygon, holes[i], floor.walls));
+      areas.set(key(nativeId), entry.room.floorOpening ? 0 : interiorRoomArea(entry.polygon, holes.get(entry.room.id) ?? [], floor.walls));
     });
   }
   const walls: ObjectMap[] = plan.walls ?? [], openings: ObjectMap[] = plan.openings ?? [], furniture: ObjectMap[] = plan.furniture ?? [], rooms: ObjectMap[] = plan.rooms ?? [];
