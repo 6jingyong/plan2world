@@ -4,6 +4,7 @@
   import {
     activeFloor,
     selectedElementId,
+    selectedElementIds,
     updateDoor,
     updateWindow,
     resizeWallLength,
@@ -17,6 +18,7 @@
 
   let floor: Floor | null = $state(null);
   let selId: string | null = $state(null);
+  let selectedIds = $state<Set<string>>(new Set());
   let settings = $state($projectSettings);
   let fixedEndpoint = $state<WallEndpoint>('start');
   let zoom = $state($canvasZoom);
@@ -26,6 +28,7 @@
 
   onDestroy(activeFloor.subscribe((value) => { floor = value; }));
   onDestroy(selectedElementId.subscribe((value) => { selId = value; }));
+  onDestroy(selectedElementIds.subscribe((value) => { selectedIds = value; }));
   onDestroy(projectSettings.subscribe((value) => { settings = value; }));
   onDestroy(canvasZoom.subscribe((value) => { zoom = value; }));
   onDestroy(canvasCamX.subscribe((value) => { camX = value; }));
@@ -98,7 +101,10 @@
   }
 
   let elementInfo = $derived.by(() => {
-    if (!floor || !selId) return null;
+    // selectedElementId is the primary element for both single- and multi-select.
+    // Multi-selection already owns AlignmentToolbar, so never stack the
+    // single-element correction controls on top of those actions.
+    if (!floor || !selId || selectedIds.size >= 2) return null;
 
     const wall = floor.walls.find(item => item.id === selId);
     if (wall) {
