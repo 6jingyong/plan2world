@@ -5,6 +5,8 @@ import yjCandidate from './fixtures/real-floorplans/hard-corpus/decorated-yj215-
 import yjReference from './fixtures/real-floorplans/hard-corpus/decorated-yj215-reference.json';
 import hydeCandidate from './fixtures/real-floorplans/hard-corpus/one-hyde-park-gpt56-sol-historical.json';
 import hydeReference from './fixtures/real-floorplans/hard-corpus/one-hyde-park-reference.json';
+import curvedCandidate from './fixtures/real-floorplans/hard-corpus/curved-lianjia-gpt56-sol-historical.json';
+import curvedReference from './fixtures/real-floorplans/hard-corpus/curved-lianjia-reference.json';
 import { scoreReconstructionAgainstSourceReference } from '$lib/plan2world/sourceReferenceQuality';
 
 const source = { dataUrl: 'data:image/png;base64,AA==', width: 100, height: 100 };
@@ -78,6 +80,26 @@ const hydeGeometryOnlyCandidate = {
       { wallId: 'w1', endpoint: 'start', image: { x: 470 / 1086, y: 72 / 1536 } },
       { wallId: 'w12', endpoint: 'end', image: { x: 470 / 1086, y: 1397 / 1536 } },
     ],
+  },
+};
+
+const curvedGeometryOnlyCandidate = {
+  ...curvedCandidate,
+  sourceRegistration: {
+    floorId: 'floor-0',
+    confidence: 1,
+    anchors: [
+      { wallId: 'w1', endpoint: 'start', image: { x: 655 / 1536, y: 91 / 1152 } },
+      { wallId: 'w13', endpoint: 'end', image: { x: 824 / 1536, y: 1059 / 1152 } },
+    ],
+  },
+};
+
+const curvedBoundaryOnlyReference = {
+  ...curvedReference,
+  walls: {
+    coverage: 'partial',
+    items: curvedReference.walls.items.filter(item => item.id === 'living-balcony-curve'),
   },
 };
 
@@ -206,6 +228,61 @@ describe('source-space reconstruction quality', () => {
       sample: 'one-hyde-park',
       mode: 'two-anchor-geometry-only',
       walls: report.walls,
+      topology: report.topology,
+    }));
+  });
+
+  it('keeps the accepted but poor historical registration visible for curved Lianjia', () => {
+    const report = scoreReconstructionAgainstSourceReference(
+      curvedCandidate,
+      curvedReference,
+      { dataUrl: 'data:image/jpeg;base64,AA==', width: 1536, height: 1152 },
+    );
+
+    expect(report.walls?.annotationCoverage).toBe('partial');
+    expect(report.walls?.recall).toBeGreaterThan(0.05);
+    expect(report.walls?.recall).toBeLessThan(0.2);
+    expect(report.walls?.referenceToCandidate.p95ErrorPx).toBeGreaterThan(100);
+    expect(report.walls?.precision).toBeNull();
+    expect(report.doors).toBeNull();
+    expect(report.windows).toBeNull();
+
+    console.info('Plan2World hard-corpus source score', JSON.stringify({
+      sample: 'curved-lianjia',
+      mode: 'historical-registration',
+      walls: report.walls,
+      topology: report.topology,
+    }));
+  });
+
+  it('separates curved Lianjia geometry from registration with two source anchors', () => {
+    const sourceImage = { dataUrl: 'data:image/jpeg;base64,AA==', width: 1536, height: 1152 };
+    const report = scoreReconstructionAgainstSourceReference(
+      curvedGeometryOnlyCandidate,
+      curvedReference,
+      sourceImage,
+    );
+    const curveReport = scoreReconstructionAgainstSourceReference(
+      curvedGeometryOnlyCandidate,
+      curvedBoundaryOnlyReference,
+      sourceImage,
+    );
+
+    expect(report.walls?.annotationCoverage).toBe('partial');
+    expect(report.walls?.recall).toBeGreaterThan(0.1);
+    expect(report.walls?.recall).toBeLessThan(0.25);
+    expect(report.walls?.referenceToCandidate.p95ErrorPx).toBeGreaterThan(80);
+    expect(report.walls?.precision).toBeNull();
+    expect(report.doors).toBeNull();
+    expect(report.windows).toBeNull();
+    expect(curveReport.walls?.recall).toBeLessThan(0.05);
+    expect(curveReport.walls?.referenceToCandidate.p95ErrorPx).toBeGreaterThan(120);
+
+    console.info('Plan2World hard-corpus source score', JSON.stringify({
+      sample: 'curved-lianjia',
+      mode: 'two-anchor-geometry-only',
+      walls: report.walls,
+      curveOnlyWalls: curveReport.walls,
       topology: report.topology,
     }));
   });
