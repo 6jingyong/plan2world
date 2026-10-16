@@ -5,6 +5,7 @@ import { parsePlan2WorldDraft, type Plan2WorldDraft } from './draft';
 export const FLOOR_PLAN_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp'] as const;
 export type FloorPlanImageType = typeof FLOOR_PLAN_IMAGE_TYPES[number];
 export const MAX_FLOOR_PLAN_IMAGE_BYTES = 12 * 1024 * 1024;
+export const PLAN2WORLD_VISION_PROMPT_VERSION = 'plan2world-vision-prompt-v1' as const;
 
 export interface FloorPlanVisionOptions {
   scaleHint?: string;
