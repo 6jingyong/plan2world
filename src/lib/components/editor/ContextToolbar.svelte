@@ -1,122 +1,188 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
-  import { activeFloor, selectedElementId, removeElement, updateDoor, duplicateDoor, duplicateWindow, duplicateFurniture, duplicateWall, selectedTool } from '$lib/stores/project';
-  import type { Floor, Door } from '$lib/models/types';
+  import {
+    activeFloor,
+    selectedElementId,
+    selectedElementIds,
+    updateDoor,
+    updateWindow,
+    resizeWallLength,
+  } from '$lib/stores/project';
+  import { projectSettings, parseLengthInput } from '$lib/stores/settings';
+  import { wallLength as calcWallLength, MIN_WALL_LENGTH, type WallEndpoint } from '$lib/utils/wallEditing';
 
-  let { canvasRect = { x: 0, y: 0 }, worldToScreen = (x: number, y: number) => ({ x: 0, y: 0 }) }: {
-    canvasRect: { x: number; y: number };
-    worldToScreen: (x: number, y: number) => { x: number; y: number };
-  } = $props();
+  let fixedEndpoint = $state<WallEndpoint>('start');
 
-  let floor: Floor | null = $state(null);
-  let selId: string | null = $state(null);
+  $effect(() => {
+    void $selectedElementId;
+    fixedEndpoint = 'start';
+  });
 
-  activeFloor.subscribe((f) => { floor = f; });
-  selectedElementId.subscribe((id) => { selId = id; });
+  function displayValue(cm: number): number {
+    return $projectSettings.units === 'imperial'
+      ? Math.round(cm / 2.54 * 10) / 10
+      : Math.round(cm * 1000) / 1000;
+  }
+
+  function inputToCm(value: number): number {
+    return $projectSettings.units === 'imperial' ? value * 2.54 : value;
+  }
+
+  function unitLabel(): string {
+    return $projectSettings.units === 'imperial' ? 'in' : 'cm';
+  }
 
   let elementInfo = $derived.by(() => {
-    if (!floor || !selId) return null;
-    const wall = floor.walls.find(w => w.id === selId);
-    if (wall) {
-      const cx = (wall.start.x + wall.end.x) / 2;
-      const cy = (wall.start.y + wall.end.y) / 2;
-      return { type: 'wall' as const, id: selId, cx, cy };
-    }
-    const door = floor.doors.find(d => d.id === selId);
+    const floor = $activeFloor;
+    const id = $selectedElementId;
+    if (!floor || !id || $selectedElementIds.size >= 2) return null;
+
+    const wall = floor.walls.find(item => item.id === id);
+    if (wall) return { type: 'wall' as const, id, wall };
+
+    const door = floor.doors.find(item => item.id === id);
     if (door) {
-      const w = floor.walls.find(w => w.id === door.wallId);
-      if (w) {
-        const cx = w.start.x + (w.end.x - w.start.x) * door.position;
-        const cy = w.start.y + (w.end.y - w.start.y) * door.position;
-        return { type: 'door' as const, id: selId, cx, cy, door };
-      }
+      const wall = floor.walls.find(item => item.id === door.wallId);
+      if (wall) return { type: 'door' as const, id, door, wall };
     }
-    const win = floor.windows.find(w => w.id === selId);
-    if (win) {
-      const w = floor.walls.find(w => w.id === win.wallId);
-      if (w) {
-        const cx = w.start.x + (w.end.x - w.start.x) * win.position;
-        const cy = w.start.y + (w.end.y - w.start.y) * win.position;
-        return { type: 'window' as const, id: selId, cx, cy };
-      }
+
+    const window = floor.windows.find(item => item.id === id);
+    if (window) {
+      const wall = floor.walls.find(item => item.id === window.wallId);
+      if (wall) return { type: 'window' as const, id, window, wall };
     }
-    const furn = floor.furniture.find(f => f.id === selId);
-    if (furn) {
-      return { type: 'furniture' as const, id: selId, cx: furn.position.x, cy: furn.position.y };
-    }
+
     return null;
   });
 
-  function onDelete() {
-    if (selId) {
-      removeElement(selId);
-      selectedElementId.set(null);
+  function restoreInput(input: HTMLInputElement, cm: number) {
+    input.value = String(displayValue(cm));
+  }
+
+  function onQuickWallLength(event: Event) {
+    if (!elementInfo || elementInfo.type !== 'wall') return;
+    const input = event.currentTarget as HTMLInputElement;
+    const current = calcWallLength(elementInfo.wall);
+    const parsed = parseLengthInput(input.value, $projectSettings.units);
+    if (parsed === null || parsed < MIN_WALL_LENGTH) {
+      restoreInput(input, current);
+      return;
     }
+    const error = resizeWallLength(elementInfo.id, parsed, fixedEndpoint);
+    restoreInput(input, error ? current : parsed);
   }
 
-  function onDuplicate() {
-    if (!elementInfo) return;
-    let newId: string | null = null;
-    if (elementInfo.type === 'door') newId = duplicateDoor(elementInfo.id);
-    else if (elementInfo.type === 'window') newId = duplicateWindow(elementInfo.id);
-    else if (elementInfo.type === 'furniture') newId = duplicateFurniture(elementInfo.id);
-    else if (elementInfo.type === 'wall') newId = duplicateWall(elementInfo.id);
-    if (newId) selectedElementId.set(newId);
+  function onQuickOpeningWidth(event: Event) {
+    if (!elementInfo || (elementInfo.type !== 'door' && elementInfo.type !== 'window')) return;
+    const input = event.currentTarget as HTMLInputElement;
+    const current = elementInfo.type === 'door' ? elementInfo.door.width : elementInfo.window.width;
+    const value = inputToCm(input.valueAsNumber);
+    if (!input.value.trim() || !input.validity.valid || !Number.isFinite(value) || value <= 0) {
+      restoreInput(input, current);
+      return;
+    }
+    if (elementInfo.type === 'door') updateDoor(elementInfo.id, { width: value });
+    else updateWindow(elementInfo.id, { width: value });
+    restoreInput(input, value);
   }
 
-  function onFlipSwing() {
-    if (!elementInfo || elementInfo.type !== 'door') return;
-    const door = elementInfo.door as Door;
-    updateDoor(door.id, { swingDirection: door.swingDirection === 'left' ? 'right' : 'left' });
+  function onQuickOpeningDistanceA(event: Event) {
+    if (!elementInfo || (elementInfo.type !== 'door' && elementInfo.type !== 'window')) return;
+    const input = event.currentTarget as HTMLInputElement;
+    const length = calcWallLength(elementInfo.wall);
+    const position = elementInfo.type === 'door' ? elementInfo.door.position : elementInfo.window.position;
+    const current = length * position;
+    const value = inputToCm(input.valueAsNumber);
+    if (!input.value.trim() || !input.validity.valid || !Number.isFinite(value) || value < 0 || value > length || length <= 0) {
+      restoreInput(input, current);
+      return;
+    }
+    if (elementInfo.type === 'door') updateDoor(elementInfo.id, { position: value / length });
+    else updateWindow(elementInfo.id, { position: value / length });
+    restoreInput(input, value);
   }
 
-  function onFlipSide() {
-    if (!elementInfo || elementInfo.type !== 'door') return;
-    const door = elementInfo.door as Door;
-    updateDoor(door.id, { flipSide: !door.flipSide });
+  function commitOnEnter(event: KeyboardEvent) {
+    if (event.key === 'Enter') (event.currentTarget as HTMLInputElement).blur();
   }
 </script>
 
 {#if elementInfo}
-  {@const screenPos = worldToScreen(elementInfo.cx, elementInfo.cy)}
   <div
-    class="absolute z-40 flex items-center gap-1 bg-white rounded-lg shadow-lg border border-gray-200 px-1.5 py-1"
-    style="left: {screenPos.x + canvasRect.x}px; top: {screenPos.y + canvasRect.y - 48}px; transform: translateX(-50%); pointer-events: auto;"
+    data-quick-geometry-toolbar
+    class="fixed top-16 left-1/2 z-40 flex -translate-x-1/2 items-center gap-1 rounded-lg border border-blue-100 bg-white px-2 py-1 shadow-lg"
   >
-    <button
-      class="w-7 h-7 flex items-center justify-center rounded hover:bg-gray-100 text-gray-600 hover:text-gray-800 transition-colors"
-      title={$t('contextMenu.duplicate')}
-      aria-label={$t('contextMenu.duplicate')}
-      onclick={onDuplicate}
-    >
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-    </button>
-    {#if elementInfo.type === 'door'}
+    {#if elementInfo.type === 'wall'}
+      <span data-wall-endpoint-label="A" class="flex h-5 w-5 items-center justify-center rounded-full border border-blue-500 text-[10px] font-bold text-blue-700">A</span>
+      <span class="text-[10px] text-gray-400">—</span>
+      <span data-wall-endpoint-label="B" class="flex h-5 w-5 items-center justify-center rounded-full border border-blue-500 text-[10px] font-bold text-blue-700">B</span>
+      <span class="mx-1 h-5 w-px bg-gray-200"></span>
+      <label class="flex items-center gap-1" title={$t('wallProperties.length')}>
+        <span class="text-[10px] font-semibold text-gray-500">L</span>
+        <input
+          data-quick-wall-length
+          type="text"
+          value={displayValue(calcWallLength(elementInfo.wall))}
+          aria-label={`L · ${$t('wallProperties.length')} (${unitLabel()})`}
+          class="w-16 rounded border border-gray-200 px-1.5 py-1 text-xs tabular-nums"
+          onblur={onQuickWallLength}
+          onkeydown={commitOnEnter}
+        />
+        <span class="text-[10px] text-gray-400">{unitLabel()}</span>
+      </label>
+      <span class="ml-1 text-[10px] text-gray-400" title={$t('wallProperties.fixed')}>⚓</span>
       <button
-        class="w-7 h-7 flex items-center justify-center rounded hover:bg-gray-100 text-gray-600 hover:text-gray-800 transition-colors"
-        title={$t('contextToolbar.flipSwing')}
-        aria-label={$t('contextToolbar.swingLabel')}
-        onclick={onFlipSwing}
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/></svg>
-      </button>
+        data-quick-fixed-endpoint="start"
+        class="h-6 min-w-6 rounded px-1 text-[10px] font-semibold {fixedEndpoint === 'start' ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:bg-gray-100'}"
+        aria-label={`${$t('wallProperties.fixed')}: A`}
+        aria-pressed={fixedEndpoint === 'start'}
+        onclick={() => { fixedEndpoint = 'start'; }}
+      >A</button>
       <button
-        class="w-7 h-7 flex items-center justify-center rounded hover:bg-gray-100 text-gray-600 hover:text-gray-800 transition-colors"
-        title={$t('contextToolbar.flipSide')}
-        aria-label={$t('contextToolbar.sideLabel')}
-        onclick={onFlipSide}
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M12 3v18"/><path d="M8 8l-4 4 4 4M16 8l4 4-4 4"/></svg>
-      </button>
+        data-quick-fixed-endpoint="end"
+        class="h-6 min-w-6 rounded px-1 text-[10px] font-semibold {fixedEndpoint === 'end' ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:bg-gray-100'}"
+        aria-label={`${$t('wallProperties.fixed')}: B`}
+        aria-pressed={fixedEndpoint === 'end'}
+        onclick={() => { fixedEndpoint = 'end'; }}
+      >B</button>
+    {:else}
+      {@const openingWidth = elementInfo.type === 'door' ? elementInfo.door.width : elementInfo.window.width}
+      {@const openingPosition = elementInfo.type === 'door' ? elementInfo.door.position : elementInfo.window.position}
+      {@const parentLength = calcWallLength(elementInfo.wall)}
+      <span data-wall-endpoint-label="A" class="flex h-5 w-5 items-center justify-center rounded-full border border-blue-500 text-[10px] font-bold text-blue-700">A</span>
+      <span class="text-[10px] text-gray-400">→</span>
+      <span data-wall-endpoint-label="B" class="flex h-5 w-5 items-center justify-center rounded-full border border-blue-500 text-[10px] font-bold text-blue-700">B</span>
+      <span class="mx-1 h-5 w-px bg-gray-200"></span>
+      <label class="flex items-center gap-1" title={$t('openingProperties.width')}>
+        <span class="text-[10px] font-semibold text-gray-500">W</span>
+        <input
+          data-quick-opening-width
+          type="number"
+          step="any"
+          min="0"
+          value={displayValue(openingWidth)}
+          aria-label={`W · ${$t('openingProperties.width')} (${unitLabel()})`}
+          class="w-14 rounded border border-gray-200 px-1.5 py-1 text-xs tabular-nums"
+          onblur={onQuickOpeningWidth}
+          onkeydown={commitOnEnter}
+        />
+      </label>
+      <label class="flex items-center gap-1" title={$t('openingProperties.fromA')}>
+        <span class="text-[10px] font-semibold text-blue-700">A→</span>
+        <input
+          data-quick-opening-offset-a
+          type="number"
+          step="any"
+          min="0"
+          max={displayValue(parentLength)}
+          value={displayValue(parentLength * openingPosition)}
+          aria-label={`A→ · ${$t('openingProperties.fromA')} (${unitLabel()})`}
+          class="w-14 rounded border border-gray-200 px-1.5 py-1 text-xs tabular-nums"
+          onblur={onQuickOpeningDistanceA}
+          onkeydown={commitOnEnter}
+        />
+        <span class="text-[10px] text-gray-400">{unitLabel()}</span>
+      </label>
     {/if}
-    <div class="w-px h-5 bg-gray-200"></div>
-    <button
-      class="w-7 h-7 flex items-center justify-center rounded hover:bg-red-50 text-gray-500 hover:text-red-600 transition-colors"
-      title={$t('contextMenu.delete')}
-      aria-label={$t('contextMenu.delete')}
-      onclick={onDelete}
-    >
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14"/></svg>
-    </button>
   </div>
 {/if}
