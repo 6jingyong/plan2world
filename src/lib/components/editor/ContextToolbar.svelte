@@ -200,6 +200,15 @@
   {@const screenPos = worldToViewport(elementInfo.cx, elementInfo.cy)}
   {@const endpointA = worldToViewport(elementInfo.wall.start.x, elementInfo.wall.start.y)}
   {@const endpointB = worldToViewport(elementInfo.wall.end.x, elementInfo.wall.end.y)}
+  {@const curvePoint = elementInfo.wall.curvePoint ? worldToViewport(elementInfo.wall.curvePoint.x, elementInfo.wall.curvePoint.y) : null}
+  {@const wallTop = Math.min(endpointA.y, endpointB.y, curvePoint?.y ?? Number.POSITIVE_INFINITY)}
+  {@const wallBottom = Math.max(endpointA.y, endpointB.y, curvePoint?.y ?? Number.NEGATIVE_INFINITY)}
+  {@const liveViewport = readViewport()}
+  {@const wallToolbarBelow = elementInfo.type === 'wall' && wallTop - liveViewport.top < 54}
+  {@const toolbarTop = elementInfo.type === 'wall'
+    ? (wallToolbarBelow ? wallBottom + 14 : wallTop - 14)
+    : screenPos.y - 34}
+  {@const toolbarTransform = wallToolbarBelow ? 'translate(-50%, 0)' : 'translate(-50%, -100%)'}
 
   <span
     data-wall-endpoint-label="A"
@@ -217,7 +226,7 @@
   <div
     data-quick-geometry-toolbar
     class="fixed z-40 flex items-center gap-1 rounded-lg border border-blue-100 bg-white px-1.5 py-1 shadow-lg"
-    style="left: {screenPos.x}px; top: {screenPos.y - 52}px; transform: translate(-50%, -100%); pointer-events: auto;"
+    style="left: {screenPos.x}px; top: {toolbarTop}px; transform: {toolbarTransform}; pointer-events: auto;"
   >
     {#if elementInfo.type === 'wall'}
       <label class="flex items-center gap-1" title={$t('wallProperties.length')}>
