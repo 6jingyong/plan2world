@@ -9,7 +9,8 @@
   import { planContentBounds, hasPlanContent } from '$lib/utils/planContentBounds';
   import { connectedWallEndpoints } from '$lib/utils/wallEditing';
   import { createDrawScheduler } from '$lib/utils/drawScheduler';
-  import { activeFloor, selectedTool, selectedElementId, selectedElementIds, selectedRoomId, addWall, addDoor, addWindow, updateWall, moveWallEndpoint, moveWallGeometryDuringDrag, updateDoor, updateWindow, addFurniture, moveFurniture, transformFurnitureDuringDrag, rotateFurniture, rotateSelection, setFurnitureRotation, scaleFurniture, removeElement, placingFurnitureId, placingRotation, placingDoorType, placingWindowType, detectedRoomsStore, duplicateDoor, duplicateWindow, duplicateFurniture, duplicateSelection, pasteSelection, moveWallParallel, splitWall, wallSplitIntersectsOpening, snapEnabled, placingStair, addStair, moveStair, updateStair, placingColumn, placingColumnShape, addColumn, moveColumn, updateColumn, calibrationMode, calibrationPoints, updateBackgroundImage, setBackgroundImage, canvasZoom, canvasMinimumZoom, canvasCamX, canvasCamY, panMode, showFurnitureStore, addGuide, moveGuide, removeGuide, beginUndoGroup, endUndoGroup, layerVisibility, updateRoom, addMeasurement, updateMeasurement, removeMeasurement, addAnnotation, removeAnnotation, updateAnnotation, addTextAnnotation, removeTextAnnotation, updateTextAnnotation, moveTextAnnotation, toggleFurnitureLock, toggleSelectionLock, createGroup, ungroupElements, findGroupForElement, placingEntourageId, addEntourageItem, moveEntourage, resizeEntourage, currentProject, elevationWallId, elevationPickMode } from '$lib/stores/project';
+  import { activeFloor, selectedTool, selectedElementId, selectedElementIds, selectedRoomId, addWall, addDoor, addWindow, updateWall, moveWallsDuringDrag, updateDoor, updateWindow, addFurniture, moveFurniture, transformFurnitureDuringDrag, rotateFurniture, rotateSelection, setFurnitureRotation, scaleFurniture, removeElement, placingFurnitureId, placingRotation, placingDoorType, placingWindowType, detectedRoomsStore, duplicateDoor, duplicateWindow, duplicateFurniture, duplicateSelection, pasteSelection, splitWall, wallSplitIntersectsOpening, snapEnabled, placingStair, addStair, moveStair, updateStair, placingColumn, placingColumnShape, addColumn, moveColumn, updateColumn, calibrationMode, calibrationPoints, updateBackgroundImage, setBackgroundImage, canvasZoom, canvasMinimumZoom, canvasCamX, canvasCamY, panMode, showFurnitureStore, addGuide, moveGuide, removeGuide, beginUndoGroup, endUndoGroup, layerVisibility, updateRoom, addMeasurement, updateMeasurement, removeMeasurement, addAnnotation, removeAnnotation, updateAnnotation, addTextAnnotation, removeTextAnnotation, updateTextAnnotation, moveTextAnnotation, toggleFurnitureLock, toggleSelectionLock, createGroup, ungroupElements, findGroupForElement, placingEntourageId, addEntourageItem, moveEntourage, resizeEntourage, currentProject, elevationWallId, elevationPickMode } from '$lib/stores/project';
+  import type { WallDragChange } from '$lib/stores/project';
   import type { Point, Wall, Door, Window as Win, FurnitureItem, Stair, Column, GuideLine, Measurement, Annotation, TextAnnotation, CustomEntourageDef } from '$lib/models/types';
   import type { Floor, Room } from '$lib/models/types';
   import { resolveRoomGeometry, roomLabelPosition, roomCentroid } from '$lib/utils/roomDetection';
@@ -2821,11 +2822,10 @@
           pt = angleSnap(other, pt);
         }
       }
-      moveWallEndpoint(draggingWallEndpoint.wallId, draggingWallEndpoint.endpoint, pt);
-      // Move all connected endpoints together
-      for (const conn of draggingConnectedEndpoints) {
-        moveWallEndpoint(conn.wallId, conn.endpoint, pt);
-      }
+      moveWallsDuringDrag([
+        { wallId: draggingWallEndpoint.wallId, [draggingWallEndpoint.endpoint]: pt },
+        ...draggingConnectedEndpoints.map(conn => ({ wallId: conn.wallId, [conn.endpoint]: pt })),
+      ]);
     }
     if (draggingWallParallel && currentFloor) {
       const wall = currentFloor.walls.find(w => w.id === draggingWallParallel!.wallId);
@@ -2847,15 +2847,12 @@
             x: draggingWallParallel.origEnd.x + dx,
             y: draggingWallParallel.origEnd.y + dy,
           };
-          moveWallEndpoint(draggingWallParallel.wallId, 'start', newStart);
-          moveWallEndpoint(draggingWallParallel.wallId, 'end', newEnd);
-          // Move connected walls' shared endpoints so adjacent walls stretch to stay connected
-          for (const conn of draggingWallParallel.connectedStart) {
-            moveWallEndpoint(conn.wallId, conn.endpoint, newStart);
-          }
-          for (const conn of draggingWallParallel.connectedEnd) {
-            moveWallEndpoint(conn.wallId, conn.endpoint, newEnd);
-          }
+          // Both corners and their neighbours form one observable geometry step.
+          moveWallsDuringDrag([
+            { wallId: draggingWallParallel.wallId, start: newStart, end: newEnd },
+            ...draggingWallParallel.connectedStart.map(conn => ({ wallId: conn.wallId, [conn.endpoint]: newStart })),
+            ...draggingWallParallel.connectedEnd.map(conn => ({ wallId: conn.wallId, [conn.endpoint]: newEnd })),
+          ]);
         }
       }
     }
@@ -2863,6 +2860,7 @@
       const mSnapStep = currentSnapToGrid ? currentGridSize : SNAP;
       const dx = Math.round((mousePos.x - draggingMultiSelect.startMousePos.x) / mSnapStep) * mSnapStep;
       const dy = Math.round((mousePos.y - draggingMultiSelect.startMousePos.y) / mSnapStep) * mSnapStep;
+      const wallChanges: WallDragChange[] = [];
       for (const [id, orig] of draggingMultiSelect.origPositions) {
         if (orig.opening) {
           const wall=currentFloor.walls.find(item => item.id === orig.opening!.wallId);
@@ -2875,10 +2873,10 @@
           const endpoints = { x1: orig.start.x + dx, y1: orig.start.y + dy, x2: orig.end.x + dx, y2: orig.end.y + dy };
           if (currentFloor.measurements?.some(item => item.id === id)) { updateMeasurement(id, endpoints); continue; }
           if (currentFloor.annotations?.some(item => item.id === id)) { updateAnnotation(id, endpoints); continue; }
-          moveWallGeometryDuringDrag(id, {
+          wallChanges.push({ wallId: id,
             start: { x: orig.start.x + dx, y: orig.start.y + dy },
             end: { x: orig.end.x + dx, y: orig.end.y + dy },
-            curvePoint: orig.curvePoint ? { x: orig.curvePoint.x + dx, y: orig.curvePoint.y + dy } : undefined,
+            ...(orig.curvePoint ? { curvePoint: { x: orig.curvePoint.x + dx, y: orig.curvePoint.y + dy } } : {}),
           });
         } else if (orig.position) {
           // Furniture, stair, column, or entourage
@@ -2891,15 +2889,17 @@
           if (currentFloor.entourage?.some(item => item.id === id)) moveEntourage(id, newPos);
         }
       }
+      moveWallsDuringDrag(wallChanges);
     }
     if (draggingRoomId && currentFloor && roomDragStartPositions.size > 0) {
       const rSnapStep = currentSnapToGrid ? currentGridSize : SNAP;
       const dx = Math.round((mousePos.x - roomDragStartMouse.x) / rSnapStep) * rSnapStep;
       const dy = Math.round((mousePos.y - roomDragStartMouse.y) / rSnapStep) * rSnapStep;
-      for (const [wid, orig] of roomDragStartPositions) {
-        moveWallEndpoint(wid, 'start', { x: orig.start.x + dx, y: orig.start.y + dy });
-        moveWallEndpoint(wid, 'end', { x: orig.end.x + dx, y: orig.end.y + dy });
-      }
+      moveWallsDuringDrag([...roomDragStartPositions].map(([wallId, orig]) => ({
+        wallId,
+        start: { x: orig.start.x + dx, y: orig.start.y + dy },
+        end: { x: orig.end.x + dx, y: orig.end.y + dy },
+      })));
     }
     if (draggingCurveHandle && currentFloor) {
       const wall = currentFloor.walls.find(w => w.id === draggingCurveHandle);
