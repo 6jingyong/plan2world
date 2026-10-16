@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onDestroy, onMount } from 'svelte';
   import { t } from '$lib/i18n';
   import {
     activeFloor,
@@ -8,143 +7,49 @@
     updateDoor,
     updateWindow,
     resizeWallLength,
-    canvasZoom,
-    canvasCamX,
-    canvasCamY,
   } from '$lib/stores/project';
   import { projectSettings, parseLengthInput } from '$lib/stores/settings';
   import { wallLength as calcWallLength, MIN_WALL_LENGTH, type WallEndpoint } from '$lib/utils/wallEditing';
-  import type { Floor } from '$lib/models/types';
 
-  let floor: Floor | null = $state(null);
-  let selId: string | null = $state(null);
-  let selectedIds = $state<Set<string>>(new Set());
-  let settings = $state($projectSettings);
   let fixedEndpoint = $state<WallEndpoint>('start');
-  let zoom = $state($canvasZoom);
-  let camX = $state($canvasCamX);
-  let camY = $state($canvasCamY);
-  let viewport = $state({ left: 0, top: 0, width: 0, height: 0 });
-
-  onDestroy(activeFloor.subscribe((value) => { floor = value; }));
-  onDestroy(selectedElementId.subscribe((value) => { selId = value; }));
-  onDestroy(selectedElementIds.subscribe((value) => { selectedIds = value; }));
-  onDestroy(projectSettings.subscribe((value) => { settings = value; }));
-  onDestroy(canvasZoom.subscribe((value) => { zoom = value; }));
-  onDestroy(canvasCamX.subscribe((value) => { camX = value; }));
-  onDestroy(canvasCamY.subscribe((value) => { camY = value; }));
 
   $effect(() => {
-    void selId;
+    void $selectedElementId;
     fixedEndpoint = 'start';
   });
 
-  function readViewport() {
-    if (typeof document === 'undefined') return viewport;
-    const canvas = document.querySelector<HTMLCanvasElement>('canvas[tabindex="0"]');
-    if (!canvas?.isConnected) return viewport;
-    const rect = canvas.getBoundingClientRect();
-    if (rect.width <= 0 || rect.height <= 0) return viewport;
-    return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
-  }
-
-  onMount(() => {
-    let frame = 0;
-    let observer: ResizeObserver | undefined;
-    let canvas: HTMLCanvasElement | null = null;
-
-    const updateViewport = () => {
-      const next = readViewport();
-      if (next.width > 0 && next.height > 0) viewport = next;
-    };
-
-    const attach = () => {
-      canvas = document.querySelector<HTMLCanvasElement>('canvas[tabindex="0"]');
-      if (!canvas) {
-        frame = requestAnimationFrame(attach);
-        return;
-      }
-      observer = new ResizeObserver(updateViewport);
-      observer.observe(canvas);
-      window.addEventListener('resize', updateViewport);
-      updateViewport();
-    };
-
-    attach();
-    return () => {
-      cancelAnimationFrame(frame);
-      observer?.disconnect();
-      window.removeEventListener('resize', updateViewport);
-    };
-  });
-
-  function worldToViewport(wx: number, wy: number) {
-    const current = readViewport();
-    return {
-      x: current.left + (wx - camX) * zoom + current.width / 2,
-      y: current.top + (wy - camY) * zoom + current.height / 2,
-    };
-  }
-
   function displayValue(cm: number): number {
-    return settings.units === 'imperial'
+    return $projectSettings.units === 'imperial'
       ? Math.round(cm / 2.54 * 10) / 10
       : Math.round(cm * 1000) / 1000;
   }
 
   function inputToCm(value: number): number {
-    return settings.units === 'imperial' ? value * 2.54 : value;
+    return $projectSettings.units === 'imperial' ? value * 2.54 : value;
   }
 
   function unitLabel(): string {
-    return settings.units === 'imperial' ? 'in' : 'cm';
+    return $projectSettings.units === 'imperial' ? 'in' : 'cm';
   }
 
   let elementInfo = $derived.by(() => {
-    // selectedElementId is the primary element for both single- and multi-select.
-    // Multi-selection already owns AlignmentToolbar, so never stack the
-    // single-element correction controls on top of those actions.
-    if (!floor || !selId || selectedIds.size >= 2) return null;
+    const floor = $activeFloor;
+    const id = $selectedElementId;
+    if (!floor || !id || $selectedElementIds.size >= 2) return null;
 
-    const wall = floor.walls.find(item => item.id === selId);
-    if (wall) {
-      return {
-        type: 'wall' as const,
-        id: selId,
-        cx: (wall.start.x + wall.end.x) / 2,
-        cy: (wall.start.y + wall.end.y) / 2,
-        wall,
-      };
-    }
+    const wall = floor.walls.find(item => item.id === id);
+    if (wall) return { type: 'wall' as const, id, wall };
 
-    const door = floor.doors.find(item => item.id === selId);
+    const door = floor.doors.find(item => item.id === id);
     if (door) {
-      const parent = floor.walls.find(item => item.id === door.wallId);
-      if (parent) {
-        return {
-          type: 'door' as const,
-          id: selId,
-          cx: parent.start.x + (parent.end.x - parent.start.x) * door.position,
-          cy: parent.start.y + (parent.end.y - parent.start.y) * door.position,
-          door,
-          wall: parent,
-        };
-      }
+      const wall = floor.walls.find(item => item.id === door.wallId);
+      if (wall) return { type: 'door' as const, id, door, wall };
     }
 
-    const win = floor.windows.find(item => item.id === selId);
-    if (win) {
-      const parent = floor.walls.find(item => item.id === win.wallId);
-      if (parent) {
-        return {
-          type: 'window' as const,
-          id: selId,
-          cx: parent.start.x + (parent.end.x - parent.start.x) * win.position,
-          cy: parent.start.y + (parent.end.y - parent.start.y) * win.position,
-          window: win,
-          wall: parent,
-        };
-      }
+    const window = floor.windows.find(item => item.id === id);
+    if (window) {
+      const wall = floor.walls.find(item => item.id === window.wallId);
+      if (wall) return { type: 'window' as const, id, window, wall };
     }
 
     return null;
@@ -158,7 +63,7 @@
     if (!elementInfo || elementInfo.type !== 'wall') return;
     const input = event.currentTarget as HTMLInputElement;
     const current = calcWallLength(elementInfo.wall);
-    const parsed = parseLengthInput(input.value, settings.units);
+    const parsed = parseLengthInput(input.value, $projectSettings.units);
     if (parsed === null || parsed < MIN_WALL_LENGTH) {
       restoreInput(input, current);
       return;
@@ -203,38 +108,15 @@
 </script>
 
 {#if elementInfo}
-  {@const screenPos = worldToViewport(elementInfo.cx, elementInfo.cy)}
-  {@const endpointA = worldToViewport(elementInfo.wall.start.x, elementInfo.wall.start.y)}
-  {@const endpointB = worldToViewport(elementInfo.wall.end.x, elementInfo.wall.end.y)}
-  {@const curvePoint = elementInfo.wall.curvePoint ? worldToViewport(elementInfo.wall.curvePoint.x, elementInfo.wall.curvePoint.y) : null}
-  {@const wallTop = Math.min(endpointA.y, endpointB.y, curvePoint?.y ?? Number.POSITIVE_INFINITY)}
-  {@const wallBottom = Math.max(endpointA.y, endpointB.y, curvePoint?.y ?? Number.NEGATIVE_INFINITY)}
-  {@const liveViewport = readViewport()}
-  {@const wallToolbarBelow = elementInfo.type === 'wall' && wallTop - liveViewport.top < 54}
-  {@const toolbarTop = elementInfo.type === 'wall'
-    ? (wallToolbarBelow ? wallBottom + 14 : wallTop - 14)
-    : screenPos.y - 34}
-  {@const toolbarTransform = wallToolbarBelow ? 'translate(-50%, 0)' : 'translate(-50%, -100%)'}
-
-  <span
-    data-wall-endpoint-label="A"
-    aria-hidden="true"
-    class="fixed z-30 flex h-5 w-5 items-center justify-center rounded-full border border-blue-500 bg-white text-[10px] font-bold text-blue-700 shadow-sm pointer-events-none"
-    style="left: {endpointA.x}px; top: {endpointA.y}px; transform: translate(-50%, -150%);"
-  >A</span>
-  <span
-    data-wall-endpoint-label="B"
-    aria-hidden="true"
-    class="fixed z-30 flex h-5 w-5 items-center justify-center rounded-full border border-blue-500 bg-white text-[10px] font-bold text-blue-700 shadow-sm pointer-events-none"
-    style="left: {endpointB.x}px; top: {endpointB.y}px; transform: translate(-50%, -150%);"
-  >B</span>
-
   <div
     data-quick-geometry-toolbar
-    class="fixed z-40 flex items-center gap-1 rounded-lg border border-blue-100 bg-white px-1.5 py-1 shadow-lg"
-    style="left: {screenPos.x}px; top: {toolbarTop}px; transform: {toolbarTransform}; pointer-events: auto;"
+    class="fixed top-16 left-1/2 z-40 flex -translate-x-1/2 items-center gap-1 rounded-lg border border-blue-100 bg-white px-2 py-1 shadow-lg"
   >
     {#if elementInfo.type === 'wall'}
+      <span data-wall-endpoint-label="A" class="flex h-5 w-5 items-center justify-center rounded-full border border-blue-500 text-[10px] font-bold text-blue-700">A</span>
+      <span class="text-[10px] text-gray-400">—</span>
+      <span data-wall-endpoint-label="B" class="flex h-5 w-5 items-center justify-center rounded-full border border-blue-500 text-[10px] font-bold text-blue-700">B</span>
+      <span class="mx-1 h-5 w-px bg-gray-200"></span>
       <label class="flex items-center gap-1" title={$t('wallProperties.length')}>
         <span class="text-[10px] font-semibold text-gray-500">L</span>
         <input
@@ -248,17 +130,17 @@
         />
         <span class="text-[10px] text-gray-400">{unitLabel()}</span>
       </label>
-      <span class="ml-0.5 text-[10px] text-gray-400" title={$t('wallProperties.fixed')}>⚓</span>
+      <span class="ml-1 text-[10px] text-gray-400" title={$t('wallProperties.fixed')}>⚓</span>
       <button
         data-quick-fixed-endpoint="start"
-        class="h-6 min-w-6 rounded px-1 text-[10px] font-semibold transition-colors {fixedEndpoint === 'start' ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:bg-gray-100'}"
+        class="h-6 min-w-6 rounded px-1 text-[10px] font-semibold {fixedEndpoint === 'start' ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:bg-gray-100'}"
         aria-label={`${$t('wallProperties.fixed')}: A`}
         aria-pressed={fixedEndpoint === 'start'}
         onclick={() => { fixedEndpoint = 'start'; }}
       >A</button>
       <button
         data-quick-fixed-endpoint="end"
-        class="h-6 min-w-6 rounded px-1 text-[10px] font-semibold transition-colors {fixedEndpoint === 'end' ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:bg-gray-100'}"
+        class="h-6 min-w-6 rounded px-1 text-[10px] font-semibold {fixedEndpoint === 'end' ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:bg-gray-100'}"
         aria-label={`${$t('wallProperties.fixed')}: B`}
         aria-pressed={fixedEndpoint === 'end'}
         onclick={() => { fixedEndpoint = 'end'; }}
@@ -267,6 +149,10 @@
       {@const openingWidth = elementInfo.type === 'door' ? elementInfo.door.width : elementInfo.window.width}
       {@const openingPosition = elementInfo.type === 'door' ? elementInfo.door.position : elementInfo.window.position}
       {@const parentLength = calcWallLength(elementInfo.wall)}
+      <span data-wall-endpoint-label="A" class="flex h-5 w-5 items-center justify-center rounded-full border border-blue-500 text-[10px] font-bold text-blue-700">A</span>
+      <span class="text-[10px] text-gray-400">→</span>
+      <span data-wall-endpoint-label="B" class="flex h-5 w-5 items-center justify-center rounded-full border border-blue-500 text-[10px] font-bold text-blue-700">B</span>
+      <span class="mx-1 h-5 w-px bg-gray-200"></span>
       <label class="flex items-center gap-1" title={$t('openingProperties.width')}>
         <span class="text-[10px] font-semibold text-gray-500">W</span>
         <input
