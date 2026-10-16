@@ -4,6 +4,7 @@ export interface ReconstructionExperimentMetadata {
   schemaVersion: typeof PLAN2WORLD_RECONSTRUCTION_EXPERIMENT_VERSION;
   sampleId: string;
   sourceSha256: string;
+  provider: string;
   model: string;
   promptVersion: string;
   createdAt?: string;
@@ -64,6 +65,7 @@ export function parseReconstructionExperimentMetadata(input: unknown): Reconstru
     schemaVersion: PLAN2WORLD_RECONSTRUCTION_EXPERIMENT_VERSION,
     sampleId: nonEmptyString(root.sampleId, 'experiment.sampleId'),
     sourceSha256,
+    provider: nonEmptyString(root.provider, 'experiment.provider'),
     model: nonEmptyString(root.model, 'experiment.model'),
     promptVersion: nonEmptyString(root.promptVersion, 'experiment.promptVersion'),
     createdAt,
