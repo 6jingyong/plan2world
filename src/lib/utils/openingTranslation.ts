@@ -1,5 +1,5 @@
 import type { Point, Wall } from '$lib/models/types';
-import { wallPointAt } from './canvasRenderer';
+import { wallPointAt } from './wallPath';
 import { positionOnWall } from './hitTesting';
 
 /** Translate an opening's original center, then constrain it to its host wall. */

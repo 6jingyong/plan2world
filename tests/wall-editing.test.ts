@@ -93,7 +93,8 @@ describe('connected wall dimensions', () => {
     expect(resizeWallLength(wall.id, before * 1.5, fixed)).toBeNull();
     expect(wallLength(wall)).toBeCloseTo(before * 1.5);
     expect(wall[fixed]).toEqual(anchor);
-    expect(wall.curvePoint).toEqual({ x: anchor.x + (oldControl.x - anchor.x) * 1.5, y: anchor.y + (oldControl.y - anchor.y) * 1.5 });
+    expect(wall.curvePoint!.x).toBeCloseTo(anchor.x + (oldControl.x - anchor.x) * 1.5, 12);
+    expect(wall.curvePoint!.y).toBeCloseTo(anchor.y + (oldControl.y - anchor.y) * 1.5, 12);
   });
   it('rejects a resize that would collapse a connected neighbour without partially changing the room', () => {
     floor().walls.push({ ...floor().walls[0], id: 'extension', start: { x: 400, y: 0 }, end: { x: 600, y: 0 } });

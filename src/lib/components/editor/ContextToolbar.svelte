@@ -10,6 +10,7 @@
   } from '$lib/stores/project';
   import { projectSettings, parseLengthInput } from '$lib/stores/settings';
   import { wallLength as calcWallLength, MIN_WALL_LENGTH, type WallEndpoint } from '$lib/utils/wallEditing';
+  import { wallPathProfile } from '$lib/utils/wallPath';
 
   let fixedEndpoint = $state<WallEndpoint>('start');
 
@@ -89,16 +90,18 @@
   function onQuickOpeningDistanceA(event: Event) {
     if (!elementInfo || (elementInfo.type !== 'door' && elementInfo.type !== 'window')) return;
     const input = event.currentTarget as HTMLInputElement;
-    const length = calcWallLength(elementInfo.wall);
+    const path = wallPathProfile(elementInfo.wall);
+    const length = path.length;
     const position = elementInfo.type === 'door' ? elementInfo.door.position : elementInfo.window.position;
-    const current = length * position;
+    const current = path.distanceAt(position);
     const value = inputToCm(input.valueAsNumber);
     if (!input.value.trim() || !input.validity.valid || !Number.isFinite(value) || value < 0 || value > length || length <= 0) {
       restoreInput(input, current);
       return;
     }
-    if (elementInfo.type === 'door') updateDoor(elementInfo.id, { position: value / length });
-    else updateWindow(elementInfo.id, { position: value / length });
+    if (input.valueAsNumber === displayValue(current)) return;
+    if (elementInfo.type === 'door') updateDoor(elementInfo.id, { position: path.positionAt(value) });
+    else updateWindow(elementInfo.id, { position: path.positionAt(value) });
     restoreInput(input, value);
   }
 
@@ -148,7 +151,7 @@
     {:else}
       {@const openingWidth = elementInfo.type === 'door' ? elementInfo.door.width : elementInfo.window.width}
       {@const openingPosition = elementInfo.type === 'door' ? elementInfo.door.position : elementInfo.window.position}
-      {@const parentLength = calcWallLength(elementInfo.wall)}
+      {@const path = wallPathProfile(elementInfo.wall)}
       <span class="flex h-5 w-5 items-center justify-center rounded-full border border-blue-500 text-[10px] font-bold text-blue-700">A</span>
       <span class="text-[10px] text-gray-400">→</span>
       <span class="flex h-5 w-5 items-center justify-center rounded-full border border-blue-500 text-[10px] font-bold text-blue-700">B</span>
@@ -174,8 +177,8 @@
           type="number"
           step="any"
           min="0"
-          max={displayValue(parentLength)}
-          value={displayValue(parentLength * openingPosition)}
+          max={displayValue(path.length)}
+          value={displayValue(path.distanceAt(openingPosition))}
           aria-label={`A→ · ${$t('openingProperties.fromA')} (${unitLabel()})`}
           class="w-14 rounded border border-gray-200 px-1.5 py-1 text-xs tabular-nums"
           onblur={onQuickOpeningDistanceA}

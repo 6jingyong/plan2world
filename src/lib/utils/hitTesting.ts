@@ -9,7 +9,7 @@ import type { Point, Wall, Door, Window as Win, FurnitureItem, Stair, Column, Fl
 import type { Room } from '$lib/models/types';
 import { getFurnitureSize } from '$lib/utils/furnitureCatalog';
 import { getRoomPolygon, roomLabelPosition } from '$lib/utils/roomDetection';
-import { wallPointAt, wallTangentAt } from '$lib/utils/canvasRenderer';
+import { wallPointAt, wallTangentAt } from '$lib/utils/wallPath';
 import type { HandleType } from '$lib/utils/canvasInteraction';
 import { projectOntoWall } from './wallProjection';
 

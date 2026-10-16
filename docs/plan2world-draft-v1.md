@@ -75,6 +75,8 @@ Doors and windows reference a wall by ID and use a normalized position along tha
 
 `position = 0` is the wall start and `position = 1` is the wall end. For a curved wall, position follows the quadratic wall parameter from start to end; the editor converts that parameter to the curved path for physical opening width. Import validation must reject openings whose `wallId` does not exist.
 
+Editor distances from A/B measure from the wall endpoint to the opening centre along the shared wall path. They use the same 16-span curved path as the 3D aperture geometry, rather than multiplying length by the Bezier parameter. Editing a distance converts it back to `position`; the saved contract remains parameter-based. Curved length readouts and resizing use this same metric.
+
 ## Furniture
 
 Furniture is optional during reconstruction. If the source plan clearly contains furniture symbols, an agent may emit hints using catalog IDs. The user should remain free to delete or replace them.

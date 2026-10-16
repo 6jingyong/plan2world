@@ -19,8 +19,8 @@
   import { selectSingleElement, activeFloor, elevationWallId, selectedElementId, selectedRoomId, updateDoor, updateWindow, beginUndoGroup, endUndoGroup } from '$lib/stores/project';
   import { projectSettings, formatLength } from '$lib/stores/settings';
   import type { Door, Window as Win } from '$lib/models/types';
-  import { openingOnWall } from '$lib/utils/wallProfiles';
-  import { getWallStartHeight, getWallEndHeight, getWallHeightAt } from '$lib/models/types';
+  import { pathOpening, wallPathProfile } from '$lib/utils/wallProfiles';
+  import { getWallStartHeight, getWallEndHeight } from '$lib/models/types';
 
   const DEFAULT_WALL_HEIGHT = 240; // cm — fallback when a wall has no height
   const DEFAULT_DOOR_HEIGHT = 210; // cm
@@ -55,23 +55,12 @@
     return f.windows.filter((w) => w.wallId === wall!.id);
   });
 
-  /** Wall length in cm (samples curved walls like the properties panel does) */
-  let wallLen = $derived.by(() => {
-    if (!wall) return 0;
-    if (wall.curvePoint) {
-      let len = 0;
-      let px = wall.start.x, py = wall.start.y;
-      for (let i = 1; i <= 32; i++) {
-        const t = i / 32, mt = 1 - t;
-        const nx = mt * mt * wall.start.x + 2 * mt * t * wall.curvePoint.x + t * t * wall.end.x;
-        const ny = mt * mt * wall.start.y + 2 * mt * t * wall.curvePoint.y + t * t * wall.end.y;
-        len += Math.hypot(nx - px, ny - py);
-        px = nx; py = ny;
-      }
-      return len;
-    }
-    return Math.hypot(wall.end.x - wall.start.x, wall.end.y - wall.start.y);
+  // Use the same physical path metric as plan correction and 3D apertures.
+  let path = $derived.by(() => {
+    const liveWall = $activeFloor?.walls.find(wall => wall.id === $elevationWallId);
+    return liveWall ? wallPathProfile(liveWall) : null;
   });
+  let wallLen = $derived(path?.length ?? 0);
 
   let startH = $derived(wall ? getWallStartHeight(wall) : DEFAULT_WALL_HEIGHT);
   let endH = $derived(wall ? getWallEndHeight(wall) : DEFAULT_WALL_HEIGHT);
@@ -181,12 +170,12 @@
   }
 
   function openingRects(): OpeningRect[] {
-    if (!wall) return [];
+    if (!wall || !path) return [];
     const rects: OpeningRect[] = [];
     for (const [kind, items] of [['door', doors], ['window', windows]] as const) {
       for (const item of items) {
         const bottom = kind === 'door' ? 0 : (item as Win).sillHeight ?? DEFAULT_SILL;
-        const rect = openingOnWall(wallLen, startH, endH, item.position, item.width, bottom, item.height ?? DEFAULT_DOOR_HEIGHT);
+        const rect = pathOpening(path, path.distanceAt(item.position), item.width, bottom, item.height ?? DEFAULT_DOOR_HEIGHT);
         if (rect) rects.push({ id: item.id, kind, x: rect.left, y: rect.bottom, w: rect.right - rect.left, h: rect.top - rect.bottom });
       }
     }
@@ -204,14 +193,13 @@
     return null;
   }
 
-  /** Clamp an opening's center position t so it stays inside the wall,
-   *  matching the 2D editor's positionOnWall() clamp of [0.1, 0.9]. */
-  function clampPosition(t: number, width: number): number {
-    const half = width / 2 / Math.max(1, wallLen);
-    let lo = Math.max(0.1, half);
-    let hi = Math.min(0.9, 1 - half);
-    if (lo > hi) { lo = 0.5; hi = 0.5; }
-    return Math.max(lo, Math.min(hi, t));
+  /** Clamp physical clearance while retaining the plan editor's parameter limits. */
+  function clampPosition(distance: number, width: number): number {
+    if (!path || path.length <= 0) return 0.5;
+    let lo = Math.max(path.distanceAt(0.1), width / 2);
+    let hi = Math.min(path.distanceAt(0.9), path.length - width / 2);
+    if (lo > hi) lo = hi = path.length / 2;
+    return path.positionAt(Math.max(lo, Math.min(hi, distance)));
   }
 
   // ── Drag state ────────────────────────────────────────────────────
@@ -233,7 +221,7 @@
   }
 
   function onPointerDown(e: PointerEvent) {
-    if (!wall || !geom) return;
+    if (!wall || !path || !geom) return;
     e.preventDefault();
     const p = toWallCoords(e);
     if (!p) return;
@@ -263,7 +251,7 @@
   }
 
   function onPointerMove(e: PointerEvent) {
-    if (!wall || !geom) return;
+    if (!wall || !path || !geom) return;
     if (drag) {
       const dxCm = (e.offsetX - drag.startPx) / geom.scale;
       const dyCm = (drag.startPy - e.offsetY) / geom.scale; // up is positive
@@ -273,12 +261,12 @@
         beginUndoGroup();
         drag.grouped = true;
       }
-      const newPos = clampPosition(drag.startPos + dxCm / Math.max(1, wallLen), drag.width);
+      const newPos = clampPosition(path.distanceAt(drag.startPos) + dxCm, drag.width);
       if (drag.kind === 'door') {
         updateDoor(drag.id, { position: newPos });
       } else {
-        const half = drag.width / 2 / wallLen;
-        const currentWallH = Math.min(getWallHeightAt(wall, newPos - half), getWallHeightAt(wall, newPos + half));
+        const center = path.distanceAt(newPos);
+        const currentWallH = Math.min(path.sample(center - drag.width / 2).height, path.sample(center + drag.width / 2).height);
         const maxSill = Math.max(0, currentWallH - drag.winH);
         // Preserve the exact fractional clearance after snapping the requested height.
         const newSill = Math.max(0, Math.min(maxSill, Math.round(drag.startSill + dyCm)));
@@ -366,7 +354,8 @@
     if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, cw, ch);
-    if (!wall || !g) return;
+    const profile = path;
+    if (!wall || !g || !profile) return;
 
     const { scale, ox, floorY } = g;
     const xAt = (cm: number) => ox + cm * scale;
@@ -375,31 +364,31 @@
     const yStart = yAt(startH);
     const yEnd = yAt(endH);
 
-    // Wall face (trapezoid polygon)
+    // Unfold the shared span heights along physical path distance.
     ctx.fillStyle = '#f8fafc';
-    ctx.beginPath();
-    ctx.moveTo(ox, floorY);
-    ctx.lineTo(wallRight, floorY);
-    ctx.lineTo(wallRight, yEnd);
-    ctx.lineTo(ox, yStart);
-    ctx.closePath();
+    const traceWallFace = () => {
+      ctx.beginPath();
+      ctx.moveTo(ox, floorY);
+      ctx.lineTo(wallRight, floorY);
+      for (const span of [...profile.spans].reverse()) {
+        ctx.lineTo(xAt(span.to), yAt(span.endHeight));
+      }
+      ctx.lineTo(ox, yStart);
+      ctx.closePath();
+    };
+    traceWallFace();
     ctx.fill();
 
     // 0.5 m grid (light), clipped to the wall face polygon
     ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(ox, floorY);
-    ctx.lineTo(wallRight, floorY);
-    ctx.lineTo(wallRight, yEnd);
-    ctx.lineTo(ox, yStart);
-    ctx.closePath();
+    traceWallFace();
     ctx.clip();
     ctx.strokeStyle = '#e2e8f0';
     ctx.lineWidth = 1;
     ctx.beginPath();
     for (let x = GRID_STEP; x < wallLen; x += GRID_STEP) {
       ctx.moveTo(xAt(x), floorY);
-      ctx.lineTo(xAt(x), yAt(getWallHeightAt(wall, x / wallLen)));
+      ctx.lineTo(xAt(x), yAt(profile.sample(x).height));
     }
     for (let y = GRID_STEP; y < maxH; y += GRID_STEP) {
       ctx.moveTo(ox, yAt(y));
@@ -448,12 +437,7 @@
     // Wall outline + heavier floor line
     ctx.strokeStyle = '#475569';
     ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(ox, floorY);
-    ctx.lineTo(wallRight, floorY);
-    ctx.lineTo(wallRight, yEnd);
-    ctx.lineTo(ox, yStart);
-    ctx.closePath();
+    traceWallFace();
     ctx.stroke();
 
     ctx.strokeStyle = '#1e293b';
