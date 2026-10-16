@@ -29,7 +29,7 @@ test('inline correction controls edit wall and opening geometry through the cano
   await expect(wallLength).toHaveValue('650.5');
 
   // Door: width and source-wall A offset are available beside the selected opening.
-  await page.getByRole('button', { name: /doorway door 1/i }).click();
+  await page.getByRole('button', { name: /opening door 1/i }).click();
   const doorWidth = page.locator('[data-quick-opening-width]');
   const doorOffset = page.locator('[data-quick-opening-offset-a]');
   await expect(doorWidth).toHaveValue('90.5');
