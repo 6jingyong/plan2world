@@ -7,7 +7,8 @@
       "rasterRedistributed": false,
       "failureMode": "decorated rectilinear apartment with furniture, textures, room labels, balconies and dense dimension chains",
       "historicalCandidate": "decorated-yj215-gpt56-sol-historical.json",
-      "referenceStatus": "pending"
+      "reference": "decorated-yj215-reference.json",
+      "referenceStatus": "partial"
     },
     {
       "id": "one-hyde-park",
@@ -15,7 +16,8 @@
       "rasterRedistributed": false,
       "failureMode": "very large full-floor apartment with diagonal perimeter, dense service partitions and extensive annotations",
       "historicalCandidate": "one-hyde-park-gpt56-sol-historical.json",
-      "referenceStatus": "pending"
+      "reference": "one-hyde-park-reference.json",
+      "referenceStatus": "partial"
     },
     {
       "id": "curved-lianjia",
