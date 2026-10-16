@@ -76,6 +76,13 @@ for (const kind of ['stair','column','text','endpoint','parallel','curve','room'
       await page.getByRole('button',{name:'Redo',exact:true}).click();
     }
     const moved=await exported(); expect(moved[key]).not.toEqual(floor[key]);
+    if (['endpoint','parallel','curve','room'].includes(kind)) {
+      // Every linked corner must survive the real canvas drag, including after
+      // an interrupted gesture is replayed. The named room remains editable.
+      moved.walls.forEach((wall: any, i: number) => expect(wall.end).toEqual(moved.walls[(i+1)%moved.walls.length].start));
+      expect(moved.rooms[0]).toMatchObject({ id: 'qa-named-room', name: 'Kitchen & Dining' });
+      await expect(page.getByRole('application')).toContainText('1 room');
+    }
     await page.getByRole('button',{name:'Undo',exact:true}).click();
     const undone=await exported();
     for(const key of ['walls','stairs','columns','textAnnotations']) expect(undone[key]).toEqual(floor[key]);

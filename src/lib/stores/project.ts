@@ -623,32 +623,53 @@ export function removeElement(id: string) {
   }, 'Deleted element');
 }
 
-/** Move a wall endpoint without creating an undo snapshot (for dragging) */
-export function moveWallEndpoint(id: string, endpoint: 'start' | 'end', position: Point) {
-  const p = get(currentProject);
-  if (!p) return;
-  const floor = p.floors.find((f) => f.id === p.activeFloorId);
-  if (!floor) return;
-  const w = floor.walls.find((w) => w.id === id);
-  if (w) {
-    w[endpoint] = position;
-    p.updatedAt = new Date();
-    currentProject.set({ ...p });
+export type WallDragChange = { wallId: string } & Partial<Pick<Wall, 'start' | 'end' | 'curvePoint'>>;
+
+/** Publish a complete wall-drag step once; the canvas owns the gesture's Undo group. */
+export function moveWallsDuringDrag(changes: readonly WallDragChange[]): boolean {
+  if (!changes.length) return false;
+  const project = get(currentProject);
+  const floor = project?.floors.find(floor => floor.id === project.activeFloorId);
+  if (!project || !floor) return false;
+  const walls = new Map(floor.walls.map(wall => [wall.id, wall]));
+  const planned = new Map<string, Partial<Pick<Wall, 'start' | 'end' | 'curvePoint'>>>();
+  // Copy and validate every target before touching the live project. Multiple
+  // endpoint changes for one wall must merge rather than overwrite each other.
+  for (const change of changes) {
+    if (!walls.has(change.wallId)) return false;
+    const updates = planned.get(change.wallId) ?? {};
+    for (const key of ['start', 'end', 'curvePoint'] as const) {
+      if (!(key in change)) continue;
+      const point = change[key];
+      if (key === 'curvePoint' && point === undefined) updates.curvePoint = undefined;
+      else {
+        if (!finitePoint(point)) return false;
+        updates[key] = { ...point };
+      }
+    }
+    planned.set(change.wallId, updates);
   }
+  const moved = [...planned].filter(([id, updates]) => {
+    const wall = walls.get(id)!;
+    return (Object.keys(updates) as Array<'start' | 'end' | 'curvePoint'>).some(key =>
+      wall[key]?.x !== updates[key]?.x || wall[key]?.y !== updates[key]?.y);
+  });
+  if (!moved.length) return false;
+  for (const [id, updates] of moved) Object.assign(walls.get(id)!, updates);
+  project.updatedAt = new Date();
+  currentProject.set({ ...project });
+  return true;
+}
+
+/** Move one endpoint; joined drags submit all affected endpoints in a single batch. */
+export function moveWallEndpoint(id: string, endpoint: 'start' | 'end', position: Point) {
+  moveWallsDuringDrag([{ wallId: id, [endpoint]: position }]);
 }
 
 /** Translate wall geometry during a drag; the canvas owns the Undo group. */
 export function moveWallGeometryDuringDrag(id: string, geometry: Pick<Wall, 'start' | 'end' | 'curvePoint'>) {
-  if (!finitePoint(geometry.start) || !finitePoint(geometry.end) ||
-    (geometry.curvePoint !== undefined && !finitePoint(geometry.curvePoint))) return;
-  const project = get(currentProject);
-  const wall = project?.floors.find(floor => floor.id === project.activeFloorId)?.walls.find(wall => wall.id === id);
-  if (!project || !wall) return;
-  wall.start = { ...geometry.start };
-  wall.end = { ...geometry.end };
-  if (geometry.curvePoint) wall.curvePoint = { ...geometry.curvePoint };
-  project.updatedAt = new Date();
-  currentProject.set({ ...project });
+  moveWallsDuringDrag([{ wallId: id, start: geometry.start, end: geometry.end,
+    ...(geometry.curvePoint !== undefined ? { curvePoint: geometry.curvePoint } : {}) }]);
 }
 
 /** Resize joined corners atomically. Openings keep their normalized wall positions. */
@@ -1043,20 +1064,13 @@ export function duplicateFurniture(id: string): string | null {
 
 /** Move a wall parallel to itself (both endpoints shift by the same perpendicular offset) without undo snapshot (for dragging) */
 export function moveWallParallel(id: string, dx: number, dy: number) {
-  const p = get(currentProject);
-  if (!p) return;
-  const floor = p.floors.find((f) => f.id === p.activeFloorId);
-  if (!floor) return;
-  const w = floor.walls.find((w) => w.id === id);
-  if (w) {
-    w.start = { x: w.start.x + dx, y: w.start.y + dy };
-    w.end = { x: w.end.x + dx, y: w.end.y + dy };
-    if (w.curvePoint) {
-      w.curvePoint = { x: w.curvePoint.x + dx, y: w.curvePoint.y + dy };
-    }
-    p.updatedAt = new Date();
-    currentProject.set({ ...p });
-  }
+  const wall = get(activeFloor)?.walls.find(wall => wall.id === id);
+  if (!wall) return;
+  moveWallGeometryDuringDrag(id, {
+    start: { x: wall.start.x + dx, y: wall.start.y + dy },
+    end: { x: wall.end.x + dx, y: wall.end.y + dy },
+    curvePoint: wall.curvePoint ? { x: wall.curvePoint.x + dx, y: wall.curvePoint.y + dy } : undefined,
+  });
 }
 
 /** An opening belongs to one wall, so a split cannot cross its interior. */
