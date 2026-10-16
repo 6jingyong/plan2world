@@ -25,7 +25,8 @@
       "rasterRedistributed": false,
       "failureMode": "dominant curved exterior facade plus metric dimension chains and dense room labels",
       "historicalCandidate": "curved-lianjia-gpt56-sol-historical.json",
-      "referenceStatus": "pending"
+      "reference": "curved-lianjia-reference.json",
+      "referenceStatus": "partial"
     },
     {
       "id": "black-hidden-doors",
