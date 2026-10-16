@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "plan2world-source-reference-v1",
+  "source": {
+    "width": 1536,
+    "height": 1026,
+    "sha256": "aa86ba3b8262fd736cd13b98038e265f1733503537f00e1247fc6bc44b987ed7"
+  },
+  "walls": {
+    "coverage": "partial",
+    "items": [
+      {"id":"landmark-left-envelope","points":[{"x":0.1614583333,"y":0.3323586745},{"x":0.1614583333,"y":0.7787524366}]},
+      {"id":"landmark-upper-left-spine","points":[{"x":0.3209635417,"y":0.3304093567},{"x":0.3209635417,"y":0.485380117}]},
+      {"id":"landmark-upper-mid-spine","points":[{"x":0.51171875,"y":0.3011695906},{"x":0.51171875,"y":0.485380117}]},
+      {"id":"landmark-kitchen-left","points":[{"x":0.6341145833,"y":0.1754385965},{"x":0.6341145833,"y":0.3011695906}]},
+      {"id":"landmark-kitchen-top","points":[{"x":0.6341145833,"y":0.1754385965},{"x":0.7337239583,"y":0.1754385965}]},
+      {"id":"landmark-kitchen-right","points":[{"x":0.7337239583,"y":0.1754385965},{"x":0.7337239583,"y":0.4834307992}]},
+      {"id":"landmark-right-bedroom-envelope","points":[{"x":0.8763020833,"y":0.485380117},{"x":0.8763020833,"y":0.7787524366}]},
+      {"id":"landmark-right-bedroom-left","points":[{"x":0.6907552083,"y":0.5750487329},{"x":0.6907552083,"y":0.7787524366}]},
+      {"id":"landmark-study-left","points":[{"x":0.3046875,"y":0.5458089669},{"x":0.3046875,"y":0.7787524366}]},
+      {"id":"landmark-study-right","points":[{"x":0.4205729167,"y":0.5458089669},{"x":0.4205729167,"y":0.7787524366}]},
+      {"id":"landmark-south-left","points":[{"x":0.1614583333,"y":0.7797270955},{"x":0.4205729167,"y":0.7797270955}]},
+      {"id":"landmark-south-center","points":[{"x":0.4205729167,"y":0.7797270955},{"x":0.689453125,"y":0.7797270955}]},
+      {"id":"landmark-south-right","points":[{"x":0.6907552083,"y":0.7787524366},{"x":0.8763020833,"y":0.7787524366}]},
+      {"id":"landmark-dining-north","points":[{"x":0.51171875,"y":0.3011695906},{"x":0.7337239583,"y":0.3011695906}]},
+      {"id":"landmark-upper-left-bottom","points":[{"x":0.1614583333,"y":0.4863547758},{"x":0.2552083333,"y":0.4863547758}]},
+      {"id":"landmark-upper-mid-bottom","points":[{"x":0.3216145833,"y":0.4863547758},{"x":0.41796875,"y":0.4863547758}]},
+      {"id":"landmark-upper-right-wet-bottom","points":[{"x":0.4498697917,"y":0.4863547758},{"x":0.51171875,"y":0.4863547758}]}
+    ]
+  },
+  "doors": {"coverage":"none","items":[]},
+  "windows": {"coverage":"none","items":[]},
+  "notes": [
+    "Partial high-confidence wall-centerline landmarks only; furniture, cabinetry, labels, dimensions and balcony furniture are excluded.",
+    "Long exterior/window runs are represented on their architectural wall centerline; obvious door/window gaps do not split a landmark.",
+    "Three short upper-room bottom runs are kept separate so the open circulation gaps between them are not scored as walls.",
+    "Door/window and room-count annotations remain intentionally unscored."
+  ]
+}
