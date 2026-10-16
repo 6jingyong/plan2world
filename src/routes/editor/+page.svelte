@@ -121,8 +121,7 @@
   viewMode.subscribe((m) => {
     mode = m;
     if (m === '3d') {
-      // Clear selection when entering 3D — start in view-only mode
-      selectedElementId.set(null);
+      // Preserve primary element focus so 3D can verify the geometry just edited in plan view.
       selectedRoomId.set(null);
       elevationPickMode.set(false);
       // Onboarding tip for first 3D view
@@ -549,6 +548,6 @@
       <p class="font-semibold">{$t('editorRecovery.failed')}</p>
       <p>{importError instanceof CaptureImportError ? $t(importError.key, importError.variables) : importError}</p>
     </div>
-    <button class="text-red-400 hover:text-red-600 text-lg leading-none" onclick={() => importError = null} aria-label={$t('editorRecovery.dismiss')}>✕</button>
+    <button class="text-red-400 hover:text-red-600 text-xl leading-none" onclick={() => importError = null} aria-label={$t('editorRecovery.dismiss')}>✕</button>
   </div>
 {/if}
