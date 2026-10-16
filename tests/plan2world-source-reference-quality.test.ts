@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import blackCandidate from './fixtures/real-floorplans/hard-corpus/black-hidden-doors-gpt56-sol-historical.json';
 import blackReference from './fixtures/real-floorplans/hard-corpus/black-hidden-doors-reference.json';
+import yjCandidate from './fixtures/real-floorplans/hard-corpus/decorated-yj215-gpt56-sol-historical.json';
+import yjReference from './fixtures/real-floorplans/hard-corpus/decorated-yj215-reference.json';
+import hydeCandidate from './fixtures/real-floorplans/hard-corpus/one-hyde-park-gpt56-sol-historical.json';
+import hydeReference from './fixtures/real-floorplans/hard-corpus/one-hyde-park-reference.json';
 import { scoreReconstructionAgainstSourceReference } from '$lib/plan2world/sourceReferenceQuality';
 
 const source = { dataUrl: 'data:image/png;base64,AA==', width: 100, height: 100 };
@@ -52,6 +56,30 @@ const completeSquareReference = {
   windows: { coverage: 'complete', items: [] },
   roomCount: 1,
 } as const;
+
+const yjGeometryOnlyCandidate = {
+  ...yjCandidate,
+  sourceRegistration: {
+    floorId: 'floor-0',
+    confidence: 1,
+    anchors: [
+      { wallId: 'w1', endpoint: 'start', image: { x: 248 / 1536, y: 341 / 1026 } },
+      { wallId: 'w12', endpoint: 'end', image: { x: 1346 / 1536, y: 799 / 1026 } },
+    ],
+  },
+};
+
+const hydeGeometryOnlyCandidate = {
+  ...hydeCandidate,
+  sourceRegistration: {
+    floorId: 'floor-0',
+    confidence: 1,
+    anchors: [
+      { wallId: 'w1', endpoint: 'start', image: { x: 470 / 1086, y: 72 / 1536 } },
+      { wallId: 'w12', endpoint: 'end', image: { x: 470 / 1086, y: 1397 / 1536 } },
+    ],
+  },
+};
 
 describe('source-space reconstruction quality', () => {
   it('scores a complete perfect source reference bidirectionally', () => {
@@ -117,6 +145,66 @@ describe('source-space reconstruction quality', () => {
 
     console.info('Plan2World hard-corpus source score', JSON.stringify({
       sample: 'black-hidden-doors',
+      walls: report.walls,
+      topology: report.topology,
+    }));
+  });
+
+  it('keeps invalid historical registration visible for YJ215 and One Hyde Park', () => {
+    expect(() => scoreReconstructionAgainstSourceReference(
+      yjCandidate,
+      yjReference,
+      { dataUrl: 'data:image/jpeg;base64,AA==', width: 1536, height: 1026 },
+    )).toThrow(/source registration is inconsistent/);
+
+    expect(() => scoreReconstructionAgainstSourceReference(
+      hydeCandidate,
+      hydeReference,
+      { dataUrl: 'data:image/jpeg;base64,AA==', width: 1086, height: 1536 },
+    )).toThrow(/source registration is inconsistent/);
+  });
+
+  it('scores YJ215 geometry separately under a two-anchor benchmark normalization', () => {
+    const report = scoreReconstructionAgainstSourceReference(
+      yjGeometryOnlyCandidate,
+      yjReference,
+      { dataUrl: 'data:image/jpeg;base64,AA==', width: 1536, height: 1026 },
+    );
+
+    expect(report.walls?.annotationCoverage).toBe('partial');
+    expect(report.walls?.recall).toBeGreaterThan(0.25);
+    expect(report.walls?.recall).toBeLessThan(0.5);
+    expect(report.walls?.referenceToCandidate.p95ErrorPx).toBeGreaterThan(50);
+    expect(report.walls?.precision).toBeNull();
+    expect(report.doors).toBeNull();
+    expect(report.windows).toBeNull();
+
+    console.info('Plan2World hard-corpus source score', JSON.stringify({
+      sample: 'decorated-yj215',
+      mode: 'two-anchor-geometry-only',
+      walls: report.walls,
+      topology: report.topology,
+    }));
+  });
+
+  it('scores One Hyde Park geometry separately under a two-anchor benchmark normalization', () => {
+    const report = scoreReconstructionAgainstSourceReference(
+      hydeGeometryOnlyCandidate,
+      hydeReference,
+      { dataUrl: 'data:image/jpeg;base64,AA==', width: 1086, height: 1536 },
+    );
+
+    expect(report.walls?.annotationCoverage).toBe('partial');
+    expect(report.walls?.recall).toBeGreaterThan(0.15);
+    expect(report.walls?.recall).toBeLessThan(0.35);
+    expect(report.walls?.referenceToCandidate.p95ErrorPx).toBeGreaterThan(30);
+    expect(report.walls?.precision).toBeNull();
+    expect(report.doors).toBeNull();
+    expect(report.windows).toBeNull();
+
+    console.info('Plan2World hard-corpus source score', JSON.stringify({
+      sample: 'one-hyde-park',
+      mode: 'two-anchor-geometry-only',
       walls: report.walls,
       topology: report.topology,
     }));
