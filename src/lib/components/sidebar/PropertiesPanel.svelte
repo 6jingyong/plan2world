@@ -14,7 +14,7 @@
 
   import { selectSingleElement, currentProject, activeFloor, selectedElementId, selectedRoomId, updateWall, resizeWallLength, reverseWall, updateDoor, updateWindow, updateRoom, updateFurniture, detectedRoomsStore, updateStair, updateColumn, updateBackgroundImage, setBackgroundImage, calibrationMode, calibrationPoints, updateTextAnnotation, toggleFurnitureLock, updateEntourageItem, removeElement, elevationWallId } from '$lib/stores/project';
   import { wallLength as calcWallLength, MIN_WALL_LENGTH, type WallEndpoint } from '$lib/utils/wallEditing';
-  import { openingOnWall } from '$lib/utils/wallProfiles';
+  import { pathOpening, wallPathProfile } from '$lib/utils/wallProfiles';
   import { getEntourageDef } from '$lib/utils/entourageCatalog';
   import { floorMaterials, wallColors } from '$lib/utils/materials';
   import { getCatalogItem } from '$lib/utils/furnitureCatalog';
@@ -60,23 +60,25 @@
     ? resolveRooms(floor, detectedRooms).find(r => r.id === selRoomId) ?? null
     : null);
 
-  // Helper to get the parent wall for selected door/window
-  let selectedDoorWall = $derived((selectedDoor && floor?.walls?.find(w => w.id === selectedDoor.wallId)) ?? null);
-  let selectedWindowWall = $derived((selectedWindow && floor?.walls?.find(w => w.id === selectedWindow.wallId)) ?? null);
-
   let wallLength = $derived(selectedWall ? Math.round(calcWallLength(selectedWall) * 1000) / 1000 : 0);
   let fixedEndpoint = $state<WallEndpoint>('start');
   let wallLengthError = $state<string | null>(null);
   let invalidWallLength = $state(false);
   $effect(() => { void selId; fixedEndpoint = 'start'; wallLengthError = null; invalidWallLength = false; });
 
-  // Calculate door distances
-  let doorDistFromA = $derived(selectedDoor && selectedDoorWall ? calcWallLength(selectedDoorWall) * selectedDoor.position : 0);
-  let doorDistFromB = $derived(selectedDoor && selectedDoorWall ? calcWallLength(selectedDoorWall) * (1 - selectedDoor.position) : 0);
-
-  // Calculate window distances  
-  let windowDistFromA = $derived(selectedWindow && selectedWindowWall ? calcWallLength(selectedWindowWall) * selectedWindow.position : 0);
-  let windowDistFromB = $derived(selectedWindow && selectedWindowWall ? calcWallLength(selectedWindowWall) * (1 - selectedWindow.position) : 0);
+  // Read the live floor so in-place wall edits also refresh the path profile.
+  let doorPath = $derived.by(() => {
+    const wall = $activeFloor?.walls.find(wall => wall.id === selectedDoor?.wallId);
+    return wall ? wallPathProfile(wall) : null;
+  });
+  let windowPath = $derived.by(() => {
+    const wall = $activeFloor?.walls.find(wall => wall.id === selectedWindow?.wallId);
+    return wall ? wallPathProfile(wall) : null;
+  });
+  let doorDistFromA = $derived(selectedDoor && doorPath ? doorPath.distanceAt(selectedDoor.position) : 0);
+  let doorDistFromB = $derived(doorPath ? doorPath.length - doorDistFromA : 0);
+  let windowDistFromA = $derived(selectedWindow && windowPath ? windowPath.distanceAt(selectedWindow.position) : 0);
+  let windowDistFromB = $derived(windowPath ? windowPath.length - windowDistFromA : 0);
 
   function onWallLength(e: Event) {
     if (!selectedWall) return;
@@ -131,10 +133,10 @@
   let clippedOpenings = $derived.by(() => {
     if (!selectedWall || !floor) return false;
     const wall = selectedWall;
-    const length = Math.hypot(wall.end.x - wall.start.x, wall.end.y - wall.start.y);
+    const path = wallPathProfile(wall);
     return [...floor.doors.filter(d => d.wallId === wall.id).map(d => ({ ...d, bottom: 0 })),
       ...floor.windows.filter(w => w.wallId === wall.id).map(w => ({ ...w, bottom: w.sillHeight ?? 90 }))].some(item => {
-      const rect = openingOnWall(length, getWallStartHeight(wall), getWallEndHeight(wall), item.position, item.width, item.bottom, item.height);
+      const rect = pathOpening(path, path.distanceAt(item.position), item.width, item.bottom, item.height);
       return !rect || rect.right - rect.left < item.width - 0.01 || rect.top - rect.bottom < item.height - 0.01;
     });
   });
@@ -224,32 +226,28 @@
 
   // Door distance handlers
   function onDoorDistFromA(e: Event) {
-    if (!selectedDoor || !selectedDoorWall) return;
-    const length = calcWallLength(selectedDoorWall);
-    if (!Number.isFinite(length) || length <= 0) return;
-    dimensionInput(e, length * selectedDoor.position, value => updateDoor(selectedDoor!.id, { position: value / length }), true, length);
+    const path = doorPath;
+    if (!selectedDoor || !path || !Number.isFinite(path.length) || path.length <= 0) return;
+    dimensionInput(e, doorDistFromA, value => updateDoor(selectedDoor!.id, { position: path.positionAt(value) }), true, path.length);
   }
   
   function onDoorDistFromB(e: Event) {
-    if (!selectedDoor || !selectedDoorWall) return;
-    const length = calcWallLength(selectedDoorWall);
-    if (!Number.isFinite(length) || length <= 0) return;
-    dimensionInput(e, length * (1 - selectedDoor.position), value => updateDoor(selectedDoor!.id, { position: 1 - value / length }), true, length);
+    const path = doorPath;
+    if (!selectedDoor || !path || !Number.isFinite(path.length) || path.length <= 0) return;
+    dimensionInput(e, doorDistFromB, value => updateDoor(selectedDoor!.id, { position: path.positionAt(path.length - value) }), true, path.length);
   }
 
   // Window distance handlers
   function onWindowDistFromA(e: Event) {
-    if (!selectedWindow || !selectedWindowWall) return;
-    const length = calcWallLength(selectedWindowWall);
-    if (!Number.isFinite(length) || length <= 0) return;
-    dimensionInput(e, length * selectedWindow.position, value => updateWindow(selectedWindow!.id, { position: value / length }), true, length);
+    const path = windowPath;
+    if (!selectedWindow || !path || !Number.isFinite(path.length) || path.length <= 0) return;
+    dimensionInput(e, windowDistFromA, value => updateWindow(selectedWindow!.id, { position: path.positionAt(value) }), true, path.length);
   }
   
   function onWindowDistFromB(e: Event) {
-    if (!selectedWindow || !selectedWindowWall) return;
-    const length = calcWallLength(selectedWindowWall);
-    if (!Number.isFinite(length) || length <= 0) return;
-    dimensionInput(e, length * (1 - selectedWindow.position), value => updateWindow(selectedWindow!.id, { position: 1 - value / length }), true, length);
+    const path = windowPath;
+    if (!selectedWindow || !path || !Number.isFinite(path.length) || path.length <= 0) return;
+    dimensionInput(e, windowDistFromB, value => updateWindow(selectedWindow!.id, { position: path.positionAt(path.length - value) }), true, path.length);
   }
   let detailTarget = $derived.by((): DetailTarget | null => {
     if (!floor) return null;

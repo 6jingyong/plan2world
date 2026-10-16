@@ -7,6 +7,7 @@
   import { selectSingleElement, selectElements, removeRoom, reorderFurniture } from '$lib/stores/project';
   import { selectionContentBounds } from '$lib/utils/selectionContentBounds';
   import { planContentBounds, hasPlanContent } from '$lib/utils/planContentBounds';
+  import { wallPointAt, wallTangentAt } from '$lib/utils/wallPath';
   import { connectedWallEndpoints } from '$lib/utils/wallEditing';
   import { createDrawScheduler } from '$lib/utils/drawScheduler';
   import { activeFloor, selectedTool, selectedElementId, selectedElementIds, selectedRoomId, addWall, addDoor, addWindow, updateWall, moveWallsDuringDrag, updateDoor, updateWindow, addFurniture, moveFurniture, transformFurnitureDuringDrag, rotateFurniture, rotateSelection, setFurnitureRotation, scaleFurniture, removeElement, placingFurnitureId, placingRotation, placingDoorType, placingWindowType, detectedRoomsStore, duplicateDoor, duplicateWindow, duplicateFurniture, duplicateSelection, pasteSelection, splitWall, wallSplitIntersectsOpening, snapEnabled, placingStair, addStair, moveStair, updateStair, placingColumn, placingColumnShape, addColumn, moveColumn, updateColumn, calibrationMode, calibrationPoints, updateBackgroundImage, setBackgroundImage, canvasZoom, canvasMinimumZoom, canvasCamX, canvasCamY, panMode, showFurnitureStore, addGuide, moveGuide, removeGuide, beginUndoGroup, endUndoGroup, layerVisibility, updateRoom, addMeasurement, updateMeasurement, removeMeasurement, addAnnotation, removeAnnotation, updateAnnotation, addTextAnnotation, removeTextAnnotation, updateTextAnnotation, moveTextAnnotation, toggleFurnitureLock, toggleSelectionLock, createGroup, ungroupElements, findGroupForElement, placingEntourageId, addEntourageItem, moveEntourage, resizeEntourage, currentProject, elevationWallId, elevationPickMode } from '$lib/stores/project';
@@ -482,55 +483,6 @@
         ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
       }
     }
-  }
-
-  function wallLength(w: Wall): number {
-    if (w.curvePoint) {
-      // Approximate quadratic bezier length with 20 segments
-      let len = 0;
-      const N = 20;
-      let px = w.start.x, py = w.start.y;
-      for (let i = 1; i <= N; i++) {
-        const t = i / N;
-        const mt = 1 - t;
-        const nx = mt * mt * w.start.x + 2 * mt * t * w.curvePoint.x + t * t * w.end.x;
-        const ny = mt * mt * w.start.y + 2 * mt * t * w.curvePoint.y + t * t * w.end.y;
-        len += Math.hypot(nx - px, ny - py);
-        px = nx; py = ny;
-      }
-      return len;
-    }
-    return Math.hypot(w.end.x - w.start.x, w.end.y - w.start.y);
-  }
-
-  /** Get point on wall at parameter t (0-1), handling curves */
-  function wallPointAt(w: Wall, t: number): Point {
-    if (w.curvePoint) {
-      const mt = 1 - t;
-      return {
-        x: mt * mt * w.start.x + 2 * mt * t * w.curvePoint.x + t * t * w.end.x,
-        y: mt * mt * w.start.y + 2 * mt * t * w.curvePoint.y + t * t * w.end.y,
-      };
-    }
-    return {
-      x: w.start.x + (w.end.x - w.start.x) * t,
-      y: w.start.y + (w.end.y - w.start.y) * t,
-    };
-  }
-
-  /** Get tangent direction at parameter t on wall */
-  function wallTangentAt(w: Wall, t: number): Point {
-    if (w.curvePoint) {
-      const mt = 1 - t;
-      const dx = 2 * mt * (w.curvePoint.x - w.start.x) + 2 * t * (w.end.x - w.curvePoint.x);
-      const dy = 2 * mt * (w.curvePoint.y - w.start.y) + 2 * t * (w.end.y - w.curvePoint.y);
-      const len = Math.hypot(dx, dy) || 1;
-      return { x: dx / len, y: dy / len };
-    }
-    const dx = w.end.x - w.start.x;
-    const dy = w.end.y - w.start.y;
-    const len = Math.hypot(dx, dy) || 1;
-    return { x: dx / len, y: dy / len };
   }
 
   function wallThicknessScreen(w: Wall): number {

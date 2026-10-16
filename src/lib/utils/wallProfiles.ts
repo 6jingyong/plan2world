@@ -1,3 +1,5 @@
+import { wallPathProfile, wallPointAt, wallTangentAt } from './wallPath';
+export { wallPathProfile, wallPathSpans } from './wallPath';
 import { getWallStartHeight, getWallEndHeight, type Wall, type Door, type Window, type Point } from '$lib/models/types';
 
 export interface WallOpening { left: number; right: number; bottom: number; top: number }
@@ -48,42 +50,6 @@ function segmentsAroundOpenings(length: number, start: number, end: number, open
   return result;
 }
 
-/** Same quadratic parameterization for active and inactive curved walls. */
-export function wallPathSpans(wall: Wall): { start: Point; end: Point; startHeight: number; endHeight: number }[] {
-  const count = wall.curvePoint ? 16 : 1;
-  const startH = getWallStartHeight(wall), endH = getWallEndHeight(wall);
-  const point = (t: number): Point => wall.curvePoint ? {
-    x: (1 - t) ** 2 * wall.start.x + 2 * (1 - t) * t * wall.curvePoint.x + t * t * wall.end.x,
-    y: (1 - t) ** 2 * wall.start.y + 2 * (1 - t) * t * wall.curvePoint.y + t * t * wall.end.y,
-  } : { x: wall.start.x + (wall.end.x - wall.start.x) * t, y: wall.start.y + (wall.end.y - wall.start.y) * t };
-  return Array.from({ length: count }, (_, i) => ({ start: point(i / count), end: point((i + 1) / count), startHeight: startH + (endH - startH) * i / count, endHeight: startH + (endH - startH) * (i + 1) / count }));
-}
-
-/** Distances on the same faceted curve used by the viewer. Saved positions are
- * quadratic parameters, so they must be converted before applying physical widths.
- */
-export function wallPathProfile(wall: Wall) {
-  let length = 0;
-  const spans = wallPathSpans(wall).map(span => {
-    const from = length, size = Math.hypot(span.end.x - span.start.x, span.end.y - span.start.y);
-    length += size;
-    return { ...span, from, to: length, length: size };
-  });
-  const sample = (distance: number) => {
-    const d = Math.max(0, Math.min(length, distance));
-    const span = spans.find(s => s.length > 0 && d <= s.to) ?? spans[spans.length - 1];
-    const t = span.length > 0 ? Math.max(0, Math.min(1, (d - span.from) / span.length)) : 0;
-    return { point: { x: span.start.x + (span.end.x - span.start.x) * t,
-      y: span.start.y + (span.end.y - span.start.y) * t }, height: span.startHeight + (span.endHeight - span.startHeight) * t };
-  };
-  return { length, spans, sample, distanceAt(position: number) {
-    if (!Number.isFinite(position)) return NaN;
-    const scaled = Math.max(0, Math.min(1, position)) * spans.length;
-    const index = Math.min(spans.length - 1, Math.floor(scaled));
-    return spans[index].from + (scaled - index) * spans[index].length;
-  } };
-}
-
 export function pathOpening(path: ReturnType<typeof wallPathProfile>, center: number, width: number, bottom: number, height: number): WallOpening | null {
   if (![path.length, center, width, bottom, height].every(Number.isFinite) || path.length <= 0 || width <= 0 || height <= 0) return null;
   const left = Math.max(0, center - width / 2), right = Math.min(path.length, center + width / 2);
@@ -123,26 +89,7 @@ export function roomCeilingHeight(wallIds: string[], walls: Wall[]): number | un
 
 function wallPointAndTangent(wall: Wall, position: number): { point: Point; tangent: Point } {
   const t = Math.max(0, Math.min(1, Number.isFinite(position) ? position : 0));
-  if (!wall.curvePoint) {
-    return {
-      point: {
-        x: wall.start.x + (wall.end.x - wall.start.x) * t,
-        y: wall.start.y + (wall.end.y - wall.start.y) * t,
-      },
-      tangent: { x: wall.end.x - wall.start.x, y: wall.end.y - wall.start.y },
-    };
-  }
-  const u = 1 - t;
-  return {
-    point: {
-      x: u * u * wall.start.x + 2 * u * t * wall.curvePoint.x + t * t * wall.end.x,
-      y: u * u * wall.start.y + 2 * u * t * wall.curvePoint.y + t * t * wall.end.y,
-    },
-    tangent: {
-      x: 2 * u * (wall.curvePoint.x - wall.start.x) + 2 * t * (wall.end.x - wall.curvePoint.x),
-      y: 2 * u * (wall.curvePoint.y - wall.start.y) + 2 * t * (wall.end.y - wall.curvePoint.y),
-    },
-  };
+  return { point: wallPointAt(wall, t), tangent: wallTangentAt(wall, t) };
 }
 
 /** Pose for the slightly open 3D door leaf, in world X/Z coordinates. Curved

@@ -1,21 +1,10 @@
+import { wallLength } from './wallPath';
+export { wallLength } from './wallPath';
 import type { Point, Wall } from '$lib/models/types';
 
 export type WallEndpoint = 'start' | 'end';
 export const WALL_JOIN_TOLERANCE = 2; // cm; same joined-corner rule as pointer dragging
 export const MIN_WALL_LENGTH = 1; // cm
-
-export function wallLength(wall: Wall): number {
-  if (!wall.curvePoint) return Math.hypot(wall.end.x - wall.start.x, wall.end.y - wall.start.y);
-  let length = 0, previous = wall.start;
-  for (let i = 1; i <= 20; i++) {
-    const t = i / 20, u = 1 - t;
-    const point = { x: u * u * wall.start.x + 2 * u * t * wall.curvePoint.x + t * t * wall.end.x,
-      y: u * u * wall.start.y + 2 * u * t * wall.curvePoint.y + t * t * wall.end.y };
-    length += Math.hypot(point.x - previous.x, point.y - previous.y);
-    previous = point;
-  }
-  return length;
-}
 
 export function connectedWallEndpoints(walls: Wall[], point: Point, excludeWallId: string): { wallId: string; endpoint: WallEndpoint }[] {
   const results: { wallId: string; endpoint: WallEndpoint }[] = [];

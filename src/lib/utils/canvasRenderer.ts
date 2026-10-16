@@ -1,3 +1,4 @@
+import { wallLength, wallPointAt, wallTangentAt, wallPathProfile } from './wallPath';
 import { getEntourageImage } from './entourageImages';
 import { roomHoles, traceRoomRings } from './roomNesting';
 import { stairLocalBounds } from './stairPlanGeometry';
@@ -21,51 +22,7 @@ import type { EntourageItem, CustomEntourageDef } from '$lib/models/types';
 
 // ── Wall geometry helpers ────────────────────────────────────────────
 
-export function wallLength(w: Wall): number {
-  if (w.curvePoint) {
-    let len = 0;
-    const N = 20;
-    let px = w.start.x, py = w.start.y;
-    for (let i = 1; i <= N; i++) {
-      const t = i / N;
-      const mt = 1 - t;
-      const nx = mt * mt * w.start.x + 2 * mt * t * w.curvePoint.x + t * t * w.end.x;
-      const ny = mt * mt * w.start.y + 2 * mt * t * w.curvePoint.y + t * t * w.end.y;
-      len += Math.hypot(nx - px, ny - py);
-      px = nx; py = ny;
-    }
-    return len;
-  }
-  return Math.hypot(w.end.x - w.start.x, w.end.y - w.start.y);
-}
-
-export function wallPointAt(w: Wall, t: number): Point {
-  if (w.curvePoint) {
-    const mt = 1 - t;
-    return {
-      x: mt * mt * w.start.x + 2 * mt * t * w.curvePoint.x + t * t * w.end.x,
-      y: mt * mt * w.start.y + 2 * mt * t * w.curvePoint.y + t * t * w.end.y,
-    };
-  }
-  return {
-    x: w.start.x + (w.end.x - w.start.x) * t,
-    y: w.start.y + (w.end.y - w.start.y) * t,
-  };
-}
-
-export function wallTangentAt(w: Wall, t: number): Point {
-  if (w.curvePoint) {
-    const mt = 1 - t;
-    const dx = 2 * mt * (w.curvePoint.x - w.start.x) + 2 * t * (w.end.x - w.curvePoint.x);
-    const dy = 2 * mt * (w.curvePoint.y - w.start.y) + 2 * t * (w.end.y - w.curvePoint.y);
-    const len = Math.hypot(dx, dy) || 1;
-    return { x: dx / len, y: dy / len };
-  }
-  const dx = w.end.x - w.start.x;
-  const dy = w.end.y - w.start.y;
-  const len = Math.hypot(dx, dy) || 1;
-  return { x: dx / len, y: dy / len };
-}
+export { wallLength, wallPointAt, wallTangentAt } from './wallPath';
 
 function wallThicknessScreen(w: Wall, zoom: number): number {
   return Math.max(w.thickness * zoom, 4);
@@ -819,11 +776,11 @@ export function drawWindowOnWall(cs: CanvasState, wall: Wall, win: Win): void {
 
 export function drawDoorDistanceDimensions(cs: CanvasState, wall: Wall, door: Door, dimSettings: ProjectSettings): void {
   const { ctx, zoom } = cs;
-  const wLength = wallLength(wall);
-  if (wLength < 10) return;
+  const path = wallPathProfile(wall);
+  if (path.length < 10) return;
 
-  const distFromA = wLength * door.position;
-  const distFromB = wLength * (1 - door.position);
+  const distFromA = path.distanceAt(door.position);
+  const distFromB = path.length - distFromA;
 
   const doorCenter = wallPointAt(wall, door.position);
   const dcScreen = wts(cs, doorCenter.x, doorCenter.y);
@@ -863,11 +820,11 @@ export function drawDoorDistanceDimensions(cs: CanvasState, wall: Wall, door: Do
 
 export function drawWindowDistanceDimensions(cs: CanvasState, wall: Wall, window: Win, dimSettings: ProjectSettings): void {
   const { ctx, zoom } = cs;
-  const wLength = wallLength(wall);
-  if (wLength < 10) return;
+  const path = wallPathProfile(wall);
+  if (path.length < 10) return;
 
-  const distFromA = wLength * window.position;
-  const distFromB = wLength * (1 - window.position);
+  const distFromA = path.distanceAt(window.position);
+  const distFromB = path.length - distFromA;
 
   const windowCenter = wallPointAt(wall, window.position);
   const wcScreen = wts(cs, windowCenter.x, windowCenter.y);
