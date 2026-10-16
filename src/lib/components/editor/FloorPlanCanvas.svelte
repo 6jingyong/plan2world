@@ -360,6 +360,23 @@
     return { x: (wx - camX) * zoom + width / 2, y: (wy - camY) * zoom + height / 2 };
   }
 
+  // Keep correction labels inside the canvas coordinate system. The toolbar
+  // edits this same primary selection; multi-selection owns the alignment UI.
+  const endpointLabels = $derived.by(() => {
+    const floor = $activeFloor, id = $selectedElementId;
+    if (!floor || !id || $selectedElementIds.size >= 2 || !$layerVisibility.walls) return null;
+    let wall = floor.walls.find(wall => wall.id === id);
+    const opening = ($layerVisibility.doors && floor.doors.find(door => door.id === id)) ||
+      ($layerVisibility.windows && floor.windows.find(window => window.id === id));
+    if (!wall && opening) wall = floor.walls.find(wall => wall.id === opening.wallId);
+    // Store edits may retain the wall object. Derive fresh screen points on
+    // every geometry emission as well as camera changes.
+    return wall ? {
+      a: worldToScreen(wall.start.x, wall.start.y),
+      b: worldToScreen(wall.end.x, wall.end.y),
+    } : null;
+  });
+
   /** Find all other wall endpoints that share the same point (within tolerance) */
   function findConnectedEndpoints(pt: Point, excludeWallId: string): { wallId: string; endpoint: 'start' | 'end' }[] {
     return currentFloor ? connectedWallEndpoints(currentFloor.walls, pt, excludeWallId) : [];
@@ -3960,6 +3977,20 @@
     ondragleave={onDragLeave}
     ondrop={onDrop}
   ></canvas>
+  {#if endpointLabels && !elevationOpen}
+    <span
+      data-wall-endpoint-label="A"
+      aria-hidden="true"
+      class="absolute z-20 flex h-5 w-5 items-center justify-center rounded-full border border-blue-500 bg-white text-[10px] font-bold text-blue-700 shadow-sm pointer-events-none"
+      style="left: {endpointLabels.a.x}px; top: {endpointLabels.a.y}px; transform: translate(-50%, -150%);"
+    >A</span>
+    <span
+      data-wall-endpoint-label="B"
+      aria-hidden="true"
+      class="absolute z-20 flex h-5 w-5 items-center justify-center rounded-full border border-blue-500 bg-white text-[10px] font-bold text-blue-700 shadow-sm pointer-events-none"
+      style="left: {endpointLabels.b.x}px; top: {endpointLabels.b.y}px; transform: translate(-50%, -150%);"
+    >B</span>
+  {/if}
   <!-- Elevation pick mode hint chip -->
   {#if pickingElevation}
     <div class="absolute top-3 left-1/2 -translate-x-1/2 z-30 bg-slate-800/90 text-white text-xs font-medium px-3.5 py-1.5 rounded-full shadow-lg pointer-events-none flex items-center gap-1.5">
