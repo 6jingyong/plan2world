@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "plan2world-source-reference-v1",
+  "source": {
+    "width": 1199,
+    "height": 1536,
+    "sha256": "e69289f75833d6e0915dfd7d266fa05c811e4f406763ae0611a1d1cdabd5d5b0"
+  },
+  "walls": {
+    "coverage": "partial",
+    "items": [
+      {"id":"landmark-top-envelope","points":[{"x":0.1643035863,"y":0.1080729167},{"x":0.7606338616,"y":0.1080729167}]},
+      {"id":"landmark-left-envelope","points":[{"x":0.1643035863,"y":0.1080729167},{"x":0.1643035863,"y":0.7747395833}]},
+      {"id":"landmark-right-envelope","points":[{"x":0.7606338616,"y":0.1080729167},{"x":0.7606338616,"y":0.7747395833}]},
+      {"id":"landmark-lower-suite-boundary","points":[{"x":0.1643035863,"y":0.7747395833},{"x":0.7606338616,"y":0.7747395833}]},
+      {"id":"landmark-main-horizontal-partition","points":[{"x":0.1643035863,"y":0.4231770833},{"x":0.7606338616,"y":0.4231770833}]},
+      {"id":"landmark-upper-office-separator","points":[{"x":0.5504587156,"y":0.1080729167},{"x":0.5504587156,"y":0.4231770833}]},
+      {"id":"landmark-lower-left-separator","points":[{"x":0.3085904921,"y":0.4231770833},{"x":0.3085904921,"y":0.771484375}]},
+      {"id":"landmark-lower-right-separator","points":[{"x":0.6188490409,"y":0.4231770833},{"x":0.6188490409,"y":0.712890625}]}
+    ]
+  },
+  "doors": {"coverage":"none","items":[]},
+  "windows": {"coverage":"none","items":[]},
+  "notes": [
+    "Partial high-confidence wall-centerline landmarks only; this is not a complete architectural tracing.",
+    "Long landmark segments bridge visible door/window gaps so wall-centerline coverage can be scored independently of opening annotation.",
+    "Cabinetry, sanitary fixtures, the circular waterbed and the external fire-escape corridor are excluded from wall annotation.",
+    "Door/window and room-count annotations remain intentionally unscored until a second manual review pass."
+  ]
+}
