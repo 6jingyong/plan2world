@@ -13,7 +13,7 @@ describe('direct AI providers', () => {
     expect(normalizeBaseUrl('http://localhost:8000/')).toBe('http://localhost:8000');
     expect(normalizeBaseUrl('http://127.0.0.1:8000/v1')).toBe('http://127.0.0.1:8000/v1');
     expect(normalizeBaseUrl('http://[::1]:8000/v1')).toBe('http://[::1]:8000/v1');
-    expect(getEffectiveModel({})).toBe('gpt-4.1');
+    expect(getEffectiveModel({})).toBe('gpt-6.1-sol');
     expect(getEffectiveModel({ model: ' custom ' })).toBe('custom');
   });
   it.each(['/api', '//provider.example', 'javascript:alert(1)', 'http://provider.example/v1', 'http://localhost.example/v1', 'https://key@provider.example/v1', 'https://provider.example/v1?key=secret', 'https://provider.example/v1#secret'])('rejects unsafe or ambiguous URL %s', async baseUrl => {
@@ -40,7 +40,7 @@ describe('direct AI providers', () => {
     const fetcher = vi.fn<typeof fetch>().mockResolvedValue(json({ output: [{ type: 'image_generation_call', result: png }] }));
     await generateOpenAIRenderImage({ apiKey: 'test-key' }, png, 'prompt', fetcher);
     expect(fetcher.mock.calls[0][0]).toBe('https://api.openai.com/v1/responses');
-    expect(JSON.parse(fetcher.mock.calls[0][1]!.body as string).model).toBe('gpt-4.1');
+    expect(JSON.parse(fetcher.mock.calls[0][1]!.body as string).model).toBe('gpt-6.1-sol');
     vi.stubGlobal('window', { location: { origin: 'https://app.example' } });
     await expect(fetchOpenAIModels({ baseUrl: 'https://app.example/api' }, fetcher)).rejects.toThrow('does not host an AI proxy');
     expect(fetcher).toHaveBeenCalledTimes(1);
