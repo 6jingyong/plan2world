@@ -10,7 +10,7 @@
   import { openAISettings, setOpenAIModel } from '$lib/stores/aiKeys';
   import { generateOpenAIRenderImage, validateOpenAIConfig, getEffectiveModel, normalizeBaseUrl } from '$lib/utils/openaiClient';
   import OpenAIModelPicker from '$lib/components/ai/OpenAIModelPicker.svelte';
-  import { activeFloor, currentProject, selectedElementId } from '$lib/stores/project';
+  import { selectSingleElement, activeFloor, currentProject, selectedElementId } from '$lib/stores/project';
   import type { Floor, Wall, Door, Window as Win, Stair } from '$lib/models/types';
   import { getWallStartHeight, getWallEndHeight } from '$lib/models/types';
   import { wallColors, type WallColor } from '$lib/utils/materials';
@@ -671,7 +671,7 @@
         return;
       }
       editMode = false;
-      selectedElementId.set(null);
+      selectSingleElement(null);
       return;
     }
     if (!walkthroughMode) return;
@@ -883,7 +883,7 @@
           break;
         }
       }
-      selectedElementId.set(hitWallId);
+      selectSingleElement(hitWallId);
     });
 
     // Hover highlight in edit mode
@@ -2176,7 +2176,7 @@
 
     <!-- Edit Mode Toggle -->
     <button
-      onclick={() => { editMode = !editMode; if (editMode && walkthroughMode) { exitWalkthroughMode(); } if (!editMode) { selectedElementId.set(null); } }}
+      onclick={() => { editMode = !editMode; if (editMode && walkthroughMode) { exitWalkthroughMode(); } if (!editMode) { selectSingleElement(null); } }}
       class="p-2 rounded-lg transition-colors {editMode ? 'bg-blue-600 text-white ring-2 ring-blue-300' : 'bg-black/70 text-white hover:bg-black/80'}"
       title={editMode ? $t('viewerNav.exitEdit') : $t('viewerNav.editHelp')}
       aria-label={editMode ? $t('viewerNav.exitEdit') : $t('viewerNav.edit')}

@@ -16,7 +16,7 @@
    * empty wall selects the wall itself. A slim header bar cycles through walls.
    * Escape (or the TopBar Plan/Elevation toggle) returns to the plan view.
    */
-  import { activeFloor, elevationWallId, selectedElementId, selectedElementIds, selectedRoomId, updateDoor, updateWindow, beginUndoGroup, endUndoGroup } from '$lib/stores/project';
+  import { selectSingleElement, activeFloor, elevationWallId, selectedElementId, selectedRoomId, updateDoor, updateWindow, beginUndoGroup, endUndoGroup } from '$lib/stores/project';
   import { projectSettings, formatLength } from '$lib/stores/settings';
   import type { Door, Window as Win } from '$lib/models/types';
   import { openingOnWall } from '$lib/utils/wallProfiles';
@@ -88,8 +88,7 @@
   let dragging = $state(false);
 
   function selectElement(id: string | null) {
-    selectedElementId.set(id);
-    selectedElementIds.set(new Set());
+    selectSingleElement(id);
     selectedRoomId.set(null);
   }
 

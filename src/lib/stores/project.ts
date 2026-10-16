@@ -1,3 +1,4 @@
+import { selectSingleElement } from './selection';
 import { selectionRotation } from '$lib/utils/selectionRotation';
 import { splitWallRoomReferences } from '$lib/utils/splitWallRooms';
 import { splitWallGeometry } from '$lib/utils/splitWallGeometry';
@@ -60,9 +61,7 @@ export const snapEnabled = writable<boolean>(true);
 /** When true, left-click drag pans the canvas instead of selecting */
 export const panMode = writable<boolean>(false);
 export const showFurnitureStore = writable<boolean>(true);
-export const selectedElementId = writable<string | null>(null);
-/** Multi-select: set of element IDs currently selected (used alongside selectedElementId for marquee/shift-click) */
-export const selectedElementIds = writable<Set<string>>(new Set());
+export { selectedElementId, selectedElementIds, selectSingleElement, selectElements } from './selection';
 export const viewMode = writable<'2d' | '3d'>('2d');
 
 // Undo / Redo
@@ -181,8 +180,7 @@ function reviveDates(p: Project): Project {
 function clearFloorContext() {
   calibrationMode.set(false);
   calibrationPoints.set([]);
-  selectedElementId.set(null);
-  selectedElementIds.set(new Set());
+  selectSingleElement(null);
   selectedRoomId.set(null);
   detectedRoomsStore.set([]);
   elevationWallId.set(null);
