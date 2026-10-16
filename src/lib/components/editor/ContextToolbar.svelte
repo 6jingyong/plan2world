@@ -235,7 +235,7 @@
           data-quick-wall-length
           type="text"
           value={displayValue(calcWallLength(elementInfo.wall))}
-          aria-label={`${$t('wallProperties.length')} (${unitLabel()})`}
+          aria-label={`L · ${$t('wallProperties.length')} (${unitLabel()})`}
           class="w-16 rounded border border-gray-200 px-1.5 py-1 text-xs tabular-nums"
           onblur={onQuickWallLength}
           onkeydown={commitOnEnter}
@@ -269,7 +269,7 @@
           step="any"
           min="0"
           value={displayValue(openingWidth)}
-          aria-label={`${$t('openingProperties.width')} (${unitLabel()})`}
+          aria-label={`W · ${$t('openingProperties.width')} (${unitLabel()})`}
           class="w-14 rounded border border-gray-200 px-1.5 py-1 text-xs tabular-nums"
           onblur={onQuickOpeningWidth}
           onkeydown={commitOnEnter}
@@ -284,7 +284,7 @@
           min="0"
           max={displayValue(parentLength)}
           value={displayValue(parentLength * openingPosition)}
-          aria-label={`${$t('openingProperties.fromA')} (${unitLabel()})`}
+          aria-label={`A→ · ${$t('openingProperties.fromA')} (${unitLabel()})`}
           class="w-14 rounded border border-gray-200 px-1.5 py-1 text-xs tabular-nums"
           onblur={onQuickOpeningDistanceA}
           onkeydown={commitOnEnter}
