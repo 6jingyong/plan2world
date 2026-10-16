@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { t } from '$lib/i18n';
   import {
     activeFloor,
@@ -9,28 +9,70 @@
     updateWindow,
     duplicateDoor,
     duplicateWindow,
-    duplicateFurniture,
     duplicateWall,
     resizeWallLength,
+    canvasZoom,
+    canvasCamX,
+    canvasCamY,
   } from '$lib/stores/project';
   import { projectSettings, parseLengthInput } from '$lib/stores/settings';
   import { wallLength as calcWallLength, MIN_WALL_LENGTH, type WallEndpoint } from '$lib/utils/wallEditing';
   import type { Floor, Door } from '$lib/models/types';
 
-  let { canvasRect = { x: 0, y: 0 }, worldToScreen = (x: number, y: number) => ({ x: 0, y: 0 }) }: {
-    canvasRect: { x: number; y: number };
-    worldToScreen: (x: number, y: number) => { x: number; y: number };
-  } = $props();
-
   let floor: Floor | null = $state(null);
   let selId: string | null = $state(null);
   let settings = $state($projectSettings);
   let fixedEndpoint = $state<WallEndpoint>('start');
+  let zoom = $state($canvasZoom);
+  let camX = $state($canvasCamX);
+  let camY = $state($canvasCamY);
+  let viewport = $state({ left: 0, top: 0, width: 0, height: 0 });
 
   onDestroy(activeFloor.subscribe((f) => { floor = f; }));
   onDestroy(selectedElementId.subscribe((id) => { selId = id; }));
   onDestroy(projectSettings.subscribe((value) => { settings = value; }));
+  onDestroy(canvasZoom.subscribe((value) => { zoom = value; }));
+  onDestroy(canvasCamX.subscribe((value) => { camX = value; }));
+  onDestroy(canvasCamY.subscribe((value) => { camY = value; }));
   $effect(() => { void selId; fixedEndpoint = 'start'; });
+
+  onMount(() => {
+    let frame = 0;
+    let observer: ResizeObserver | undefined;
+    let canvas: HTMLCanvasElement | null = null;
+
+    const updateViewport = () => {
+      if (!canvas?.isConnected) return;
+      const rect = canvas.getBoundingClientRect();
+      viewport = { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+    };
+
+    const attach = () => {
+      canvas = document.querySelector<HTMLCanvasElement>('canvas[tabindex="0"]');
+      if (!canvas) {
+        frame = requestAnimationFrame(attach);
+        return;
+      }
+      observer = new ResizeObserver(updateViewport);
+      observer.observe(canvas);
+      window.addEventListener('resize', updateViewport);
+      updateViewport();
+    };
+
+    attach();
+    return () => {
+      cancelAnimationFrame(frame);
+      observer?.disconnect();
+      window.removeEventListener('resize', updateViewport);
+    };
+  });
+
+  function worldToViewport(wx: number, wy: number) {
+    return {
+      x: viewport.left + (wx - camX) * zoom + viewport.width / 2,
+      y: viewport.top + (wy - camY) * zoom + viewport.height / 2,
+    };
+  }
 
   function displayValue(cm: number): number {
     return settings.units === 'imperial' ? Math.round(cm / 2.54 * 10) / 10 : Math.round(cm * 1000) / 1000;
@@ -45,7 +87,7 @@
   }
 
   let elementInfo = $derived.by(() => {
-    if (!floor || !selId) return null;
+    if (!floor || !selId || viewport.width <= 0 || viewport.height <= 0) return null;
     const wall = floor.walls.find(w => w.id === selId);
     if (wall) {
       const cx = (wall.start.x + wall.end.x) / 2;
@@ -69,10 +111,6 @@
         const cy = w.start.y + (w.end.y - w.start.y) * win.position;
         return { type: 'window' as const, id: selId, cx, cy, window: win, wall: w };
       }
-    }
-    const furn = floor.furniture.find(f => f.id === selId);
-    if (furn) {
-      return { type: 'furniture' as const, id: selId, cx: furn.position.x, cy: furn.position.y };
     }
     return null;
   });
@@ -141,7 +179,6 @@
     let newId: string | null = null;
     if (elementInfo.type === 'door') newId = duplicateDoor(elementInfo.id);
     else if (elementInfo.type === 'window') newId = duplicateWindow(elementInfo.id);
-    else if (elementInfo.type === 'furniture') newId = duplicateFurniture(elementInfo.id);
     else if (elementInfo.type === 'wall') newId = duplicateWall(elementInfo.id);
     if (newId) selectedElementId.set(newId);
   }
@@ -160,29 +197,26 @@
 </script>
 
 {#if elementInfo}
-  {@const screenPos = worldToScreen(elementInfo.cx, elementInfo.cy)}
-
-  {#if elementInfo.type !== 'furniture'}
-    {@const endpointA = worldToScreen(elementInfo.wall.start.x, elementInfo.wall.start.y)}
-    {@const endpointB = worldToScreen(elementInfo.wall.end.x, elementInfo.wall.end.y)}
-    <span
-      data-wall-endpoint-label="A"
-      aria-hidden="true"
-      class="absolute z-30 flex h-5 w-5 items-center justify-center rounded-full border border-blue-500 bg-white text-[10px] font-bold text-blue-700 shadow-sm pointer-events-none"
-      style="left: {endpointA.x + canvasRect.x}px; top: {endpointA.y + canvasRect.y}px; transform: translate(-50%, -150%);"
-    >A</span>
-    <span
-      data-wall-endpoint-label="B"
-      aria-hidden="true"
-      class="absolute z-30 flex h-5 w-5 items-center justify-center rounded-full border border-blue-500 bg-white text-[10px] font-bold text-blue-700 shadow-sm pointer-events-none"
-      style="left: {endpointB.x + canvasRect.x}px; top: {endpointB.y + canvasRect.y}px; transform: translate(-50%, -150%);"
-    >B</span>
-  {/if}
+  {@const screenPos = worldToViewport(elementInfo.cx, elementInfo.cy)}
+  {@const endpointA = worldToViewport(elementInfo.wall.start.x, elementInfo.wall.start.y)}
+  {@const endpointB = worldToViewport(elementInfo.wall.end.x, elementInfo.wall.end.y)}
+  <span
+    data-wall-endpoint-label="A"
+    aria-hidden="true"
+    class="fixed z-30 flex h-5 w-5 items-center justify-center rounded-full border border-blue-500 bg-white text-[10px] font-bold text-blue-700 shadow-sm pointer-events-none"
+    style="left: {endpointA.x}px; top: {endpointA.y}px; transform: translate(-50%, -150%);"
+  >A</span>
+  <span
+    data-wall-endpoint-label="B"
+    aria-hidden="true"
+    class="fixed z-30 flex h-5 w-5 items-center justify-center rounded-full border border-blue-500 bg-white text-[10px] font-bold text-blue-700 shadow-sm pointer-events-none"
+    style="left: {endpointB.x}px; top: {endpointB.y}px; transform: translate(-50%, -150%);"
+  >B</span>
 
   <div
     data-quick-geometry-toolbar
-    class="absolute z-40 flex items-center gap-1 bg-white rounded-lg shadow-lg border border-gray-200 px-1.5 py-1"
-    style="left: {screenPos.x + canvasRect.x}px; top: {screenPos.y + canvasRect.y - 12}px; transform: translate(-50%, -100%); pointer-events: auto;"
+    class="fixed z-40 flex items-center gap-1 bg-white rounded-lg shadow-lg border border-gray-200 px-1.5 py-1"
+    style="left: {screenPos.x}px; top: {screenPos.y - 12}px; transform: translate(-50%, -100%); pointer-events: auto;"
   >
     {#if elementInfo.type === 'wall'}
       <label class="flex items-center gap-1 border-r border-gray-200 pr-1.5" title={$t('wallProperties.length')}>
@@ -282,7 +316,7 @@
       aria-label={$t('contextMenu.delete')}
       onclick={onDelete}
     >
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14"/></svg>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012-2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14"/></svg>
     </button>
   </div>
 {/if}
