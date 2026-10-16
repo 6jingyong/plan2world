@@ -113,9 +113,9 @@
     class="fixed top-16 left-1/2 z-40 flex -translate-x-1/2 items-center gap-1 rounded-lg border border-blue-100 bg-white px-2 py-1 shadow-lg"
   >
     {#if elementInfo.type === 'wall'}
-      <span data-wall-endpoint-label="A" class="flex h-5 w-5 items-center justify-center rounded-full border border-blue-500 text-[10px] font-bold text-blue-700">A</span>
+      <span class="flex h-5 w-5 items-center justify-center rounded-full border border-blue-500 text-[10px] font-bold text-blue-700">A</span>
       <span class="text-[10px] text-gray-400">—</span>
-      <span data-wall-endpoint-label="B" class="flex h-5 w-5 items-center justify-center rounded-full border border-blue-500 text-[10px] font-bold text-blue-700">B</span>
+      <span class="flex h-5 w-5 items-center justify-center rounded-full border border-blue-500 text-[10px] font-bold text-blue-700">B</span>
       <span class="mx-1 h-5 w-px bg-gray-200"></span>
       <label class="flex items-center gap-1" title={$t('wallProperties.length')}>
         <span class="text-[10px] font-semibold text-gray-500">L</span>
@@ -149,9 +149,9 @@
       {@const openingWidth = elementInfo.type === 'door' ? elementInfo.door.width : elementInfo.window.width}
       {@const openingPosition = elementInfo.type === 'door' ? elementInfo.door.position : elementInfo.window.position}
       {@const parentLength = calcWallLength(elementInfo.wall)}
-      <span data-wall-endpoint-label="A" class="flex h-5 w-5 items-center justify-center rounded-full border border-blue-500 text-[10px] font-bold text-blue-700">A</span>
+      <span class="flex h-5 w-5 items-center justify-center rounded-full border border-blue-500 text-[10px] font-bold text-blue-700">A</span>
       <span class="text-[10px] text-gray-400">→</span>
-      <span data-wall-endpoint-label="B" class="flex h-5 w-5 items-center justify-center rounded-full border border-blue-500 text-[10px] font-bold text-blue-700">B</span>
+      <span class="flex h-5 w-5 items-center justify-center rounded-full border border-blue-500 text-[10px] font-bold text-blue-700">B</span>
       <span class="mx-1 h-5 w-px bg-gray-200"></span>
       <label class="flex items-center gap-1" title={$t('openingProperties.width')}>
         <span class="text-[10px] font-semibold text-gray-500">W</span>
