@@ -7,8 +7,8 @@ export interface OpenAIConfig {
 
 export const DEFAULT_OPENAI_BASE_URL = 'https://api.openai.com/v1';
 // Responses needs a text model to call image_generation, not a GPT Image model.
-export const DEFAULT_OPENAI_MODEL = 'gpt-6.1-sol';
-export const OPENAI_MODEL_SUGGESTIONS = ['gpt-6.1-sol', 'gpt-6-astra', 'gpt-6-luna'];
+export const DEFAULT_OPENAI_MODEL = 'gpt-4.1';
+export const OPENAI_MODEL_SUGGESTIONS = ['gpt-4.1', 'gpt-4.1-mini', 'gpt-5.2'];
 
 export function normalizeBaseUrl(value?: string): string {
   const input = value?.trim() || DEFAULT_OPENAI_BASE_URL;
@@ -37,7 +37,7 @@ export function validateOpenAIConfig(config: OpenAIConfig): string {
     throw new Error('Add your OpenAI API key in Settings → AI first. Custom providers can be used without a key.');
   }
   if (new URL(baseUrl).hostname === 'api.openai.com' && /^(gpt-image-|chatgpt-image-|dall-e-)/.test(getEffectiveModel(config))) {
-    throw new Error('Choose a Responses model such as gpt-6.1-sol. GPT Image and DALL·E models cannot be used as the Responses model.');
+    throw new Error('Choose a Responses model such as gpt-4.1. GPT Image and DALL·E models cannot be used as the Responses model.');
   }
   return baseUrl;
 }
