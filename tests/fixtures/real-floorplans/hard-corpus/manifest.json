@@ -43,7 +43,8 @@
       "rasterRedistributed": false,
       "failureMode": "large irregular open-plan apartment with multiple wings, void-like white areas and long dimension chains",
       "historicalCandidate": null,
-      "referenceStatus": "pending"
+      "reference": "large-irregular-beike-reference.json",
+      "referenceStatus": "partial"
     }
   ]
 }
