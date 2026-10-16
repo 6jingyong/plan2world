@@ -1,6 +1,6 @@
 import { beforeEach, expect, it } from 'vitest';
 import { get } from 'svelte/store';
-import { addFloor, createDefaultFloor, currentProject, loadProject, removeFloor, setActiveFloor, undo, redo, selectedElementId, selectedElementIds, elevationWallId, selectedTool } from '$lib/stores/project';
+import { addFloor, createDefaultFloor, currentProject, loadProject, removeFloor, setActiveFloor, undo, redo, selectedElementId, selectedElementIds, selectElements, elevationWallId, selectedTool } from '$lib/stores/project';
 import { roomProject } from './fixtures/project';
 import { updateFloorElevation, updateFloorSlabThickness } from '$lib/stores/project';
 import { calibrationMode, calibrationPoints } from '$lib/stores/project';
@@ -78,7 +78,7 @@ it('does not create undo entries when removing a missing or final floor', () => 
 
 it('clears selections, unfinished tools and elevation when switching or adding floors', () => {
   const ground = get(currentProject)!.activeFloorId;
-  selectedElementId.set('a-0'); selectedElementIds.set(new Set(['a-0']));
+  selectElements(['a-0', 'a-1'], 'a-0');
   elevationWallId.set('a-0'); selectedTool.set('wall');
   addFloor();
   expect(get(selectedElementId)).toBeNull();

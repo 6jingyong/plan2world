@@ -1,4 +1,4 @@
-import { selectedTool, activateMeasurementTool, undo, redo, viewMode, selectedElementId, selectedElementIds, removeElement, panMode, beginUndoGroup, endUndoGroup } from '$lib/stores/project';
+import { selectSingleElement, selectedTool, activateMeasurementTool, undo, redo, viewMode, selectedElementId, selectedElementIds, removeElement, panMode, beginUndoGroup, endUndoGroup } from '$lib/stores/project';
 import { get } from 'svelte/store';
 import { manualSave } from '$lib/stores/saveStatus';
 import { hasOpenModal } from './modalDialog';
@@ -58,8 +58,7 @@ export function handleGlobalShortcut(e: KeyboardEvent, ctx: ShortcutContext = {}
 
   if (e.key === 'Escape') {
     selectedTool.set('select');
-    selectedElementId.set(null);
-    selectedElementIds.set(new Set());
+    selectSingleElement(null);
     return true;
   }
   if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -69,11 +68,10 @@ export function handleGlobalShortcut(e: KeyboardEvent, ctx: ShortcutContext = {}
       beginUndoGroup();
       for (const id of multiIds) removeElement(id);
       endUndoGroup();
-      selectedElementIds.set(new Set());
-      selectedElementId.set(null);
+      selectSingleElement(null);
     } else {
       const id = get(selectedElementId);
-      if (id) { removeElement(id); selectedElementId.set(null); }
+      if (id) { removeElement(id); selectSingleElement(null); }
     }
     return true;
   }

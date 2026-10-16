@@ -4,7 +4,7 @@
   import { multiSelectionBounds } from '$lib/utils/multiSelectionBounds';
   import { onMount, onDestroy, tick } from 'svelte';
   import { get } from 'svelte/store';
-  import { removeRoom, reorderFurniture } from '$lib/stores/project';
+  import { selectSingleElement, selectElements, removeRoom, reorderFurniture } from '$lib/stores/project';
   import { selectionContentBounds } from '$lib/utils/selectionContentBounds';
   import { planContentBounds, hasPlanContent } from '$lib/utils/planContentBounds';
   import { connectedWallEndpoints } from '$lib/utils/wallEditing';
@@ -325,8 +325,7 @@
     }
     clearAuxiliarySelection();
     selectedRoomId.set(null);
-    selectedElementIds.set(ids);
-    selectedElementId.set(ids.values().next().value ?? null);
+    selectElements(ids);
   }
 
   /**
@@ -1884,8 +1883,11 @@
         if (hiddenIds.has(selectedTextAnnotationId ?? '')) selectedTextAnnotationId = null;
         if (hiddenIds.has(selectedMeasurementId ?? '')) selectedMeasurementId = null;
         if (hiddenIds.has(selectedAnnotationId ?? '')) selectedAnnotationId = null;
-        if (hiddenIds.has(currentSelectedId ?? '')) selectedElementId.set(null);
-        if ([...currentSelectedIds].some(id => hiddenIds.has(id))) selectedElementIds.set(new Set([...currentSelectedIds].filter(id => !hiddenIds.has(id))));
+        const selected = new Set(currentSelectedIds);
+        if (currentSelectedId) selected.add(currentSelectedId);
+        if ([...selected].some(id => hiddenIds.has(id))) {
+          selectElements([...selected].filter(id => !hiddenIds.has(id)), currentSelectedId);
+        }
       }
       markDirty();
     });
@@ -2063,9 +2065,8 @@
 
   function selectAuxiliary(kind: 'guide' | 'measurement' | 'annotation' | 'text', id: string) {
     clearAuxiliarySelection();
-    selectedElementIds.set(new Set());
     selectedRoomId.set(null);
-    selectedElementId.set(kind === 'text' ? id : null);
+    selectSingleElement(kind === 'text' ? id : null);
     if (kind === 'guide') selectedGuideId = id;
     if (kind === 'measurement') selectedMeasurementId = id;
     if (kind === 'annotation') selectedAnnotationId = id;
@@ -2080,8 +2081,7 @@
     if (ids.has(id)) ids.delete(id); else ids.add(id);
     clearAuxiliarySelection();
     selectedRoomId.set(null);
-    selectedElementIds.set(ids.size > 1 ? ids : new Set());
-    selectedElementId.set(ids.has(id) ? id : (ids.values().next().value ?? null));
+    selectElements(ids, ids.has(id) ? id : null);
   }
 
   function selectAnnotationTarget(kind: 'measurement' | 'annotation' | 'text', id: string, e: MouseEvent, wp: Point): boolean {
@@ -2093,8 +2093,7 @@
     if (group) {
       clearAuxiliarySelection();
       selectedRoomId.set(null);
-      selectedElementIds.set(new Set(group.elementIds));
-      selectedElementId.set(id);
+      selectElements(group.elementIds, id);
       startMultiSelectionDrag(wp);
       return true;
     }
@@ -2280,8 +2279,7 @@
       elevationPickMode.set(false);
       const wall = findWallAt(wp);
       if (wall) {
-        selectedElementId.set(wall.id);
-        selectedElementIds.set(new Set());
+        selectSingleElement(wall.id);
         selectedRoomId.set(null);
         elevationWallId.set(wall.id);
       }
@@ -2303,7 +2301,7 @@
             editingTextAnnotationPos = { x: sp.x, y: sp.y };
             editingTextAnnotationValue = ta.text;
             selectedTextAnnotationId = hitId;
-            selectedElementId.set(hitId);
+            selectSingleElement(hitId);
             return;
           }
         }
@@ -2315,7 +2313,7 @@
       editingTextAnnotationPos = { x: sp.x, y: sp.y };
       editingTextAnnotationValue = '';
       selectedTextAnnotationId = id;
-      selectedElementId.set(id);
+      selectSingleElement(id);
       return;
     }
 
@@ -2345,7 +2343,7 @@
     if (isPlacingColumn) {
       const pos = { x: snap(wp.x), y: snap(wp.y) };
       const id = addColumn(pos, placingColShape);
-      selectedElementId.set(id);
+      selectSingleElement(id);
       placingColumn.set(false);
       return;
     }
@@ -2355,14 +2353,14 @@
       const entW = getEntourageDef(currentEntourageDefId)?.width ?? 100;
       const entId = addEntourageItem(currentEntourageDefId, { x: snap(wp.x), y: snap(wp.y) }, entW);
       if (!e.shiftKey) placingEntourageId.set(null); // hold Shift to keep stamping
-      selectedElementId.set(entId);
+      selectSingleElement(entId);
       return;
     }
 
     if (isPlacingStair) {
       const pos = { x: snap(wp.x), y: snap(wp.y) };
       const id = addStair(pos);
-      selectedElementId.set(id);
+      selectSingleElement(id);
       placingStair.set(false);
       return;
     }
@@ -2452,7 +2450,7 @@
       try {
         const id = addFurniture(currentPlacingId, pos);
         if (rot !== 0) rotateFurniture(id, rot);
-        selectedElementId.set(id);
+        selectSingleElement(id);
       } finally {
         endUndoGroup('Placed furniture');
       }
@@ -2558,14 +2556,12 @@
           // Group selection: if element is in a group and not ctrl-clicking, select all group members
           const group = currentFloor ? findGroupForElement(currentFloor, id) : undefined;
           if (group && !isCtrl) {
-            selectedElementId.set(id);
-            selectedElementIds.set(new Set(group.elementIds));
+            selectElements(group.elementIds, id);
             selectedRoomId.set(null);
             startMultiSelectionDrag(wp);
             return true;
           } else {
-            selectedElementId.set(id);
-            selectedElementIds.set(new Set());
+            selectSingleElement(id);
           }
         }
         selectedRoomId.set(null);
@@ -2644,15 +2640,13 @@
           const center = roomCentroid(polygon);
           roomLabelOrigOffset = { x: anchor.x-center.x, y: anchor.y-center.y };
           selectedRoomId.set(labelRoom.id);
-          selectedElementId.set(null);
-          selectedElementIds.set(new Set());
+          selectSingleElement(null);
           return;
         }
         const room = findRoomLabelAt(wp) ?? findRoomAt(wp);
         if (room) {
           selectedRoomId.set(room.id);
-          selectedElementId.set(null);
-          selectedElementIds.set(new Set());
+          selectSingleElement(null);
           // Start room drag
           draggingRoomId = room.id;
           roomDragStartMouse = { x: wp.x, y: wp.y };
@@ -2666,8 +2660,7 @@
           marqueeStart = { ...wp };
           marqueeEnd = { ...wp };
           if (!e.shiftKey) {
-            selectedElementId.set(null);
-            selectedElementIds.set(new Set());
+            selectSingleElement(null);
           }
           selectedRoomId.set(null);
         }
@@ -2720,7 +2713,7 @@
           editingTextAnnotationPos = { x: sp.x, y: sp.y };
           editingTextAnnotationValue = ta.text;
           selectedTextAnnotationId = textHitId;
-          selectedElementId.set(textHitId);
+          selectSingleElement(textHitId);
           return;
         }
       }
@@ -2751,7 +2744,7 @@
         if (t > 0.05 && t < 0.95) {
           const newId = trySplitWall(wall.id, t);
           if (newId) {
-            selectedElementId.set(null);
+            selectSingleElement(null);
             return;
           }
         }
@@ -3145,10 +3138,7 @@
         if (ids.size > 0) {
           clearAuxiliarySelection();
           selectedRoomId.set(null);
-          selectedElementIds.set(ids);
-          // Set primary selection to first element
-          const first = ids.values().next().value;
-          if (first) selectedElementId.set(first);
+          selectElements(ids);
         }
       }
       marqueeStart = null;
@@ -3433,7 +3423,7 @@
     if ((e.key === 'Delete' || e.key === 'Backspace') && currentSelectedIds.size < 2 && selectedGuideId) {
       removeGuide(selectedGuideId);
       selectedGuideId = null;
-      selectedElementId.set(null);
+      selectSingleElement(null);
       e.preventDefault();
       return;
     }
@@ -3442,7 +3432,7 @@
     if ((e.key === 'Delete' || e.key === 'Backspace') && currentSelectedIds.size < 2 && selectedMeasurementId) {
       removeMeasurement(selectedMeasurementId);
       selectedMeasurementId = null;
-      selectedElementId.set(null);
+      selectSingleElement(null);
       e.preventDefault();
       return;
     }
@@ -3451,7 +3441,7 @@
     if ((e.key === 'Delete' || e.key === 'Backspace') && currentSelectedIds.size < 2 && selectedTextAnnotationId && !editingTextAnnotationId) {
       removeTextAnnotation(selectedTextAnnotationId);
       selectedTextAnnotationId = null;
-      selectedElementId.set(null);
+      selectSingleElement(null);
       e.preventDefault();
       return;
     }
@@ -3460,7 +3450,7 @@
     if ((e.key === 'Delete' || e.key === 'Backspace') && currentSelectedIds.size < 2 && selectedAnnotationId) {
       removeAnnotation(selectedAnnotationId);
       selectedAnnotationId = null;
-      selectedElementId.set(null);
+      selectSingleElement(null);
       e.preventDefault();
       return;
     }
@@ -3499,8 +3489,7 @@
       e.preventDefault();
       clearAuxiliarySelection();
       selectedRoomId.set(null);
-      selectedElementIds.set(new Set());
-      selectedElementId.set(null);
+      selectSingleElement(null);
       return;
     }
 
@@ -3555,8 +3544,7 @@
         const newIds = pasteSelection(clipboard.floor, new Set(clipboard.ids), clipboard.step);
         if (newIds.length) {
           clipboard = { ...clipboard, step: clipboard.step + 1 };
-          selectedElementIds.set(new Set(newIds));
-          selectedElementId.set(newIds[0]);
+          selectElements(newIds);
         }
         return;
       }
@@ -3638,7 +3626,7 @@
 
     if (itemType === 'furniture') {
       const id = addFurniture(itemId, pos);
-      selectedElementId.set(id);
+      selectSingleElement(id);
       selectedTool.set('select');
       placingFurnitureId.set(null);
     } else if (itemType === 'door' || itemType === 'window') {
@@ -3647,7 +3635,7 @@
         const id = itemType === 'door'
           ? addDoor(target.wallId, target.position, itemId as Door['type'])
           : addWindow(target.wallId, target.position, itemId as Win['type']);
-        selectedElementId.set(id);
+        selectSingleElement(id);
         selectedTool.set('select');
       }
     } else if (itemType === 'room') {
@@ -3737,7 +3725,7 @@
     // Hit-test in priority order: furniture > door > window > wall > room > canvas
     const fi = findFurnitureAt(wp);
     if (fi) {
-      selectedElementId.set(fi.id);
+      selectSingleElement(fi.id);
       ctxMenuTargetType = 'furniture';
       ctxMenuTargetId = fi.id;
       ctxMenuFurniture = fi;
@@ -3746,7 +3734,7 @@
     } else {
       const door = findDoorAt(wp);
       if (door) {
-        selectedElementId.set(door.id);
+        selectSingleElement(door.id);
         ctxMenuTargetType = 'door';
         ctxMenuTargetId = door.id;
         ctxMenuFurniture = null;
@@ -3755,7 +3743,7 @@
       } else {
         const win = findWindowAt(wp);
         if (win) {
-          selectedElementId.set(win.id);
+          selectSingleElement(win.id);
           ctxMenuTargetType = 'window';
           ctxMenuTargetId = win.id;
           ctxMenuFurniture = null;
@@ -3764,7 +3752,7 @@
         } else {
           const wall = findWallAt(wp);
           if (wall) {
-            selectedElementId.set(wall.id);
+            selectSingleElement(wall.id);
             ctxMenuTargetType = 'wall';
             ctxMenuTargetId = wall.id;
             ctxMenuWall = wall;
@@ -3803,7 +3791,7 @@
     switch (action) {
       // Furniture actions
       case 'duplicate-furniture':
-        if (id) { const newId = duplicateFurniture(id); if (newId) selectedElementId.set(newId); }
+        if (id) { const newId = duplicateFurniture(id); if (newId) selectSingleElement(newId); }
         break;
       case 'rotate-furniture-90':
         if (id) rotateFurniture(id, 90);
@@ -3823,7 +3811,7 @@
 
       // Wall actions
       case 'split-wall':
-        if (id) { const newId = trySplitWall(id, 0.5); if (newId) selectedElementId.set(null); }
+        if (id) { const newId = trySplitWall(id, 0.5); if (newId) selectSingleElement(null); }
         break;
       case 'toggle-curve':
         if (id && ctxMenuWall) {
@@ -3861,8 +3849,7 @@
       case 'change-floor-texture':
         if (ctxMenuRoom) {
           const roomId = ctxMenuRoom.id;
-          selectedElementId.set(null);
-          selectedElementIds.set(new Set());
+          selectSingleElement(null);
           selectedRoomId.set(roomId);
           void tick().then(() => {
             if (!canvas.isConnected || get(selectedRoomId) !== roomId) return;
@@ -3915,11 +3902,11 @@
 
       // Shared actions
       case 'delete':
-        if (id) { removeElement(id); selectedElementId.set(null); }
+        if (id) { removeElement(id); selectSingleElement(null); }
         break;
       case 'properties':
         if (id) {
-          selectedElementId.set(id);
+          selectSingleElement(id);
           void tick().then(() => {
             if (!canvas.isConnected || get(selectedElementId) !== id) return;
             const panel = document.querySelector('[data-plan-properties]:not(.hidden)');
@@ -4065,7 +4052,7 @@
           } else {
             removeTextAnnotation(editingTextAnnotationId!);
             selectedTextAnnotationId = null;
-            selectedElementId.set(null);
+            selectSingleElement(null);
           }
           editingTextAnnotationId = null;
         } else if (e.key === 'Escape') {
@@ -4075,7 +4062,7 @@
             if (ta && ta.text === 'Text' && !editingTextAnnotationValue.trim()) {
               removeTextAnnotation(editingTextAnnotationId!);
               selectedTextAnnotationId = null;
-              selectedElementId.set(null);
+              selectSingleElement(null);
             }
           }
           editingTextAnnotationId = null;
@@ -4088,7 +4075,7 @@
           } else {
             removeTextAnnotation(editingTextAnnotationId);
             selectedTextAnnotationId = null;
-            selectedElementId.set(null);
+            selectSingleElement(null);
           }
           editingTextAnnotationId = null;
         }
@@ -4237,8 +4224,7 @@
             const ids = currentSelectedIds.size ? currentSelectedIds : new Set([currentSelectedId]);
             const newIds = duplicateSelection(ids);
             if (newIds.length) {
-              selectedElementIds.set(new Set(newIds));
-              selectedElementId.set(newIds[0]);
+              selectElements(newIds);
             }
           }}
         >
@@ -4262,7 +4248,7 @@
             onclick={() => {
               if (currentSelectedId) {
                 const newId = trySplitWall(currentSelectedId, 0.5);
-                if (newId) selectedElementId.set(null);
+                if (newId) selectSingleElement(null);
               }
             }}
           >
@@ -4279,11 +4265,10 @@
               beginUndoGroup();
               for (const id of currentSelectedIds) removeElement(id);
               endUndoGroup();
-              selectedElementIds.set(new Set());
-              selectedElementId.set(null);
+              selectSingleElement(null);
             } else if (currentSelectedId) {
               removeElement(currentSelectedId);
-              selectedElementId.set(null);
+              selectSingleElement(null);
             }
           }}
         >

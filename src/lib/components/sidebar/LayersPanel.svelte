@@ -3,7 +3,7 @@
   import { furnitureName, customModelName } from '$lib/i18n/furnitureNames';
   import { entourageLabels } from '$lib/i18n/entourageLabels';
   import { onDestroy } from 'svelte';
-  import { currentProject, activeFloor, selectedElementId, selectedElementIds, selectedRoomId, detectedRoomsStore, layerVisibility } from '$lib/stores/project';
+  import { selectSingleElement, currentProject, activeFloor, selectedElementId, selectedRoomId, detectedRoomsStore, layerVisibility } from '$lib/stores/project';
   import { getCatalogItem } from '$lib/utils/furnitureCatalog';
   import { getEntourageDef } from '$lib/utils/entourageCatalog';
   import type { Floor } from '$lib/models/types';
@@ -30,9 +30,8 @@
 
   function select(id: string, category: Category['key']) {
     if (!vis[category]) layerVisibility.update(v => ({ ...v, [category]: true }));
-    selectedElementIds.set(new Set());
     selectedRoomId.set(null);
-    selectedElementId.set(id);
+    selectSingleElement(id);
   }
 
   let rooms = $derived.by(() => {
@@ -195,7 +194,7 @@
         </button>
         {#if !collapsed.rooms}
           {#each rooms as room (room.id)}
-            <button aria-label={$t('layers.selectRoom', { name: room.name || $t('layers.unnamed') })} onclick={() => { selectedElementId.set(null); selectedElementIds.set(new Set()); selectedRoomId.set(room.id); }} class="w-full truncate py-1 pl-7 pr-2 text-left hover:bg-blue-50" class:bg-blue-100={$selectedRoomId === room.id}>{room.name || $t('layers.unnamed')}</button>
+            <button aria-label={$t('layers.selectRoom', { name: room.name || $t('layers.unnamed') })} onclick={() => { selectSingleElement(null); selectedRoomId.set(room.id); }} class="w-full truncate py-1 pl-7 pr-2 text-left hover:bg-blue-50" class:bg-blue-100={$selectedRoomId === room.id}>{room.name || $t('layers.unnamed')}</button>
           {/each}
         {/if}
       </div>

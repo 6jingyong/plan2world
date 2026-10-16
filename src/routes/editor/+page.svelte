@@ -9,7 +9,7 @@
   import { replaceState } from '$app/navigation';
   import { page } from '$app/state';
   import { reportLoadingFailure } from '$lib/services/deployment';
-  import { currentProject, viewMode, selectedElementId, selectedElementIds, selectedRoomId, createDefaultProject, loadProject, setActiveFloor, selectedTool, placingFurnitureId, elevationWallId, elevationPickMode } from '$lib/stores/project';
+  import { selectElements, currentProject, viewMode, selectedRoomId, createDefaultProject, loadProject, setActiveFloor, selectedTool, placingFurnitureId, elevationWallId, elevationPickMode } from '$lib/stores/project';
   import { editorFocusRequest } from '$lib/stores/editorFocus';
   import { resolveReviewFocus } from '$lib/plan2world/reviewFocus';
   import { localStore, storageErrorMessage, downloadLibraryBackup } from '$lib/services/datastore';
@@ -142,8 +142,7 @@
       setActiveFloor(target.floorId);
       selectedTool.set('select');
       selectedRoomId.set(null);
-      selectedElementIds.set(target.elementIds.length > 1 ? new Set(target.elementIds) : new Set());
-      selectedElementId.set(target.primaryId);
+      selectElements(target.elementIds, target.primaryId);
       editorFocusRequest.set(target);
     }
     replaceState(`${url.pathname}${url.search}${url.hash}`, page.state);

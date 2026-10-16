@@ -14,7 +14,7 @@
   import { base } from '$app/paths';
   import { orderedFloors } from '$lib/utils/floors';
   import type { FloorSeed } from '$lib/stores/project';
-  import { currentProject, viewMode, undo, redo, addFloor, removeFloor, setActiveFloor, updateProjectName, createDefaultProject, snapEnabled, canvasZoom, canvasMinimumZoom, panMode, showFurnitureStore, layerVisibility, activeFloor, selectedElementId, elevationWallId, elevationPickMode } from '$lib/stores/project';
+  import { selectSingleElement, currentProject, viewMode, undo, redo, addFloor, removeFloor, setActiveFloor, updateProjectName, createDefaultProject, snapEnabled, canvasZoom, canvasMinimumZoom, panMode, showFurnitureStore, layerVisibility, activeFloor, selectedElementId, elevationWallId, elevationPickMode } from '$lib/stores/project';
   import { get } from 'svelte/store';
   import type { Floor } from '$lib/models/types';
   import { exportAsJSON, exportAsSVG } from '$lib/utils/export';
@@ -78,7 +78,7 @@
     const wall = selId ? floor?.walls.find((w) => w.id === selId) : undefined;
     if (wall) {
       elevationPickMode.set(false);
-      selectedElementId.set(wall.id);
+      selectSingleElement(wall.id);
       elevationWallId.set(wall.id);
     } else {
       // No wall selected — prompt the user to pick one on the plan canvas
