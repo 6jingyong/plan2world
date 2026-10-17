@@ -79,19 +79,35 @@ Editor distances from A/B measure from the wall endpoint to the opening centre a
 
 ## Furniture
 
-Furniture is optional during reconstruction. If the source plan clearly contains furniture symbols, an agent may emit hints using catalog IDs. The user should remain free to delete or replace them.
+New reconstruction uses the optional root `presentation: "semantic-white-model"`. In this profile every visible furniture/fixture item is a semantic occupancy block, with `catalogId: "imported_object"`, nonempty `sourceCategory`, positive `width`, `depth`, and `height` in cm. Position is the footprint centre; width is local x and depth is local y before rotation. Heights are editable estimates and must be disclosed as such.
 
 ```json
 {
   "id": "f1",
-  "catalogId": "sofa_3seat",
+  "catalogId": "imported_object",
+  "sourceCategory": "sofa",
   "position": { "x": 320, "y": 260 },
+  "width": 210,
+  "depth": 90,
+  "height": 80,
   "rotation": 90,
   "confidence": 0.72
 }
 ```
 
-If no catalog mapping is trustworthy, omit furniture rather than inventing one.
+The native editor retains category and dimensions on the same `FurnitureItem`, rendering a labelled rectangular block with native `renderStyle: "block"`. A legacy `sourceCategory` alone does not enable this presentation. The user may select a local style in Properties; the native item retains its ID, category, placement and dimensions. Its optional `renderStyle: "model"` records that visual choice in the project, outside the AI draft contract. Do not infer a brand or detailed model from a plan symbol. Use `unknown` when the category is unclear. Plan calibration scales position and footprint, preserving estimated height.
+
+Under this presentation, omitted window fields normalize to `sillHeight: 0`, `height: hostWall.height`, and `type: "fixed"`: floor-to-ceiling glass is a product default, not a claim about the building. Explicit fields win; an explicit sill with omitted height uses the remaining wall height.
+
+Drafts without this presentation retain legacy window defaults (90 cm sill, 120 cm height, standard type) and optional catalog furniture hints. Existing JSON remains compatible.
+
+The provider-neutral reconstruction procedure and self-contained contract are in [the reconstruction Skill](../skills/reconstruct-plan2world/SKILL.md). Any visual model or human may produce this JSON. Provider transport remains outside the procedure and editor. To inspect a draft through the application's own parser and geometry pipeline:
+
+```bash
+NODE_ENV=production node tooling/inspect-plan2world-draft.mjs --draft draft.json --source source.jpg --width 1536 --height 1026 --output inspection
+```
+
+Structural checks and accepted registration establish internal consistency; source-image overlays must still be reviewed for missed or invented geometry.
 
 ## Uncertainty
 

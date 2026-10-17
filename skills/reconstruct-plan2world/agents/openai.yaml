@@ -1,0 +1,4 @@
+interface:
+  display_name: "Plan2World Reconstruction"
+  short_description: "Read floor plans into editable rooms and semantic blocks"
+  default_prompt: "Use $reconstruct-plan2world to turn this floor-plan image into an editable architectural draft with semantic furniture blocks."
