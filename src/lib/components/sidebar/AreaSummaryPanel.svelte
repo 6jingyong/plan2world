@@ -1,30 +1,27 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
-  import { activeFloor, detectedRoomsStore } from '$lib/stores/project';
+  import { activeFloorAnalysis } from '$lib/stores/project';
   import { projectSettings, formatArea, formatLength } from '$lib/stores/settings';
   import type { Room, Wall, RoomCategory } from '$lib/models/types';
-  import { resolveRooms, resolveRoomGeometry } from '$lib/utils/roomDetection';
-  import { roomHoles } from '$lib/utils/roomNesting';
   import { interiorRoomArea } from '$lib/utils/interiorArea';
 
   // Auto subscriptions end when the summary dialog closes.
-  let floor = $derived($activeFloor);
-  let detectedRooms = $derived($detectedRoomsStore);
+  let analysis = $derived($activeFloorAnalysis);
+  let floor = $derived(analysis?.floor);
   let settings = $derived($projectSettings);
   type SummaryCategory = RoomCategory | 'uncategorized';
 
   // Geometry supplies current areas; saved boundaries supply names/categories.
-  let allRooms = $derived(floor ? resolveRooms(floor, detectedRooms) : []);
+  let allRooms = $derived(analysis?.rooms ?? []);
 
   let totalArea = $derived(allRooms.reduce((sum: number, r: Room) => sum + r.area, 0));
   let interiorArea = $derived.by(() => {
-    if (!floor) return 0;
-    const geometry = resolveRoomGeometry(floor, detectedRooms);
-    const holes = roomHoles(geometry.map(item => item.polygon));
+    if (!analysis || !floor) return 0;
+    const { geometry, holes } = analysis;
     let total = 0;
     for (let i = 0; i < geometry.length; i++) {
       if (geometry[i].room.floorOpening) continue;
-      const area = interiorRoomArea(geometry[i].polygon, holes[i], floor.walls);
+      const area = interiorRoomArea(geometry[i].polygon, holes.get(geometry[i].room.id) ?? [], floor.walls);
       if (area === null) return null;
       total += area;
     }

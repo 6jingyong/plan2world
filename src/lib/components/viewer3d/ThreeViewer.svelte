@@ -10,14 +10,13 @@
   import { openAISettings, setOpenAIModel } from '$lib/stores/aiKeys';
   import { generateOpenAIRenderImage, validateOpenAIConfig, getEffectiveModel, normalizeBaseUrl } from '$lib/utils/openaiClient';
   import OpenAIModelPicker from '$lib/components/ai/OpenAIModelPicker.svelte';
-  import { selectSingleElement, activeFloor, currentProject, selectedElementId } from '$lib/stores/project';
+  import { projectFloorAnalysis, selectSingleElement, activeFloor, currentProject, selectedElementId } from '$lib/stores/project';
   import type { Floor, Wall, Door, Window as Win, Stair } from '$lib/models/types';
   import { getWallStartHeight, getWallEndHeight } from '$lib/models/types';
   import { wallColors, type WallColor } from '$lib/utils/materials';
   import { projectSettings, formatArea } from '$lib/stores/settings';
   import * as THREE from 'three';
   import { createRoomSlabGeometry } from '$lib/utils/roomSlabGeometry';
-  import { roomHoles } from '$lib/utils/roomNesting';
   import { createSlopedBoxGeometry } from '$lib/utils/slopedWallGeometry';
   import { buildWallSegments, roomCeilingHeight, wallProfileSpans, wallPathProfile, pathOpening, doorPanelPose } from '$lib/utils/wallProfiles';
   import { assembleFloorStack } from '$lib/utils/floorStack';
@@ -37,7 +36,7 @@
   import { disposeModel, ownTexture } from '$lib/utils/furnitureModelResources';
   import { createFurnitureModelWithGLB, createPlacedFurnitureModel } from '$lib/utils/furnitureModelLoader';
   import { addFurniture } from '$lib/stores/project';
-  import { detectRooms, resolveRoomGeometry, getRoomPolygon, roomCentroid, roomLabelPosition } from '$lib/utils/roomDetection';
+  import { roomCentroid, roomLabelPosition } from '$lib/utils/roomDetection';
   import { getMaterial } from '$lib/utils/materials';
   import { getWallTextureCanvas, getFloorTextureCanvas, setTextureLoadCallback } from '$lib/utils/textureGenerator';
 
@@ -1513,8 +1512,9 @@
     // Room floors with materials + floating labels
     const FALLBACK_ROOM_COLORS = [0xbfdbfe, 0xfde68a, 0xbbf7d0, 0xfecaca, 0xddd6fe, 0xa5f3fc, 0xfed7aa];
     // Resolve labels and materials from this floor, including after a 3D floor switch.
-    const rooms = resolveRoomGeometry(floor);
-    const holes = roomHoles(rooms.map(r => r.polygon));
+    const analysis = get(projectFloorAnalysis).floors.get(floor.id)!;
+    const rooms = analysis.geometry;
+    const holes = rooms.map(entry => analysis.holes.get(entry.room.id) ?? []);
     for (let ri = 0; ri < rooms.length; ri++) {
       const { room, polygon: poly } = rooms[ri];
       if (poly.length < 3) continue;
@@ -1762,8 +1762,9 @@
 
     }
     // Match active-floor footprints instead of bridging recesses and separate rooms.
-    const rooms = resolveRoomGeometry(floor);
-    const holes = roomHoles(rooms.map(r => r.polygon));
+    const analysis = get(projectFloorAnalysis).floors.get(floor.id)!;
+    const rooms = analysis.geometry;
+    const holes = rooms.map(entry => analysis.holes.get(entry.room.id) ?? []);
     for (const [index, { room, polygon }] of rooms.entries()) {
       if (room.floorOpening) continue;
       const geometry = createRoomSlabGeometry(polygon, floor.slabThickness, holes[index]);
@@ -1919,7 +1920,8 @@
 
     // Position camera at eye height in center of floor plan or largest room
     if (currentFloor) {
-      const rooms = detectRooms(currentFloor.walls);
+      const analysis = get(projectFloorAnalysis).active;
+      const rooms = analysis?.rooms ?? [];
       let startPos = { x: 0, y: eyeHeight, z: 0 };
 
       if (rooms.length > 0) {
@@ -1934,7 +1936,7 @@
           }
         }
 
-        const poly = getRoomPolygon(largestRoom, currentFloor.walls);
+        const poly = analysis?.polygons.get(largestRoom.id) ?? [];
         if (poly.length > 0) {
           const centroid = roomCentroid(poly);
           startPos = { x: centroid.x, y: eyeHeight, z: centroid.y };

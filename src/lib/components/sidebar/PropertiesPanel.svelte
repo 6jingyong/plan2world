@@ -6,7 +6,6 @@
   import { t, locale, type TranslationKey } from '$lib/i18n';
   const furnitureFinishLabels: Record<string, TranslationKey> = {"Wood": "furnitureFinish.Wood", "Metal": "furnitureFinish.Metal", "Fabric": "furnitureFinish.Fabric", "Leather": "furnitureFinish.Leather", "Glass": "furnitureFinish.Glass", "Plastic": "furnitureFinish.Plastic", "Stone": "furnitureFinish.Stone", "Ceramic": "furnitureFinish.Ceramic"};
   import { furnitureFinishes } from '$lib/utils/furnitureFinishes';
-  import { resolveRooms } from '$lib/utils/roomDetection';
   import { onDestroy } from 'svelte';
   import ItemDetailsPanel from './ItemDetailsPanel.svelte';
   import type { DetailTarget } from '$lib/models/types';
@@ -57,7 +56,7 @@
   let selectedEntourage = $derived(floor?.entourage?.find(en => en.id === selId) ?? null);
   let hasBgImage = $derived(!!floor?.backgroundImage);
   let selectedRoom = $derived(floor && selRoomId
-    ? resolveRooms(floor, detectedRooms).find(r => r.id === selRoomId) ?? null
+    ? detectedRooms.find(r => r.id === selRoomId) ?? null
     : null);
 
   let wallLength = $derived(selectedWall ? Math.round(calcWallLength(selectedWall) * 1000) / 1000 : 0);
@@ -284,25 +283,18 @@
     { name: 'Navy', color: '#1e3a8a' },
   ];
 
-  function updateDetectedRoom(id: string, updates: Partial<{ name: string; floorTexture: string; color: string }>) {
-    detectedRoomsStore.update(rooms => rooms.map(r => r.id === id ? { ...r, ...updates } : r));
-  }
-
   function onRoomName(e: Event) {
     if (!selectedRoom) return;
     const name = (e.target as HTMLInputElement).value;
     updateRoom(selectedRoom.id, { name });
-    updateDetectedRoom(selectedRoom.id, { name });
   }
   function onRoomFloor(texture: string) {
     if (!selectedRoom) return;
     updateRoom(selectedRoom.id, { floorTexture: texture });
-    updateDetectedRoom(selectedRoom.id, { floorTexture: texture });
   }
   function onRoomColor(color: string) {
     if (!selectedRoom) return;
     updateRoom(selectedRoom.id, { color });
-    updateDetectedRoom(selectedRoom.id, { color });
   }
 
   const roomTypes = [
@@ -325,7 +317,6 @@
     const rt = roomTypes.find(t => t.id === typeId);
     if (rt && rt.id !== 'custom') {
       updateRoom(selectedRoom.id, { name: rt.label });
-      updateDetectedRoom(selectedRoom.id, { name: rt.label });
     }
   }
 
@@ -788,7 +779,7 @@
       </label>
       <label class="block">
         <span class="text-xs text-gray-500">{$t('roomProperties.category')}</span>
-        <select value={selectedRoom.roomType ?? 'indoor'} onchange={(e) => { if (selectedRoom) { const v = (e.target as HTMLSelectElement).value as RoomCategory; updateRoom(selectedRoom.id, { roomType: v }); updateDetectedRoom(selectedRoom.id, { roomType: v } as any); } }} class="w-full px-2 py-1 border border-gray-200 rounded text-sm">
+        <select value={selectedRoom.roomType ?? 'indoor'} onchange={(e) => { if (selectedRoom) { const v = (e.target as HTMLSelectElement).value as RoomCategory; updateRoom(selectedRoom.id, { roomType: v }); } }} class="w-full px-2 py-1 border border-gray-200 rounded text-sm">
           <option value="indoor">🏠 {$t('areaSummary.indoor')}</option>
           <option value="outdoor">🌳 {$t('areaSummary.outdoor')}</option>
           <option value="garage">🚗 {$t('areaSummary.garage')}</option>

@@ -1,4 +1,5 @@
 import { selectSingleElement } from './selection';
+import { createProjectFloorAnalysis } from './floorAnalysis';
 import { selectionRotation } from '$lib/utils/selectionRotation';
 import { splitWallRoomReferences } from '$lib/utils/splitWallRooms';
 import { splitWallGeometry } from '$lib/utils/splitWallGeometry';
@@ -38,10 +39,12 @@ export function createDefaultProject(name = 'Untitled Project'): Project {
 
 export const currentProject = writable<Project | null>(null);
 
-export const activeFloor = derived(currentProject, ($p) => {
-  if (!$p) return null;
-  return $p.floors.find((f) => f.id === $p.activeFloorId) ?? $p.floors[0] ?? null;
-});
+/** Shared read-only room topology for every floor, including while only 3D is mounted. */
+export const projectFloorAnalysis = createProjectFloorAnalysis(currentProject);
+export const activeFloorAnalysis = derived(projectFloorAnalysis, analysis => analysis.active);
+export const activeFloor = derived(activeFloorAnalysis, analysis => analysis?.floor ?? null);
+/** Resolved rooms are derived from Project; metadata edits go through updateRoom. */
+export const detectedRoomsStore = derived(activeFloorAnalysis, analysis => analysis?.rooms ?? []);
 
 export type Tool = 'select' | 'wall' | 'door' | 'window' | 'furniture' | 'text' | 'measure' | 'annotate';
 export const selectedTool = writable<Tool>('select');
@@ -182,7 +185,6 @@ function clearFloorContext() {
   calibrationPoints.set([]);
   selectSingleElement(null);
   selectedRoomId.set(null);
-  detectedRoomsStore.set([]);
   elevationWallId.set(null);
   elevationPickMode.set(false);
   selectedTool.set('select');
@@ -590,7 +592,6 @@ export function removeRoom(id: string) {
       if (!retainedWalls.has(wallId)) removeElement(wallId);
     }
     mutate(floor => { floor.rooms = floor.rooms.filter(room => room.id !== id); }, 'Deleted room');
-    detectedRoomsStore.update(rooms => rooms.filter(room => room.id !== id));
   } finally {
     endUndoGroup();
   }
@@ -984,8 +985,6 @@ export function importFloorIntoCurrentProject(floor: import('$lib/models/types')
 }
 
 export const selectedRoomId = writable<string | null>(null);
-/** Detected rooms (synced from canvas room detection) */
-export const detectedRoomsStore = writable<import('$lib/models/types').Room[]>([]);
 /** catalogId currently being placed (null = not placing) */
 export const placingFurnitureId = writable<string | null>(null);
 /** Rotation angle for furniture being placed */
