@@ -1,12 +1,13 @@
 import { test, expect, type Page } from '@playwright/test';
 import { resolve } from 'node:path';
+import { readFile } from 'node:fs/promises';
 import { Matrix4, Vector3 } from 'three';
 import { createHash } from 'node:crypto';
 import { observeGPU, gpu } from './gpu';
 
 test.use({ viewport: { width: 844, height: 480 } });
 
-async function openWalkthrough(page: Page, pointerLock = false, locale = 'en') {
+async function openWalkthrough(page: Page, pointerLock = false, locale = 'en', project?: object) {
   await page.addInitScript(locale => localStorage.setItem('o3d_locale', locale), locale);
   // CI-only control of RAF timestamps and observation of WebGL's view uniform.
   // No camera references, application internals or production debug hooks.
@@ -22,6 +23,7 @@ async function openWalkthrough(page: Page, pointerLock = false, locale = 'en') {
       pendingIds: () => [...queued.keys()],
       ready: () => normal.size === 0,
       start: () => { if (normal.size) throw new Error('Wait for orbit to settle'); manual = true; },
+      resume: () => { if (queued.size) throw new Error('Wait for controlled frames to settle'); manual = false; },
       step: (delta: number, frames: number) => {
         for (let frame = 0; frame < frames; frame++) {
           now += delta;
@@ -77,7 +79,9 @@ async function openWalkthrough(page: Page, pointerLock = false, locale = 'en') {
   await page.getByRole('button', { name: locale === 'pt' ? 'Exportar' : 'Export', exact: true }).click();
   const chooser = page.waitForEvent('filechooser');
   await page.getByRole('button', { name: locale === 'pt' ? 'Importar JSON' : 'Import JSON', exact: true }).click();
-  await (await chooser).setFiles(resolve('tests/fixtures/top-down-framing.openplan.json'));
+  await (await chooser).setFiles(project
+    ? { name: 'experience.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(project)) }
+    : resolve('tests/fixtures/top-down-framing.openplan.json'));
   await page.getByRole('button', { name: '3D', exact: true }).click();
   const hint = page.getByRole('button', { name: locale === 'pt' ? 'Entendi' : 'Got it', exact: true });
   await expect(hint).toBeHidden({ timeout: 15_000 });
@@ -298,4 +302,91 @@ test('Portuguese walkthrough keeps keyboard movement and field controls usable w
   await page.getByRole('button', { name: 'Vista superior', exact: true }).click();
   await expect(page.getByText('Controles de passeio', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Entrar no modo de passeio', exact: true })).toBeVisible();
+});
+
+for (const width of [1440, 390]) test(`automatic entry stays inside a concave room at ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 900 });
+  const plan = JSON.parse(await readFile('tests/fixtures/connected-dimensions.openplan.json', 'utf8'));
+  plan.id = 'qa-concave-entry'; plan.name = 'QA concave entry';
+  const floor = plan.floors[0]; floor.rooms = []; floor.doors = []; floor.windows = [];
+  const points = [[0, 0], [600, 0], [600, 600], [400, 600], [400, 200], [200, 200], [200, 600], [0, 600]];
+  floor.walls = points.map(([x, y], i) => ({ id: `u-${i}`, start: { x, y },
+    end: { x: points[(i + 1) % points.length][0], y: points[(i + 1) % points.length][1] },
+    thickness: 20, height: 280, color: '#444444' }));
+  await openWalkthrough(page, false, 'en', plan);
+  const start = position(await enter(page));
+  // Independent point-in-polygon check on the actual rendered camera's origin.
+  let inside = false;
+  for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+    const [x, y] = points[i], [lastX, lastY] = points[j];
+    if ((y > start.z) !== (lastY > start.z) && start.x < (lastX - x) * (start.z - y) / (lastY - y) + x) inside = !inside;
+  }
+  expect(inside).toBe(true);
+  expect(start.y).toBeCloseTo(160);
+});
+
+for (const width of [1440, 390]) test(`edited door geometry stays live across plan, cut and walkthrough at ${width}px`, async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width, height: 900 });
+  const plan = JSON.parse(await readFile('tests/fixtures/connected-dimensions.openplan.json', 'utf8'));
+  plan.id = 'qa-live-door'; plan.name = 'QA live door geometry';
+  const floor = plan.floors[0]; floor.rooms = []; floor.windows = []; floor.elevation = 300;
+  floor.walkthroughStart = { x: 300, y: 350 };
+  floor.walls.push({ id: 'divider', start: { x: 0, y: 200 }, end: { x: 600, y: 200 }, thickness: 20, height: 280, color: '#444444' });
+  floor.doors = [{ id: 'passage', wallId: 'divider', position: 0.5, width: 30, height: 210, type: 'opening', swingDirection: 'left' }];
+  await openWalkthrough(page, false, 'en', plan);
+  const canvas = page.getByRole('region', { name: '3D floor plan viewer' }).locator('canvas').last();
+  const cut = page.getByRole('button', { name: /1\.20 m/ });
+
+  async function cutAndWalk(passable: boolean) {
+    await cut.click(); await step(page, 16, 2);
+    // Active-floor presentation uses local ground zero; elevation is applied
+    // by the separate stacked-floor view, not by this architectural cut.
+    await expect(canvas).toHaveAttribute('data-architectural-cut', '120');
+    const picture = await pixels(page);
+    const origin = position(await enter(page));
+    expect(origin.x).toBeCloseTo(300); expect(origin.z).toBeCloseTo(350); expect(origin.y).toBeCloseTo(160);
+    await expect(canvas).not.toHaveAttribute('data-architectural-cut', /.+/);
+    await expect(cut).toHaveAttribute('aria-pressed', 'false');
+    await page.keyboard.down('w');
+    const walked = position(await step(page, 250, 24));
+    await page.keyboard.up('w');
+    expect(walked.y).toBeCloseTo(160);
+    if (passable) expect(walked.z).toBeLessThan(180);
+    else expect(walked.z).toBeGreaterThanOrEqual(230 - 1e-4);
+    await page.getByRole('button', { name: 'Exit Walkthrough Mode', exact: true }).click();
+    await step(page, 250, 40);
+    await page.evaluate(() => (window as any).__walkAudit.resume());
+    return picture;
+  }
+  await cutAndWalk(false);
+  await page.getByRole('button', { name: '2D', exact: true }).click();
+  await expect(page.getByRole('application')).toContainText('2 rooms');
+  await page.getByRole('button', { name: 'Save', exact: true }).press('l');
+  await page.getByRole('button', { name: /opening door 1/i }).click();
+  const doorWidth = page.locator('[data-quick-opening-width]');
+  await expect(doorWidth).toHaveValue('30');
+  await doorWidth.fill('90'); await doorWidth.press('Enter');
+  await page.getByRole('button', { name: '3D', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => (window as any).__walkAudit.ready())).toBe(true);
+  await page.evaluate(() => (window as any).__walkAudit.start());
+  const wideCut = await cutAndWalk(true);
+  // Undo while the 3D viewer is mounted must refresh both the rendered opening
+  // and its collision, rather than retaining a previous scene snapshot.
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => (window as any).__walkAudit.ready())).toBe(true);
+  await page.evaluate(() => (window as any).__walkAudit.start());
+  expect(await cutAndWalk(false)).not.toBe(wideCut);
+  await page.getByRole('button', { name: 'Redo', exact: true }).click();
+  await page.getByRole('button', { name: '2D', exact: true }).click();
+  await expect(doorWidth).toHaveValue('90');
+  await expect(page.getByRole('application')).toContainText('2 rooms');
+  await page.getByRole('button', { name: 'Export', exact: true }).click();
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Download JSON', exact: true }).click();
+  const saved = JSON.parse(await readFile((await (await download).path())!, 'utf8')).floors[0];
+  expect(saved.elevation).toBe(300);
+  expect(saved.walkthroughStart).toEqual(floor.walkthroughStart);
+  expect(saved.walls).toEqual(floor.walls);
+  expect(saved.doors[0].width).toBe(90);
 });
