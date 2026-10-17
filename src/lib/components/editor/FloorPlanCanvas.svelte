@@ -8,6 +8,7 @@
   import { selectionContentBounds } from '$lib/utils/selectionContentBounds';
   import { planContentBounds, hasPlanContent } from '$lib/utils/planContentBounds';
   import { wallPointAt, wallTangentAt } from '$lib/utils/wallPath';
+  import { projectOntoWall } from '$lib/utils/wallProjection';
   import { connectedWallEndpoints } from '$lib/utils/wallEditing';
   import { createDrawScheduler } from '$lib/utils/drawScheduler';
   import { activeFloor, selectedTool, selectedElementId, selectedElementIds, selectedRoomId, addWall, addDoor, addWindow, updateWall, moveWallsDuringDrag, updateDoor, updateWindow, addFurniture, moveFurniture, transformFurnitureDuringDrag, rotateFurniture, rotateSelection, setFurnitureRotation, scaleFurniture, removeElement, placingFurnitureId, placingRotation, placingDoorType, placingWindowType, activeFloorAnalysis, duplicateDoor, duplicateWindow, duplicateFurniture, duplicateSelection, pasteSelection, splitWall, wallSplitIntersectsOpening, snapEnabled, placingStair, addStair, moveStair, updateStair, placingColumn, placingColumnShape, addColumn, moveColumn, updateColumn, calibrationMode, calibrationPoints, updateBackgroundImage, setBackgroundImage, canvasZoom, canvasMinimumZoom, canvasCamX, canvasCamY, panMode, showFurnitureStore, addGuide, moveGuide, removeGuide, beginUndoGroup, endUndoGroup, layerVisibility, updateRoom, addMeasurement, updateMeasurement, removeMeasurement, addAnnotation, removeAnnotation, updateAnnotation, addTextAnnotation, removeTextAnnotation, updateTextAnnotation, moveTextAnnotation, toggleFurnitureLock, toggleSelectionLock, createGroup, ungroupElements, findGroupForElement, placingEntourageId, addEntourageItem, moveEntourage, resizeEntourage, currentProject, elevationWallId, elevationPickMode } from '$lib/stores/project';
@@ -401,27 +402,21 @@
       let bestWallDist = wallSnapThreshold;
       for (const w of currentFloor.walls) {
         if (excludeWallIds && excludeWallIds.has(w.id)) continue;
-        const wx = w.end.x - w.start.x;
-        const wy = w.end.y - w.start.y;
-        const wLen = Math.hypot(wx, wy);
-        if (wLen < 1) continue;
-        // Project p onto the wall segment
-        const t = ((p.x - w.start.x) * wx + (p.y - w.start.y) * wy) / (wLen * wLen);
-        if (t < 0.02 || t > 0.98) continue; // skip near endpoints (already handled)
-        const projX = w.start.x + wx * t;
-        const projY = w.start.y + wy * t;
-        const d = Math.hypot(p.x - projX, p.y - projY);
-        if (d < bestWallDist) {
-          bestWallDist = d;
-          best = { x: projX, y: projY, snappedToWall: true, snappedWallId: w.id };
+        const projection = projectOntoWall(p, w);
+        if (!projection || projection.position < 0.02 || projection.position > 0.98) continue;
+        if (projection.distance < bestWallDist) {
+          bestWallDist = projection.distance;
+          best = { ...wallPointAt(w, projection.position), snappedToWall: true, snappedWallId: w.id };
         }
       }
     }
     return best;
   }
 
-  function angleSnap(start: Point, end: Point): Point {
-    if (!currentSnapEnabled) return end;
+  function angleSnap(start: Point, end: Point & { snappedToEndpoint?: boolean; snappedToWall?: boolean }): Point {
+    // An exact geometry join takes priority over the optional angle suggestion.
+    // Otherwise a shallow diagonal can snap to a corner and immediately detach.
+    if (!currentSnapEnabled || end.snappedToEndpoint || end.snappedToWall) return end;
     const dx = end.x - start.x;
     const dy = end.y - start.y;
     const len = Math.hypot(dx, dy);
@@ -1548,7 +1543,10 @@
           ctx.setLineDash([6, 3]);
           ctx.beginPath();
           ctx.moveTo(tw1.x, tw1.y);
-          ctx.lineTo(tw2.x, tw2.y);
+          if (targetWall.curvePoint) {
+            const control = worldToScreen(targetWall.curvePoint.x, targetWall.curvePoint.y);
+            ctx.quadraticCurveTo(control.x, control.y, tw2.x, tw2.y);
+          } else ctx.lineTo(tw2.x, tw2.y);
           ctx.stroke();
           ctx.setLineDash([]);
         }
