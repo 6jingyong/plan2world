@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { draftToProject } from '../src/lib/plan2world/draft';
-import { resolveReviewFocus } from '../src/lib/plan2world/reviewFocus';
+import { resolveReviewFocus, reviewIssueFocusMode } from '../src/lib/plan2world/reviewFocus';
 
 const project = draftToProject({
   schemaVersion: 'plan2world-draft-v1',
@@ -34,5 +34,17 @@ describe('Review editor focus', () => {
     expect(resolveReviewFocus(project, 'missing-floor', ['wall-a'])).toBeNull();
     expect(resolveReviewFocus(project, 'ground', ['missing'])).toBeNull();
     expect(resolveReviewFocus(project, null, ['wall-a'])).toBeNull();
+  });
+
+  it.each(['many-enclosed-regions', 'high-region-wall-ratio', 'many-tiny-regions', 'disconnected-component'] as const)('frames %s without inventing a deletion subject', code => {
+    const mode = reviewIssueFocusMode({ code });
+    expect(mode).toBe('inspect');
+    expect(resolveReviewFocus(project, 'ground', ['wall-a'], mode)).toEqual({ floorId: 'ground', elementIds: ['wall-a'], primaryId: null });
+  });
+
+  it('retains surviving context for an aggregate while rejecting an empty inspection', () => {
+    expect(resolveReviewFocus(project, 'ground', ['removed', 'wall-a'], 'inspect')?.primaryId).toBeNull();
+    expect(resolveReviewFocus(project, 'ground', ['removed'], 'inspect')).toBeNull();
+    expect(reviewIssueFocusMode({ code: 'opening-outside-wall' })).toBe('edit');
   });
 });

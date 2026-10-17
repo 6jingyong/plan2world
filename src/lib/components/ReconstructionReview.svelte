@@ -10,6 +10,14 @@
     live?: boolean; calibrationPoints?: NormalizedImagePoint[]; onpick?: (event: MouseEvent) => void; busy?: boolean;
     showTrace?: boolean; focusedIssueKey?: string;
   } = $props();
+  let showAllFindings = $state(false);
+  const visibleIssues = $derived(showAllFindings ? review.geometryIssues : review.geometryIssues.slice(0, 6));
+  function toggleAllFindings() {
+    showAllFindings = !showAllFindings;
+    if (!showAllFindings && !review.geometryIssues.slice(0, 6).some(issue => geometryIssueKey(issue) === focusedIssueKey)) {
+      focusedIssueKey = '';
+    }
+  }
   const focusedIssueElementIds = $derived(review.geometryIssues.find(issue => geometryIssueKey(issue) === focusedIssueKey)?.elementIds ?? []);
   function toggleGeometryIssue(issue: DraftGeometryIssue) {
     const key = geometryIssueKey(issue);
@@ -211,7 +219,7 @@
     </div>
     <p class="mt-1 text-xs text-orange-800">Deterministic geometry checks, not another AI judgment. Select a finding to isolate its matching wall or opening in the source-image trace above.</p>
     <ul class="mt-2 space-y-1 text-sm text-orange-900">
-      {#each review.geometryIssues.slice(0, 6) as issue}
+      {#each visibleIssues as issue}
         <li>
           <button
             type="button"
@@ -226,7 +234,10 @@
       {/each}
     </ul>
     {#if review.geometryIssues.length > 6}
-      <div class="mt-2 text-xs text-orange-700">+ {review.geometryIssues.length - 6} more finding{review.geometryIssues.length - 6 === 1 ? '' : 's'}</div>
+      <button type="button" onclick={toggleAllFindings} aria-expanded={showAllFindings}
+        class="mt-2 rounded-lg border border-orange-300 bg-white px-3 py-2 text-xs font-semibold text-orange-800 hover:bg-orange-100">
+        {showAllFindings ? 'Show fewer findings' : `Show all ${review.geometryIssues.length} findings`}
+      </button>
     {/if}
   </div>
 {/if}

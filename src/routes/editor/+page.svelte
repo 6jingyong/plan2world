@@ -134,10 +134,11 @@
     if (!hasFocus) return;
     const project = get(currentProject);
     const target = project
-      ? resolveReviewFocus(project, url.searchParams.get('focusFloor'), url.searchParams.getAll('focus'))
+      ? resolveReviewFocus(project, url.searchParams.get('focusFloor'), url.searchParams.getAll('focus'), url.searchParams.get('focusMode') === 'inspect' ? 'inspect' : 'edit')
       : null;
     url.searchParams.delete('focusFloor');
     url.searchParams.delete('focus');
+    url.searchParams.delete('focusMode');
     if (target) focusReviewTarget(target);
     replaceState(`${url.pathname}${url.search}${url.hash}`, page.state);
   }

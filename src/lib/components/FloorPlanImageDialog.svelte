@@ -8,6 +8,7 @@
   import { openProject } from '$lib/services/projectOpening';
   import type { Plan2WorldDraft } from '$lib/plan2world/draft';
   import { geometryIssueKey } from '$lib/plan2world/geometryHealth';
+  import { reviewIssueFocusMode } from '$lib/plan2world/reviewFocus';
   import ReconstructionReview from './ReconstructionReview.svelte';
   import { buildReconstructionTrace } from '$lib/plan2world/reconstructionTrace';
   import {
@@ -191,6 +192,7 @@
       const params = new URLSearchParams({ id: project.id });
       if (focusedIssue) {
         params.set('focusFloor', focusedIssue.floorId);
+        if (reviewIssueFocusMode(focusedIssue) === 'inspect') params.set('focusMode', 'inspect');
         for (const elementId of focusedIssue.elementIds) params.append('focus', elementId);
       }
       await goto(`${base}/editor?${params.toString()}`);
