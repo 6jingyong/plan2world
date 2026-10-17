@@ -1893,8 +1893,10 @@
     controls.enableDamping = false;
     controls.update();
     controls.enableDamping = damping;
+    // The export control reaches 100 px above the bottom. Leave it clear even
+    // when a phone inspector or landscape viewport makes the canvas short.
     frameScene(camera, new THREE.Box3().setFromObject(wallGroup), controls.target,
-      { view: 'top-down', verticalInset: Math.min(64 / container.clientHeight, 0.2) });
+      { view: 'top-down', verticalInset: Math.min(112 / container.clientHeight, 0.35) });
     controls.update();
     markSceneDirty();
   }

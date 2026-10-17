@@ -246,7 +246,7 @@
   <div class="h-screen flex flex-col overflow-hidden">
     <TopBar onToggleLayers={() => showLayers = !showLayers} layersOpen={showLayers} onToggleHistory={toggleHistory} historyOpen={showUndoHistory} />
     <!-- Keep canvas/viewer controls beneath toolbar menus and project dialogs. -->
-    <div class="flex flex-1 overflow-hidden isolate">
+    <div class="flex flex-1 overflow-hidden isolate {mode === '3d' ? 'max-md:flex-col' : ''}">
       {#if mode === '2d'}
         <!-- Build panel: inline sidebar on md+, off-canvas drawer on phones -->
         {#if buildPanelOpen}
@@ -260,7 +260,7 @@
           <BuildPanel />
         </div>
       {/if}
-      <div class="flex-1 min-w-0 relative">
+      <div class="flex-1 min-w-0 min-h-0 relative">
         {#if mode === '2d'}
           <FloorPlanCanvas />
           <AlignmentToolbar />
