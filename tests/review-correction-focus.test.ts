@@ -61,3 +61,16 @@ it('ignores a deleted subject instead of selecting its remaining host wall', () 
   expect([...get(selectedElementIds)]).toEqual(['qa-wall-2', 'qa-wall-3']);
   expect(get(viewMode)).toBe('3d');
 });
+
+it('clears previous edit targets when inspecting an aggregate without changing history', () => {
+  const project = get(currentProject)!, floor = project.floors[0];
+  updateDoor('qa-door', { width: 100 }); undo();
+  selectElements(['qa-wall-2', 'qa-wall-3'], 'qa-wall-2');
+  selectedRoomId.set(floor.rooms[0].id); viewMode.set('3d');
+  const target = resolveReviewFocus(project, floor.id, floor.walls.map(wall => wall.id), 'inspect')!;
+  expect(focusReviewTarget(target)).toBe(true);
+  expect(get(selectedElementId)).toBeNull(); expect(get(selectedElementIds).size).toBe(0);
+  expect(get(selectedRoomId)).toBeNull(); expect(get(editorFocusRequest)?.primaryId).toBeNull();
+  expect(get(editorFocusRequest)?.elementIds).toEqual(floor.walls.map(wall => wall.id));
+  redo(); expect(get(currentProject)!.floors[0].doors[0].width).toBe(100);
+});

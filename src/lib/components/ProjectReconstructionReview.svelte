@@ -2,7 +2,7 @@
   import { modalDialog } from '$lib/utils/modalDialog';
   import { currentProject, projectFloorAnalysis } from '$lib/stores/project';
   import { focusReviewTarget } from '$lib/stores/editorFocus';
-  import { resolveReviewFocus } from '$lib/plan2world/reviewFocus';
+  import { resolveReviewFocus, reviewIssueFocusMode } from '$lib/plan2world/reviewFocus';
   import { geometryIssueKey } from '$lib/plan2world/geometryHealth';
   import { summarizeProjectReconstruction } from '$lib/plan2world/review';
   import { buildProjectReconstructionTrace } from '$lib/plan2world/reconstructionTrace';
@@ -12,6 +12,7 @@
   let focusedIssueKey = $state('');
   const review = $derived($currentProject ? summarizeProjectReconstruction($currentProject, $projectFloorAnalysis.floors.values()) : null);
   const issue = $derived(review?.geometryIssues.find(issue => geometryIssueKey(issue) === focusedIssueKey));
+  const focusMode = $derived(issue ? reviewIssueFocusMode(issue) : 'edit');
   // A finding on another floor takes priority so its trace and editor handoff agree.
   const floor = $derived($currentProject?.floors.find(floor => floor.id === issue?.floorId)
     ?? $projectFloorAnalysis.active?.floor);
@@ -20,7 +21,7 @@
     ? buildProjectReconstructionTrace($currentProject, floor.id, review.geometryIssues) : null);
 
   function editFinding() {
-    const target = $currentProject && issue ? resolveReviewFocus($currentProject, issue.floorId, issue.elementIds) : null;
+    const target = $currentProject && issue ? resolveReviewFocus($currentProject, issue.floorId, issue.elementIds, focusMode) : null;
     if (target && focusReviewTarget(target)) onclose();
   }
 </script>
@@ -42,7 +43,7 @@
       {/if}
       <ReconstructionReview {review} {trace} sourceUrl={background?.dataUrl} sourceName={background?.reconstructionSource?.name} live bind:focusedIssueKey />
       {#if issue}
-        <button type="button" onclick={editFinding} class="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">Edit finding in plan</button>
+        <button type="button" onclick={editFinding} class="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">{focusMode === 'inspect' ? 'Inspect finding in plan' : 'Edit finding in plan'}</button>
       {/if}
     {:else}
       <p class="text-sm text-gray-500">No reconstruction evidence is stored in this project.</p>
