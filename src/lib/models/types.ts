@@ -191,6 +191,14 @@ export interface BackgroundImage {
   opacity: number;
   rotation: number;
   locked: boolean;
+  /** Dimensions and provenance of this reconstruction raster; replacement images omit this marker. */
+  reconstructionSource?: {
+    width: number;
+    height: number;
+    name?: string;
+    registration: 'anchors' | 'bounds';
+    confidence?: number;
+  };
 }
 
 /** A placed 2D entourage symbol (person, car, tree, …) for presentation plans */
@@ -253,7 +261,21 @@ export interface CustomModelDef {
   sourceUrl?: string;
 }
 
+/** Import evidence only. Coordinates and findings are always read from live Floor geometry. */
+export interface ReconstructionEvidence {
+  version: 1;
+  scale: { mode: 'measured' | 'provided' | 'estimated'; confidence: number; basis?: string };
+  assumptions: string[];
+  floors: {
+    floorId: string;
+    walls: { id: string; confidence?: number; kind?: 'interior' | 'exterior' | 'unknown' }[];
+    doors: { id: string; confidence?: number }[];
+    windows: { id: string; confidence?: number }[];
+  }[];
+}
+
 export interface Project {
+  reconstruction?: ReconstructionEvidence;
   customModels?: CustomModelDef[];
   attachmentNames?: Record<string, string>;
   projectPackage?: ProjectPackageState;

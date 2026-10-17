@@ -12,6 +12,7 @@ export interface SourceFloorPlanImage {
   dataUrl: string;
   width: number;
   height: number;
+  name?: string;
 }
 
 export interface NormalizedImagePoint {
@@ -261,6 +262,13 @@ export function draftToProjectWithSourceBackground(
 
   const registered = sourceBackgroundForRegistration(draft, source);
   const backgroundImage = registered ?? sourceBackgroundForWalls(floor.walls, source);
-  if (backgroundImage) floor.backgroundImage = backgroundImage;
+  if (backgroundImage) floor.backgroundImage = {
+    ...backgroundImage,
+    reconstructionSource: {
+      width: source.width, height: source.height, name: source.name,
+      registration: registered ? 'anchors' : 'bounds',
+      confidence: registered ? draft.sourceRegistration?.confidence : undefined,
+    },
+  };
   return project;
 }

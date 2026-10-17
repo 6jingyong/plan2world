@@ -1,3 +1,4 @@
+import { validateReconstructionEvidence } from './reconstructionEvidence';
 import type { Project, DetailKind } from '$lib/models/types';
 import { validateItemDetails, validateRetainedDetailState } from './itemDetails';
 import { refreshLegacyFurnitureCategories } from './legacyFurnitureCategories';
@@ -54,6 +55,7 @@ export function readProject(value: unknown): Project {
   defaults(project!, { name: 'Untitled Project' });
   text(project!.name, 'name'); strings(project!, ['description'], 'document');
   if (project!.projectPackage !== undefined) validateRetainedDetailState(project!.projectPackage);
+  if (project!.reconstruction !== undefined) validateReconstructionEvidence(project!.reconstruction);
   const customModelIds = validateCustomModelDefinitions(project!.customModels, project!.projectPackage?.assets);
   if (project!.attachmentNames !== undefined) {
     record(project!.attachmentNames, 'attachmentNames');
@@ -159,6 +161,14 @@ export function readProject(value: unknown): Project {
     if (floor.backgroundImage !== undefined) {
       const bg = record(floor.backgroundImage, `${path}.backgroundImage`), bgPath = `${path}.backgroundImage`;
       text(bg.dataUrl, `${bgPath}.dataUrl`, true); positioned(bg, bgPath); positive(bg.scale, `${bgPath}.scale`);
+      if (bg.reconstructionSource !== undefined) {
+        const source = record(bg.reconstructionSource, `${bgPath}.reconstructionSource`);
+        positive(source.width, `${bgPath}.reconstructionSource.width`);
+        positive(source.height, `${bgPath}.reconstructionSource.height`);
+        choice(source.registration, ['anchors', 'bounds'], `${bgPath}.reconstructionSource.registration`);
+        strings(source, ['name'], `${bgPath}.reconstructionSource`);
+        if (source.confidence !== undefined) number(source.confidence, `${bgPath}.reconstructionSource.confidence`, 0, 1);
+      }
       defaults(bg, { opacity: 0.4, locked: false }); number(bg.opacity, `${bgPath}.opacity`, 0, 1); booleans(bg, ['locked'], bgPath);
     }
   }

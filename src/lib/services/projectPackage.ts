@@ -1,4 +1,4 @@
-import type { Project } from '$lib/models/types';
+import type { BackgroundImage, Project } from '$lib/models/types';
 import { readProject } from '$lib/utils/projectValidation';
 import { PACKAGE_LIMIT, jsonBytes, packageJSON, packageError, readPackageZip, writePackageZip, safePackagePath, crc32 } from '$lib/utils/projectPackageZip';
 import { applyNativeEdits, nativeAssetNames, nativeToWeb, validatePackageMapping, validatePackagePlan, webToNative, type PackageMapping } from '$lib/utils/projectPackageBridge';
@@ -148,9 +148,11 @@ export function readProjectPackage(bytes: Uint8Array): { project: Project; asset
     if ((underlayFloor || targetFloor) && (JSON.stringify(plan.underlay) !== JSON.stringify(baseline.underlay) || imageChanged)) {
       const background = underlayBackground(plan, assets);
       if (background && targetFloor) {
-        const controls = underlayFloor?.backgroundImage ?? targetFloor.backgroundImage ?? background;
+        const controls: BackgroundImage = underlayFloor?.backgroundImage ?? targetFloor.backgroundImage ?? background;
         if (underlayFloor && targetFloor.id !== underlayFloor.id) delete underlayFloor.backgroundImage;
-        targetFloor.backgroundImage = { ...controls, dataUrl: background.dataUrl, position: background.position, scale: background.scale, rotation: background.rotation };
+        // A different raster is no longer the original reconstruction evidence.
+        const rasterChanged = imageChanged || background.dataUrl !== controls.dataUrl;
+        targetFloor.backgroundImage = { ...controls, reconstructionSource: rasterChanged ? undefined : controls.reconstructionSource, dataUrl: background.dataUrl, position: background.position, scale: background.scale, rotation: background.rotation };
       } else if (!plan.underlay && baseline.underlay && underlayFloor) delete underlayFloor.backgroundImage;
     }
   } else {

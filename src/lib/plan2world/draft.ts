@@ -419,6 +419,17 @@ export function draftToProject(input: unknown, now = new Date()): Project {
   return {
     id: `plan2world-${now.getTime().toString(36)}`,
     name: draft.name,
+    reconstruction: {
+      version: 1,
+      scale: { ...draft.scale },
+      assumptions: [...(draft.assumptions ?? [])],
+      floors: draft.floors.map(floor => ({
+        floorId: floor.id,
+        walls: floor.walls.map(({ id, kind, confidence }) => ({ id, kind, confidence })),
+        doors: (floor.doors ?? []).map(({ id, confidence }) => ({ id, confidence })),
+        windows: (floor.windows ?? []).map(({ id, confidence }) => ({ id, confidence })),
+      })),
+    },
     description: `Imported from ${PLAN2WORLD_DRAFT_VERSION}. ${scaleDescription}${assumptions}`,
     floors,
     activeFloorId: floors[0].id,

@@ -2,10 +2,6 @@ import { expect, test } from '@playwright/test';
 import { createFloorPlanAIProvider, type FloorPlanProviderRequest } from '../fixtures/floorplan-ai-provider';
 
 const providerURL = 'http://127.0.0.1:4201';
-const tinyPng = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Zl9sAAAAASUVORK5CYII=',
-  'base64',
-);
 let requests: FloorPlanProviderRequest[] = [];
 const provider = createFloorPlanAIProvider(request => requests.push(request));
 
@@ -29,7 +25,12 @@ test('image upload reaches the provider, pauses for review, then opens the edita
   await expect(page.getByText('OpenAI settings saved.', { exact: true })).toBeVisible();
 
   const input = page.locator('input[type="file"][accept="image/png,image/jpeg,image/webp"]');
-  await input.setInputFiles({ name: 'tiny-floorplan.png', mimeType: 'image/png', buffer: tinyPng });
+  const image = await page.evaluate(() => {
+    const canvas = document.createElement('canvas'); canvas.width = 800; canvas.height = 600;
+    const context = canvas.getContext('2d')!; context.fillStyle = '#fff'; context.fillRect(0, 0, 800, 600);
+    context.strokeRect(0, 0, 799, 599); return canvas.toDataURL().split(',')[1];
+  });
+  await input.setInputFiles({ name: 'synthetic-floorplan.png', mimeType: 'image/png', buffer: Buffer.from(image, 'base64') });
   await expect(page.getByRole('img', { name: 'Selected floor plan', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Generate reconstruction', exact: true }).click();
 
@@ -40,6 +41,16 @@ test('image upload reaches the provider, pauses for review, then opens the edita
   await expect(page.getByText('walls', { exact: true }).locator('..')).toContainText('4');
   await expect(page.getByText('doors', { exact: true }).locator('..')).toContainText('1');
   await expect(page.getByText('windows', { exact: true }).locator('..')).toContainText('1');
+
+  // The extracted shared preview must still deliver calibration clicks to the import flow.
+  const measurement = page.getByRole('button', { name: 'Pick two endpoints on the source image for scale calibration', exact: true });
+  const bounds = (await measurement.boundingBox())!;
+  await measurement.click({ position: { x: bounds.width * 0.2, y: bounds.height * 0.5 } });
+  await measurement.click({ position: { x: bounds.width * 0.8, y: bounds.height * 0.5 } });
+  await page.getByRole('spinbutton', { name: 'Actual length (cm)', exact: true }).fill('480');
+  await page.getByRole('button', { name: 'Apply measured length', exact: true }).click();
+  await expect(page.getByText('100% confidence', { exact: true })).toBeVisible();
+  await expect(page.getByText(/User calibration:/).first()).toContainText('480 cm actual');
 
   expect(requests).toHaveLength(1);
   const request = requests[0];
@@ -56,6 +67,18 @@ test('image upload reaches the provider, pauses for review, then opens the edita
   await expect(app).toContainText('4 walls');
   await expect(app).toContainText('1 door');
   await expect(app).toContainText('1 window');
+
+  // The generated project retains evidence without another provider request.
+  await page.reload();
+  await page.getByRole('button', { name: 'Review reconstruction', exact: true }).click();
+  const review = page.getByRole('dialog', { name: 'Review reconstruction', exact: true });
+  await expect(review).toContainText('Mock provider test dimensions');
+  await expect(review).toContainText('480 cm actual');
+  await expect(review).toContainText('100% confidence');
+  await expect(review).toContainText('Browser smoke-test response.');
+  await expect(review.getByRole('img', { name: 'Source floor plan', exact: true })).toBeVisible();
+  expect(requests).toHaveLength(1);
+  await review.getByRole('button', { name: 'Close reconstruction review', exact: true }).click();
 
   await page.getByRole('button', { name: '3D', exact: true }).click();
   const canvas = page.getByRole('region', { name: '3D floor plan viewer' }).locator('canvas').first();
