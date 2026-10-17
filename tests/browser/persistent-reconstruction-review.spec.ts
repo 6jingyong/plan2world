@@ -49,9 +49,11 @@ for (const width of [1440, 390]) test(`saved reconstruction Review follows corre
   await finding().click();
   await dialog.getByRole('button', { name: 'Edit finding in plan', exact: true }).click();
   await expect(dialog).toHaveCount(0);
-  const doorWidth = page.locator('[data-plan-properties]').getByRole('spinbutton', { name: 'Width (cm)', exact: true });
+  // Review must land on a single editable target even when its finding also names the host wall.
+  await expect(page.locator('[data-quick-geometry-toolbar]')).toBeVisible();
+  const doorWidth = page.locator('[data-quick-opening-width]');
   await expect(doorWidth).toHaveValue('800');
-  await doorWidth.fill('90'); await doorWidth.press('Tab');
+  await doorWidth.fill('90'); await doorWidth.press('Enter');
   await openReview(); await expect(finding()).toHaveCount(0); await closeReview();
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await openReview(); await expect(finding()).toBeVisible(); await closeReview();

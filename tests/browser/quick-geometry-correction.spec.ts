@@ -102,7 +102,7 @@ test(`Review focus keeps endpoint labels on the live wall at ${viewportWidth}px`
   await page.getByRole('button', { name: 'Import JSON', exact: true }).click();
   await (await chooser).setFiles({ name: 'endpoint-labels.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(plan)) });
   await expect(page).toHaveURL(/id=qa-connected-dimensions/);
-  await page.goto('/editor?id=qa-connected-dimensions&focusFloor=dimensions-floor&focus=qa-wall-0');
+  await page.goto('/editor?id=qa-connected-dimensions&focusFloor=dimensions-floor&focus=qa-wall-0&focus=qa-wall-2');
 
   const canvasArea = page.getByRole('application');
   const a = canvasArea.locator('[data-wall-endpoint-label="A"]');
@@ -144,11 +144,18 @@ test(`Review focus keeps endpoint labels on the live wall at ${viewportWidth}px`
   // Canvas-local labels follow camera movement rather than floating over the sidebars.
   const canvas = page.getByLabel('Floor plan editor canvas', { exact: true });
   const rect = (await canvas.boundingBox())!;
-  // On compact layouts the zoom controls sit over the canvas centre, above
-  // the properties sheet. Send pointer input to an uncovered part of the canvas.
-  const interactionPoint = { x: rect.x + rect.width / 2, y: rect.y + 100 };
+  // Framing related walls can move the floating toolbar over the old fixed
+  // interaction point. Exercise camera input on an actually uncovered canvas pixel.
+  const interactionPoint = await canvas.evaluate(element => {
+    const bounds = element.getBoundingClientRect();
+    for (const y of [60, 100, 160, 220]) for (const fraction of [0.25, 0.5, 0.75]) {
+      const x = bounds.left + bounds.width * fraction, screenY = bounds.top + y;
+      if (document.elementFromPoint(x, screenY) === element) return { x, y: screenY };
+    }
+    throw new Error('No uncovered canvas point is available for camera interaction.');
+  });
   const beforeZoom = await page.evaluate(() => (window as any).__endpointReferences['Reference A'].x);
-  await canvas.hover({ position: { x: rect.width / 2, y: 100 } });
+  await canvas.hover({ position: { x: interactionPoint.x - rect.x, y: interactionPoint.y - rect.y } });
   await page.mouse.wheel(0, -120);
   await expect.poll(() => page.evaluate(before =>
     Math.abs((window as any).__endpointReferences['Reference A'].x - before), beforeZoom)).toBeGreaterThan(1);

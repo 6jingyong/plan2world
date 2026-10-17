@@ -1,7 +1,7 @@
 <script lang="ts">
   import { modalDialog } from '$lib/utils/modalDialog';
-  import { currentProject, projectFloorAnalysis, selectElements, selectedRoomId, selectedTool, setActiveFloor, viewMode } from '$lib/stores/project';
-  import { editorFocusRequest } from '$lib/stores/editorFocus';
+  import { currentProject, projectFloorAnalysis } from '$lib/stores/project';
+  import { focusReviewTarget } from '$lib/stores/editorFocus';
   import { resolveReviewFocus } from '$lib/plan2world/reviewFocus';
   import { geometryIssueKey } from '$lib/plan2world/geometryHealth';
   import { summarizeProjectReconstruction } from '$lib/plan2world/review';
@@ -21,14 +21,7 @@
 
   function editFinding() {
     const target = $currentProject && issue ? resolveReviewFocus($currentProject, issue.floorId, issue.elementIds) : null;
-    if (!target) return;
-    viewMode.set('2d');
-    setActiveFloor(target.floorId);
-    selectedTool.set('select');
-    selectedRoomId.set(null);
-    selectElements(target.elementIds, target.primaryId);
-    editorFocusRequest.set(target);
-    onclose();
+    if (target && focusReviewTarget(target)) onclose();
   }
 </script>
 

@@ -1831,7 +1831,7 @@
       initialFitDone = true;
       requestAnimationFrame(() => {
         if (!mounted || !currentFloor || request.floorId !== currentFloor.id) return;
-        zoomToFit(true);
+        zoomToFit(true, new Set(request.elementIds));
         editorFocusRequest.set(null);
       });
     });
@@ -2036,8 +2036,7 @@
     return ids;
   }
 
-  function zoomToFit(selectionOnly = false) {
-    const ids = fitSelectionIds();
+  function zoomToFit(selectionOnly = false, ids: ReadonlySet<string> = fitSelectionIds()) {
     const boundsAt = (scale = 1) => selectionOnly
       ? (currentFloor ? boundsForFloor(currentFloor,scale,ids) : null) : getFitBounds(scale);
     const bounds = boundsAt();
