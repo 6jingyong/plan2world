@@ -2,7 +2,9 @@ import type { Project } from '$lib/models/types';
 
 export interface ReviewFocusTarget {
   floorId: string;
+  /** All related geometry used to frame the finding, not selection membership. */
   elementIds: string[];
+  /** The single subject to edit or delete. */
   primaryId: string;
 }
 
@@ -25,6 +27,9 @@ export function resolveReviewFocus(
     ...floor.doors.map(item => item.id),
     ...floor.windows.map(item => item.id),
   ]);
+  // The first requested ID is the subject. An obsolete finding must not
+  // retarget its surviving host/neighbor when that subject has been deleted.
+  if (!requestedIds.length || !selectable.has(requestedIds[0])) return null;
   const seen = new Set<string>();
   const elementIds = requestedIds.filter(id => {
     if (!selectable.has(id) || seen.has(id)) return false;

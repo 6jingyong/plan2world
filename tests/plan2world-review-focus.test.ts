@@ -26,6 +26,10 @@ describe('Review editor focus', () => {
     });
   });
 
+  it('does not turn a missing subject into a correction of its surviving host', () => {
+    expect(resolveReviewFocus(project, 'ground', ['missing-door', 'wall-a'])).toBeNull();
+  });
+
   it('rejects unknown floors and findings with no selectable geometry', () => {
     expect(resolveReviewFocus(project, 'missing-floor', ['wall-a'])).toBeNull();
     expect(resolveReviewFocus(project, 'ground', ['missing'])).toBeNull();
