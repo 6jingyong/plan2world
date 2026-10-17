@@ -467,7 +467,10 @@ export function setBackgroundImage(bg: BackgroundImage | undefined) {
 
 export function updateBackgroundImage(updates: Partial<BackgroundImage>) {
   mutate((f) => {
-    if (f.backgroundImage) Object.assign(f.backgroundImage, updates);
+    if (f.backgroundImage) {
+      if (updates.dataUrl !== undefined && updates.dataUrl !== f.backgroundImage.dataUrl && !updates.reconstructionSource) delete f.backgroundImage.reconstructionSource;
+      Object.assign(f.backgroundImage, updates);
+    }
   });
 }
 

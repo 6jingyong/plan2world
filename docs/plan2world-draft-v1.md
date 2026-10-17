@@ -121,3 +121,25 @@ The conversion layer should:
 6. Preserve scale metadata and assumptions somewhere reviewable by the user.
 
 The draft format should remain stable even if the editor's internal project model evolves.
+
+### Saved evidence and live Review
+
+Conversion retains optional native `Project.reconstruction` evidence, version `1`:
+`scale`, `assumptions`, and per-floor wall/door/window IDs with original confidence
+(and wall kind). It contains no geometry, findings, provider configuration or credentials.
+The draft contract and schema version are unchanged. Historical IDs may refer to deleted
+objects; they do not recreate geometry or invalidate an otherwise editable project.
+
+For image imports, the single native `Floor.backgroundImage` retains the raster and
+its solved transform. Its optional `reconstructionSource` marker records pixel width,
+height, filename and whether registration used anchors or the bounds fallback, plus
+anchor confidence when available. The trace reads this saved transform rather than
+fitting the image again after a wall correction. Moving the underlay keeps the marker;
+replacing/removing its raster clears it, including when a native package returns.
+
+The editor Review entry reuses the import Review presentation. Counts, polygons and
+findings come from live native geometry; import scale/assumptions/confidence remain
+historical evidence. JSON/local saves and retained `web.json` package data preserve
+these fields. Old projects without evidence open normally; description text is not
+parsed to invent missing evidence. Two-point draft scale calibration remains in the
+initial image Review; this change does not rescale a furnished project when reopening it.

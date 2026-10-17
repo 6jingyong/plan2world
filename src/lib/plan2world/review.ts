@@ -1,6 +1,9 @@
+import type { Project } from '$lib/models/types';
+import type { FloorAnalysis } from '$lib/utils/floorAnalysis';
 import { parsePlan2WorldDraft, type DraftWall, type Plan2WorldDraft } from './draft';
 import {
   inspectPlan2WorldDraftGeometry,
+  inspectProjectGeometry,
   type DraftGeometryIssue,
 } from './geometryHealth';
 
@@ -38,8 +41,7 @@ function wallSample(wall: DraftWall, t: number) {
   };
 }
 
-function primaryExtent(draft: Plan2WorldDraft): DraftPlanExtent | undefined {
-  const walls = draft.floors[0]?.walls ?? [];
+function primaryExtent(walls: DraftWall[]): DraftPlanExtent | undefined {
   if (walls.length === 0) return undefined;
   const points = walls.flatMap(wall => wall.curvePoint
     ? Array.from({ length: 17 }, (_, index) => wallSample(wall, index / 16))
@@ -64,7 +66,7 @@ export function summarizePlan2WorldDraft(input: unknown): DraftReviewSummary {
     scaleConfidence: draft.scale.confidence,
     scaleBasis: draft.scale.basis,
     assumptions: [...(draft.assumptions ?? [])],
-    primaryExtent: primaryExtent(draft),
+    primaryExtent: primaryExtent(draft.floors[0]?.walls ?? []),
     geometryIssues,
     geometryErrorCount: geometryIssues.filter(issue => issue.severity === 'error').length,
     geometryWarningCount: geometryIssues.filter(issue => issue.severity === 'warning').length,
@@ -121,5 +123,22 @@ export function calibratePlan2WorldDraft(
         position: { x: item.position.x * factor, y: item.position.y * factor },
       })),
     })),
+  };
+}
+
+/** Historical confidence/scale evidence plus quantities and findings from the current Project. */
+export function summarizeProjectReconstruction(project: Project, analyses?: Iterable<FloorAnalysis>): DraftReviewSummary | null {
+  const evidence = project.reconstruction;
+  if (!evidence) return null;
+  const geometryIssues = inspectProjectGeometry(project, analyses);
+  return {
+    floorCount: project.floors.length,
+    wallCount: project.floors.reduce((sum, floor) => sum + floor.walls.length, 0),
+    doorCount: project.floors.reduce((sum, floor) => sum + floor.doors.length, 0),
+    windowCount: project.floors.reduce((sum, floor) => sum + floor.windows.length, 0),
+    scaleMode: evidence.scale.mode, scaleConfidence: evidence.scale.confidence, scaleBasis: evidence.scale.basis,
+    assumptions: [...evidence.assumptions], primaryExtent: primaryExtent(project.floors[0]?.walls ?? []),
+    geometryIssues, geometryErrorCount: geometryIssues.filter(issue => issue.severity === 'error').length,
+    geometryWarningCount: geometryIssues.filter(issue => issue.severity === 'warning').length,
   };
 }

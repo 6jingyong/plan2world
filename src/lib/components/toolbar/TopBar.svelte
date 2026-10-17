@@ -21,6 +21,7 @@
   import { exportDXF, exportDWG } from '$lib/utils/cadExport';
   import { createProjectFromRoomPlan, extractRoomJsonFromZip, isRoomPlanJson } from '$lib/utils/roomplanImport';
   import SettingsDialog from './SettingsDialog.svelte';
+  import ProjectReconstructionReview from '$lib/components/ProjectReconstructionReview.svelte';
   import AreaSummaryPanel from '$lib/components/sidebar/AreaSummaryPanel.svelte';
   import { saveState, saveError, lastSavedAt, manualSave, autoSave, initAutoSave } from '$lib/stores/saveStatus';
   import { initVersionHistory, stopVersionHistory, snapshotOnAction } from '$lib/stores/versionHistory';
@@ -35,6 +36,7 @@
 
   let settingsOpen = $state(false);
   let areaOpen = $state(false);
+  let reconstructionReviewOpen = $state(false);
   let versionHistoryOpen = $state(false);
 
   let projectName = $state('');
@@ -479,6 +481,11 @@
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
   </button>
 
+  {#if $currentProject?.reconstruction}
+    <button onclick={() => reconstructionReviewOpen = true} aria-label="Review reconstruction" title="Review reconstruction"
+      class="px-2 py-1.5 text-sm text-white/80 hover:text-white hover:bg-white/10 rounded max-xl:hidden">Review</button>
+  {/if}
+
   <!-- Area summary button -->
   <button
     onclick={() => areaOpen = true}
@@ -544,6 +551,9 @@
           <button class="md:hidden w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 text-left" aria-expanded={historyOpen} aria-label={$t('editorPanels.history')} onclick={() => { onToggleHistory?.(moreButton); moreOpen = false; }}>{$t('undoHistory.title')}</button>
         {/if}
         <button class="w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 text-left" onclick={() => { versionHistoryOpen = true; moreOpen = false; }}>{$t('versions.title')}</button>
+        {#if $currentProject?.reconstruction}
+          <button class="w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 text-left" onclick={() => { reconstructionReviewOpen = true; moreOpen = false; }}>Review reconstruction</button>
+        {/if}
         <button class="w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 text-left" onclick={() => { areaOpen = true; moreOpen = false; }}>{$t('areaSummary.title')}</button>
         <button class="w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 text-left" onclick={() => { settingsOpen = true; moreOpen = false; }}>{$t('settings.title')}</button>
       </div>
@@ -670,3 +680,7 @@
 {#if assistantShareProject}<AssistantShareDialog project={assistantShareProject} onclose={() => assistantShareProject = null} />{/if}
 
 <ExportNotice />
+
+{#if reconstructionReviewOpen}
+  <ProjectReconstructionReview onclose={() => reconstructionReviewOpen = false} />
+{/if}

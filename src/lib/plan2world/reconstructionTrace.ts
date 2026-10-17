@@ -1,13 +1,13 @@
-import type { BackgroundImage } from '$lib/models/types';
+import type { BackgroundImage, Project } from '$lib/models/types';
 import {
   parsePlan2WorldDraft,
   type DraftDoor,
+  type DraftFloor,
   type DraftPoint,
   type DraftWall,
   type DraftWindow,
-  type Plan2WorldDraft,
 } from './draft';
-import { inspectPlan2WorldDraftGeometry, type DraftGeometryIssueSeverity } from './geometryHealth';
+import { inspectPlan2WorldDraftGeometry, inspectProjectGeometry, type DraftGeometryIssue, type DraftGeometryIssueSeverity } from './geometryHealth';
 import { sourceBackgroundForDraft, type SourceFloorPlanImage } from './sourceBackground';
 
 export interface TracePoint { x: number; y: number }
@@ -44,9 +44,10 @@ export function traceElementMatchesIssue(
     || (element.wallId !== undefined && issueElementIds.includes(element.wallId));
 }
 
-function severityByElement(draft: Plan2WorldDraft): Map<string, DraftGeometryIssueSeverity> {
+function severityByElement(issues: DraftGeometryIssue[], floorId: string): Map<string, DraftGeometryIssueSeverity> {
   const severity = new Map<string, DraftGeometryIssueSeverity>();
-  for (const issue of inspectPlan2WorldDraftGeometry(draft)) {
+  for (const issue of issues) {
+    if (issue.floorId !== floorId) continue;
     for (const id of issue.elementIds) {
       if (issue.severity === 'error' || !severity.has(id)) severity.set(id, issue.severity);
     }
@@ -122,7 +123,11 @@ export function buildReconstructionTrace(
   const floor = draft.floors.find(item => item.id === draft.sourceRegistration?.floorId) ?? draft.floors[0];
   if (!floor) return undefined;
 
-  const severities = severityByElement(draft);
+  return buildFloorTrace(floor, source, background, inspectPlan2WorldDraftGeometry(draft));
+}
+
+function buildFloorTrace(floor: DraftFloor, source: SourceFloorPlanImage, background: BackgroundImage, issues: DraftGeometryIssue[]): ReconstructionTrace {
+  const severities = severityByElement(issues, floor.id);
   const wallsById = new Map(floor.walls.map(wall => [wall.id, wall]));
   const walls = floor.walls.map(wall => ({
     id: wall.id,
@@ -139,4 +144,21 @@ export function buildReconstructionTrace(
   ].filter((item): item is ReconstructionTraceOpening => item !== null);
 
   return { width: source.width, height: source.height, walls, openings };
+}
+
+/** Use the saved underlay transform, never fit it again to corrected wall bounds/anchors. */
+export function buildProjectReconstructionTrace(project: Project, floorId: string, issues?: DraftGeometryIssue[]): ReconstructionTrace | undefined {
+  const floor = project.floors.find(floor => floor.id === floorId), background = floor?.backgroundImage;
+  const source = background?.reconstructionSource;
+  if (!floor || !background || !source || !project.reconstruction) return undefined;
+  const evidence = project.reconstruction.floors.find(entry => entry.floorId === floor.id);
+  const walls = new Map(evidence?.walls.map(item => [item.id, item]));
+  const doors = new Map(evidence?.doors.map(item => [item.id, item]));
+  const windows = new Map(evidence?.windows.map(item => [item.id, item]));
+  return buildFloorTrace({
+    ...floor,
+    walls: floor.walls.map(wall => ({ ...wall, kind: walls.get(wall.id)?.kind, confidence: walls.get(wall.id)?.confidence })),
+    doors: floor.doors.map(door => ({ ...door, confidence: doors.get(door.id)?.confidence })),
+    windows: floor.windows.map(window => ({ ...window, confidence: windows.get(window.id)?.confidence })),
+  }, { ...source, dataUrl: background.dataUrl }, background, issues ?? inspectProjectGeometry(project));
 }
