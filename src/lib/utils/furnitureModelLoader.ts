@@ -112,7 +112,7 @@ export function createPlacedFurnitureModel(item: FurnitureItem, onLoaded?: (mode
   };
   const model = item.customModelId
     ? createProjectFurniture(item, definition, project, onLoaded)
-    : item.catalogId === 'imported_object' && item.sourceCategory
+    : item.catalogId === 'imported_object' && item.renderStyle === 'block' && item.sourceCategory
     ? createSemanticFurnitureBlock(definition, item.sourceCategory)
     : item.renderStyle === 'model'
     ? createStyledFurnitureModel(item, definition)

@@ -11,11 +11,11 @@ export const furnitureStyleIds = [
 
 /** Snapshot unscaled dimensions before changing catalog defaults. */
 export function furnitureStylePatch(item: FurnitureItem, catalogId: string): Partial<FurnitureItem> | null {
-  if (item.customModelId || !item.sourceCategory ||
+  if (item.customModelId || !item.sourceCategory || !item.renderStyle ||
       (catalogId !== 'imported_object' && !furnitureStyleIds.some(id => id === catalogId))) return null;
   const previous = getCatalogItem(item.catalogId);
   return {
-    catalogId, renderStyle: catalogId === 'imported_object' ? undefined : 'model',
+    catalogId, renderStyle: catalogId === 'imported_object' ? 'block' : 'model',
     width: item.width ?? previous?.width ?? 50,
     depth: item.depth ?? previous?.depth ?? 50,
     height: item.height ?? previous?.height ?? 50,

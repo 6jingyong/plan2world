@@ -110,8 +110,8 @@ export interface FurnitureItem {
   catalogId: string;
   /** Source semantics retained when the user replaces its placeholder style. */
   sourceCategory?: string;
-  /** Explicit local procedural style; old catalog items keep their existing preview. */
-  renderStyle?: 'model';
+  /** Explicit semantic block or local procedural style; legacy previews omit it. */
+  renderStyle?: 'block' | 'model';
   position: Point;
   rotation: number;
   scale: { x: number; y: number; z: number };

@@ -407,6 +407,7 @@ function toFloor(draft: DraftFloor, presentation?: Plan2WorldDraft['presentation
     position: { ...item.position },
     rotation: item.rotation ?? 0,
     scale: { x: 1, y: 1, z: 1 },
+    ...(presentation ? { renderStyle: 'block' as const } : {}),
     ...(item.sourceCategory !== undefined ? { sourceCategory: item.sourceCategory } : {}),
     ...(item.width !== undefined ? { width: item.width } : {}),
     ...(item.depth !== undefined ? { depth: item.depth } : {}),

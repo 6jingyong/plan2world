@@ -11,7 +11,7 @@ import { currentProject, loadProject, updateFurniture, undo, redo, selectSingleE
 import { readProject } from '$lib/utils/projectValidation';
 import { roomProject } from './fixtures/project';
 
-const block = () => ({ id: 'block', catalogId: 'imported_object', sourceCategory: 'sofa',
+const block = () => ({ renderStyle: 'block' as const, id: 'block', catalogId: 'imported_object', sourceCategory: 'sofa',
   position: { x: 180, y: 140 }, rotation: 90, width: 210.25, depth: 92.5, height: 84.75,
   scale: { x: -1.5, y: 0.75, z: 2 }, color: '#aaaaaa' });
 

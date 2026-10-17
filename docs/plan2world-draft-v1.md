@@ -95,7 +95,7 @@ New reconstruction uses the optional root `presentation: "semantic-white-model"`
 }
 ```
 
-The native editor retains category and dimensions on the same `FurnitureItem`, rendering a labelled rectangular block. The user may select a local style in Properties; the native item retains its ID, category, placement and dimensions. Its optional `renderStyle: "model"` records that visual choice in the project, outside the AI draft contract. Do not infer a brand or detailed model from a plan symbol. Use `unknown` when the category is unclear. Plan calibration scales position and footprint, preserving estimated height.
+The native editor retains category and dimensions on the same `FurnitureItem`, rendering a labelled rectangular block with native `renderStyle: "block"`. A legacy `sourceCategory` alone does not enable this presentation. The user may select a local style in Properties; the native item retains its ID, category, placement and dimensions. Its optional `renderStyle: "model"` records that visual choice in the project, outside the AI draft contract. Do not infer a brand or detailed model from a plan symbol. Use `unknown` when the category is unclear. Plan calibration scales position and footprint, preserving estimated height.
 
 Under this presentation, omitted window fields normalize to `sillHeight: 0`, `height: hostWall.height`, and `type: "fixed"`: floor-to-ceiling glass is a product default, not a claim about the building. Explicit fields win; an explicit sill with omitted height uses the remaining wall height.
 

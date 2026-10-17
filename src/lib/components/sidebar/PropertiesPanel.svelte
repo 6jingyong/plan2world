@@ -636,7 +636,7 @@
       <p class="mb-3 text-xs text-gray-500">{$t('furnitureProperties.stairsHelp')}</p>
     {/if}
     <div class="space-y-3">
-      {#if selectedFurniture.sourceCategory && !selectedFurniture.customModelId}
+      {#if selectedFurniture.renderStyle && selectedFurniture.sourceCategory && !selectedFurniture.customModelId}
       <label class="block">
         <span class="text-xs text-gray-500">{$t('furnitureProperties.style')}</span>
         <select data-furniture-style value={selectedFurniture.renderStyle === 'model' ? selectedFurniture.catalogId : 'imported_object'}

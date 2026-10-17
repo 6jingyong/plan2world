@@ -44,3 +44,9 @@ Represent balcony/slab boundaries independently from solid wall enclosure, using
 - All ten stored first/final drafts and the synthetic example passed formal JSON Schema validation.
 - Nine focused Chromium cases passed across targeted runs: three selection/focus continuity cases, three quick geometry-correction cases, viewer invalidation, and the new desktop/narrow semantic-block workflow. The new cases verify rendered-surface picking, visible style redraw, Undo/Redo, retained furniture/door/window geometry, acknowledged save completion and reload.
 - Full Chromium/Firefox/WebKit coverage remains the GitHub CI gate. The five real images have not each been qualified in every browser.
+
+## CI compatibility correction
+
+The first full PR run found a shared failure in the unchanged legacy-preview and native-package browser tests on all three engines. `sourceCategory` also stores unsupported import categories such as `future-appliance`; using its presence to identify a semantic white-model block changed legacy labels and previews. The fix records native `renderStyle: "block"` only when converting the opt-in draft presentation. Labels, block rendering and style controls require that explicit presentation; legacy imports keep their existing preview and localized “Unrecognized item” name. Returning from a chosen model to a block retains the marker through save/load. No failing legacy browser assertions were removed or relaxed. Two added unit regressions failed before the fix and passed after it; the complete unit suite now has 1,380 passing cases.
+
+The unchanged legacy-preview/native-package suites and the semantic-white-model suite passed together locally: **15 Chromium cases**, including both desktop and narrow viewports. Production check/build also passed. Full three-engine CI is rerun on the corrected PR head; local results do not stand in for that gate.

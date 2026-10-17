@@ -212,5 +212,5 @@ export function customModelName(item: FurnitureItem, project?: Project | null): 
 /** Retain source semantics until the user chooses a concrete catalog style. */
 export function furnitureItemName(item: FurnitureItem, language: Locale, project?: Project | null): string {
   return customModelName(item, project)
-    ?? (item.catalogId === 'imported_object' && item.sourceCategory ? item.sourceCategory : furnitureName(item.catalogId, language));
+    ?? (item.catalogId === 'imported_object' && item.renderStyle === 'block' && item.sourceCategory ? item.sourceCategory : furnitureName(item.catalogId, language));
 }
