@@ -26,7 +26,7 @@ const draft = {
   }],
 };
 
-export function createFloorPlanAIProvider(onRequest: (request: FloorPlanProviderRequest) => void = () => {}) {
+export function createFloorPlanAIProvider(onRequest: (request: FloorPlanProviderRequest) => void = () => {}, responseDraft: object = draft) {
   return createServer(async (request, response) => {
     const origin = request.headers.origin;
     if (origin && /^http:\/\/127\.0\.0\.1:\d+$/.test(origin)) response.setHeader('Access-Control-Allow-Origin', origin);
@@ -50,7 +50,7 @@ export function createFloorPlanAIProvider(onRequest: (request: FloorPlanProvider
     }
     response.writeHead(200, { 'Content-Type': 'application/json' });
     response.end(JSON.stringify({
-      output: [{ type: 'message', content: [{ type: 'output_text', text: JSON.stringify(draft) }] }],
+      output: [{ type: 'message', content: [{ type: 'output_text', text: JSON.stringify(responseDraft) }] }],
     }));
   });
 }
