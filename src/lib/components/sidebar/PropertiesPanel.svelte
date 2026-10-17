@@ -2,7 +2,7 @@
   import { wallMaterialLabels } from '$lib/i18n/wallMaterialLabels';
   import { entourageLabels } from '$lib/i18n/entourageLabels';
   import { roomTypeLabels, roomColorLabels, floorGroupLabels, floorMaterialLabels } from '$lib/i18n/roomPropertyLabels';
-  import { furnitureName, customModelName } from '$lib/i18n/furnitureNames';
+  import { furnitureName, furnitureItemName } from '$lib/i18n/furnitureNames';
   import { t, locale, type TranslationKey } from '$lib/i18n';
   const furnitureFinishLabels: Record<string, TranslationKey> = {"Wood": "furnitureFinish.Wood", "Metal": "furnitureFinish.Metal", "Fabric": "furnitureFinish.Fabric", "Leather": "furnitureFinish.Leather", "Glass": "furnitureFinish.Glass", "Plastic": "furnitureFinish.Plastic", "Stone": "furnitureFinish.Stone", "Ceramic": "furnitureFinish.Ceramic"};
   import { furnitureFinishes } from '$lib/utils/furnitureFinishes';
@@ -17,6 +17,7 @@
   import { getEntourageDef } from '$lib/utils/entourageCatalog';
   import { floorMaterials, wallColors } from '$lib/utils/materials';
   import { getCatalogItem } from '$lib/utils/furnitureCatalog';
+  import { furnitureStyleIds, furnitureStylePatch } from '$lib/utils/furnitureStyling';
   import { projectSettings, formatLength, formatArea, parseLengthInput } from '$lib/stores/settings';
     import type { Floor, Wall, Door, Window as Win, Room, FurnitureItem, Stair, Column, RoomCategory, TextAnnotation } from '$lib/models/types';
   import { getWallStartHeight, getWallEndHeight } from '$lib/models/types';
@@ -622,7 +623,7 @@
       <span class="w-6 h-6 bg-purple-100 rounded flex items-center justify-center text-xs">
         {getCatalogItem(selectedFurniture.catalogId)?.icon ?? '🪑'}
       </span>
-      {$t('furnitureProperties.heading', { name: customModelName(selectedFurniture, $currentProject) ?? (getCatalogItem(selectedFurniture.catalogId) ? furnitureName(selectedFurniture.catalogId, $locale) : $t('furnitureProperties.fallback')) })}
+      {$t('furnitureProperties.heading', { name: getCatalogItem(selectedFurniture.catalogId) || selectedFurniture.customModelId ? furnitureItemName(selectedFurniture, $locale, $currentProject) : $t('furnitureProperties.fallback') })}
       <button
         onclick={() => { if (selectedFurniture) toggleFurnitureLock(selectedFurniture.id); }}
         class="ml-auto px-1.5 py-0.5 rounded text-xs border transition-colors {selectedFurniture.locked ? 'bg-amber-100 border-amber-400 text-amber-700' : 'border-gray-200 hover:bg-gray-50 text-gray-500'}"
@@ -635,6 +636,21 @@
       <p class="mb-3 text-xs text-gray-500">{$t('furnitureProperties.stairsHelp')}</p>
     {/if}
     <div class="space-y-3">
+      {#if selectedFurniture.sourceCategory && !selectedFurniture.customModelId}
+      <label class="block">
+        <span class="text-xs text-gray-500">{$t('furnitureProperties.style')}</span>
+        <select data-furniture-style value={selectedFurniture.renderStyle === 'model' ? selectedFurniture.catalogId : 'imported_object'}
+          onchange={event => {
+            if (!selectedFurniture) return;
+            const patch = furnitureStylePatch(selectedFurniture, event.currentTarget.value);
+            if (patch) updateFurniture(selectedFurniture.id, patch);
+          }} class="w-full px-2 py-1 border border-gray-200 rounded text-sm">
+          <option value="imported_object">{$t('furnitureProperties.semanticBlock')}</option>
+          {#each furnitureStyleIds as id}<option value={id}>{furnitureName(id, $locale)}</option>{/each}
+        </select>
+      </label>
+      <p class="text-xs text-gray-500">{$t('furnitureProperties.styleHelp')}</p>
+      {/if}
       <!-- Color -->
       <div>
         <div class="flex items-center gap-1 mb-2">

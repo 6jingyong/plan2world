@@ -1,0 +1,98 @@
+{
+  "schemaVersion": "plan2world-draft-v1",
+  "presentation": "semantic-white-model",
+  "name": "Black-background office and concealed private suite — source reconstruction",
+  "units": "cm",
+  "scale": {
+    "mode": "estimated",
+    "confidence": 0.42,
+    "basis": "No legible dimension is present. The chairman office north entrance spans approximately x=232..328 (96 source pixels) and is assumed to be an ordinary 90 cm doorway: uniform scale 0.9375 cm/pixel. Source 1199 x 1536 pixels; world=(source-(208,178))*0.9375, x rightward and y downward."
+  },
+  "assumptions": [
+    "Walls were traced as source-pixel centrelines before applying one uniform transform. Room labels, door swing arcs, circular bed outlines, cabinet diagonals and fixture symbols are not walls. No rooms are supplied.",
+    "Source height and scale are unmeasured. Wall heights use the editor default; furniture/fixture heights are estimates and no style or brand is inferred.",
+    "The north horizontal triple-line interruption at x=362..702 is treated as glazing. Its omitted sill, height and type deliberately invoke floor-to-ceiling fixed glass as the semantic white-model presentation default; the source does not prove glazing height.",
+    "Concealed and sliding-labelled passages are represented initially as ordinary doors. The narrow multi-line segment at x~823,y~677..837 is interpreted as a concealed/sliding opening between the bedroom and right closet; its exact usable width and endpoint are uncertain (148 pixels estimated).",
+    "The thin x~384 line beside the left wardrobe is treated as a cabinet side/panel rather than a separate full-height room wall; adding it would obstruct the visible concealed bedroom doorway. This distinction needs review.",
+    "The lower-right toilet perimeter contains small source offsets around x~800..832,y~1175..1210. They are consolidated into the y=1203 common lower wall centreline rather than asserting precise construction offsets.",
+    "The fire-escape corridor has a visible south and east boundary but opens off the left of the depicted plan. No invented west closure or room is supplied.",
+    "The labelled round waterbed is an independent rectangular semantic bed block covering its visible circular footprint; the curved headboard trim is omitted. Two circular-symbol bedside squares are unknown blocks because their function is not certain.",
+    "The lower-central circular outline is an unknown shallow footprint and the overlapping chair-like shape is a separate chair block. Their exact identity and rounded shape are not established. Small plumbing fittings, drain detail, cabinet panels and swing geometry are omitted.",
+    "The upper offices are empty in the source apart from labels; no office desks or seats have been invented."
+  ],
+  "sourceRegistration": {
+    "floorId": "f0",
+    "confidence": 0.9,
+    "anchors": [
+      {"wallId": "west-office", "endpoint": "start", "image": {"x": 0.17347789824854046, "y": 0.11588541666666667}},
+      {"wallId": "east-office", "endpoint": "start", "image": {"x": 0.8381984987489575, "y": 0.11588541666666667}},
+      {"wallId": "office-divider", "endpoint": "end", "image": {"x": 0.6071726438698916, "y": 0.43359375}},
+      {"wallId": "west-bath", "endpoint": "end", "image": {"x": 0.17347789824854046, "y": 0.783203125}},
+      {"wallId": "east-corridor", "endpoint": "end", "image": {"x": 0.8381984987489575, "y": 0.916015625}},
+      {"wallId": "bedroom-west-middle", "endpoint": "end", "image": {"x": 0.34528773978315264, "y": 0.6315104166666666}}
+    ]
+  },
+  "floors": [
+    {
+      "id": "f0",
+      "name": "Offices, private suite and escape corridor",
+      "level": 0,
+      "walls": [
+        {"id": "west-office", "start": {"x": 0.0, "y": 0.0}, "end": {"x": 0.0, "y": 457.5}, "thickness": 21.5625, "kind": "exterior", "confidence": 0.94},
+        {"id": "west-private", "start": {"x": 0.0, "y": 457.5}, "end": {"x": 0.0, "y": 643.125}, "thickness": 21.5625, "kind": "exterior", "confidence": 0.93},
+        {"id": "west-shower", "start": {"x": 0.0, "y": 643.125}, "end": {"x": 0.0, "y": 742.5}, "thickness": 21.5625, "kind": "exterior", "confidence": 0.92},
+        {"id": "west-bath", "start": {"x": 0.0, "y": 742.5}, "end": {"x": 0.0, "y": 960.9375}, "thickness": 21.5625, "kind": "exterior", "confidence": 0.94},
+        {"id": "north-chairman", "start": {"x": 0.0, "y": 0.0}, "end": {"x": 487.5, "y": 0.0}, "thickness": 22.5, "kind": "exterior", "confidence": 0.9},
+        {"id": "north-secretary", "start": {"x": 487.5, "y": 0.0}, "end": {"x": 747.1875, "y": 0.0}, "thickness": 22.5, "kind": "exterior", "confidence": 0.92},
+        {"id": "east-office", "start": {"x": 747.1875, "y": 0.0}, "end": {"x": 747.1875, "y": 457.5}, "thickness": 21.5625, "kind": "exterior", "confidence": 0.94},
+        {"id": "east-closet", "start": {"x": 747.1875, "y": 457.5}, "end": {"x": 747.1875, "y": 773.4375}, "thickness": 21.5625, "kind": "exterior", "confidence": 0.92},
+        {"id": "east-toilet", "start": {"x": 747.1875, "y": 773.4375}, "end": {"x": 747.1875, "y": 960.9375}, "thickness": 21.5625, "kind": "exterior", "confidence": 0.89},
+        {"id": "east-corridor", "start": {"x": 747.1875, "y": 960.9375}, "end": {"x": 747.1875, "y": 1152.1875}, "thickness": 13.125, "kind": "exterior", "confidence": 0.9},
+        {"id": "south-bath", "start": {"x": 0.0, "y": 960.9375}, "end": {"x": 193.125, "y": 960.9375}, "thickness": 13.125, "kind": "interior", "confidence": 0.91},
+        {"id": "south-bedroom", "start": {"x": 193.125, "y": 960.9375}, "end": {"x": 576.5625, "y": 960.9375}, "thickness": 13.125, "kind": "interior", "confidence": 0.86},
+        {"id": "south-toilet", "start": {"x": 576.5625, "y": 960.9375}, "end": {"x": 747.1875, "y": 960.9375}, "thickness": 13.125, "kind": "interior", "confidence": 0.67},
+        {"id": "south-corridor", "start": {"x": -11.25, "y": 1152.1875}, "end": {"x": 747.1875, "y": 1152.1875}, "thickness": 13.125, "kind": "exterior", "confidence": 0.88},
+        {"id": "office-divider", "start": {"x": 487.5, "y": 0.0}, "end": {"x": 487.5, "y": 457.5}, "thickness": 15.9375, "kind": "interior", "confidence": 0.95},
+        {"id": "closet-north", "start": {"x": 0.0, "y": 457.5}, "end": {"x": 193.125, "y": 457.5}, "thickness": 20.625, "kind": "interior", "confidence": 0.9},
+        {"id": "bedroom-north-west", "start": {"x": 193.125, "y": 457.5}, "end": {"x": 487.5, "y": 457.5}, "thickness": 20.625, "kind": "interior", "confidence": 0.93},
+        {"id": "bedroom-north-east", "start": {"x": 487.5, "y": 457.5}, "end": {"x": 576.5625, "y": 457.5}, "thickness": 20.625, "kind": "interior", "confidence": 0.93},
+        {"id": "right-closet-north", "start": {"x": 576.5625, "y": 457.5}, "end": {"x": 747.1875, "y": 457.5}, "thickness": 20.625, "kind": "interior", "confidence": 0.9},
+        {"id": "bedroom-west-upper", "start": {"x": 193.125, "y": 457.5}, "end": {"x": 193.125, "y": 643.125}, "thickness": 13.125, "kind": "interior", "confidence": 0.78},
+        {"id": "bedroom-west-middle", "start": {"x": 193.125, "y": 643.125}, "end": {"x": 193.125, "y": 742.5}, "thickness": 13.125, "kind": "interior", "confidence": 0.91},
+        {"id": "bedroom-west-lower", "start": {"x": 193.125, "y": 742.5}, "end": {"x": 193.125, "y": 960.9375}, "thickness": 13.125, "kind": "interior", "confidence": 0.88},
+        {"id": "closet-shower-divider", "start": {"x": 0.0, "y": 643.125}, "end": {"x": 193.125, "y": 643.125}, "thickness": 11.25, "kind": "interior", "confidence": 0.88},
+        {"id": "shower-bath-divider", "start": {"x": 0.0, "y": 742.5}, "end": {"x": 193.125, "y": 742.5}, "thickness": 9.375, "kind": "interior", "confidence": 0.86},
+        {"id": "right-closet-west", "start": {"x": 576.5625, "y": 457.5}, "end": {"x": 576.5625, "y": 773.4375}, "thickness": 13.125, "kind": "interior", "confidence": 0.72},
+        {"id": "toilet-west", "start": {"x": 576.5625, "y": 773.4375}, "end": {"x": 576.5625, "y": 960.9375}, "thickness": 13.125, "kind": "interior", "confidence": 0.86},
+        {"id": "right-closet-toilet-divider", "start": {"x": 576.5625, "y": 773.4375}, "end": {"x": 747.1875, "y": 773.4375}, "thickness": 13.125, "kind": "interior", "confidence": 0.89}
+      ],
+      "doors": [
+        {"id": "chairman-entry", "wallId": "north-chairman", "position": 0.138461538, "width": 90.0, "confidence": 0.92},
+        {"id": "secretary-entry", "wallId": "north-secretary", "position": 0.74368231, "width": 91.875, "confidence": 0.91},
+        {"id": "chairman-concealed-closet", "wallId": "closet-north", "position": 0.317961165, "width": 77.8125, "confidence": 0.88},
+        {"id": "closet-concealed-bedroom", "wallId": "bedroom-west-upper", "position": 0.338383838, "width": 80.625, "confidence": 0.77},
+        {"id": "secretary-closet-entry", "wallId": "right-closet-north", "position": 0.637362637, "width": 80.625, "confidence": 0.9},
+        {"id": "right-concealed-bedroom", "wallId": "right-closet-west", "position": 0.275964392, "width": 138.75, "confidence": 0.5},
+        {"id": "shower-entry", "wallId": "shower-bath-divider", "position": 0.754854369, "width": 64.6875, "confidence": 0.85},
+        {"id": "bath-entry", "wallId": "bedroom-west-lower", "position": 0.369098712, "width": 75.0, "confidence": 0.9},
+        {"id": "toilet-entry", "wallId": "toilet-west", "position": 0.6625, "width": 74.0625, "confidence": 0.9},
+        {"id": "escape-corridor-entry", "wallId": "south-bedroom", "position": 0.826405868, "width": 78.75, "confidence": 0.9}
+      ],
+      "windows": [{"id": "north-long-glazing", "wallId": "north-chairman", "position": 0.623076923, "width": 318.75, "confidence": 0.84}],
+      "furniture": [
+        {"id": "round-waterbed", "catalogId": "imported_object", "sourceCategory": "bed", "position": {"x": 432.65625, "y": 678.75}, "rotation": 0, "width": 235.3125, "depth": 236.25, "height": 55, "confidence": 0.9},
+        {"id": "upper-bedside-object", "catalogId": "imported_object", "sourceCategory": "unknown", "position": {"x": 495.9375, "y": 548.4375}, "rotation": 0, "width": 41.25, "depth": 42.1875, "height": 60, "confidence": 0.54},
+        {"id": "lower-bedside-object", "catalogId": "imported_object", "sourceCategory": "unknown", "position": {"x": 495.9375, "y": 808.125}, "rotation": 0, "width": 41.25, "depth": 42.1875, "height": 60, "confidence": 0.54},
+        {"id": "left-wardrobe-base", "catalogId": "imported_object", "sourceCategory": "cabinet", "position": {"x": 85.3125, "y": 619.6875}, "rotation": 0, "width": 150.0, "depth": 37.5, "height": 220, "confidence": 0.88},
+        {"id": "right-wardrobe-side", "catalogId": "imported_object", "sourceCategory": "cabinet", "position": {"x": 601.875, "y": 615.46875}, "rotation": 0, "width": 37.5, "depth": 295.3125, "height": 220, "confidence": 0.74},
+        {"id": "right-wardrobe-base", "catalogId": "imported_object", "sourceCategory": "cabinet", "position": {"x": 678.28125, "y": 740.625}, "rotation": 0, "width": 115.3125, "depth": 43.125, "height": 220, "confidence": 0.84},
+        {"id": "bath-sink", "catalogId": "imported_object", "sourceCategory": "sink", "position": {"x": 40.3125, "y": 810.9375}, "rotation": 0, "width": 58.125, "depth": 88.125, "height": 85, "confidence": 0.9},
+        {"id": "bathtub", "catalogId": "imported_object", "sourceCategory": "bathtub", "position": {"x": 98.4375, "y": 914.0625}, "rotation": 0, "width": 151.875, "depth": 61.875, "height": 60, "confidence": 0.94},
+        {"id": "toilet", "catalogId": "imported_object", "sourceCategory": "toilet", "position": {"x": 667.5, "y": 811.875}, "rotation": 0, "width": 46.875, "depth": 75.0, "height": 75, "confidence": 0.96},
+        {"id": "shower-drain-symbol", "catalogId": "imported_object", "sourceCategory": "unknown", "position": {"x": 58.125, "y": 690.9375}, "rotation": 0, "width": 20.625, "depth": 20.625, "height": 2, "confidence": 0.5},
+        {"id": "circular-floor-object", "catalogId": "imported_object", "sourceCategory": "unknown", "position": {"x": 321.5625, "y": 858.75}, "rotation": 0, "width": 151.875, "depth": 151.875, "height": 3, "confidence": 0.46},
+        {"id": "reclining-seat", "catalogId": "imported_object", "sourceCategory": "chair", "position": {"x": 285.0, "y": 895.3125}, "rotation": 40, "width": 65.625, "depth": 103.125, "height": 100, "confidence": 0.64}
+      ]
+    }
+  ]
+}

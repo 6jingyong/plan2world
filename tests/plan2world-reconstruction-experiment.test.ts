@@ -8,8 +8,8 @@ import { PLAN2WORLD_VISION_PROMPT_VERSION } from '../src/lib/plan2world/vision';
 const sha = 'ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789';
 
 describe('reconstruction experiment identity', () => {
-  it('gives the unchanged one-shot vision prompt a stable version', () => {
-    expect(PLAN2WORLD_VISION_PROMPT_VERSION).toBe('plan2world-vision-prompt-v1');
+  it('versions the semantic white-model reconstruction instructions', () => {
+    expect(PLAN2WORLD_VISION_PROMPT_VERSION).toBe('plan2world-white-model-instructions-v1');
   });
 
   it('records provider separately from model so the contract is not vendor-bound', () => {

@@ -121,6 +121,7 @@ export function readProject(value: unknown): Project {
       for (const key of ['x', 'y', 'z']) number(item.scale[key], `${path}.scale.${key}`);
       for (const key of ['width', 'depth', 'height']) if (item[key] !== undefined) positive(item[key], `${path}.${key}`);
       strings(item, ['color', 'material', 'sourceCategory'], path); booleans(item, ['locked'], path);
+      if (item.renderStyle !== undefined) choice(item.renderStyle, ['model'], `${path}.renderStyle`);
     });
     elements('stairs', (item, path) => {
       positioned(item, path); positive(item.width, `${path}.width`); positive(item.depth, `${path}.depth`);

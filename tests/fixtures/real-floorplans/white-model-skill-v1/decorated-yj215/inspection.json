@@ -1,0 +1,32 @@
+{
+  "source": {"width": 1536, "height": 1026, "sha256": "aa86ba3b8262fd736cd13b98038e265f1733503537f00e1247fc6bc44b987ed7"},
+  "presentation": "semantic-white-model",
+  "floorCount": 1,
+  "wallCount": 47,
+  "doorCount": 12,
+  "windowCount": 11,
+  "scaleMode": "measured",
+  "scaleConfidence": 0.84,
+  "scaleBasis": "The legible lower 7800 mm dimension spans source x=648 to x=1068, approximately 420 px. Use 780/420 = 1.857142857 cm/px uniformly in x and y. Source origin translated from (242,182) px. The raster is a decorated marketing plan and dimension tick picks are approximate.",
+  "assumptions": [
+    "Source raster is 1536 x 1026 pixels. Every point and furniture footprint uses world=(source-(242,182))*780/420; x is rightward and y is downward.",
+    "All wall, furniture and opening positions were traced directly from the supplied source, without consulting a reference reconstruction. Thick black wall centrelines are approximately located; thin partitions are less certain.",
+    "Windows use floor-to-ceiling fixed glass following wall height as a semantic-white-model presentation default. The source does not establish glazing height, sill heights, wall height, door style, or furniture height.",
+    "All doors initially use ordinary default doors; wide balcony and kitchen apertures preserve source span but the source likely depicts sliding glazing. Exact leaf count, hinges and style are not asserted.",
+    "Guest-bath access on the lower part of its west partition is ambiguous under the decorated raster; d04 is an inferred opening with low confidence. No kitchen-to-utility balcony door is asserted because the left kitchen wall appears continuous; the utility balcony remains accessible from the dining opening.",
+    "The upper guest room has a shallow north bay at x542..656, y310..345 px. The pale strip above the adjoining guest bathroom is treated as an exterior ledge/void rather than a room or extra partition.",
+    "Apparent shallow south bay ledges below the centre bedroom and right suite are represented as independent window_sill or bench blocks beyond the main wall, rather than asserted full-height room extensions. Their detailed glazing returns remain uncertain.",
+    "Balcony railings are independent railing semantic blocks at estimated 110 cm height, not structural walls. No balcony floor polygons are supplied; the importer derives enclosed room topology and may not create exterior balcony slabs from these railings.",
+    "All clearly recognizable furniture/fixtures are approximate rectangular semantic occupancy blocks. Sofas are split into visible sections. Tableware, rugs, text, door swing arcs, plants except the larger balcony planter, and minute decor were omitted.",
+    "Furniture height is estimated. Shower blocks describe occupancy, not an asserted solid architectural enclosure. Countertop fixtures overlap their supporting counter blocks intentionally.",
+    "No visible curved structural wall was identified. Curved strokes are door swing arcs or furniture outlines and were not converted to walls."
+  ],
+  "primaryExtent": {"width": 2093, "depth": 1168.14286},
+  "geometryIssues": [],
+  "geometryErrorCount": 0,
+  "geometryWarningCount": 0,
+  "registrationAccepted": true,
+  "nativeRooms": 9,
+  "furnitureCount": 87,
+  "limitation": "Structural checks and registration consistency do not certify source-image accuracy."
+}

@@ -2,18 +2,18 @@
 
 ## Mission
 
-Plan2World turns a floor-plan image into an editable browser scene: first reconstruct the architectural geometry, then let the user edit furniture in 2D and walk the result in first person with Three.js.
+Plan2World turns a floor-plan image into an editable browser scene: first reconstruct the architectural geometry, then let the user correct geometry, choose styles for semantic furniture blocks, and walk the result in first person with Three.js.
 
 The existing openPlan3D editor is the downstream engine. Do not replace working drawing, furniture, persistence, or 3D walkthrough systems unless a task specifically requires it.
 
 ## Core pipeline
 
 1. Inspect a JPG/PNG floor plan.
-2. Infer only the geometry supported by the image: walls, doors, windows, floors, and optional room labels.
+2. Infer source-supported walls, doors, windows and semantic furniture/fixture blocks. Use the provider-neutral `skills/reconstruct-plan2world` procedure.
 3. Emit `plan2world-draft-v1` JSON.
 4. Validate and normalize that JSON.
 5. Convert it into the existing `Project` model in `src/lib/models/types.ts`.
-6. Open the result in the existing editor for correction, furniture placement, and first-person walkthrough.
+6. Open the result in the existing editor for correction, native-object style selection, furniture placement, and first-person walkthrough.
 
 The AI boundary is the draft JSON. Keep model-provider-specific code outside the core editor.
 
@@ -37,7 +37,7 @@ Important conventions:
 - Doors/windows reference an existing wall by `wallId` and use `position` in `[0, 1]` along that wall.
 - If a drawing contains a trustworthy dimension, use it as the scale anchor.
 - If no trustworthy scale exists, mark the scale as estimated and state the assumption; do not present guessed dimensions as measured facts.
-- Prefer simple straight wall segments for v1. Curved walls, stairs, columns, and multi-floor inference are later extensions.
+- Use straight segments for straight walls and native quadratic `curvePoint` for visible curves. Do not approximate a simple arc with tiny facets.
 
 ## Coding guidance
 
@@ -60,7 +60,7 @@ When the source gives no better information:
 - window sill height: 90 cm
 - window height: 120 cm
 
-These are editable defaults, not claims about the source building.
+These are editable defaults, not claims about the source building. The opt-in `semantic-white-model` presentation instead defaults omitted windows to sill 0, host-wall height and fixed glass. It requires semantic furniture to use `imported_object`, `sourceCategory` and positive width/depth/height. Drafts without the presentation retain the legacy defaults above. User-chosen styling must preserve native IDs, placement and dimensions.
 
 ## Verification
 

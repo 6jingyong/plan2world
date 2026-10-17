@@ -1,6 +1,8 @@
 /** Lightweight built-in furniture plus optional custom project models. */
 import * as THREE from 'three';
 import { createGamePieceFurnitureModel } from './gamePieceFurniture3d';
+import { createSemanticFurnitureBlock } from './semanticFurniture3d';
+import { createFurnitureModel } from './furnitureModels3d';
 import { getCatalogItem, type FurnitureDef } from './furnitureCatalog';
 import type { FurnitureItem, Project } from '$lib/models/types';
 import { furnitureFinishes } from './furnitureFinishes';
@@ -110,6 +112,10 @@ export function createPlacedFurnitureModel(item: FurnitureItem, onLoaded?: (mode
   };
   const model = item.customModelId
     ? createProjectFurniture(item, definition, project, onLoaded)
+    : item.catalogId === 'imported_object' && item.sourceCategory
+    ? createSemanticFurnitureBlock(definition, item.sourceCategory)
+    : item.renderStyle === 'model'
+    ? createStyledFurnitureModel(item, definition)
     : createFurnitureModelWithGLB(item.catalogId, definition, onLoaded, {
       color: item.color, material: item.material,
     });
@@ -118,4 +124,14 @@ export function createPlacedFurnitureModel(item: FurnitureItem, onLoaded?: (mode
   // The plan's Y scale is world Z; height uses the saved Z magnitude.
   model.scale.set(item.scale?.x ?? 1, Math.abs(item.scale?.z ?? 1), item.scale?.y ?? 1);
   return model;
+}
+
+function createStyledFurnitureModel(item: FurnitureItem, definition: FurnitureDef): THREE.Group {
+  const container = new THREE.Group();
+  container.name = 'styled-furniture';
+  const model = createFurnitureModel(item.catalogId, definition);
+  fitFurnitureModel(model, definition);
+  applyAppearance(model, { material: item.material }, false);
+  container.add(model);
+  return container;
 }

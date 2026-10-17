@@ -36,7 +36,10 @@ describe('Plan2World vision reconstruction', () => {
     expect(prompt).toContain('curvePoint');
     expect(prompt).toContain('quadratic');
     expect(prompt).toContain('many tiny straight facets');
-    expect(prompt).toContain('Do not output furniture');
+    expect(prompt).toContain('semantic-white-model');
+    expect(prompt).toContain('sourceCategory');
+    expect(prompt).toContain('floor-to-ceiling fixed glass');
+    expect(prompt).toContain('one uniform cm-per-pixel');
     expect(prompt).toContain('bare drawing ratio');
     expect(prompt).toContain('NOT enough');
   });

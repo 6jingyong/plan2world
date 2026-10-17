@@ -34,6 +34,7 @@
   import { getCatalogItem, furnitureCatalog, furnitureCategories } from '$lib/utils/furnitureCatalog';
   import type { FurnitureDef } from '$lib/utils/furnitureCatalog';
   import { createWallHighlight } from '$lib/utils/wallHighlight';
+  import { sceneElementAt } from '$lib/utils/sceneSelection';
   import { disposeModel, ownTexture } from '$lib/utils/furnitureModelResources';
   import { createFurnitureModelWithGLB, createPlacedFurnitureModel } from '$lib/utils/furnitureModelLoader';
   import { addFurniture } from '$lib/stores/project';
@@ -73,7 +74,7 @@
   // Raycasting for wall selection in 3D
   const raycaster = new THREE.Raycaster();
   const mouse = new THREE.Vector2();
-  const wallMeshMap = new Map<THREE.Object3D, string>(); // mesh → wallId
+  const elementMeshMap = new Map<THREE.Object3D, string>(); // mesh → native element ID
   let selectedWallId3D: string | null = null;
   const wallHighlight = createWallHighlight();
 
@@ -807,7 +808,7 @@
     // Mark dirty when orbit controls move the camera
     controls.addEventListener('change', markSceneDirty);
 
-    // Click-to-select walls via raycasting
+    // Click-to-select native elements via the existing primary selection.
     let pointerDownPos = { x: 0, y: 0 };
     renderer.domElement.addEventListener('pointerdown', (e) => {
       pointerDownPos = { x: e.clientX, y: e.clientY };
@@ -875,15 +876,7 @@
         return;
       }
 
-      const intersects = raycaster.intersectObjects(wallGroup.children, false);
-      let hitWallId: string | null = null;
-      for (const hit of intersects) {
-        if (hit.object.userData.wallId) {
-          hitWallId = hit.object.userData.wallId;
-          break;
-        }
-      }
-      selectSingleElement(hitWallId);
+      selectSingleElement(sceneElementAt(raycaster, wallGroup));
     });
 
     // Hover highlight in edit mode
@@ -924,8 +917,8 @@
       mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
       raycaster.setFromCamera(mouse, camera);
-      const intersects = raycaster.intersectObjects(wallGroup.children, false);
-      const hit = intersects.find(i => i.object.userData.wallId);
+      const intersects = raycaster.intersectObjects(wallGroup.children, true);
+      const hit = intersects.find(i => i.object.userData.wallId || i.object.userData.elementId || i.object.parent?.userData.elementId);
       if (hit && hit.object !== hoveredMesh) {
         hoveredMesh = hit.object as THREE.Mesh;
         renderer.domElement.style.cursor = 'url("data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="%23fff" stroke="%23000" stroke-width="1.5" d="M16.56 8.94L7.62 0 6.21 1.41l2.38 2.38-5.15 5.15a1.49 1.49 0 0 0 0 2.12l5.5 5.5a1.49 1.49 0 0 0 2.12 0l5.5-5.5a1.49 1.49 0 0 0 0-2.12zM5.21 10L10 5.21 14.79 10H5.21zM19 11.5s-2 2.17-2 3.5a2 2 0 1 0 4 0c0-1.33-2-3.5-2-3.5z"/></svg>') + '") 2 22, pointer';
@@ -1209,7 +1202,7 @@
     wallHighlight.clear();
     clearGroup(wallGroup);
     cameraHelper = null;
-    wallMeshMap.clear();
+    elementMeshMap.clear();
 
     const defaultInteriorMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
     const defaultExteriorMat = new THREE.MeshStandardMaterial({ color: 0xd4cfc9, roughness: 0.85 });
@@ -1276,7 +1269,7 @@
             mesh.castShadow = true; mesh.receiveShadow = true;
             mesh.position.set(span.start.x + segment.offsetX * Math.cos(angle), 0, span.start.y + segment.offsetX * Math.sin(angle));
             mesh.rotation.y = -angle; mesh.userData.wallId = wall.id;
-            wallMeshMap.set(mesh, wall.id); wallGroup.add(mesh);
+            elementMeshMap.set(mesh, wall.id); wallGroup.add(mesh);
           }
         }
         // The same cuts keep baseboards out of curved doorways.
@@ -1329,7 +1322,7 @@
           );
           mesh.rotation.y = -angle;
           mesh.userData.wallId = wall.id;
-          wallMeshMap.set(mesh, wall.id);
+          elementMeshMap.set(mesh, wall.id);
           wallGroup.add(mesh);
         }
 
@@ -1399,6 +1392,7 @@
       const angle = Math.atan2(right.y - left.y, right.x - left.x);
       const wt = Math.max(wall.thickness, WALL_THICKNESS);
 
+      const firstMesh = wallGroup.children.length;
       const frameMat = new THREE.MeshStandardMaterial({ color: 0x6b4423, roughness: 0.6 });
       const doorHeight = opening.top;
       const jamb = 5; // jamb thickness
@@ -1452,6 +1446,9 @@
         );
         wallGroup.add(handleMesh);
       }
+      for (const mesh of wallGroup.children.slice(firstMesh)) {
+        mesh.userData.elementId = sourceDoor.id; elementMeshMap.set(mesh, sourceDoor.id);
+      }
     }
 
     // Windows
@@ -1467,6 +1464,7 @@
       const effectiveWinH = opening.top - opening.bottom;
       const winCY = win.sillHeight + effectiveWinH / 2;
 
+      const firstMesh = wallGroup.children.length;
       const frameMat = new THREE.MeshStandardMaterial({ color: 0xe0e0e0, roughness: 0.4, metalness: 0.1 });
       const mullionW = 4; // mullion bar width
 
@@ -1476,38 +1474,45 @@
         { w: win.width + mullionW * 2, h: mullionW, ox: 0, oy: effectiveWinH / 2 + mullionW / 2 },  // top
         { w: mullionW, h: effectiveWinH, ox: -win.width / 2 - mullionW / 2, oy: 0 },  // left
         { w: mullionW, h: effectiveWinH, ox: win.width / 2 + mullionW / 2, oy: 0 },   // right
-        // Center vertical mullion
-        { w: mullionW, h: effectiveWinH, ox: 0, oy: 0 },
-        // Center horizontal mullion
-        { w: win.width, h: mullionW, ox: 0, oy: 0 },
       ];
+      // Fixed glass stays uninterrupted; other saved types choose their divisions.
+      const columns = win.type === 'fixed' ? 1 : win.type === 'bay' ? 3 : 2;
+      const rows = win.type === 'standard' ? 2 : 1;
+      for (let column = 1; column < columns; column++) {
+        bars.push({ w: mullionW, h: effectiveWinH, ox: win.width * (column / columns - 0.5), oy: 0 });
+      }
+      if (rows === 2) bars.push({ w: win.width, h: mullionW, ox: 0, oy: 0 });
       for (const bar of bars) {
         addOpeningFrame(wall, t + bar.ox / length, bar.w, winCY + bar.oy - bar.h / 2, bar.h, mullionW, frameMat);
       }
 
-      // Glass panes (4 quadrants)
+      // Glass panes follow the chosen frame divisions.
       const glassMat = new THREE.MeshStandardMaterial({
         color: 0xa8d8ea, transparent: true, opacity: 0.3,
         roughness: 0.05, metalness: 0.1, side: THREE.DoubleSide
       });
-      const halfW = (win.width - mullionW) / 2;
-      const halfH = (effectiveWinH - mullionW) / 2;
-      for (const qx of [-1, 1]) {
-        for (const qy of [-1, 1]) {
-          const ox = qx * (halfW / 2 + mullionW / 2);
-          const centerY = winCY + qy * (halfH / 2 + mullionW / 2);
-          addOpeningFrame(wall, t + ox / length, halfW, centerY - halfH / 2, halfH, 1, glassMat, true);
-        }
+      const paneW = (win.width - mullionW * (columns - 1)) / columns;
+      const paneH = (effectiveWinH - mullionW * (rows - 1)) / rows;
+      for (let column = 0; column < columns; column++) for (let row = 0; row < rows; row++) {
+        const ox = -win.width / 2 + paneW / 2 + column * (paneW + mullionW);
+        const bottom = win.sillHeight + row * (paneH + mullionW);
+        addOpeningFrame(wall, t + ox / length, paneW, bottom, paneH, 1, glassMat, true);
       }
-
-      // Sill — protruding ledge
-      addOpeningFrame(wall, t, win.width + 16, win.sillHeight - 4, 4, wt + 10, frameMat);
+      // Floor-to-ceiling glazing has no ledge below the floor.
+      if (win.sillHeight > 0) addOpeningFrame(wall, t, win.width + 16, win.sillHeight - 4, 4, wt + 10, frameMat);
+      for (const mesh of wallGroup.children.slice(firstMesh)) {
+        mesh.userData.elementId = sourceWindow.id; elementMeshMap.set(mesh, sourceWindow.id);
+      }
     }
 
     // Furniture
     for (const fi of floor.furniture) {
       const model = createPlacedFurnitureModel(fi, markSceneDirty, get(currentProject) ?? undefined);
-      if (model) wallGroup.add(model);
+      if (model) {
+        model.userData.elementId = fi.id;
+        model.traverse(child => { if (child instanceof THREE.Mesh) elementMeshMap.set(child, fi.id); });
+        wallGroup.add(model);
+      }
     }
 
     // Room floors with materials + floating labels
@@ -1813,7 +1818,7 @@
       sceneGround.position.y = -1;
       buildWalls(currentFloor);
     }
-    wallHighlight.apply(wallMeshMap, selectedWallId3D);
+    wallHighlight.apply(elementMeshMap, selectedWallId3D);
     if (walkingPosition && walkingRotation) {
       camera.position.copy(walkingPosition);
       camera.position.y = activeFloorElevation + eyeHeight;
@@ -1831,7 +1836,7 @@
   function applyWallTransparency() {
     // Only active-floor wall bodies belong to this control; furniture finishes,
     // glass openings and reference-floor opacity keep their own settings.
-    for (const child of wallMeshMap.keys()) if (child instanceof THREE.Mesh) {
+    for (const child of elementMeshMap.keys()) if (child instanceof THREE.Mesh && child.userData.wallId) {
       for (const material of Array.isArray(child.material) ? child.material : [child.material]) {
         material.transparent = wallsTransparent;
         material.opacity = wallsTransparent ? 0.15 : 1;
@@ -1844,7 +1849,7 @@
     wallsTransparent = !wallsTransparent;
     wallHighlight.clear();
     applyWallTransparency();
-    wallHighlight.apply(wallMeshMap, selectedWallId3D);
+    wallHighlight.apply(elementMeshMap, selectedWallId3D);
     markSceneDirty();
   }
 
@@ -2045,7 +2050,7 @@
 
     const unsubSel = selectedElementId.subscribe((id) => {
       selectedWallId3D = id;
-      wallHighlight.apply(wallMeshMap, id);
+      wallHighlight.apply(elementMeshMap, id);
       markSceneDirty();
     });
 
@@ -2072,7 +2077,7 @@
       skyTexture.dispose();
       sunLight.shadow.dispose();
       clearGroup(scene);
-      wallMeshMap.clear();
+      elementMeshMap.clear();
       pointerControls.removeEventListener('change', markSceneDirty);
       pointerControls.dispose();
       controls.dispose();

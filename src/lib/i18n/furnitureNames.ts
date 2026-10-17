@@ -208,3 +208,9 @@ export function furnitureName(id: string, language: Locale): string {
 export function customModelName(item: FurnitureItem, project?: Project | null): string | undefined {
   return item.customModelId ? project?.customModels?.find(model => model.id === item.customModelId)?.name : undefined;
 }
+
+/** Retain source semantics until the user chooses a concrete catalog style. */
+export function furnitureItemName(item: FurnitureItem, language: Locale, project?: Project | null): string {
+  return customModelName(item, project)
+    ?? (item.catalogId === 'imported_object' && item.sourceCategory ? item.sourceCategory : furnitureName(item.catalogId, language));
+}

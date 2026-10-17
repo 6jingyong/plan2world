@@ -7,6 +7,7 @@
   "required": ["schemaVersion", "name", "units", "scale", "floors"],
   "properties": {
     "schemaVersion": { "const": "plan2world-draft-v1" },
+    "presentation": { "enum": ["semantic-white-model"] },
     "name": { "type": "string", "minLength": 1 },
     "units": { "const": "cm" },
     "scale": {
@@ -30,6 +31,45 @@
       "items": { "$ref": "#/$defs/floor" }
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "presentation": {
+            "const": "semantic-white-model"
+          }
+        },
+        "required": [
+          "presentation"
+        ]
+      },
+      "then": {
+        "properties": {
+          "floors": {
+            "items": {
+              "properties": {
+                "furniture": {
+                  "items": {
+                    "required": [
+                      "sourceCategory",
+                      "width",
+                      "depth",
+                      "height"
+                    ],
+                    "properties": {
+                      "catalogId": {
+                        "const": "imported_object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
   "$defs": {
     "point": {
       "type": "object",
@@ -132,6 +172,10 @@
       "properties": {
         "id": { "type": "string", "minLength": 1 },
         "catalogId": { "type": "string", "minLength": 1 },
+        "sourceCategory": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "width": { "type": "number", "exclusiveMinimum": 0 },
+        "depth": { "type": "number", "exclusiveMinimum": 0 },
+        "height": { "type": "number", "exclusiveMinimum": 0 },
         "position": { "$ref": "#/$defs/point" },
         "rotation": { "type": "number" },
         "confidence": { "$ref": "#/$defs/confidence" }

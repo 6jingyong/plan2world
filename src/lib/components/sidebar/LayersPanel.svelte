@@ -1,6 +1,6 @@
 <script lang="ts">
   import { t, locale } from '$lib/i18n';
-  import { furnitureName, customModelName } from '$lib/i18n/furnitureNames';
+  import { furnitureItemName } from '$lib/i18n/furnitureNames';
   import { entourageLabels } from '$lib/i18n/entourageLabels';
   import { onDestroy } from 'svelte';
   import { selectSingleElement, currentProject, activeFloor, selectedElementId, selectedRoomId, detectedRoomsStore, layerVisibility } from '$lib/stores/project';
@@ -70,7 +70,7 @@
       key: 'furniture', label: $t('layers.furniture'), icon: '🪑',
       items: floor.furniture.map((fi) => {
         const cat = getCatalogItem(fi.catalogId);
-        return { id: fi.id, label: customModelName(fi, $currentProject) ?? furnitureName(fi.catalogId, $locale), icon: cat?.icon ?? '📦' };
+        return { id: fi.id, label: furnitureItemName(fi, $locale, $currentProject), icon: cat?.icon ?? '📦' };
       }),
     });
 
