@@ -27,6 +27,7 @@
   import { portableRenderSceneJSON } from '$lib/utils/portableRenderScene';
   import { sceneSignature } from '$lib/utils/sceneSignature';
   import { WalkthroughMotion } from '$lib/utils/walkthroughMotion';
+  import { automaticWalkthroughStart } from '$lib/utils/walkthroughEntry';
   import { createWalkthroughCollisionWorld, type WalkthroughCollisionWorld } from '$lib/utils/walkthroughCollision';
   import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
   import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
@@ -36,7 +37,7 @@
   import { disposeModel, ownTexture } from '$lib/utils/furnitureModelResources';
   import { createFurnitureModelWithGLB, createPlacedFurnitureModel } from '$lib/utils/furnitureModelLoader';
   import { addFurniture } from '$lib/stores/project';
-  import { roomCentroid, roomLabelPosition } from '$lib/utils/roomDetection';
+  import { roomLabelPosition } from '$lib/utils/roomDetection';
   import { getMaterial } from '$lib/utils/materials';
   import { getWallTextureCanvas, getFloorTextureCanvas, setTextureLoadCallback } from '$lib/utils/textureGenerator';
 
@@ -1918,41 +1919,11 @@
     walkthroughMouseUnavailable = false;
     controls.enabled = false;
 
-    // Position camera at eye height in center of floor plan or largest room
+    // Use the same live room polygons/holes as the plan and rendered floors.
     if (currentFloor) {
       const analysis = get(projectFloorAnalysis).active;
-      const rooms = analysis?.rooms ?? [];
-      let startPos = { x: 0, y: eyeHeight, z: 0 };
-
-      if (rooms.length > 0) {
-        // Find largest room and position camera at its center
-        let largestRoom = rooms[0];
-        let largestArea = 0;
-
-        for (const room of rooms) {
-          if (room.area > largestArea) {
-            largestArea = room.area;
-            largestRoom = room;
-          }
-        }
-
-        const poly = analysis?.polygons.get(largestRoom.id) ?? [];
-        if (poly.length > 0) {
-          const centroid = roomCentroid(poly);
-          startPos = { x: centroid.x, y: eyeHeight, z: centroid.y };
-        }
-      } else if (currentFloor.walls.length > 0) {
-        // No rooms, use center of floor plan
-        let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
-        for (const w of currentFloor.walls) {
-          for (const p of [w.start, w.end]) {
-            minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
-            minZ = Math.min(minZ, p.y); maxZ = Math.max(maxZ, p.y);
-          }
-        }
-        startPos = { x: (minX + maxX) / 2, y: eyeHeight, z: (minZ + maxZ) / 2 };
-      }
-
+      const point = analysis ? automaticWalkthroughStart(analysis, walkthroughCollisionWorld ?? undefined) : { x: 0, y: 0 };
+      const startPos = { x: point.x, y: eyeHeight, z: point.y };
       setFloorCameraPose(camera, activeFloorElevation, startPos,
         { ...startPos, z: startPos.z - 100 });
     }
