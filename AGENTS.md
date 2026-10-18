@@ -9,7 +9,7 @@ The existing openPlan3D editor is the downstream engine. Do not replace working 
 ## Core pipeline
 
 1. Inspect a JPG/PNG floor plan.
-2. Infer source-supported walls, doors, windows and semantic furniture/fixture blocks. Use the provider-neutral `skills/reconstruct-plan2world` procedure.
+2. Trace outer wall centrelines, identify real furniture from the fixed vocabulary in that context, complete the shared interior walls and source-supported closure, then extract hosted doors/windows. Use the provider-neutral `skills/reconstruct-plan2world` procedure.
 3. Emit `plan2world-draft-v1` JSON.
 4. Validate and normalize that JSON.
 5. Convert it into the existing `Project` model in `src/lib/models/types.ts`.
@@ -63,6 +63,8 @@ When the source gives no better information:
 These are editable defaults, not claims about the source building. The opt-in `semantic-white-model` presentation instead defaults omitted windows to sill 0, host-wall height and fixed glass. Semantic furniture requires `imported_object`, `sourceCategory` and approximate centre position. Dimensions and rotation are optional: reuse the existing imported-object 50 cm cube and zero rotation; users refine these later. Supplied dimensions must remain positive. Drafts without the presentation retain the legacy defaults above. User-chosen styling must preserve native IDs, placement and dimensions.
 
 When an SVG review looks wrong, preserve the JSON and determine whether the source-to-JSON extraction or JSON-to-SVG projection is incorrect. Repair the responsible reusable Skill/script or renderer and test that stage. Hand-correcting a candidate is not evidence of Skill improvement; do not compensate in 3D. Furniture extraction acceptance covers presence, semantic type and broad position, not direction, dimensions or fine alignment.
+
+Current reconstruction must declare `furnitureVocabulary: "plan2world-furniture-v1"` and use exact IDs from `skills/reconstruct-plan2world/references/furniture-vocabulary.json`. Confirm object presence before choosing its type; bay windows, ledges, wall piers and planter platforms do not become furniture. Omit unsupported/unconfirmed objects and disclose their region/reason in assumptions. Do not invent labels or use unknown/other furniture placeholders. Keep extraction semantics separate from user-selectable model/style catalogs. Historical drafts without a vocabulary version remain import-compatible.
 
 During reconstruction verification, freeze each complete emitted JSON before checking it and never hand-edit that output after a failure. Change the responsible reusable Skill/script or conversion/viewing program, then generate a separate new output for any retest. SVG is a temporary intermediate diagnostic for image-to-JSON reliability, not a product goal.
 

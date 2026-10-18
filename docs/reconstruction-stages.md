@@ -7,9 +7,9 @@ example is not evidence that the Skill will reconstruct the next image correctly
 | Step | Output / acceptance | Owner of a failure |
 | --- | --- | --- |
 | 1. Source coordinates and scale | Original dimensions, crop-to-source mapping, one scale basis | Extraction coordinate handling; scripts can calculate transforms |
-| 2. Furniture inventory | Stable IDs, semantic types and approximate source centres; whole-image pass then regional omission/deduplication pass | Skill coverage or object interpretation; dimensions, direction and fine placement belong to later user editing |
-| 3. Shared wall skeleton | One centreline per physical wall; preserve curves, recesses and voids | Skill tracing; do not promote cabinet/door-arc lines to walls |
-| 4. Source-supported closure | Shared corners/T-junctions; closed spaces where supported, open circulation retained | Tracing/topology; existing geometry checks flag gaps, not permission to invent partitions |
+| 2. Outer wall outline | Actual wall centrelines, including curves, recesses and bay projections; no bounding-box substitution | Skill tracing establishes architectural context before object recognition |
+| 3. Object eligibility and fixed labels | Recognizable furniture/appliance/fixture first, exact permitted ID and approximate centre second; one regional omission/deduplication pass | Skill distinguishes architectural features from real objects; parser rejects unlisted labels |
+| 4. All shared walls and closure | Reuse outer walls, add interior walls, join corners/T-junctions; preserve source-supported closed spaces and open circulation | Tracing/topology; geometry checks do not authorize invented partitions |
 | 5. Hosted openings | Door/window type, centre and width on a source-supported host | Skill opening recognition/association |
 | 6. Standard JSON | One uniform conversion to cm; separate furniture/walls/doors/windows arrays, valid IDs and dimensions | Serialization/contract validation; use the existing parser/checker |
 | 7. SVG source review | Original beside `plan.svg`, optionally `overlay.svg`; inspect walls/openings and furniture type/approximate position | Compare source → JSON first, then fixed JSON → SVG; fix the first incorrect stage |
@@ -24,7 +24,7 @@ clock takeover race was fixed in the test, not in the geometry generator.
 
 | Observed pattern | Limited response | Evidence needed before expanding work |
 | --- | --- | --- |
-| Specific furniture type without visible object evidence | Require type evidence before emission; use `unknown` for unclear objects and distinguish architectural ledges from furniture | Original region + unchanged JSON entry; verify SVG reproduces that input before changing the Skill |
+| Bay/ledge promoted into furniture | Trace outer walls first; confirm a real object before choosing a fixed label; omit/disclose unresolved objects instead of unknown furniture | Original region + unchanged JSON entry; a valid category alone cannot establish object presence |
 | Missed/duplicate furniture | Inventory plus one regional omission/deduplication pass (#49); SVG shows each ID and position | A source object missing or duplicated in JSON; first exclude SVG omission |
 | Kitchen sliding access called a fixed window; shower access omitted | Sweep each wall for openings and use panel/access evidence; review door/window SVG layers | A specific source span and the mismatched JSON entry; do not widen or invent access for navigation |
 | Different coordinates used for crops, geometry or anchors | One transform, numeric checks and source-registered SVG | A specific corresponding pixel/JSON point mismatch |

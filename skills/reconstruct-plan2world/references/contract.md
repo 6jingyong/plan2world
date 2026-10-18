@@ -1,6 +1,8 @@
 # Plan2World semantic white-model contract
 
-Version: `plan2world-draft-v1`, optional presentation `semantic-white-model`.
+Version: `plan2world-draft-v1`, presentation `semantic-white-model`, furniture
+vocabulary `plan2world-furniture-v1` for current reconstruction. Read the exact
+IDs and exclusions in [furniture-vocabulary.json](furniture-vocabulary.json).
 All world lengths are centimetres. Rotations are degrees around the item's
 centre, clockwise in the source's right/down coordinate system. Width is local
 x; depth is local y. The editor uses the same live native geometry in 2D, 3D,
@@ -10,6 +12,7 @@ architectural cut and collision.
 {
   "schemaVersion": "plan2world-draft-v1",
   "presentation": "semantic-white-model",
+  "furnitureVocabulary": "plan2world-furniture-v1",
   "name": "Source plan",
   "units": "cm",
   "scale": {"mode": "estimated", "confidence": 0.6, "basis": "Explain the actual source scale basis"},
@@ -57,7 +60,7 @@ normalization defaults after the skeleton is checked; zero thickness is invalid.
   nonnegative `sillHeight` override white-model defaults; omitted values give
   sill 0 and height to the wall top. Use explicit heights only when requested.
 - Furniture under this presentation: require `id`, `catalogId: imported_object`,
-  nonempty `sourceCategory` and approximate centre `position`; confidence is
+  exact permitted `sourceCategory` and approximate centre `position`; confidence is
   optional. Omit dimensions and rotation during image extraction. The existing
   imported-object defaults provide a 50 cm cube at rotation 0 in the program.
   Users adjust size, direction, precise position and styles later. Optional
@@ -65,9 +68,16 @@ normalization defaults after the skeleton is checked; zero thickness is invalid.
   existing drafts and explicit user input; supplied values take precedence.
   SVG uses a position marker without a physical footprint when width/depth
   are omitted. Evaluate extraction on coverage, semantic type and broad position.
-  Use `unknown` when a visible object cannot be typed from source evidence;
-  lower confidence is not a substitute for an unknown category. Architectural
-  ledges/platforms alone are not evidence of a separate furniture object.
+  First confirm a real furniture/appliance/sanitary fixture, then choose its
+  exact ID from the fixed vocabulary. Bays, ledges, wall piers and planting
+  platforms are architectural features, not furniture. If presence/type is
+  unconfirmed or unlisted, omit it and record the region/reason in `assumptions`.
+  Do not emit `unknown`, `other`, synonyms or invented types. Add vocabulary
+  entries only through deliberate versioned maintenance, never during extraction.
+- `furnitureVocabulary` must be `plan2world-furniture-v1` for current Skill/AI
+  outputs. Strict verification rejects a missing version and unlisted categories.
+  Historical drafts without this field retain free-form source labels for import
+  compatibility; do not rewrite those saved drafts to pass new verification.
 - Source registration: existing `floorId`, confidence 0..1, at least two anchors
   with existing `wallId`, `endpoint` (`start`/`end`) and normalized `image` point.
 - Preserve evidence in `assumptions`; do not output native editor selection,

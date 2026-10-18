@@ -29,10 +29,14 @@ Estimated scale is allowed so that a rough 3D walkthrough can still be generated
 ## Reconstruction order
 
 The provider-neutral Skill establishes one original-raster coordinate system,
-inventories furniture/fixtures, then checks regions for omissions and duplicate
-objects. It traces a zero-width shared wall skeleton in those same source pixels
-and checks source-supported enclosed spaces, shared junctions and open circulation
-before extracting hosted openings and applying one uniform transform to cm.
+then traces the actual outer wall centrelines, preserving bays and recesses.
+Using that architectural context, it confirms real furniture/appliances/fixtures
+and chooses labels from the fixed vocabulary. It then completes the shared
+interior wall network, checks source-supported closure and open circulation,
+and extracts wall-hosted doors/windows. One final uniform transform converts all
+layers to cm. Outer walls are reused in the same network, not copied as a second
+outline. Furniture detection checks object presence before choosing a type;
+a permitted cabinet label does not make an architectural window ledge a cabinet.
 The existing furniture/walls/doors/windows arrays are the standard plan's layers.
 An inventory or overlay marks extracted objects; furniture erasure is optional,
 and architectural evidence must always be checked against the unchanged original.
@@ -122,7 +126,7 @@ Reversing or splitting a referenced wall updates its directed references. Deleti
 
 ## Furniture
 
-New reconstruction uses the optional root `presentation: "semantic-white-model"`. Each visible furniture/fixture requires `id`, `catalogId: "imported_object"`, nonempty `sourceCategory` and approximate centre `position`. Image extraction records semantics and broad location. Omit dimensions and rotation; users choose size, direction, precise placement and style later in the editor/walkthrough.
+New reconstruction uses the optional root `presentation: "semantic-white-model"`. Each visible furniture/fixture requires `id`, `catalogId: "imported_object"`, an exact permitted `sourceCategory` and approximate centre `position`. Image extraction records semantics and broad location. Omit dimensions and rotation; users choose size, direction, precise placement and style later in the editor/walkthrough.
 
 ```json
 {
@@ -136,9 +140,20 @@ New reconstruction uses the optional root `presentation: "semantic-white-model"`
 
 The native editor retains category on the same `FurnitureItem`, rendering a labelled block with native `renderStyle: "block"`. Its existing imported-object defaults supply a 50 cm cube and rotation 0; these are editable display defaults, not source measurements. Optional positive `width`, `depth`, `height` and finite `rotation` remain supported, and explicit values win. Width is local x and depth is local y before rotation. Calibration scales position and any explicit footprint; omitted dimensions stay omitted, so display defaults are not scaled as source evidence.
 
-SVG review shows a position marker when width/depth are absent, with no asserted physical footprint. Evaluate furniture extraction for omissions, duplicates, wrong types or wrong broad regions. Direction, size and fine placement are user edits. A legacy `sourceCategory` alone does not enable the block presentation. The user may select a local style in Properties; styling retains the native item's ID, category, placement and dimensions. Its optional `renderStyle: "model"` records that visual choice outside the AI draft contract. Do not infer a brand or detailed model from a plan symbol. Use `unknown` when the category is unclear.
+SVG review shows a position marker when width/depth are absent, with no asserted physical footprint. Evaluate furniture extraction for omissions, duplicates, wrong types or wrong broad regions. Direction, size and fine placement are user edits. A legacy `sourceCategory` alone does not enable the block presentation. The user may select a local style in Properties; styling retains the native item's ID, category, placement and dimensions. Its optional `renderStyle: "model"` records that visual choice outside the AI draft contract. Do not infer a brand or detailed model from a plan symbol. For current extraction, omit unconfirmed/unlisted objects and record their source region/reason in `assumptions`; do not emit unknown/other or invented furniture labels.
 
 Under this presentation, omitted window fields normalize to `sillHeight: 0`, `height: hostWall.height`, and `type: "fixed"`: floor-to-ceiling glass is a product default, not a claim about the building. Explicit fields win; an explicit sill with omitted height uses the remaining wall height.
+
+Current Skill/AI output declares root `furnitureVocabulary: "plan2world-furniture-v1"`.
+The portable [fixed vocabulary](../skills/reconstruct-plan2world/references/furniture-vocabulary.json)
+contains furniture, appliance and sanitary-fixture IDs plus architectural exclusions.
+The runtime and instruction builder read this registry; a regression check keeps
+its IDs synchronized with the JSON schema. A versioned draft rejects unlisted IDs,
+including architectural labels and unknown/other. Strict current reconstruction
+also rejects a missing vocabulary declaration. The checker enables this with
+`--require-furniture-vocabulary true`. Historical drafts without the field keep
+their original labels and remain import-compatible. No saved candidate is migrated.
+The enum validates labels, not visual object presence; source review remains required.
 
 Drafts without this presentation retain legacy window defaults (90 cm sill, 120 cm height, standard type) and optional catalog furniture hints. Existing JSON remains compatible.
 

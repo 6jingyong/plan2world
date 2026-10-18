@@ -1,6 +1,7 @@
 import type { Door, Floor, FloorBoundaryPart, FurnitureItem, Project, Wall, Window } from '$lib/models/types';
 import { resolveRooms } from '$lib/utils/roomDetection';
 import { readFloorBoundary, floorBoundaryProblem } from '$lib/utils/floorBoundary';
+import { PLAN2WORLD_FURNITURE_VOCABULARY, isPlan2WorldFurnitureType } from './furnitureVocabulary';
 
 export const PLAN2WORLD_DRAFT_VERSION = 'plan2world-draft-v1' as const;
 
@@ -100,6 +101,8 @@ export interface Plan2WorldDraft {
   units: 'cm';
   /** Opt-in reconstruction presentation; legacy drafts keep their defaults. */
   presentation?: 'semantic-white-model';
+  /** Fixed extraction vocabulary; omitted only for historical drafts. */
+  furnitureVocabulary?: typeof PLAN2WORLD_FURNITURE_VOCABULARY;
   scale: DraftScale;
   assumptions?: string[];
   /** Optional image-to-plan registration metadata. It is advisory and never required to import a draft. */
@@ -336,7 +339,7 @@ function parseSourceRegistration(value: unknown, floors: DraftFloor[]): DraftSou
   }
 }
 
-export function parsePlan2WorldDraft(input: unknown): Plan2WorldDraft {
+export function parsePlan2WorldDraft(input: unknown, options: { requireFurnitureVocabulary?: boolean } = {}): Plan2WorldDraft {
   const v = record(input, 'draft');
   if (v.schemaVersion !== PLAN2WORLD_DRAFT_VERSION) {
     throw new Plan2WorldDraftError(`schemaVersion must be ${PLAN2WORLD_DRAFT_VERSION}`);
@@ -356,10 +359,21 @@ export function parsePlan2WorldDraft(input: unknown): Plan2WorldDraft {
   uniqueIds(floors, 'floors');
   const presentation = v.presentation === undefined ? undefined
     : enumValue(v.presentation, ['semantic-white-model'] as const, 'semantic-white-model', 'presentation');
+  const furnitureVocabulary = v.furnitureVocabulary === undefined ? undefined
+    : enumValue(v.furnitureVocabulary, [PLAN2WORLD_FURNITURE_VOCABULARY] as const, PLAN2WORLD_FURNITURE_VOCABULARY, 'furnitureVocabulary');
+  if (options.requireFurnitureVocabulary && !furnitureVocabulary) {
+    throw new Plan2WorldDraftError(`Current reconstruction requires furnitureVocabulary: ${PLAN2WORLD_FURNITURE_VOCABULARY}`);
+  }
+  if (furnitureVocabulary && !presentation) {
+    throw new Plan2WorldDraftError('Fixed furniture vocabulary requires semantic-white-model presentation');
+  }
   if (presentation) {
     for (const floor of floors) for (const item of floor.furniture ?? []) {
       if (item.catalogId !== 'imported_object' || !item.sourceCategory) {
         throw new Plan2WorldDraftError('Semantic furniture requires imported_object and sourceCategory');
+      }
+      if (furnitureVocabulary && !isPlan2WorldFurnitureType(item.sourceCategory)) {
+        throw new Plan2WorldDraftError(`Furniture ${item.id}: sourceCategory ${item.sourceCategory} is not in ${furnitureVocabulary}`);
       }
     }
   }
@@ -375,6 +389,7 @@ export function parsePlan2WorldDraft(input: unknown): Plan2WorldDraft {
     name: stringValue(v.name, 'name'),
     units: 'cm',
     presentation,
+    furnitureVocabulary,
     scale: {
       mode,
       confidence: scaleConfidence,

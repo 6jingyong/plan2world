@@ -61,5 +61,5 @@ export async function reconstructFloorPlanImage(
     customFetch,
     signal,
   );
-  return parsePlan2WorldDraft(json);
+  return parsePlan2WorldDraft(json, { requireFurnitureVocabulary: true });
 }

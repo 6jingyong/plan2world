@@ -8,6 +8,9 @@ import { createFloorPlanAIProvider, type FloorPlanProviderRequest } from '../fix
 
 const reference = JSON.parse(readFileSync('tests/fixtures/real-floorplans/wikimedia-two-bedroom.json', 'utf8'));
 const replay = structuredClone(reference);
+// Declare the current mock response contract; keep the historical reference intact.
+replay.presentation = 'semantic-white-model';
+replay.furnitureVocabulary = 'plan2world-furniture-v1';
 replay.name = 'Wikimedia real-plan correction replay';
 replay.floors[0].walls[0].end.x = 670;
 replay.floors[0].walls[1].start.x = 670;
