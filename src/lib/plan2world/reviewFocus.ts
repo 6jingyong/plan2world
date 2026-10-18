@@ -19,8 +19,8 @@ export interface ReviewFocusTarget {
 
 /**
  * Resolve a Review finding into editor-selectable deterministic geometry.
- * Only walls and openings are accepted because reconstruction findings never
- * target furniture or presentation-only elements.
+ * Walls, openings and explicit ground outlines use native editor selection.
+ * Reconstruction findings never target furniture or presentation-only elements.
  */
 export function resolveReviewFocus(
   project: Project,
@@ -36,6 +36,7 @@ export function resolveReviewFocus(
     ...floor.walls.map(item => item.id),
     ...floor.doors.map(item => item.id),
     ...floor.windows.map(item => item.id),
+    ...floor.rooms.filter(item => item.boundary).map(item => item.id),
   ]);
   // In edit mode the first requested ID is the subject. An obsolete finding must not
   // retarget its surviving host/neighbor when that subject has been deleted.

@@ -2,10 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { calibratePlan2WorldDraft } from '$lib/plan2world/review';
 import {
   buildReconstructionTrace,
+  buildProjectReconstructionTrace,
   planPointToSourcePixel,
   traceElementMatchesIssue,
 } from '$lib/plan2world/reconstructionTrace';
-import { sourceBackgroundForDraft } from '$lib/plan2world/sourceBackground';
+import { draftToProjectWithSourceBackground, sourceBackgroundForDraft } from '$lib/plan2world/sourceBackground';
 
 const source = {
   dataUrl: 'data:image/png;base64,AA==',
@@ -102,4 +103,27 @@ describe('Plan2World reconstruction trace', () => {
     expect(top.end.x).toBeCloseTo(833.3333333, 5);
     expect(top.end.y).toBeCloseTo(0, 5);
   });
+});
+
+
+it('projects open ground through the same registration, calibration and live correction transform', () => {
+  const draft = { ...registeredDraft(), floors: registeredDraft().floors.map(floor => ({ ...floor,
+    floorAreas: [{ id: 'balcony', name: 'Balcony', confidence: 0.8, boundary: [
+      { wallId: 'bottom' }, { point: { x: 0, y: 330 } }, { point: { x: 400, y: 330 } },
+    ] }],
+  })) };
+  const before = buildReconstructionTrace(draft, source)!;
+  expect(before.floorAreas![0].points).toEqual([
+    { x: 900, y: 700 }, { x: 100, y: 700 }, { x: 100, y: 760 }, { x: 900, y: 760 },
+  ]);
+  const calibrated = buildReconstructionTrace(calibratePlan2WorldDraft(draft, 400, 800), source)!;
+  expect(calibrated.floorAreas).toEqual(before.floorAreas);
+  const project = draftToProjectWithSourceBackground(draft, source), floor = project.floors[0];
+  const transform = structuredClone(floor.backgroundImage);
+  floor.walls.find(wall => wall.id === 'bottom')!.curvePoint = { x: 200, y: 320 };
+  const live = buildProjectReconstructionTrace(project, floor.id)!;
+  expect(live.floorAreas![0].confidence).toBe(0.8);
+  expect(live.floorAreas![0].points).toHaveLength(19);
+  expect(live.floorAreas![0].points[8]).toEqual({ x: 500, y: 720 });
+  expect(floor.backgroundImage).toEqual(transform);
 });

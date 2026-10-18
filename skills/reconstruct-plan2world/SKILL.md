@@ -55,9 +55,12 @@ API key, paid service or hosted editor.
 - Check source alignment at spread-out locations, then inspect every wall,
   opening and furniture footprint against the raster. Mark ambiguous or omitted
   features in `assumptions` and reduce their confidence.
-- If balcony limits are dashed or open railings, disclose that native room
-  detection may leave the balcony without a floor. Do not invent solid walls
-  merely to close it or report the full home as walkable without checking it.
+- For visible balcony/terrace ground, emit optional `floorAreas` with an ordered
+  `boundary` as described in the contract. Shared sides reference existing wall
+  paths, including curves; free points/controls trace the open perimeter. These
+  create ground without solid walls or a ceiling. Do not duplicate an enclosed
+  room or infer a floor from a bounding rectangle. If limits remain uncertain,
+  omit the outline and disclose the missing ground; verify before calling it walkable.
 - When a Plan2World checkout is available, use its deterministic checker:
   `NODE_ENV=production node tooling/inspect-plan2world-draft.mjs --draft draft.json --source source.jpg --width W --height H`.
   Read its findings and fix invalid references, registration or impossible

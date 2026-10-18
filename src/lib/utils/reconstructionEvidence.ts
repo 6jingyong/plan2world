@@ -15,7 +15,8 @@ export function validateReconstructionEvidence(value: unknown) {
     if (!object(floor) || !text(floor.floorId) || floors.has(floor.floorId)) fail();
     floors.add(floor.floorId);
     const ids = new Set<string>();
-    for (const kind of ['walls', 'doors', 'windows']) {
+    for (const kind of ['walls', 'doors', 'windows', 'floorAreas']) {
+      if (kind === 'floorAreas' && floor[kind] === undefined) continue;
       if (!Array.isArray(floor[kind])) fail();
       for (const item of floor[kind]) {
         if (!object(item) || !text(item.id) || ids.has(item.id)

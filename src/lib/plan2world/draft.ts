@@ -1,5 +1,6 @@
-import type { Door, Floor, FurnitureItem, Project, Wall, Window } from '$lib/models/types';
+import type { Door, Floor, FloorBoundaryPart, FurnitureItem, Project, Wall, Window } from '$lib/models/types';
 import { resolveRooms } from '$lib/utils/roomDetection';
+import { readFloorBoundary, floorBoundaryProblem } from '$lib/utils/floorBoundary';
 
 export const PLAN2WORLD_DRAFT_VERSION = 'plan2world-draft-v1' as const;
 
@@ -73,6 +74,13 @@ export interface DraftFurniture {
   height?: number;
 }
 
+export interface DraftFloorArea {
+  id: string;
+  name: string;
+  boundary: FloorBoundaryPart[];
+  confidence?: number;
+}
+
 export interface DraftFloor {
   id: string;
   name: string;
@@ -82,6 +90,8 @@ export interface DraftFloor {
   doors?: DraftDoor[];
   windows?: DraftWindow[];
   furniture?: DraftFurniture[];
+  /** Ground outline for balconies/terraces; creates no physical partitions. */
+  floorAreas?: DraftFloorArea[];
 }
 
 export interface Plan2WorldDraft {
@@ -255,11 +265,23 @@ function parseFloor(value: unknown, index: number): DraftFloor {
   const doors = Array.isArray(v.doors) ? v.doors.map((item, i) => parseDoor(item, `${path}.doors[${i}]`)) : [];
   const windows = Array.isArray(v.windows) ? v.windows.map((item, i) => parseWindow(item, `${path}.windows[${i}]`)) : [];
   const furniture = Array.isArray(v.furniture) ? v.furniture.map((item, i) => parseFurniture(item, `${path}.furniture[${i}]`)) : [];
+  if (v.floorAreas !== undefined && !Array.isArray(v.floorAreas)) throw new Plan2WorldDraftError(`${path}.floorAreas must be an array`);
+  const floorAreas: DraftFloorArea[] = ((v.floorAreas ?? []) as unknown[]).map((item, i) => {
+    const areaPath = `${path}.floorAreas[${i}]`, area = record(item, areaPath);
+    let boundary: FloorBoundaryPart[];
+    try { boundary = readFloorBoundary(area.boundary, `${areaPath}.boundary`); }
+    catch (error) { throw new Plan2WorldDraftError((error as Error).message); }
+    const problem = floorBoundaryProblem(boundary, walls.map(wall => ({ ...wall, height: wall.height ?? 280, thickness: wall.thickness ?? 12, color: '#444444' })));
+    if (problem) throw new Plan2WorldDraftError(`${areaPath}.boundary: ${problem}`);
+    return { id: stringValue(area.id, `${areaPath}.id`), name: stringValue(area.name, `${areaPath}.name`),
+      boundary, confidence: confidence(area.confidence, `${areaPath}.confidence`) };
+  });
 
   uniqueIds(walls, `${path}.walls`);
   uniqueIds(doors, `${path}.doors`);
   uniqueIds(windows, `${path}.windows`);
   uniqueIds(furniture, `${path}.furniture`);
+  uniqueIds([...walls, ...doors, ...windows, ...furniture, ...floorAreas], path);
 
   const wallIds = new Set(walls.map(w => w.id));
   for (const opening of [...doors, ...windows]) {
@@ -277,6 +299,7 @@ function parseFloor(value: unknown, index: number): DraftFloor {
     doors,
     windows,
     furniture,
+    floorAreas,
   };
 }
 
@@ -420,7 +443,8 @@ function toFloor(draft: DraftFloor, presentation?: Plan2WorldDraft['presentation
     level: draft.level,
     elevation: draft.elevation,
     walls,
-    rooms: [],
+    rooms: (draft.floorAreas ?? []).map(area => ({ id: area.id, name: area.name,
+      boundary: structuredClone(area.boundary), walls: [], roomType: 'outdoor', floorTexture: 'concrete', area: 0 })),
     doors,
     windows,
     furniture,
@@ -455,6 +479,7 @@ export function draftToProject(input: unknown, now = new Date()): Project {
         walls: floor.walls.map(({ id, kind, confidence }) => ({ id, kind, confidence })),
         doors: (floor.doors ?? []).map(({ id, confidence }) => ({ id, confidence })),
         windows: (floor.windows ?? []).map(({ id, confidence }) => ({ id, confidence })),
+        ...(floor.floorAreas?.length ? { floorAreas: floor.floorAreas.map(({ id, confidence }) => ({ id, confidence })) } : {}),
       })),
     },
     description: `Imported from ${PLAN2WORLD_DRAFT_VERSION}. ${scaleDescription}${assumptions}`,

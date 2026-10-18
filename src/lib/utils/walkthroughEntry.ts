@@ -11,7 +11,8 @@ export function automaticWalkthroughStart(
   let largest: FloorAnalysis['rooms'][number] | undefined;
   for (const room of analysis.rooms) {
     if (room.floorOpening || !analysis.polygons.get(room.id)?.length) continue;
-    if (!largest || room.area > largest.area) largest = room;
+    if (!largest || (largest.roomType === 'outdoor' && room.roomType !== 'outdoor') ||
+        ((largest.roomType === 'outdoor') === (room.roomType === 'outdoor') && room.area > largest.area)) largest = room;
   }
   let point: Point = { x: 0, y: 0 };
   if (largest) {

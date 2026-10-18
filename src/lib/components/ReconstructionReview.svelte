@@ -59,6 +59,12 @@
             viewBox={`0 0 ${trace.width} ${trace.height}`}
             aria-label={live ? 'Current geometry trace' : 'AI reconstruction trace'}
           >
+            {#each trace.floorAreas ?? [] as area}
+              <polygon data-trace-floor-area={area.id} points={area.points.map(point => `${point.x},${point.y}`).join(' ')}
+                fill="rgba(8,145,178,0.08)" stroke={area.severity === 'error' ? '#dc2626' : '#0891b2'}
+                stroke-width={traceIsFocused(area) ? 4 : 2} stroke-dasharray="5 4"
+                vector-effect="non-scaling-stroke" opacity={traceOpacity(area)} />
+            {/each}
             {#each trace.walls as wall}
               <path
                 d={wall.curvePoint

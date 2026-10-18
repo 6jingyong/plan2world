@@ -14,8 +14,9 @@ export function focusReviewTarget(target: ReviewFocusTarget): boolean {
   viewMode.set('2d');
   setActiveFloor(target.floorId);
   selectedTool.set('select');
-  selectedRoomId.set(null);
-  selectSingleElement(target.primaryId);
+  const isArea = project!.floors.find(floor => floor.id === target.floorId)?.rooms.some(room => room.id === target.primaryId && room.boundary);
+  selectSingleElement(isArea ? null : target.primaryId);
+  selectedRoomId.set(isArea ? target.primaryId : null);
   editorFocusRequest.set({ ...resolved, primaryId: target.primaryId });
   return true;
 }

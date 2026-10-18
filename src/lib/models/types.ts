@@ -64,7 +64,15 @@ export function getWallHeightAt(wall: Wall, t: number): number {
 
 export type RoomCategory = 'indoor' | 'outdoor' | 'garage' | 'utility';
 
+/** Ordered floor perimeter: free source points or a live native wall path.
+ * A free point's control describes the edge to the next part's first point.
+ * Straight connectors and the final closing edge are implicit, never walls.
+ */
+export type FloorBoundaryPart = { point: Point; curvePoint?: Point } | { wallId: string; reverse?: boolean };
+
 export interface Room {
+  /** Explicit ground surface for an open area. Omitted for wall-derived rooms. */
+  boundary?: FloorBoundaryPart[];
   /** Enclosed opening through this floor's slab; excluded from usable floor area. */
   floorOpening?: boolean;
   details?: ItemDetails;
@@ -273,6 +281,7 @@ export interface ReconstructionEvidence {
     walls: { id: string; confidence?: number; kind?: 'interior' | 'exterior' | 'unknown' }[];
     doors: { id: string; confidence?: number }[];
     windows: { id: string; confidence?: number }[];
+    floorAreas?: { id: string; confidence?: number }[];
   }[];
 }
 

@@ -118,6 +118,9 @@ export function calibratePlan2WorldDraft(
       })),
       doors: floor.doors?.map(door => ({ ...door, width: door.width * factor })),
       windows: floor.windows?.map(window => ({ ...window, width: window.width * factor })),
+      floorAreas: floor.floorAreas?.map(area => ({ ...area, boundary: area.boundary.map(part =>
+        'wallId' in part ? { ...part } : { point: { x: part.point.x * factor, y: part.point.y * factor },
+          ...(part.curvePoint ? { curvePoint: { x: part.curvePoint.x * factor, y: part.curvePoint.y * factor } } : {}) }) })),
       furniture: floor.furniture?.map(item => ({
         ...item,
         position: { x: item.position.x * factor, y: item.position.y * factor },

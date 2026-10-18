@@ -77,6 +77,29 @@ Doors and windows reference a wall by ID and use a normalized position along tha
 
 Editor distances from A/B measure from the wall endpoint to the opening centre along the shared wall path. They use the same 16-span curved path as the 3D aperture geometry, rather than multiplying length by the Bezier parameter. Editing a distance converts it back to `position`; the saved contract remains parameter-based. Curved length readouts and resizing use this same metric.
 
+## Open ground outlines
+
+Optional `floor.floorAreas` describes source-visible ground that cannot be derived from an enclosed wall cycle, such as an open balcony or terrace. Do not add walls to force a floor, infer a bounding rectangle, or duplicate an already detected room.
+
+```json
+{
+  "id": "balcony", "name": "Balcony", "confidence": 0.8,
+  "boundary": [
+    { "wallId": "w3" },
+    { "point": { "x": 0, "y": 600 } },
+    { "point": { "x": 600, "y": 600 } }
+  ]
+}
+```
+
+Boundary parts are ordered. A wall reference follows its entire live centreline from start to end; `reverse: true` follows end to start. A free point optionally has a quadratic `curvePoint` controlling the edge to the next part's first point. Consecutive parts and the closing edge connect directly. Curves use the same 16 spans as native walls. See the [complete open balcony example](../examples/plan2world-open-balcony.example.json).
+
+Use wall references wherever ground borders a real wall, preserving edits without copied wall vertices. Free points describe only a visible open edge. An uncertain or obscured extent should be omitted and disclosed in assumptions. Rings must have positive area, avoid self-intersection, and must not overlap an inferred room except at their shared edge. Partial overlaps are not automatically clipped.
+
+Conversion retains each outline as a native `Room.boundary` with outdoor category and concrete finish. Shared floor analysis supplies the live area, 2D, slabs, 3D and walkthrough. It creates neither collision walls nor a ceiling. The room Properties panel edits free points/curves and wall references through existing history; there is no separate ground store. Native JSON and retained web project-package data preserve the boundary. Native companion rendering of this web extension is not qualified.
+
+Reversing or splitting a referenced wall updates its directed references. Deleting a referenced wall retains the outline for repair, reports a geometry error and hides the invalid floor until corrected. Self-crossing/zero-area edits behave the same way. Deleting the open area leaves its source walls intact.
+
 ## Furniture
 
 New reconstruction uses the optional root `presentation: "semantic-white-model"`. In this profile every visible furniture/fixture item is a semantic occupancy block, with `catalogId: "imported_object"`, nonempty `sourceCategory`, positive `width`, `depth`, and `height` in cm. Position is the footprint centre; width is local x and depth is local y before rotation. Heights are editable estimates and must be disclosed as such.
@@ -131,7 +154,7 @@ The conversion layer should:
 
 1. Validate schema and references.
 2. Assign defaults only where the draft omits editable architectural properties.
-3. Convert draft floors/walls/openings/furniture into the existing types in `src/lib/models/types.ts`, preserving `curvePoint` for quadratic walls.
+3. Convert draft floors/walls/openings/furniture and optional open floor areas into the existing types in `src/lib/models/types.ts`, preserving `curvePoint` for quadratic walls.
 4. Initialize editor-only arrays such as rooms, stairs, columns, guides, measurements, annotations, text annotations, and groups.
 5. Run the existing room-detection path when possible rather than asking the vision model to reproduce editor-derived room state.
 6. Preserve scale metadata and assumptions somewhere reviewable by the user.
@@ -141,7 +164,7 @@ The draft format should remain stable even if the editor's internal project mode
 ### Saved evidence and live Review
 
 Conversion retains optional native `Project.reconstruction` evidence, version `1`:
-`scale`, `assumptions`, and per-floor wall/door/window IDs with original confidence
+`scale`, `assumptions`, and per-floor wall/door/window and optional open-floor IDs with original confidence
 (and wall kind). It contains no geometry, findings, provider configuration or credentials.
 The draft contract and schema version are unchanged. Historical IDs may refer to deleted
 objects; they do not recreate geometry or invalidate an otherwise editable project.

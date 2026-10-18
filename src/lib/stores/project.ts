@@ -2,6 +2,7 @@ import { selectSingleElement } from './selection';
 import { createProjectFloorAnalysis } from './floorAnalysis';
 import { selectionRotation } from '$lib/utils/selectionRotation';
 import { splitWallRoomReferences } from '$lib/utils/splitWallRooms';
+import { readFloorBoundary } from '$lib/utils/floorBoundary';
 import { splitWallGeometry } from '$lib/utils/splitWallGeometry';
 import { wallPathProfile } from '$lib/utils/wallProfiles';
 import { duplicatePlanSelection, pastePlanSelection } from '$lib/utils/duplicateSelection';
@@ -588,10 +589,11 @@ export function removeRoom(id: string) {
   const rooms = [...floor.rooms, ...get(detectedRoomsStore)];
   const room = rooms.find(room => room.id === id);
   if (!room) return;
-  const retainedWalls = new Set(rooms.filter(room => room.id !== id).flatMap(room => room.walls));
+  const retainedWalls = new Set(rooms.filter(room => room.id !== id).flatMap(room =>
+    [...room.walls, ...(room.boundary ?? []).flatMap(part => 'wallId' in part ? [part.wallId] : [])]));
   beginUndoGroup();
   try {
-    for (const wallId of room.walls) {
+    for (const wallId of room.boundary ? [] : room.walls) {
       if (!retainedWalls.has(wallId)) removeElement(wallId);
     }
     mutate(floor => { floor.rooms = floor.rooms.filter(room => room.id !== id); }, 'Deleted room');
@@ -739,6 +741,8 @@ export function reverseWall(id: string) {
     const oldStart = { ...w.start };
     w.start = { ...w.end };
     w.end = oldStart;
+    for (const room of f.rooms) if (room.boundary) room.boundary = room.boundary.map(part =>
+      'wallId' in part && part.wallId === id ? { ...part, reverse: !part.reverse } : part);
 
     const startH = getWallStartHeight(w);
     const endH = getWallEndHeight(w);
@@ -830,13 +834,17 @@ export function updateItemDetails(target: DetailTarget, patch: ItemDetails) {
   commitItemDetails(project, next, 'Changed item details', coalesceKeyFor(`details:${target.floorId}:${target.kind}`, target.id, { ...patch }));
 }
 
-export function updateRoom(id: string, updates: Partial<{ name: string; floorTexture: string; floorOpening: boolean; color: string; roomType: import('$lib/models/types').RoomCategory; labelOffset: import('$lib/models/types').Point | undefined }>) {
+export function updateRoom(id: string, updates: Partial<Pick<import('$lib/models/types').Room, 'name' | 'floorTexture' | 'floorOpening' | 'color' | 'roomType' | 'labelOffset' | 'boundary'>>) {
   const floor = get(activeFloor);
   if (!floor || Object.keys(updates).length === 0) return;
+  if (updates.boundary !== undefined) {
+    try { updates = { ...updates, boundary: readFloorBoundary(updates.boundary) }; } catch { return; }
+  }
   const saved = floor.rooms.find(room => room.id === id);
   if (!saved && !get(detectedRoomsStore).some(room => room.id === id)) return;
   if (saved && Object.entries(updates).every(([key, value]) => {
-    if (key === 'labelOffset' && value && typeof value === 'object' && saved.labelOffset) {
+    if (key === 'boundary') return JSON.stringify(saved.boundary) === JSON.stringify(value);
+    if (key === 'labelOffset' && value && typeof value === 'object' && !Array.isArray(value) && saved.labelOffset) {
       return value.x === saved.labelOffset.x && value.y === saved.labelOffset.y;
     }
     return saved[key as keyof typeof updates] === value;
@@ -1130,6 +1138,11 @@ export function splitWall(id: string, t: number): string | null {
   });
   // Shorten original wall to midpoint
   for (const room of floor.rooms) {
+    if (room.boundary) room.boundary = room.boundary.flatMap(part => {
+      if (!('wallId' in part) || part.wallId !== id) return [part];
+      return part.reverse ? [{ wallId: newId, reverse: true }, { ...part }]
+        : [{ ...part }, { wallId: newId }];
+    });
     const references = roomReferences.get(room.id);
     if (references) room.walls = references;
   }
