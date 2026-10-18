@@ -64,6 +64,8 @@ These are editable defaults, not claims about the source building. The opt-in `s
 
 When an SVG review looks wrong, preserve the JSON and determine whether the source-to-JSON extraction or JSON-to-SVG projection is incorrect. Repair the responsible reusable Skill/script or renderer and test that stage. Hand-correcting a candidate is not evidence of Skill improvement; do not compensate in 3D. Furniture extraction acceptance covers presence, semantic type and broad position, not direction, dimensions or fine alignment.
 
+During reconstruction verification, freeze each complete emitted JSON before checking it and never hand-edit that output after a failure. Change the responsible reusable Skill/script or conversion/viewing program, then generate a separate new output for any retest. SVG is a temporary intermediate diagnostic for image-to-JSON reliability, not a product goal.
+
 ## Verification
 
 Before merging implementation changes, run the relevant subset and preferably all of:

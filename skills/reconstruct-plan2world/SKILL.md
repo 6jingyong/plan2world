@@ -26,7 +26,12 @@ from the shared walls. Do not introduce another interchange format or scene.
 First scan the whole plan for clearly visible furniture and fixtures. Record
 each item's stable ID, semantic type and approximate source-pixel centre. Include
 small fixtures and edge areas, not just prominent beds and sofas. Use `unknown`
-when the outline is visible but identity is unclear; do not invent hidden items.
+when a distinct object is visible but identity is unclear; do not invent hidden items.
+Before assigning a specific type, check its visible object evidence. Do not
+promote a window ledge, bay or planter platform into a cabinet merely because
+it occupies a rectangular area. Lower confidence does not justify a guessed
+type: use `unknown` for a visible unclear object, or omit a platform with no
+separate object evidence and disclose the uncertainty.
 
 Then scan spatial regions once for omissions, using overlapping crops where
 helpful. Compare with the existing inventory: refine an existing ID rather than
@@ -135,8 +140,11 @@ transform as stage 5; do not invent anchors or fit geometry independently.
   omit the outline and disclose the missing ground; verify before calling it walkable.
 - When a Plan2World checkout is available, use its deterministic checker:
   `NODE_ENV=production node tooling/inspect-plan2world-draft.mjs --draft draft.json --source source.jpg --width W --height H`.
-  Read its findings and fix invalid references, registration or impossible
-  openings. Keep a copy of the first pass when recording a verification run.
+  For a verification run, freeze the complete emitted JSON before running checks.
+  Preserve that output even if references, registration or openings fail. Diagnose
+  the responsible extraction/serialization step, revise its reusable procedure
+  or script, then regenerate a separate output from the original. Never hand-edit
+  a verification JSON to make the check or picture pass.
 - Review extraction before 3D with the read-only SVG tool:
   `node tooling/render-plan2world-svg.mjs --draft draft.json --output review`.
   Compare `plan.svg` with the original by furniture, walls, doors and windows.
@@ -144,6 +152,8 @@ transform as stage 5; do not invent anchors or fit geometry independently.
   source anchors are accepted. The tool never fits bounds, infers rooms or
   repairs geometry. It shows furniture position markers when dimensions are
   omitted; marker radius is not a physical footprint.
+  Treat SVG as an intermediate diagnostic for Skill reliability, not a separate
+  product goal or a requirement to polish the drawing.
 - If SVG looks wrong, freeze the JSON and compare the relevant entry with the
   source first. If the entry is correct but SVG projects it incorrectly, fix and
   test the SVG program with that fixed input. If the entry is incorrect, revise

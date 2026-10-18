@@ -65,6 +65,9 @@ normalization defaults after the skeleton is checked; zero thickness is invalid.
   existing drafts and explicit user input; supplied values take precedence.
   SVG uses a position marker without a physical footprint when width/depth
   are omitted. Evaluate extraction on coverage, semantic type and broad position.
+  Use `unknown` when a visible object cannot be typed from source evidence;
+  lower confidence is not a substitute for an unknown category. Architectural
+  ledges/platforms alone are not evidence of a separate furniture object.
 - Source registration: existing `floorId`, confidence 0..1, at least two anchors
   with existing `wallId`, `endpoint` (`start`/`end`) and normalized `image` point.
 - Preserve evidence in `assumptions`; do not output native editor selection,

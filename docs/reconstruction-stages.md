@@ -24,6 +24,7 @@ clock takeover race was fixed in the test, not in the geometry generator.
 
 | Observed pattern | Limited response | Evidence needed before expanding work |
 | --- | --- | --- |
+| Specific furniture type without visible object evidence | Require type evidence before emission; use `unknown` for unclear objects and distinguish architectural ledges from furniture | Original region + unchanged JSON entry; verify SVG reproduces that input before changing the Skill |
 | Missed/duplicate furniture | Inventory plus one regional omission/deduplication pass (#49); SVG shows each ID and position | A source object missing or duplicated in JSON; first exclude SVG omission |
 | Kitchen sliding access called a fixed window; shower access omitted | Sweep each wall for openings and use panel/access evidence; review door/window SVG layers | A specific source span and the mismatched JSON entry; do not widen or invent access for navigation |
 | Different coordinates used for crops, geometry or anchors | One transform, numeric checks and source-registered SVG | A specific corresponding pixel/JSON point mismatch |
