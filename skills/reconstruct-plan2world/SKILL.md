@@ -136,6 +136,14 @@ transform as stage 5; do not invent anchors or fit geometry independently.
   `NODE_ENV=production node tooling/inspect-plan2world-draft.mjs --draft draft.json --source source.jpg --width W --height H`.
   Read its findings and fix invalid references, registration or impossible
   openings. Keep a copy of the first pass when recording a verification run.
+- Review extraction before 3D with the read-only SVG tool:
+  `node tooling/render-plan2world-svg.mjs --draft draft.json --output review`.
+  Compare `plan.svg` with the original by furniture, walls, doors and windows.
+  Add `--source source.jpg --width W --height H` for `overlay.svg` only when
+  source anchors are accepted. The tool never fits bounds, infers rooms or
+  repairs geometry. Fix the earliest incorrect extraction step, not the SVG
+  renderer or 3D model to compensate. Report contract validity, source alignment
+  and layer completeness separately.
 - Deliver the JSON and a short review note: scale basis, uncertain geometry,
   omitted elements, and checks actually performed. Distinguish structural
   validity from visual correctness; never call a draft accurate merely because

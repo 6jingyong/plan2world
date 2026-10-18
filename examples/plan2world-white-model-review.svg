@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" width="1200" height="823" viewBox="-18 -18 636 436" role="img">
+<title>Semantic white model example — Ground Floor</title>
+<desc>JSON review: black wall centrelines, purple furniture footprints, orange doors, blue windows, cyan explicit ground boundaries. No inferred rooms, wall thickness, styles or geometry repairs. Plan coordinates in cm. Scale: provided.</desc>
+<rect x="-18" y="-18" width="636" height="436" fill="white"/>
+
+<g id="floor-areas" inkscape:groupmode="layer" inkscape:label="floor-areas" fill="none" stroke="#0891b2" stroke-width="1.5" stroke-dasharray="5 4">
+
+</g>
+<g id="furniture" inkscape:groupmode="layer" inkscape:label="furniture" fill="#a855f7" fill-opacity="0.12" stroke="#9333ea" stroke-width="1.5">
+<polygon data-element-id="sofa" points="194.875 193.75 405.125 193.75 405.125 286.25 194.875 286.25"><title>sofa</title></polygon>
+</g>
+<g id="walls" inkscape:groupmode="layer" inkscape:label="walls" fill="none" stroke="#111827" stroke-width="2">
+<path data-element-id="w1" d="M 0 0 L 600 0"/>
+<path data-element-id="w2" d="M 600 0 L 600 400"/>
+<path data-element-id="w3" d="M 600 400 L 0 400"/>
+<path data-element-id="w4" d="M 0 400 L 0 0"/>
+</g>
+<g id="doors" inkscape:groupmode="layer" inkscape:label="doors" fill="none" stroke="#ea580c" stroke-width="5">
+<path data-element-id="door" data-wall-id="w4" d="M 0 245 L 0 155"><title>door: 90 cm</title></path>
+</g>
+<g id="windows" inkscape:groupmode="layer" inkscape:label="windows" fill="none" stroke="#0284c7" stroke-width="5">
+<path data-element-id="window" data-wall-id="w1" d="M 190 0 L 410 0"><title>window: 220 cm</title></path>
+</g>
+<g id="labels" inkscape:groupmode="layer" inkscape:label="labels" fill="#111827" stroke="white" stroke-width="1.166" paint-order="stroke" font-family="sans-serif" font-size="5.83" text-anchor="middle">
+<text data-element-id="w1" x="300" y="-2.915">w1</text>
+<text data-element-id="w2" x="600" y="197.085">w2</text>
+<text data-element-id="w3" x="300" y="397.085">w3</text>
+<text data-element-id="w4" x="0" y="197.085">w4</text>
+<text data-element-id="sofa" x="300" y="237.085">sofa sofa</text>
+<text data-element-id="door" x="0" y="197.085">door</text>
+<text data-element-id="window" x="300" y="-2.915">window</text>
+</g>
+<style>path,polygon{vector-effect:non-scaling-stroke}</style>
+</svg>
