@@ -7,6 +7,7 @@ import { createPlacedFurnitureModel } from '$lib/utils/furnitureModelLoader';
 import { disposeModel } from '$lib/utils/furnitureModelResources';
 import { furnitureItemName } from '$lib/i18n/furnitureNames';
 import { buildReconstructionInstructions } from '$lib/plan2world/reconstructionInstructions';
+import { getFurnitureSize } from '$lib/utils/furnitureCatalog';
 
 function draft() {
   return {
@@ -32,15 +33,40 @@ it('normalizes white-model glazing against its host wall and preserves explicit 
   expect(draftToProject(source).floors[0].windows[0]).toMatchObject({ height: 120, sillHeight: 90, type: 'standard' });
 });
 
-it.each(['catalogId', 'sourceCategory', 'width', 'depth', 'height'])('requires the semantic block contract: %s', key => {
+it.each(['id', 'catalogId', 'sourceCategory', 'position'])('requires semantic identity and position: %s', key => {
   const source = draft();
   delete (source.floors[0].furniture[0] as any)[key];
   expect(() => parsePlan2WorldDraft(source)).toThrow();
 });
 
-it.each([0, -1, Infinity, NaN])('rejects invalid block dimensions: %s', width => {
-  const source = draft(); source.floors[0].furniture[0].width = width;
-  expect(() => parsePlan2WorldDraft(source)).toThrow();
+it.each(['width', 'depth', 'height'])('rejects invalid optional %s rather than replacing it with a default', key => {
+  for (const value of [0, -1, Infinity, NaN]) {
+    const source = draft(); (source.floors[0].furniture[0] as any)[key] = value;
+    expect(() => parsePlan2WorldDraft(source)).toThrow();
+  }
+});
+
+it('imports semantic type and position alone using existing placeholder defaults through save/load and 3D', () => {
+  const source = draft();
+  source.floors[0].furniture = [{ id: 'semantic-only', catalogId: 'imported_object',
+    sourceCategory: 'chair', position: { x: 200, y: 150 } } as any];
+  const before = structuredClone(source);
+  const parsed = parsePlan2WorldDraft(source).floors[0].furniture![0];
+  expect(parsed).toMatchObject({ sourceCategory: 'chair', position: { x: 200, y: 150 } });
+  expect(parsed.width).toBeUndefined(); expect(parsed.depth).toBeUndefined(); expect(parsed.height).toBeUndefined();
+  const calibrated = calibratePlan2WorldDraft(source, 500, 1000);
+  const item = readProject(JSON.parse(JSON.stringify(draftToProject(calibrated)))).floors[0].furniture[0];
+  expect(item).toMatchObject({ id: 'semantic-only', sourceCategory: 'chair',
+    position: { x: 400, y: 300 }, rotation: 0, renderStyle: 'block' });
+  expect(getFurnitureSize(item)).toEqual({ width: 50, depth: 50, height: 50 });
+  const model = createPlacedFurnitureModel(item)!;
+  try {
+    const bounds = new THREE.Box3().setFromObject(model), size = bounds.getSize(new THREE.Vector3());
+    expect([size.x, size.y, size.z]).toEqual([50, 50, 50]);
+    expect(bounds.getCenter(new THREE.Vector3()).x).toBeCloseTo(400);
+    expect(bounds.getCenter(new THREE.Vector3()).z).toBeCloseTo(300);
+  } finally { disposeModel(model); }
+  expect(source).toEqual(before);
 });
 
 it('calibrates furniture footprints with architecture and retains vertical estimates and labels through save/load', () => {
@@ -69,5 +95,7 @@ it('renders the native footprint as a full block with the saved rotation and mir
 it('keeps the portable instruction example valid under the same application parser', () => {
   const instructions = buildReconstructionInstructions();
   const example = instructions.slice(instructions.indexOf('{\n  "schemaVersion"'), instructions.lastIndexOf('\n}') + 2);
-  expect(parsePlan2WorldDraft(JSON.parse(example)).presentation).toBe('semantic-white-model');
+  const parsed = parsePlan2WorldDraft(JSON.parse(example));
+  expect(parsed.presentation).toBe('semantic-white-model');
+  expect(parsed.floors[0].furniture![0].width).toBeUndefined();
 });

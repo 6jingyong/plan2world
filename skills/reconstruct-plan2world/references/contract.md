@@ -13,7 +13,7 @@ architectural cut and collision.
   "name": "Source plan",
   "units": "cm",
   "scale": {"mode": "estimated", "confidence": 0.6, "basis": "Explain the actual source scale basis"},
-  "assumptions": ["Windows use floor-to-ceiling glass as a presentation default. Furniture height and style are not measured from the plan."],
+  "assumptions": ["Windows use floor-to-ceiling glass as a presentation default. Furniture size and direction use editable display defaults, not source measurements."],
   "sourceRegistration": {
     "floorId": "f0", "confidence": 0.9,
     "anchors": [
@@ -35,7 +35,7 @@ architectural cut and collision.
       {"id": "d2", "wallId": "w5", "position": 0.5, "width": 90, "confidence": 0.8}
     ],
     "windows": [{"id": "n1", "wallId": "w2", "position": 0.5, "width": 180, "confidence": 0.8}],
-    "furniture": [{"id": "b1", "catalogId": "imported_object", "sourceCategory": "sofa", "position": {"x": 150, "y": 250}, "rotation": 0, "width": 180, "depth": 90, "height": 80, "confidence": 0.7}]
+    "furniture": [{"id": "b1", "catalogId": "imported_object", "sourceCategory": "sofa", "position": {"x": 150, "y": 250}, "confidence": 0.7}]
   }]
 }
 ```
@@ -57,9 +57,14 @@ normalization defaults after the skeleton is checked; zero thickness is invalid.
   nonnegative `sillHeight` override white-model defaults; omitted values give
   sill 0 and height to the wall top. Use explicit heights only when requested.
 - Furniture under this presentation: require `id`, `catalogId: imported_object`,
-  nonempty `sourceCategory`, centre `position`, positive `width`, `depth`,
-  `height`; optional `rotation` and confidence. Save semantics and occupancy,
-  while users choose concrete styles later.
+  nonempty `sourceCategory` and approximate centre `position`; confidence is
+  optional. Omit dimensions and rotation during image extraction. The existing
+  imported-object defaults provide a 50 cm cube at rotation 0 in the program.
+  Users adjust size, direction, precise position and styles later. Optional
+  positive `width`, `depth`, `height` and finite `rotation` remain supported for
+  existing drafts and explicit user input; supplied values take precedence.
+  SVG uses a position marker without a physical footprint when width/depth
+  are omitted. Evaluate extraction on coverage, semantic type and broad position.
 - Source registration: existing `floorId`, confidence 0..1, at least two anchors
   with existing `wallId`, `endpoint` (`start`/`end`) and normalized `image` point.
 - Preserve evidence in `assumptions`; do not output native editor selection,

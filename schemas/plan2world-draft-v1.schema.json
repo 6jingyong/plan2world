@@ -51,10 +51,7 @@
                 "furniture": {
                   "items": {
                     "required": [
-                      "sourceCategory",
-                      "width",
-                      "depth",
-                      "height"
+                      "sourceCategory"
                     ],
                     "properties": {
                       "catalogId": {

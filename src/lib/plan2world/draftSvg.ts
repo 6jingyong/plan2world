@@ -32,7 +32,9 @@ export function renderPlan2WorldDraftSvg(input: unknown, options: DraftSvgOption
   const point = (p: DraftPoint): DraftPoint => source && background ? planPointToSourcePixel(p, source, background) : { ...p };
   const wallPath = (wall: DraftWall) => `M ${pair(point(wall.start))} ${wall.curvePoint ? `Q ${pair(point(wall.curvePoint))} ` : 'L '}${pair(point(wall.end))}`;
   const corners = (item: NonNullable<typeof floor.furniture>[number]) => {
-    if (!item.width || !item.depth) throw new Error(`Furniture ${item.id} needs explicit width/depth for footprint review.`);
+    // A semantic position is sufficient evidence; do not turn display defaults
+    // into an asserted source footprint.
+    if (item.width === undefined || item.depth === undefined) return [point(item.position)];
     const angle = (item.rotation ?? 0) * Math.PI / 180, cos = Math.cos(angle), sin = Math.sin(angle);
     return [[-1,-1],[1,-1],[1,1],[-1,1]].map(([x,y]) => point({
       x: item.position.x + cos*x*item.width!/2 - sin*y*item.depth!/2,
@@ -65,6 +67,10 @@ export function renderPlan2WorldDraftSvg(input: unknown, options: DraftSvgOption
   });
   const furnitureShapes = furniture.map(({item,points}) => {
     label(item.id,point(item.position),`${item.id} ${item.sourceCategory ?? item.catalogId}`);
+    if (points.length === 1) {
+      const p = points[0];
+      return `<circle data-element-id="${escape(item.id)}" data-geometry="position" cx="${number(p.x)}" cy="${number(p.y)}" r="${number(font*.35)}"><title>${escape(item.sourceCategory ?? item.catalogId)} (position only; size and direction deferred)</title></circle>`;
+    }
     return `<polygon data-element-id="${escape(item.id)}" points="${points.map(pair).join(' ')}"><title>${escape(item.sourceCategory ?? item.catalogId)}</title></polygon>`;
   });
   function openings(items: (DraftDoor | DraftWindow)[] | undefined) {
@@ -82,7 +88,7 @@ export function renderPlan2WorldDraftSvg(input: unknown, options: DraftSvgOption
   const doors = openings(floor.doors), windows = openings(floor.windows);
   return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" width="${width}" height="${height}" viewBox="${box.map(number).join(' ')}" role="img">
 <title>${escape(draft.name)} — ${escape(floor.name)}</title>
-<desc>JSON review: black wall centrelines, purple furniture footprints, orange doors, blue windows, cyan explicit ground boundaries. No inferred rooms, wall thickness, styles or geometry repairs. ${source ? 'Original raster overlay; anchors accepted, source accuracy still needs visual review.' : `Plan coordinates in cm. Scale: ${escape(draft.scale.mode)}.`}</desc>
+<desc>JSON review: black wall centrelines, purple furniture positions (footprints only when supplied), orange doors, blue windows, cyan explicit ground boundaries. Position markers have no physical size or direction. No inferred rooms, wall thickness, styles or geometry repairs. ${source ? 'Original raster overlay; anchors accepted, source accuracy still needs visual review.' : `Plan coordinates in cm. Scale: ${escape(draft.scale.mode)}.`}</desc>
 <rect x="${number(box[0])}" y="${number(box[1])}" width="${number(box[2])}" height="${number(box[3])}" fill="white"/>
 ${source ? group('source',[`<image width="${source.width}" height="${source.height}" href="${escape(source.dataUrl)}" opacity="0.65"/>`],'') : ''}
 ${group('floor-areas',floorAreas.map(({area,points})=>`<polygon data-element-id="${escape(area.id)}" points="${points.map(pair).join(' ')}"><title>${escape(area.name)}</title></polygon>`),'fill="none" stroke="#0891b2" stroke-width="1.5" stroke-dasharray="5 4"')}
@@ -91,6 +97,6 @@ ${group('walls',walls,'fill="none" stroke="#111827" stroke-width="2"')}
 ${group('doors',doors,'fill="none" stroke="#ea580c" stroke-width="5"')}
 ${group('windows',windows,'fill="none" stroke="#0284c7" stroke-width="5"')}
 ${group('labels',labels,`fill="#111827" stroke="white" stroke-width="${number(font*.2)}" paint-order="stroke" font-family="sans-serif" font-size="${number(font)}" text-anchor="middle"`)}
-<style>path,polygon{vector-effect:non-scaling-stroke}</style>
+<style>path,polygon,circle{vector-effect:non-scaling-stroke}</style>
 </svg>\n`;
 }

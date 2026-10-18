@@ -1,4 +1,4 @@
-export const PLAN2WORLD_RECONSTRUCTION_INSTRUCTIONS_VERSION = "plan2world-white-model-instructions-v4" as const;
+export const PLAN2WORLD_RECONSTRUCTION_INSTRUCTIONS_VERSION = "plan2world-white-model-instructions-v5" as const;
 
 export interface ReconstructionOptions { scaleHint?: string }
 
@@ -10,7 +10,7 @@ Return ONLY one JSON object. Do not wrap it in markdown and do not include comme
 
 Work in this order:
 1. Establish original raster dimensions and one source-pixel coordinate system (top-left origin, x right, y down). Keep the original image unchanged; map every crop back to it.
-2. Inventory visible furniture and fixtures with stable IDs, semantic type, source-pixel centre, footprint and rotation. Scan the whole image, then review spatial regions once for missed items and deduplicate overlapping crops. Make at most one targeted correction pass for specific unresolved regions; disclose uncertainty rather than repeating full scans. Mark identified objects using an overlay/inventory; erasing them is optional and must not remove architectural evidence or replace the original source. Use unknown for unclear identities.
+2. Inventory visible furniture and fixtures with stable IDs, semantic type and approximate source-pixel centre. Do not estimate dimensions or direction for this extraction task; users adjust size, rotation and precise placement later in the editor/walkthrough. Scan the whole image, then review spatial regions once for missed items and deduplicate overlapping crops. Make at most one targeted correction pass for specific unresolved regions; disclose uncertainty rather than repeating full scans. Mark identified objects using an overlay/inventory; erasing them is optional and must not remove architectural evidence or replace the original source. Use unknown for unclear identities.
 3. Trace a zero-width wall skeleton against the original image. Ignore thickness, height and styling. Use one shared centreline per physical wall, including visible curved paths; do not trace both wall faces or duplicate shared walls per room. Note door/window interruptions in real host walls, but preserve each host's continuous logical path. Keep furniture/cabinet outlines separate from walls.
 4. Review closed spaces and circulation before adding physical properties. Follow each source-supported enclosed boundary and join corners/T-junctions at identical coordinates. Fix tracing/rounding gaps only where the source supports a connection. Preserve open-plan areas, passages, exterior voids and open balconies; never invent a partition just to close a box or match a room label. Disclose obscured/uncertain connections. Closure checks the wall network; it does not replace source-image review or create room polygons.
 5. Sweep each wall for hosted doors/windows, including sliding, concealed and shower access. Double tracks alone do not establish a fixed window; consider panel marks and access context. Never invent or widen openings just to make navigation pass. Apply one uniform source-to-cm transform to all layers, then assign physical properties or leave optional thickness/height to editable normalization defaults. Never export zero thickness or shift centrelines to make thickened faces meet. Attach openings to existing wall IDs; the renderer creates apertures. Return only the final draft contract: its furniture/walls/doors/windows arrays are the layers, not a new skeleton/room representation.
@@ -27,14 +27,14 @@ Required contract:
 - Doors and windows MUST reference an existing wall id. Their position is a number from 0 to 1 measured from the wall start toward its end. For a curved wall, position follows the quadratic wall parameter from start to end.
 - Keep IDs short and unique, for example w1, w2, d1, win1.
 - Do not output rooms. Plan2World derives enclosed rooms from wall geometry. For clearly visible open outdoor ground (balconies, terraces or exterior access passages), optional floorAreas define ground only: each has id, name, confidence, and an ordered boundary. A boundary part is either {wallId, reverse?} for an entire existing live wall path, or {point:{x,y}, curvePoint?:{x,y}} for an open edge to the next part. Wall parts traverse start to end unless reverse=true. Parts connect and close automatically. A point control describes a quadratic edge to the next part's first point. Use wall references on shared sides rather than copying wall vertices. Do not overlap an existing enclosed room or turn railings/dashed limits into walls. Omit uncertain outlines and disclose the gap. Do not infer a floor merely from a bounding rectangle.
-- Output clearly visible furniture and fixtures only as semantic occupancy blocks. Each uses catalogId="imported_object", a short sourceCategory such as bed/sofa/cabinet/toilet, positive width/depth/height in cm, centre position and rotation in degrees. Width is local x; depth is local y. Do not choose a catalog style, brand or detailed model. Use unknown when identity is unclear. Never turn furniture/cabinet outlines into architectural partitions.
+- Output clearly visible furniture and fixtures with id, catalogId="imported_object", a short sourceCategory such as bed/sofa/cabinet/toilet and approximate centre position in cm. Omit width/depth/height and rotation; the existing program supplies an editable 50 cm placeholder cube and zero rotation. These defaults are not source measurements. Optional explicit values remain compatible with existing drafts or user input. Do not choose a catalog style, brand or detailed model. Use unknown when identity is unclear. Never turn furniture/cabinet outlines into architectural partitions.
 - For exterior walls, kind="exterior"; interior partitions use kind="interior". If unclear, use "unknown".
-- Typical editable defaults are wall height 280 cm, interior wall thickness 12 cm, exterior wall thickness 20 cm, door height 210 cm, windows default to floor-to-ceiling fixed glass under this presentation; omit window height, sillHeight and type unless explicitly specified by the user. Record this presentation assumption. Furniture heights are required editable estimates, not measurements from a 2D plan; state this uncertainty in assumptions. Omit unsupported optional architectural values rather than pretending they were measured.
+- Typical editable defaults are wall height 280 cm, interior wall thickness 12 cm, exterior wall thickness 20 cm, door height 210 cm, windows default to floor-to-ceiling fixed glass under this presentation; omit window height, sillHeight and type unless explicitly specified by the user. Record this presentation assumption. Furniture size/direction are editable display defaults, not source measurements; state this in assumptions. Omit unsupported optional architectural values rather than pretending they were measured.
 - confidence values, when present, must be between 0 and 1.
 - The plan must form connected geometry wherever the drawing visibly connects. Intersections and T-junctions should share coordinates.
 - Avoid duplicate or nearly duplicate walls.
 - Preserve the source plan's relative geometry even when absolute scale is uncertain.
-- Trace wall centres in original source pixels first, then use one uniform cm-per-pixel scale and translation for every point, opening width and furniture footprint. Avoid independently guessing world coordinates and image anchors.
+- Trace wall centres in original source pixels first, then use one uniform cm-per-pixel scale and translation for every point, opening width and furniture centre. Avoid independently guessing world coordinates and image anchors.
 
 Scale rules:
 1. First look for printed dimensions, scale bars, grid dimensions, or clearly labelled lengths.
@@ -106,7 +106,7 @@ The JSON object must have this shape:
       "confidence": 0.8
     }, { "id": "d2", "wallId": "w5", "position": 0.5, "width": 90 }],
     "windows": [],
-    "furniture": [{ "id": "f1", "catalogId": "imported_object", "sourceCategory": "sofa", "position": { "x": 100, "y": 200 }, "width": 150, "depth": 90, "height": 80, "rotation": 0, "confidence": 0.7 }]
+    "furniture": [{ "id": "f1", "catalogId": "imported_object", "sourceCategory": "sofa", "position": { "x": 100, "y": 200 }, "confidence": 0.7 }]
   }]
 }
 
