@@ -26,6 +26,21 @@ A draft must state how scale was obtained:
 
 Estimated scale is allowed so that a rough 3D walkthrough can still be generated, but the UI should expose it as an assumption and let the user recalibrate.
 
+## Reconstruction order
+
+The provider-neutral Skill first traces a zero-width shared wall skeleton in
+source pixels. It then checks source-supported enclosed spaces, shared junctions
+and open circulation before assigning thickness/height and attaching openings.
+Adjacent spaces use the same physical wall ID. Closure is checked against the
+source; open-plan spaces, balconies and exterior voids do not acquire partitions
+to manufacture closed boxes.
+
+This changes the reconstruction procedure, not the interchange format. Final
+walls remain centrelines with positive dimensions or omitted editable defaults;
+doors/windows reference those walls. No intermediate skeleton schema or authored
+room polygons are required. The existing deterministic normalizer and renderer
+supply thickness, apertures and meshes from the same native geometry.
+
 ## Walls
 
 Walls are centreline paths. Straight walls use `start` and `end` only:
@@ -79,7 +94,7 @@ Editor distances from A/B measure from the wall endpoint to the opening centre a
 
 ## Open ground outlines
 
-Optional `floor.floorAreas` describes source-visible ground that cannot be derived from an enclosed wall cycle, such as an open balcony or terrace. Do not add walls to force a floor, infer a bounding rectangle, or duplicate an already detected room.
+Optional `floor.floorAreas` describes source-visible ground that cannot be derived from an enclosed wall cycle, such as an open balcony, terrace or exterior access passage. Do not add walls to force a floor, infer a bounding rectangle, or duplicate an already detected room.
 
 ```json
 {

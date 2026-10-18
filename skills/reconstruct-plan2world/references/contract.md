@@ -25,17 +25,26 @@ architectural cut and collision.
     "id": "f0", "name": "Ground floor", "level": 0,
     "walls": [
       {"id": "w1", "start": {"x": 0, "y": 0}, "end": {"x": 600, "y": 0}, "kind": "exterior", "confidence": 0.9},
-      {"id": "w2", "start": {"x": 600, "y": 0}, "end": {"x": 600, "y": 450}, "kind": "exterior", "confidence": 0.9}
+      {"id": "w2", "start": {"x": 600, "y": 0}, "end": {"x": 600, "y": 450}, "kind": "exterior", "confidence": 0.9},
+      {"id": "w3", "start": {"x": 600, "y": 450}, "end": {"x": 0, "y": 450}, "kind": "exterior", "confidence": 0.9},
+      {"id": "w4", "start": {"x": 0, "y": 450}, "end": {"x": 0, "y": 0}, "kind": "exterior", "confidence": 0.9},
+      {"id": "w5", "start": {"x": 300, "y": 0}, "end": {"x": 300, "y": 450}, "kind": "interior", "confidence": 0.9}
     ],
-    "doors": [{"id": "d1", "wallId": "w1", "position": 0.3, "width": 90, "confidence": 0.8}],
+    "doors": [
+      {"id": "d1", "wallId": "w1", "position": 0.3, "width": 90, "confidence": 0.8},
+      {"id": "d2", "wallId": "w5", "position": 0.5, "width": 90, "confidence": 0.8}
+    ],
     "windows": [{"id": "n1", "wallId": "w2", "position": 0.5, "width": 180, "confidence": 0.8}],
-    "furniture": [{"id": "b1", "catalogId": "imported_object", "sourceCategory": "sofa", "position": {"x": 250, "y": 250}, "rotation": 0, "width": 200, "depth": 90, "height": 80, "confidence": 0.7}]
+    "furniture": [{"id": "b1", "catalogId": "imported_object", "sourceCategory": "sofa", "position": {"x": 150, "y": 250}, "rotation": 0, "width": 180, "depth": 90, "height": 80, "confidence": 0.7}]
   }]
 }
 ```
 
 Treat the example as a field guide, not a complete home or a source template.
-Replace its geometry, scale and anchors using the actual source.
+Replace its geometry, scale and anchors using the actual source. Here `w5` is
+one shared wall between two closed spaces; output it once. Doors preserve the
+logical wall paths while supplying apertures. Omitted thickness/height use
+normalization defaults after the skeleton is checked; zero thickness is invalid.
 
 - `scale.mode`: `measured`, `provided` or `estimated`; confidence 0..1 is required.
 - Wall: `id`, `start`, `end` required; optional `curvePoint`, positive `thickness`
@@ -63,8 +72,8 @@ their prior window defaults and optional catalog furniture hints.
 
 ## Open ground outlines
 
-Optional `floors[].floorAreas` supplies source-visible balcony/terrace ground,
-not inferred rooms. Each area requires unique `id`, `name`, and `boundary`;
+Optional `floors[].floorAreas` supplies source-visible open outdoor ground,
+including balconies, terraces and exterior access passages, not inferred rooms. Each area requires unique `id`, `name`, and `boundary`;
 confidence 0..1 is optional. Each boundary has 1–256 ordered parts:
 
 - `{"wallId":"w1"}` traces the whole existing wall from start to end;
