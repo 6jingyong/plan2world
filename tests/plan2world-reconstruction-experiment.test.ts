@@ -9,7 +9,7 @@ const sha = 'ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789';
 
 describe('reconstruction experiment identity', () => {
   it('versions the semantic white-model reconstruction instructions', () => {
-    expect(PLAN2WORLD_VISION_PROMPT_VERSION).toBe('plan2world-white-model-instructions-v3');
+    expect(PLAN2WORLD_VISION_PROMPT_VERSION).toBe('plan2world-white-model-instructions-v4');
   });
 
   it('records provider separately from model so the contract is not vendor-bound', () => {

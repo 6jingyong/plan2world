@@ -28,9 +28,14 @@ Estimated scale is allowed so that a rough 3D walkthrough can still be generated
 
 ## Reconstruction order
 
-The provider-neutral Skill first traces a zero-width shared wall skeleton in
-source pixels. It then checks source-supported enclosed spaces, shared junctions
-and open circulation before assigning thickness/height and attaching openings.
+The provider-neutral Skill establishes one original-raster coordinate system,
+inventories furniture/fixtures, then checks regions for omissions and duplicate
+objects. It traces a zero-width shared wall skeleton in those same source pixels
+and checks source-supported enclosed spaces, shared junctions and open circulation
+before extracting hosted openings and applying one uniform transform to cm.
+The existing furniture/walls/doors/windows arrays are the standard plan's layers.
+An inventory or overlay marks extracted objects; furniture erasure is optional,
+and architectural evidence must always be checked against the unchanged original.
 Adjacent spaces use the same physical wall ID. Closure is checked against the
 source; open-plan spaces, balconies and exterior voids do not acquire partitions
 to manufacture closed boxes.
