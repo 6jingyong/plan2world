@@ -22,7 +22,9 @@ async function openWalkthrough(page: Page, pointerLock = false, locale = 'en', p
       pending: () => queued.size,
       pendingIds: () => [...queued.keys()],
       ready: () => normal.size === 0,
-      start: () => { if (normal.size) throw new Error('Wait for orbit to settle'); manual = true; },
+      // Check and take over in one browser task: another RAF may be scheduled
+      // after a separate readiness probe returns to Playwright.
+      start: () => { if (normal.size) return false; manual = true; return true; },
       resume: () => { if (queued.size) throw new Error('Wait for controlled frames to settle'); manual = false; },
       step: (delta: number, frames: number) => {
         for (let frame = 0; frame < frames; frame++) {
@@ -86,8 +88,7 @@ async function openWalkthrough(page: Page, pointerLock = false, locale = 'en', p
   const hint = page.getByRole('button', { name: locale === 'pt' ? 'Entendi' : 'Got it', exact: true });
   await expect(hint).toBeHidden({ timeout: 15_000 });
   await page.waitForLoadState('networkidle');
-  await expect.poll(() => page.evaluate(() => (window as any).__walkAudit.ready())).toBe(true);
-  await page.evaluate(() => (window as any).__walkAudit.start());
+  await expect.poll(() => page.evaluate(() => (window as any).__walkAudit.start())).toBe(true);
 }
 
 const step = (page: Page, delta = 1000 / 60, frames = 24): Promise<number[]> =>
@@ -104,6 +105,25 @@ async function enter(page: Page) {
   expect(view).toHaveLength(16);
   return view;
 }
+
+test('manual frame takeover waits for a callback scheduled after readiness was observed', async ({ page }) => {
+  await openWalkthrough(page);
+  await page.evaluate(() => (window as any).__walkAudit.resume());
+  await expect.poll(() => page.evaluate(() => (window as any).__walkAudit.ready())).toBe(true);
+  // Reproduce an input/resize wakeup in the gap between the old readiness
+  // probe and takeover. The pending callback must stay on the real clock.
+  const attempt = await page.evaluate(() => {
+    (window as any).__lateWalkFrame = 0;
+    requestAnimationFrame(() => { (window as any).__lateWalkFrame++; });
+    return (window as any).__walkAudit.start();
+  });
+  expect(attempt).toBe(false);
+  await expect.poll(() => page.evaluate(() => (window as any).__walkAudit.start())).toBe(true);
+  expect(await page.evaluate(() => (window as any).__lateWalkFrame)).toBe(1);
+  await page.evaluate(() => requestAnimationFrame(() => { (window as any).__lateWalkFrame++; }));
+  await step(page, 16, 1);
+  expect(await page.evaluate(() => (window as any).__lateWalkFrame)).toBe(2);
+});
 
 test('walkthrough renders the same movement and look at 30, 60 and 120 Hz', async ({ page }) => {
   test.setTimeout(120_000);
@@ -368,14 +388,12 @@ for (const width of [1440, 390]) test(`edited door geometry stays live across pl
   await expect(doorWidth).toHaveValue('30');
   await doorWidth.fill('90'); await doorWidth.press('Enter');
   await page.getByRole('button', { name: '3D', exact: true }).click();
-  await expect.poll(() => page.evaluate(() => (window as any).__walkAudit.ready())).toBe(true);
-  await page.evaluate(() => (window as any).__walkAudit.start());
+  await expect.poll(() => page.evaluate(() => (window as any).__walkAudit.start())).toBe(true);
   const wideCut = await cutAndWalk(true);
   // Undo while the 3D viewer is mounted must refresh both the rendered opening
   // and its collision, rather than retaining a previous scene snapshot.
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
-  await expect.poll(() => page.evaluate(() => (window as any).__walkAudit.ready())).toBe(true);
-  await page.evaluate(() => (window as any).__walkAudit.start());
+  await expect.poll(() => page.evaluate(() => (window as any).__walkAudit.start())).toBe(true);
   expect(await cutAndWalk(false)).not.toBe(wideCut);
   await page.getByRole('button', { name: 'Redo', exact: true }).click();
   await page.getByRole('button', { name: '2D', exact: true }).click();
