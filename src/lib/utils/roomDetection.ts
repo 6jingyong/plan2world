@@ -1,6 +1,7 @@
 import type { Wall, Point, Room, Floor } from '$lib/models/types';
 import { wallPathSpans } from './wallProfiles';
 import { roomHoles, roomInteriorPoint } from './roomNesting';
+import { floorBoundaryPolygon, floorBoundaryProblem, polygonAreaCm2 } from './floorBoundary';
 
 const EPSILON = 5; // snap distance for matching endpoints
 
@@ -290,7 +291,7 @@ function detectSplitRooms(splitEdges: Edge[]): Room[] {
 
 /** Recompute geometry while retaining user metadata by boundary identity, never name. */
 export function resolveRooms(floor: Pick<Floor, 'walls' | 'rooms'>, previousRooms: Room[] = []): Room[] {
-  return resolveSplitRooms(floor, previousRooms, splitWallsAtJunctions(floor.walls));
+  return resolveRoomGeometry(floor, previousRooms).map(entry => entry.room);
 }
 
 /** Resolve all room polygons against one ephemeral graph for this floor build.
@@ -298,7 +299,16 @@ export function resolveRooms(floor: Pick<Floor, 'walls' | 'rooms'>, previousRoom
  */
 export function resolveRoomGeometry(floor: Pick<Floor, 'walls' | 'rooms'>, previousRooms: Room[] = []) {
   const edges = splitWallsAtJunctions(floor.walls);
-  return resolveSplitRooms(floor, previousRooms, edges).map(room => ({ room, polygon: polygonFromEdges(room, edges) }));
+  const detected = resolveSplitRooms(floor, previousRooms, edges).map(room => ({ room, polygon: polygonFromEdges(room, edges) }));
+  const explicit = (floor.rooms ?? []).filter(room => room.boundary !== undefined).map(room => ({
+    room, polygon: floorBoundaryProblem(room.boundary!, floor.walls) ? [] : floorBoundaryPolygon(room.boundary!, floor.walls),
+  }));
+  if (!explicit.length) return detected;
+  const geometry = [...detected, ...explicit], holes = roomHoles(geometry.map(entry => entry.polygon));
+  return geometry.map(({ room, polygon }, i) => ({ polygon,
+    room: { ...room, area: room.floorOpening ? 0 : Math.round(Math.max(0,
+      polygonAreaCm2(polygon) - holes[i].reduce((sum, hole) => sum + polygonAreaCm2(hole), 0)) / 100) / 100 },
+  }));
 }
 
 function resolveSplitRooms(floor: Pick<Floor, 'walls' | 'rooms'>, previousRooms: Room[], splitEdges: Edge[]): Room[] {
@@ -322,8 +332,8 @@ function resolveSplitRooms(floor: Pick<Floor, 'walls' | 'rooms'>, previousRooms:
     for (const room of rooms) { const k = key(room); result.set(k, result.has(k) ? null : room); }
     return result;
   };
-  const saved = indexed(floor.rooms ?? []);
-  const previous = indexed(previousRooms);
+  const saved = indexed((floor.rooms ?? []).filter(room => !room.boundary));
+  const previous = indexed(previousRooms.filter(room => !room.boundary));
   return (floor.walls.length < 2 ? [] : detectSplitRooms(splitEdges)).map(room => {
     const metadata = saved.get(key(room));
     if (metadata) return { ...room, ...metadata, walls: room.walls, area: metadata.floorOpening ? 0 : room.area };
@@ -351,6 +361,7 @@ function shoelace(pts: Point[]): number {
  * spurious diagonal closing edge), so we chain the same split edges instead.
  */
 export function getRoomPolygon(room: Room, walls: Wall[]): Point[] {
+  if (room.boundary) return floorBoundaryProblem(room.boundary, walls) ? [] : floorBoundaryPolygon(room.boundary, walls);
   const wallIds = new Set(room.walls);
   if (walls.filter(w => wallIds.has(w.id)).length < 2) return [];
 

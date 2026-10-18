@@ -1644,7 +1644,7 @@
       wallGroup.add(sprite);
 
       // A flat ceiling is valid only when this room's boundary has one height.
-      const ceilingHeight = roomCeilingHeight(room.walls, floor.walls);
+      const ceilingHeight = room.roomType === 'outdoor' || room.boundary ? undefined : roomCeilingHeight(room.walls, floor.walls);
       if (ceilingHeight !== undefined) {
         const ceilMat = new THREE.MeshStandardMaterial({
           color: 0xf5f5f0,

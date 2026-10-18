@@ -1,4 +1,5 @@
 import type { BackgroundImage, Project } from '$lib/models/types';
+import { floorBoundaryPolygon } from '$lib/utils/floorBoundary';
 import {
   parsePlan2WorldDraft,
   type DraftDoor,
@@ -33,6 +34,7 @@ export interface ReconstructionTrace {
   height: number;
   walls: ReconstructionTraceWall[];
   openings: ReconstructionTraceOpening[];
+  floorAreas?: { id: string; points: TracePoint[]; confidence?: number; severity?: DraftGeometryIssueSeverity }[];
 }
 
 /** Match a rendered trace element to the deterministic geometry finding that owns it. */
@@ -143,7 +145,12 @@ function buildFloorTrace(floor: DraftFloor, source: SourceFloorPlanImage, backgr
     ...(floor.windows ?? []).map(item => openingTrace(item, 'window', wallsById, source, background, severities)),
   ].filter((item): item is ReconstructionTraceOpening => item !== null);
 
-  return { width: source.width, height: source.height, walls, openings };
+  const floorAreas = floor.floorAreas?.map(area => ({ id: area.id, confidence: area.confidence, severity: severities.get(area.id),
+    points: floorBoundaryPolygon(area.boundary, floor.walls.map(wall => ({ ...wall,
+      height: wall.height ?? 280, thickness: wall.thickness ?? 12, color: '#444444' })))
+      .map(point => planPointToSourcePixel(point, source, background)) }));
+  return { width: source.width, height: source.height, walls, openings,
+    ...(floorAreas?.length ? { floorAreas } : {}) };
 }
 
 /** Use the saved underlay transform, never fit it again to corrected wall bounds/anchors. */
@@ -155,8 +162,10 @@ export function buildProjectReconstructionTrace(project: Project, floorId: strin
   const walls = new Map(evidence?.walls.map(item => [item.id, item]));
   const doors = new Map(evidence?.doors.map(item => [item.id, item]));
   const windows = new Map(evidence?.windows.map(item => [item.id, item]));
+  const floorAreas = new Map(evidence?.floorAreas?.map(item => [item.id, item]));
   return buildFloorTrace({
     ...floor,
+    floorAreas: floor.rooms.filter(room => room.boundary).map(room => ({ id: room.id, name: room.name, boundary: room.boundary!, confidence: floorAreas.get(room.id)?.confidence })),
     walls: floor.walls.map(wall => ({ ...wall, kind: walls.get(wall.id)?.kind, confidence: walls.get(wall.id)?.confidence })),
     doors: floor.doors.map(door => ({ ...door, confidence: doors.get(door.id)?.confidence })),
     windows: floor.windows.map(window => ({ ...window, confidence: windows.get(window.id)?.confidence })),

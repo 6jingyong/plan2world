@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FloorBoundaryProperties from './FloorBoundaryProperties.svelte';
   import { wallMaterialLabels } from '$lib/i18n/wallMaterialLabels';
   import { entourageLabels } from '$lib/i18n/entourageLabels';
   import { roomTypeLabels, roomColorLabels, floorGroupLabels, floorMaterialLabels } from '$lib/i18n/roomPropertyLabels';
@@ -776,6 +777,7 @@
     </div>
 
   {:else if selectedRoom}
+    {#if selectedRoom.boundary && floor}<FloorBoundaryProperties room={selectedRoom} walls={floor.walls} />{/if}
     <h3 class="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
       <span class="w-6 h-6 bg-green-100 rounded flex items-center justify-center text-xs">⬜</span>
       {$t('roomProperties.heading')}

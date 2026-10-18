@@ -1,5 +1,6 @@
 import type { Project } from '$lib/models/types';
 import { analyzeFloor, type FloorAnalysis } from '$lib/utils/floorAnalysis';
+import { floorBoundaryProblem } from '$lib/utils/floorBoundary';
 import {
   draftToProject,
   parsePlan2WorldDraft,
@@ -18,7 +19,8 @@ export type DraftGeometryIssueCode =
   | 'opening-outside-wall'
   | 'many-enclosed-regions'
   | 'high-region-wall-ratio'
-  | 'many-tiny-regions';
+  | 'many-tiny-regions'
+  | 'floor-boundary';
 
 export interface DraftGeometryIssue {
   code: DraftGeometryIssueCode;
@@ -274,9 +276,10 @@ function topologyIssues(analyses: Iterable<Pick<FloorAnalysis, 'floor' | 'rooms'
   const issues: DraftGeometryIssue[] = [];
 
   for (const { floor, rooms } of analyses) {
-    const regionCount = rooms.length;
+    const enclosedRooms = rooms.filter(room => !room.boundary);
+    const regionCount = enclosedRooms.length;
     const wallCount = floor.walls.length;
-    const tinyRegionCount = rooms.filter(room => Number.isFinite(room.area) && room.area > 0 && room.area < TINY_REGION_AREA_M2).length;
+    const tinyRegionCount = enclosedRooms.filter(room => Number.isFinite(room.area) && room.area > 0 && room.area < TINY_REGION_AREA_M2).length;
     const ratio = wallCount > 0 ? regionCount / wallCount : 0;
     const elementIds = floor.walls.map(wall => wall.id);
 
@@ -315,18 +318,30 @@ function topologyIssues(analyses: Iterable<Pick<FloorAnalysis, 'floor' | 'rooms'
   return issues;
 }
 
+function boundaryIssues(floors: Project['floors']): DraftGeometryIssue[] {
+  return floors.flatMap(floor => floor.rooms.flatMap(room => {
+    if (!room.boundary) return [];
+    const problem = floorBoundaryProblem(room.boundary, floor.walls);
+    return problem ? [{ code: 'floor-boundary' as const, severity: 'error' as const, floorId: floor.id,
+      elementIds: [room.id, ...room.boundary.flatMap(part => 'wallId' in part ? [part.wallId] : [])],
+      message: `Floor area "${room.name}" has an invalid boundary (${problem}). Correct its points or wall references; no floor is rendered until it is valid.` }] : [];
+  }));
+}
+
 /** Deterministic, conservative checks intended to surface likely AI reconstruction mistakes. Curves use the same 16-facet approximation as the editor runtime. */
 export function inspectPlan2WorldDraftGeometry(input: unknown): DraftGeometryIssue[] {
   const draft: Plan2WorldDraft = parsePlan2WorldDraft(input);
+  const floors = draftToProject(draft, new Date('2000-01-01T00:00:00.000Z')).floors;
   return [
     ...draft.floors.flatMap(floorIssues),
-    ...topologyIssues(draftToProject(draft, new Date('2000-01-01T00:00:00.000Z')).floors.map(floor => ({ floor, rooms: floor.rooms }))),
+    ...boundaryIssues(floors),
+    ...topologyIssues(floors.map(floor => ({ floor, rooms: floor.rooms }))),
   ];
 }
 
 /** The same checks on native live geometry; never round-trip edits through the draft contract. */
 export function inspectProjectGeometry(project: Pick<Project, 'floors'>, analyses?: Iterable<FloorAnalysis>): DraftGeometryIssue[] {
-  return [...project.floors.flatMap(floorIssues), ...topologyIssues(analyses ?? project.floors.map(floor => analyzeFloor(floor)))];
+  return [...project.floors.flatMap(floorIssues), ...boundaryIssues(project.floors), ...topologyIssues(analyses ?? project.floors.map(floor => analyzeFloor(floor)))];
 }
 
 export function geometryIssueKey(issue: DraftGeometryIssue): string {

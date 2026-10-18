@@ -7,8 +7,10 @@ export function selectionContentBounds(floor: Floor, ids: ReadonlySet<string>, o
   const wallIds = new Set(ids);
   for (const room of rooms ?? []) if (ids.has(room.id)) {
     for (const id of room.walls) wallIds.add(id);
+    for (const part of room.boundary ?? []) if ('wallId' in part) wallIds.add(part.wallId);
   }
   const selected: Floor = {...floor,backgroundImage:undefined,
+    rooms:(floor.rooms ?? []).filter(room=>ids.has(room.id)),
     walls:floor.walls.filter(item=>wallIds.has(item.id)),
     doors:floor.doors.filter(item=>ids.has(item.id)||wallIds.has(item.wallId)),
     windows:floor.windows.filter(item=>ids.has(item.id)||wallIds.has(item.wallId)),

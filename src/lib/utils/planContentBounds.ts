@@ -4,7 +4,7 @@ import { entouragePlanBounds } from './entouragePlanBounds';
 import { stairPlanBounds } from './stairPlanGeometry';
 import { formatArea, formatLength } from '$lib/stores/settings';
 import { wallLength, wallPointAt, wallTangentAt, wallEdgeInsets } from './canvasRenderer';
-import { roomCentroid, roomLabelPosition } from './roomDetection';
+import { getRoomPolygon, roomCentroid, roomLabelPosition } from './roomDetection';
 import type { Room, Point } from '$lib/models/types';
 import type { Floor, Wall } from '$lib/models/types';
 import { wallPlanBounds } from './wallPlanGeometry';
@@ -16,7 +16,7 @@ type Bounds = { minX: number; minY: number; maxX: number; maxY: number };
 
 /** Content that can be displayed, even before a tracing image finishes loading. */
 export function hasPlanContent(floor: Floor): boolean {
-  return !!floor.backgroundImage || [floor.walls, floor.furniture, floor.stairs,
+  return !!floor.backgroundImage || (floor.rooms ?? []).some(room => room.boundary) || [floor.walls, floor.furniture, floor.stairs,
     floor.columns, floor.entourage, floor.measurements, floor.annotations,
     floor.textAnnotations].some(items => !!items?.length);
 }
@@ -53,6 +53,7 @@ export function planContentBounds(floor: Floor, options: {
     point(x - dx, y - dy); point(x + dx, y + dy);
   }
   for (const wall of floor.walls) add(wallPlanBounds(wall));
+  for (const room of floor.rooms ?? []) if (room.boundary) for (const p of getRoomPolygon(room, floor.walls)) point(p.x, p.y);
   for (const [kind, openings] of [['door',floor.doors ?? []],['window',floor.windows ?? []]] as const) {
     for (const opening of openings) {
       const wall = (options.openingWalls ?? floor.walls).find(item => item.id === opening.wallId);

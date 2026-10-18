@@ -1,4 +1,4 @@
-export const PLAN2WORLD_RECONSTRUCTION_INSTRUCTIONS_VERSION = "plan2world-white-model-instructions-v1" as const;
+export const PLAN2WORLD_RECONSTRUCTION_INSTRUCTIONS_VERSION = "plan2world-white-model-instructions-v2" as const;
 
 export interface ReconstructionOptions { scaleHint?: string }
 
@@ -19,7 +19,7 @@ Required contract:
 - curvePoint is a plan-space control point in centimetres, in the same coordinate system as start/end. Omit it for straight walls; never invent curvature just to smooth noisy raster lines.
 - Doors and windows MUST reference an existing wall id. Their position is a number from 0 to 1 measured from the wall start toward its end. For a curved wall, position follows the quadratic wall parameter from start to end.
 - Keep IDs short and unique, for example w1, w2, d1, win1.
-- Do not output rooms. Plan2World derives rooms from wall geometry.
+- Do not output rooms. Plan2World derives enclosed rooms from wall geometry. For a clearly visible open balcony/terrace ground outline, optional floorAreas define ground only: each has id, name, confidence, and an ordered boundary. A boundary part is either {wallId, reverse?} for an entire existing live wall path, or {point:{x,y}, curvePoint?:{x,y}} for an open edge to the next part. Wall parts traverse start to end unless reverse=true. Parts connect and close automatically. A point control describes a quadratic edge to the next part's first point. Use wall references on shared sides rather than copying wall vertices. Do not overlap an existing enclosed room or turn railings/dashed limits into walls. Omit uncertain outlines and disclose the gap. Do not infer a floor merely from a bounding rectangle.
 - Output clearly visible furniture and fixtures only as semantic occupancy blocks. Each uses catalogId="imported_object", a short sourceCategory such as bed/sofa/cabinet/toilet, positive width/depth/height in cm, centre position and rotation in degrees. Width is local x; depth is local y. Do not choose a catalog style, brand or detailed model. Use unknown when identity is unclear. Never turn furniture/cabinet outlines into architectural partitions.
 - For exterior walls, kind="exterior"; interior partitions use kind="interior". If unclear, use "unknown".
 - Typical editable defaults are wall height 280 cm, interior wall thickness 12 cm, exterior wall thickness 20 cm, door height 210 cm, windows default to floor-to-ceiling fixed glass under this presentation; omit window height, sillHeight and type unless explicitly specified by the user. Record this presentation assumption. Furniture heights are required editable estimates, not measurements from a 2D plan; state this uncertainty in assumptions. Omit unsupported optional architectural values rather than pretending they were measured.

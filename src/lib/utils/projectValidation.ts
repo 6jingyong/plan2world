@@ -1,4 +1,5 @@
 import { validateReconstructionEvidence } from './reconstructionEvidence';
+import { readFloorBoundary } from './floorBoundary';
 import type { Project, DetailKind } from '$lib/models/types';
 import { validateItemDetails, validateRetainedDetailState } from './itemDetails';
 import { refreshLegacyFurnitureCategories } from './legacyFurnitureCategories';
@@ -134,6 +135,7 @@ export function readProject(value: unknown): Project {
       choice(item.shape, ['round', 'square'], `${path}.shape`); defaults(item, { color: '#cccccc' }); text(item.color, `${path}.color`);
     });
     elements('rooms', (item, path) => {
+      if (item.boundary !== undefined) item.boundary = readFloorBoundary(item.boundary, `${path}.boundary`);
       booleans(item, ['floorOpening'], path);
       // Saved room/group memberships may outlive deleted walls/objects. Preserve metadata.
       ids(item.walls, `${path}.walls`); defaults(item, { name: '', floorTexture: 'light-oak', area: 0 });

@@ -54,9 +54,38 @@ Replace its geometry, scale and anchors using the actual source.
 - Source registration: existing `floorId`, confidence 0..1, at least two anchors
   with existing `wallId`, `endpoint` (`start`/`end`) and normalized `image` point.
 - Preserve evidence in `assumptions`; do not output native editor selection,
-  room polygons, rendering meshes or provider-specific metadata in the draft.
+  inferred room polygons, rendering meshes or provider-specific metadata in the draft.
 
 Canonical application schema and conversion live in repository
 `6jingyong/plan2world`, `schemas/plan2world-draft-v1.schema.json` and
 `src/lib/plan2world/draft.ts`. Legacy drafts without this presentation retain
 their prior window defaults and optional catalog furniture hints.
+
+## Open ground outlines
+
+Optional `floors[].floorAreas` supplies source-visible balcony/terrace ground,
+not inferred rooms. Each area requires unique `id`, `name`, and `boundary`;
+confidence 0..1 is optional. Each boundary has 1–256 ordered parts:
+
+- `{"wallId":"w1"}` traces the whole existing wall from start to end;
+  `"reverse":true` traverses it backwards. This follows later wall edits.
+- `{"point":{"x":600,"y":-180}}` adds a free source point. Its optional
+  `curvePoint` controls the quadratic edge to the next part's first point.
+- Consecutive parts connect with straight edges and the final edge closes
+  automatically. Do not repeat the first point. Use cm and the same scale as walls.
+
+For the example wall w1 from (0,0) to (600,0), an outdoor strip on its upper side is:
+
+```json
+{"id":"balcony","name":"Balcony","confidence":0.8,"boundary":[
+  {"wallId":"w1"},
+  {"point":{"x":600,"y":-180}},
+  {"point":{"x":0,"y":-180}}
+]}
+```
+
+References must exist on the same floor. Reject zero-area/self-crossing outlines.
+Do not copy shared curved wall points, create physical railings, cover a blank
+void, or duplicate an enclosed room. Omit uncertain limits and record the gap.
+The editor stores these surfaces in the existing native Room with an explicit
+boundary and outdoor category; wall-derived room detection stays independent.
