@@ -31,7 +31,7 @@ export function polygonAreaCm2(polygon: Point[]): number {
 }
 
 /** Uses the viewer's native 16-span wall path; stores no copied wall vertices. */
-export function floorBoundaryPolygon(boundary: FloorBoundaryPart[], walls: Wall[]): Point[] {
+export function floorBoundaryPolygon(boundary: FloorBoundaryPart[], walls: Pick<Wall, 'id' | 'start' | 'end' | 'curvePoint'>[]): Point[] {
   const wallById = new Map(walls.map(wall => [wall.id, wall]));
   const parts = boundary.map(part => {
     if ('point' in part) return [part.point];

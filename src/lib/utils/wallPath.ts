@@ -1,6 +1,9 @@
 import { getWallStartHeight, getWallEndHeight, type Wall, type Point } from '$lib/models/types';
 
-export function wallPointAt(w: Wall, t: number): Point {
+// Draft review needs the same path metric before physical wall heights exist.
+type WallPathInput = Pick<Wall, 'start' | 'end' | 'curvePoint'> & Partial<Pick<Wall, 'height' | 'startHeight' | 'endHeight'>>;
+
+export function wallPointAt(w: WallPathInput, t: number): Point {
   if (w.curvePoint) {
     const mt = 1 - t;
     return {
@@ -14,7 +17,7 @@ export function wallPointAt(w: Wall, t: number): Point {
   };
 }
 
-export function wallTangentAt(w: Wall, t: number): Point {
+export function wallTangentAt(w: WallPathInput, t: number): Point {
   if (w.curvePoint) {
     const mt = 1 - t;
     const dx = 2 * mt * (w.curvePoint.x - w.start.x) + 2 * t * (w.end.x - w.curvePoint.x);
@@ -28,12 +31,12 @@ export function wallTangentAt(w: Wall, t: number): Point {
   return { x: dx / len, y: dy / len };
 }
 
-export function wallLength(wall: Wall): number {
+export function wallLength(wall: WallPathInput): number {
   return wall.curvePoint ? wallPathProfile(wall).length : Math.hypot(wall.end.x - wall.start.x, wall.end.y - wall.start.y);
 }
 
 /** Same quadratic parameterization for active and inactive curved walls. */
-export function wallPathSpans(wall: Wall): { start: Point; end: Point; startHeight: number; endHeight: number }[] {
+export function wallPathSpans(wall: WallPathInput): { start: Point; end: Point; startHeight: number; endHeight: number }[] {
   const count = wall.curvePoint ? 16 : 1;
   const startH = getWallStartHeight(wall), endH = getWallEndHeight(wall);
   return Array.from({ length: count }, (_, i) => ({ start: wallPointAt(wall, i / count), end: wallPointAt(wall, (i + 1) / count), startHeight: startH + (endH - startH) * i / count, endHeight: startH + (endH - startH) * (i + 1) / count }));
@@ -42,7 +45,7 @@ export function wallPathSpans(wall: Wall): { start: Point; end: Point; startHeig
 /** Distances on the same faceted curve used by the viewer. Saved positions are
  * quadratic parameters, so they must be converted before applying physical widths.
  */
-export function wallPathProfile(wall: Wall) {
+export function wallPathProfile(wall: WallPathInput) {
   let length = 0;
   const spans = wallPathSpans(wall).map(span => {
     const from = length, size = Math.hypot(span.end.x - span.start.x, span.end.y - span.start.y);
