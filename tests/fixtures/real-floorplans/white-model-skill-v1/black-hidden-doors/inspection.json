@@ -1,0 +1,31 @@
+{
+  "source": {"width": 1199, "height": 1536, "sha256": "e69289f75833d6e0915dfd7d266fa05c811e4f406763ae0611a1d1cdabd5d5b0"},
+  "presentation": "semantic-white-model",
+  "floorCount": 1,
+  "wallCount": 27,
+  "doorCount": 10,
+  "windowCount": 1,
+  "scaleMode": "estimated",
+  "scaleConfidence": 0.42,
+  "scaleBasis": "No legible dimension is present. The chairman office north entrance spans approximately x=232..328 (96 source pixels) and is assumed to be an ordinary 90 cm doorway: uniform scale 0.9375 cm/pixel. Source 1199 x 1536 pixels; world=(source-(208,178))*0.9375, x rightward and y downward.",
+  "assumptions": [
+    "Walls were traced as source-pixel centrelines before applying one uniform transform. Room labels, door swing arcs, circular bed outlines, cabinet diagonals and fixture symbols are not walls. No rooms are supplied.",
+    "Source height and scale are unmeasured. Wall heights use the editor default; furniture/fixture heights are estimates and no style or brand is inferred.",
+    "The north horizontal triple-line interruption at x=362..702 is treated as glazing. Its omitted sill, height and type deliberately invoke floor-to-ceiling fixed glass as the semantic white-model presentation default; the source does not prove glazing height.",
+    "Concealed and sliding-labelled passages are represented initially as ordinary doors. The narrow multi-line segment at x~823,y~677..837 is interpreted as a concealed/sliding opening between the bedroom and right closet; its exact usable width and endpoint are uncertain (148 pixels estimated).",
+    "The thin x~384 line beside the left wardrobe is treated as a cabinet side/panel rather than a separate full-height room wall; adding it would obstruct the visible concealed bedroom doorway. This distinction needs review.",
+    "The lower-right toilet perimeter contains small source offsets around x~800..832,y~1175..1210. They are consolidated into the y=1203 common lower wall centreline rather than asserting precise construction offsets.",
+    "The fire-escape corridor has a visible south and east boundary but opens off the left of the depicted plan. No invented west closure or room is supplied.",
+    "The labelled round waterbed is an independent rectangular semantic bed block covering its visible circular footprint; the curved headboard trim is omitted. Two circular-symbol bedside squares are unknown blocks because their function is not certain.",
+    "The lower-central circular outline is an unknown shallow footprint and the overlapping chair-like shape is a separate chair block. Their exact identity and rounded shape are not established. Small plumbing fittings, drain detail, cabinet panels and swing geometry are omitted.",
+    "The upper offices are empty in the source apart from labels; no office desks or seats have been invented."
+  ],
+  "primaryExtent": {"width": 758.4375, "depth": 1152.1875},
+  "geometryIssues": [],
+  "geometryErrorCount": 0,
+  "geometryWarningCount": 0,
+  "registrationAccepted": true,
+  "nativeRooms": 8,
+  "furnitureCount": 12,
+  "limitation": "Structural checks and registration consistency do not certify source-image accuracy."
+}

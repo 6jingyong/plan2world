@@ -66,6 +66,11 @@ export interface DraftFurniture {
   position: DraftPoint;
   rotation?: number;
   confidence?: number;
+  /** Source semantics for an unstyled imported_object block. */
+  sourceCategory?: string;
+  width?: number;
+  depth?: number;
+  height?: number;
 }
 
 export interface DraftFloor {
@@ -83,6 +88,8 @@ export interface Plan2WorldDraft {
   schemaVersion: typeof PLAN2WORLD_DRAFT_VERSION;
   name: string;
   units: 'cm';
+  /** Opt-in reconstruction presentation; legacy drafts keep their defaults. */
+  presentation?: 'semantic-white-model';
   scale: DraftScale;
   assumptions?: string[];
   /** Optional image-to-plan registration metadata. It is advisory and never required to import a draft. */
@@ -231,6 +238,10 @@ function parseFurniture(value: unknown, path: string): DraftFurniture {
     position: point(v.position, `${path}.position`),
     rotation: v.rotation === undefined ? undefined : finite(v.rotation, `${path}.rotation`),
     confidence: confidence(v.confidence, `${path}.confidence`),
+    sourceCategory: v.sourceCategory === undefined ? undefined : stringValue(v.sourceCategory, `${path}.sourceCategory`),
+    width: optionalPositive(v.width, `${path}.width`),
+    depth: optionalPositive(v.depth, `${path}.depth`),
+    height: optionalPositive(v.height, `${path}.height`),
   };
 }
 
@@ -320,6 +331,16 @@ export function parsePlan2WorldDraft(input: unknown): Plan2WorldDraft {
 
   const floors = v.floors.map((item, i) => parseFloor(item, i));
   uniqueIds(floors, 'floors');
+  const presentation = v.presentation === undefined ? undefined
+    : enumValue(v.presentation, ['semantic-white-model'] as const, 'semantic-white-model', 'presentation');
+  if (presentation) {
+    for (const floor of floors) for (const item of floor.furniture ?? []) {
+      if (item.catalogId !== 'imported_object' || !item.sourceCategory
+        || item.width === undefined || item.depth === undefined || item.height === undefined) {
+        throw new Plan2WorldDraftError('Semantic furniture requires imported_object, sourceCategory, width, depth and height');
+      }
+    }
+  }
 
   const assumptions = v.assumptions === undefined
     ? undefined
@@ -331,6 +352,7 @@ export function parsePlan2WorldDraft(input: unknown): Plan2WorldDraft {
     schemaVersion: PLAN2WORLD_DRAFT_VERSION,
     name: stringValue(v.name, 'name'),
     units: 'cm',
+    presentation,
     scale: {
       mode,
       confidence: scaleConfidence,
@@ -347,7 +369,7 @@ function wallThickness(wall: DraftWall): number {
   return wall.kind === 'exterior' ? DEFAULTS.exteriorWallThickness : DEFAULTS.interiorWallThickness;
 }
 
-function toFloor(draft: DraftFloor): Floor {
+function toFloor(draft: DraftFloor, presentation?: Plan2WorldDraft['presentation']): Floor {
   const walls: Wall[] = draft.walls.map(wall => ({
     id: wall.id,
     start: { ...wall.start },
@@ -374,9 +396,9 @@ function toFloor(draft: DraftFloor): Floor {
     wallId: window.wallId,
     position: window.position,
     width: window.width,
-    height: window.height ?? DEFAULTS.windowHeight,
-    sillHeight: window.sillHeight ?? DEFAULTS.windowSillHeight,
-    type: window.type ?? 'standard',
+    height: window.height ?? (presentation ? Math.max(1, walls.find(wall => wall.id === window.wallId)!.height - (window.sillHeight ?? 0)) : DEFAULTS.windowHeight),
+    sillHeight: window.sillHeight ?? (presentation ? 0 : DEFAULTS.windowSillHeight),
+    type: window.type ?? (presentation ? 'fixed' : 'standard'),
   }));
 
   const furniture: FurnitureItem[] = (draft.furniture ?? []).map(item => ({
@@ -385,6 +407,11 @@ function toFloor(draft: DraftFloor): Floor {
     position: { ...item.position },
     rotation: item.rotation ?? 0,
     scale: { x: 1, y: 1, z: 1 },
+    ...(presentation ? { renderStyle: 'block' as const } : {}),
+    ...(item.sourceCategory !== undefined ? { sourceCategory: item.sourceCategory } : {}),
+    ...(item.width !== undefined ? { width: item.width } : {}),
+    ...(item.depth !== undefined ? { depth: item.depth } : {}),
+    ...(item.height !== undefined ? { height: item.height } : {}),
   }));
 
   const floor: Floor = {
@@ -412,7 +439,7 @@ function toFloor(draft: DraftFloor): Floor {
 
 export function draftToProject(input: unknown, now = new Date()): Project {
   const draft = parsePlan2WorldDraft(input);
-  const floors = draft.floors.map(toFloor);
+  const floors = draft.floors.map(floor => toFloor(floor, draft.presentation));
   const scaleDescription = `Scale: ${draft.scale.mode} (${Math.round(draft.scale.confidence * 100)}% confidence)${draft.scale.basis ? ` — ${draft.scale.basis}` : ''}.`;
   const assumptions = draft.assumptions?.length ? ` Assumptions: ${draft.assumptions.join(' | ')}` : '';
 

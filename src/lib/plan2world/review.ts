@@ -121,6 +121,8 @@ export function calibratePlan2WorldDraft(
       furniture: floor.furniture?.map(item => ({
         ...item,
         position: { x: item.position.x * factor, y: item.position.y * factor },
+        width: scaled(item.width, factor),
+        depth: scaled(item.depth, factor),
       })),
     })),
   };

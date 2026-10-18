@@ -1,6 +1,6 @@
 <script lang="ts">
   import { t, locale } from '$lib/i18n';
-  import { furnitureName, customModelName } from '$lib/i18n/furnitureNames';
+  import { furnitureItemName } from '$lib/i18n/furnitureNames';
   import { multiSelectionBounds } from '$lib/utils/multiSelectionBounds';
   import { onMount, onDestroy, tick } from 'svelte';
   import { get } from 'svelte/store';
@@ -505,7 +505,8 @@
   }
 
   function drawFurniture(item: FurnitureItem, selected: boolean) {
-    drawFurnitureItem(getCS(), item, selected, customModelName(item, get(currentProject)) ?? (getCatalogItem(item.catalogId) ? furnitureName(item.catalogId, get(locale)) : undefined));
+    drawFurnitureItem(getCS(), item, selected, getCatalogItem(item.catalogId) || item.customModelId
+      ? furnitureItemName(item, get(locale), get(currentProject)) : undefined);
   }
 
   // Track wall snap during placement preview
