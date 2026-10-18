@@ -358,9 +358,8 @@ export function parsePlan2WorldDraft(input: unknown): Plan2WorldDraft {
     : enumValue(v.presentation, ['semantic-white-model'] as const, 'semantic-white-model', 'presentation');
   if (presentation) {
     for (const floor of floors) for (const item of floor.furniture ?? []) {
-      if (item.catalogId !== 'imported_object' || !item.sourceCategory
-        || item.width === undefined || item.depth === undefined || item.height === undefined) {
-        throw new Plan2WorldDraftError('Semantic furniture requires imported_object, sourceCategory, width, depth and height');
+      if (item.catalogId !== 'imported_object' || !item.sourceCategory) {
+        throw new Plan2WorldDraftError('Semantic furniture requires imported_object and sourceCategory');
       }
     }
   }

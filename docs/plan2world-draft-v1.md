@@ -122,7 +122,7 @@ Reversing or splitting a referenced wall updates its directed references. Deleti
 
 ## Furniture
 
-New reconstruction uses the optional root `presentation: "semantic-white-model"`. In this profile every visible furniture/fixture item is a semantic occupancy block, with `catalogId: "imported_object"`, nonempty `sourceCategory`, positive `width`, `depth`, and `height` in cm. Position is the footprint centre; width is local x and depth is local y before rotation. Heights are editable estimates and must be disclosed as such.
+New reconstruction uses the optional root `presentation: "semantic-white-model"`. Each visible furniture/fixture requires `id`, `catalogId: "imported_object"`, nonempty `sourceCategory` and approximate centre `position`. Image extraction records semantics and broad location. Omit dimensions and rotation; users choose size, direction, precise placement and style later in the editor/walkthrough.
 
 ```json
 {
@@ -130,15 +130,13 @@ New reconstruction uses the optional root `presentation: "semantic-white-model"`
   "catalogId": "imported_object",
   "sourceCategory": "sofa",
   "position": { "x": 320, "y": 260 },
-  "width": 210,
-  "depth": 90,
-  "height": 80,
-  "rotation": 90,
   "confidence": 0.72
 }
 ```
 
-The native editor retains category and dimensions on the same `FurnitureItem`, rendering a labelled rectangular block with native `renderStyle: "block"`. A legacy `sourceCategory` alone does not enable this presentation. The user may select a local style in Properties; the native item retains its ID, category, placement and dimensions. Its optional `renderStyle: "model"` records that visual choice in the project, outside the AI draft contract. Do not infer a brand or detailed model from a plan symbol. Use `unknown` when the category is unclear. Plan calibration scales position and footprint, preserving estimated height.
+The native editor retains category on the same `FurnitureItem`, rendering a labelled block with native `renderStyle: "block"`. Its existing imported-object defaults supply a 50 cm cube and rotation 0; these are editable display defaults, not source measurements. Optional positive `width`, `depth`, `height` and finite `rotation` remain supported, and explicit values win. Width is local x and depth is local y before rotation. Calibration scales position and any explicit footprint; omitted dimensions stay omitted, so display defaults are not scaled as source evidence.
+
+SVG review shows a position marker when width/depth are absent, with no asserted physical footprint. Evaluate furniture extraction for omissions, duplicates, wrong types or wrong broad regions. Direction, size and fine placement are user edits. A legacy `sourceCategory` alone does not enable the block presentation. The user may select a local style in Properties; styling retains the native item's ID, category, placement and dimensions. Its optional `renderStyle: "model"` records that visual choice outside the AI draft contract. Do not infer a brand or detailed model from a plan symbol. Use `unknown` when the category is unclear.
 
 Under this presentation, omitted window fields normalize to `sillHeight: 0`, `height: hostWall.height`, and `type: "fixed"`: floor-to-ceiling glass is a product default, not a claim about the building. Explicit fields win; an explicit sill with omitted height uses the remaining wall height.
 

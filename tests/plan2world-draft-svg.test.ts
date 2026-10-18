@@ -61,13 +61,28 @@ describe('read-only draft SVG',()=>{
     expect(()=>renderPlan2WorldDraftSvg(input,{source})).toThrow('accepted sourceRegistration');
   });
 
-  it('reports invalid references, overflowing openings and unspecified footprints rather than repairing them',()=>{
+  it('reports invalid references and overflowing openings rather than repairing them',()=>{
     const input=draft();input.floors[0].doors[0].wallId='absent';
     expect(()=>renderPlan2WorldDraftSvg(input)).toThrow();
     input.floors[0].doors[0].wallId='top';input.floors[0].doors[0].width=600;
     expect(()=>renderPlan2WorldDraftSvg(input)).toThrow('extends beyond host');
-    const legacy=draft();delete legacy.presentation;delete legacy.floors[0].furniture[0].width;
-    expect(()=>renderPlan2WorldDraftSvg(legacy)).toThrow('explicit width/depth');
+  });
+
+  it('projects semantic-only coordinates without claiming a footprint or changing the fixed JSON',()=>{
+    const input=draft();
+    input.floors[0].furniture=[{id:'chair',catalogId:'imported_object',sourceCategory:'chair',position:{x:150,y:225}}];
+    const before=JSON.stringify(input);
+    const svg=renderPlan2WorldDraftSvg(input);
+    expect(svg).toContain('<circle data-element-id="chair" data-geometry="position" cx="150" cy="225"');
+    expect(svg).toContain('chair (position only; size and direction deferred)');
+    expect(svg).toContain('chair chair</text>');
+    expect(svg).not.toContain('<polygon');
+    const overlay=renderPlan2WorldDraftSvg(input,{source});
+    expect(overlay).toContain('data-element-id="chair" data-geometry="position" cx="400" cy="550"');
+    expect(JSON.stringify(input)).toBe(before);
+    // Partial/legacy hints are still positions, never invented rectangles.
+    delete input.presentation;input.floors[0].furniture[0].width=60;
+    expect(renderPlan2WorldDraftSvg(input)).toContain('data-geometry="position"');
   });
 
   it('escapes labels and identifiers and rejects external or SVG image sources',()=>{

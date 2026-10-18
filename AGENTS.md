@@ -60,7 +60,9 @@ When the source gives no better information:
 - window sill height: 90 cm
 - window height: 120 cm
 
-These are editable defaults, not claims about the source building. The opt-in `semantic-white-model` presentation instead defaults omitted windows to sill 0, host-wall height and fixed glass. It requires semantic furniture to use `imported_object`, `sourceCategory` and positive width/depth/height. Drafts without the presentation retain the legacy defaults above. User-chosen styling must preserve native IDs, placement and dimensions.
+These are editable defaults, not claims about the source building. The opt-in `semantic-white-model` presentation instead defaults omitted windows to sill 0, host-wall height and fixed glass. Semantic furniture requires `imported_object`, `sourceCategory` and approximate centre position. Dimensions and rotation are optional: reuse the existing imported-object 50 cm cube and zero rotation; users refine these later. Supplied dimensions must remain positive. Drafts without the presentation retain the legacy defaults above. User-chosen styling must preserve native IDs, placement and dimensions.
+
+When an SVG review looks wrong, preserve the JSON and determine whether the source-to-JSON extraction or JSON-to-SVG projection is incorrect. Repair the responsible reusable Skill/script or renderer and test that stage. Hand-correcting a candidate is not evidence of Skill improvement; do not compensate in 3D. Furniture extraction acceptance covers presence, semantic type and broad position, not direction, dimensions or fine alignment.
 
 ## Verification
 

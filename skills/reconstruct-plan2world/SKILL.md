@@ -24,7 +24,7 @@ from the shared walls. Do not introduce another interchange format or scene.
 ## 2. Extract furniture in bounded passes
 
 First scan the whole plan for clearly visible furniture and fixtures. Record
-each item's stable ID, type, source-pixel centre, footprint and rotation. Include
+each item's stable ID, semantic type and approximate source-pixel centre. Include
 small fixtures and edge areas, not just prominent beds and sofas. Use `unknown`
 when the outline is visible but identity is unclear; do not invent hidden items.
 
@@ -40,11 +40,12 @@ not a required step. If used, preserve image dimensions/coordinates and keep the
 derived image separate. Never erase wall, door or window evidence with a furniture
 mask; verify architectural traces against the original, not filled-in pixels.
 
-Represent each supported item as a semantic rectangular block:
-`catalogId: "imported_object"`, a short `sourceCategory`, width/depth, estimated
-height, centre and rotation. Retain uncertain/nonrectangular footprints as such;
-do not shrink or move furniture just to satisfy a walkthrough collision check.
-Concrete furniture models and styles are user choices in the editor.
+Represent each supported item with `id`, `catalogId: "imported_object"`, a short
+`sourceCategory` and approximate centre `position`. Omit width/depth/height and
+rotation for image extraction. The program supplies editable placeholder cubes;
+size, direction, precise placement and concrete styles belong to the user's
+later editor/walkthrough stage. Check omissions, duplicates, wrong types and
+wrong broad regions; do not fail extraction on chair direction or fine alignment.
 
 ## 3. Trace the wall skeleton without thickness
 
@@ -90,7 +91,7 @@ endpoints, or an explicit user length. A printed page ratio alone cannot
 calibrate a raster without physical page size/DPI. Otherwise estimate from a
 clearly visible ordinary doorway, lower confidence, and explain the basis.
 Keep x rightward and y downward. Apply the same translation and scale to every
-wall, control point, opening width and furniture footprint.
+wall, control point, opening width and furniture centre.
 
 Convert the reviewed skeleton to final wall centrelines in cm. Assign thickness
 and height only now, using source evidence when reliable or the contract's
@@ -123,7 +124,7 @@ transform as stage 5; do not invent anchors or fit geometry independently.
   position. Keep each opening wholly within its wall path. Use at least one
   floor with walls. Output no `rooms`; the product derives room topology.
 - Check source alignment at spread-out locations, then inspect every wall,
-  opening and furniture footprint against the raster. Mark ambiguous or omitted
+  opening and furniture type/approximate position against the raster. Mark ambiguous or omitted
   features in `assumptions` and reduce their confidence.
 - For source-visible outdoor ground (balconies, terraces or exterior access
   passages), emit optional `floorAreas` with an ordered
@@ -141,9 +142,15 @@ transform as stage 5; do not invent anchors or fit geometry independently.
   Compare `plan.svg` with the original by furniture, walls, doors and windows.
   Add `--source source.jpg --width W --height H` for `overlay.svg` only when
   source anchors are accepted. The tool never fits bounds, infers rooms or
-  repairs geometry. Fix the earliest incorrect extraction step, not the SVG
-  renderer or 3D model to compensate. Report contract validity, source alignment
-  and layer completeness separately.
+  repairs geometry. It shows furniture position markers when dimensions are
+  omitted; marker radius is not a physical footprint.
+- If SVG looks wrong, freeze the JSON and compare the relevant entry with the
+  source first. If the entry is correct but SVG projects it incorrectly, fix and
+  test the SVG program with that fixed input. If the entry is incorrect, revise
+  the Skill or its extraction script and regenerate from the original source.
+  Manually patching a sample JSON is not evidence of a reusable Skill fix.
+  Isolate later 3D, viewing and editing faults in their own stages. Report
+  contract validity, source alignment and layer completeness separately.
 - Deliver the JSON and a short review note: scale basis, uncertain geometry,
   omitted elements, and checks actually performed. Distinguish structural
   validity from visual correctness; never call a draft accurate merely because
