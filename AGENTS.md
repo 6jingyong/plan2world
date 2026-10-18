@@ -9,7 +9,7 @@ The existing openPlan3D editor is the downstream engine. Do not replace working 
 ## Core pipeline
 
 1. Inspect a JPG/PNG floor plan.
-2. Trace outer wall centrelines, identify real furniture from the fixed vocabulary in that context, complete the shared interior walls and source-supported closure, then extract hosted doors/windows. Use the provider-neutral `skills/reconstruct-plan2world` procedure.
+2. Trace outer wall centrelines, inventory architectural components using their fixed vocabulary, then identify real furniture from its fixed vocabulary in that context, complete the shared interior walls and source-supported closure, then extract hosted doors/windows. Use the provider-neutral `skills/reconstruct-plan2world` procedure.
 3. Emit `plan2world-draft-v1` JSON.
 4. Validate and normalize that JSON.
 5. Convert it into the existing `Project` model in `src/lib/models/types.ts`.
@@ -93,3 +93,5 @@ The first useful release should support:
 - first-person walkthrough using the existing viewer.
 
 Avoid expanding into BIM, photorealistic rendering, structural analysis, or automatic interior design until this loop is reliable.
+
+Architectural component recognition precedes furniture. Use the Skill's fixed component vocabulary and review evidence, reference existing walls/windows/floorAreas once, and disclose missing native support for columns, stairs or floor voids. Do not treat equipment platforms/shafts/voids as usable floor or infer unseen floor connections. After every Skill revision, complete at least one fresh source application and frozen review before publishing; unit tests alone do not validate extraction.

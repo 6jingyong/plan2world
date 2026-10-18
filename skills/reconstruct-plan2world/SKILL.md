@@ -7,6 +7,8 @@ description: Reconstruct a floor-plan image into provider-neutral Plan2World dra
 
 Read [references/contract.md](references/contract.md) and the fixed
 [references/furniture-vocabulary.json](references/furniture-vocabulary.json).
+Also read [references/component-review.md](references/component-review.md) and
+[references/component-vocabulary.json](references/component-vocabulary.json).
 Use the attached image as evidence. Produce `plan2world-draft-v1` with
 `presentation: "semantic-white-model"` and
 `furnitureVocabulary: "plan2world-furniture-v1"`. Require no particular model
@@ -29,15 +31,35 @@ furniture. Trace zero-width lines in original pixels. Preserve recesses, diagona
 walls, curved walls and bay-window projections; never substitute a bounding box
 or convex hull. Distinguish physical walls/glazing hosts from text, dimension
 lines, open balcony edges and equipment ledges. Keep a real host wall continuous
-across door/window interruptions; attach those openings in stage 5.
+across door/window interruptions; attach those openings in stage 6.
 
 Use this outline to establish architectural context. A bay projection, window
 ledge, wall pier or planter platform belongs to that context, not to the furniture
 inventory. Do not force open exterior edges to become walls. Do not infer walkable
 ground merely because the outline encloses it. Keep stable wall IDs for reuse
-when completing the interior network in stage 4.
+when completing the interior network in stage 5.
 
-## 3. Identify real objects using the fixed vocabulary
+## 3. Inventory architectural components before furniture
+
+Make a dedicated pass using exact types from `component-vocabulary.json`. Inspect
+bays/ledges, wall piers, independent columns, shafts, balconies, equipment ledges,
+fixed planters/railings, stairs and explicit floor voids. Require positive source
+evidence; do not force every shape into a type. Record normalized source location,
+evidence and floor identity in the working component inventory.
+
+This pass assigns ownership before furniture recognition. Reuse real walls,
+windows and floorAreas for component geometry; never add a duplicate solid or
+furniture block. Complete references to those native draft objects after stage 6.
+A built-in cabinet can still be furniture when its own symbol establishes it.
+Do not erase source components to clear space for furniture detection.
+
+For stairs, separate visible up/down direction from an established target floor.
+Never infer unseen levels, rises, layer alignment or floor holes. Identify shafts,
+equipment ledges and voids before room closure/floor filling. Read the vertical
+risk rules in `component-review.md`. Record unsupported geometry explicitly;
+recognition does not imply that the converter models a column, stair or floor void.
+
+## 4. Identify real objects using the fixed vocabulary
 
 For each candidate, first establish a separate furniture, appliance or sanitary
 fixture from a recognizable symbol or readable label. Then choose an exact ID
@@ -67,7 +89,7 @@ rotation: the program supplies editable placeholder cubes. Size, direction,
 precise placement and styles belong to later user editing/walkthrough. Evaluate
 object presence, permitted semantic type and broad location, not chair angles.
 
-## 4. Complete all shared walls and check closure
+## 5. Complete all shared walls and check closure
 
 Return to the original and reuse the outer trace. Add the interior wall network,
 one zero-width centreline per physical wall. Ignore thickness, height and styling.
@@ -87,7 +109,7 @@ to turn furniture groups or room labels into closed boxes. Keep obscured
 connections uncertain. Closure checks consistency; it does not replace source
 alignment review. Output shared `walls`, no authored `rooms` polygons.
 
-## 5. Extract wall-hosted doors and windows
+## 6. Extract wall-hosted doors and windows
 
 Sweep the completed walls once for openings, including sliding, concealed and
 shower access. A double track alone does not establish a fixed window: use panel
@@ -99,7 +121,7 @@ width. Keep its host continuous; the deterministic converter creates the apertur
 Use ordinary doors initially. Omit window height/sill/type so the white-model
 profile supplies editable floor-to-ceiling fixed glass; disclose this assumption.
 
-## 6. Convert units, register, freeze and verify
+## 7. Convert units, register, freeze and verify
 
 Derive one uniform cm-per-pixel scale from a legible dimension with clear
 endpoints or an explicit user length. A printed page ratio alone cannot calibrate
@@ -124,7 +146,10 @@ image=(px/width,py/height). Use the same transform; do not fit anchors separatel
   perimeter. Reference existing shared wall paths, including curves. Do not turn
   railings into walls, duplicate enclosed rooms or cover blank voids. Omit uncertain
   outlines and disclose the gap instead of calling them walkable.
-- Freeze the complete emitted JSON before verification. Preserve it even if checks
+- In local verification, finish `component-review.json` as described in the component
+  reference and run its read-only checker. Report unmapped/unmodeled features
+  separately from valid references; include those gaps in draft assumptions.
+- Freeze the complete emitted JSON and component inventory before verification. Preserve them even if checks
   fail. Never hand-edit a verification output to make a picture or test pass.
 - With a Plan2World checkout, run its existing deterministic checker:
   `NODE_ENV=production node tooling/inspect-plan2world-draft.mjs --draft draft.json --source source.jpg --width W --height H --require-furniture-vocabulary true`.
@@ -139,7 +164,7 @@ image=(px/width,py/height). Use the same transform; do not fit anchors separatel
   not demonstrate Skill improvement. Isolate later 3D/viewing/editing failures in
   their own stages; never compensate there for incorrect extraction.
 - Deliver JSON and a short note separating contract validity, source alignment and
-  completeness. Report vocabulary gaps, uncertain geometry, omitted objects, scale
+  completeness. Report component mappings/native gaps, vocabulary gaps, uncertain geometry, omitted objects, scale
   basis and checks actually performed. Parsing alone does not establish accuracy.
 - For new verification, use the source and this Skill. Do not read old candidates
   or reference annotations before completing the first pass. Never redistribute
@@ -148,3 +173,9 @@ image=(px/width,py/height). Use the same transform; do not fit anchors separatel
 Stop at the requested draft/source review. Do not expand into collision, navigation,
 model styling or browser-matrix audits unless requested. Preserve unresolved issues
 instead of repeating full reconstructions until every warning disappears.
+
+After each Skill revision, run at least one fresh source-to-JSON application before
+publishing the revision. Freeze that run, use source review plus the intermediate
+SVG/checkers, and report actual failures. Do not substitute unit tests or a manually
+corrected old candidate for this application. Do not claim duplex/stair support
+from tests that only contain single-floor source images.
