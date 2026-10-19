@@ -1,6 +1,7 @@
 import type { OpenAIConfig } from '$lib/utils/openaiClient';
 import { generateOpenAIJsonFromImage } from '$lib/utils/openaiClient';
 import { parsePlan2WorldDraft, type Plan2WorldDraft } from './draft';
+import { buildBareHouse, type BareHouseV1 } from './bareHouse';
 import { PLAN2WORLD_COMPONENT_VOCABULARY } from './componentVocabulary';
 import { buildReconstructionInstructions, PLAN2WORLD_RECONSTRUCTION_INSTRUCTIONS_VERSION, type ReconstructionOptions } from './reconstructionInstructions';
 export { buildReconstructionInstructions as buildFloorPlanVisionPrompt } from './reconstructionInstructions';
@@ -46,6 +47,22 @@ export async function encodeFloorPlanImage(file: File): Promise<EncodedFloorPlan
   return { base64: dataUrl.slice(index + marker.length), dataUrl, mimeType: file.type };
 }
 
+/** First actual model pass: extract only source-pixel walls and evidenced door gaps. */
+export async function traceFloorPlanWalls(
+  config: OpenAIConfig,
+  image: EncodedFloorPlanImage,
+  customFetch: typeof fetch = fetch,
+  signal?: AbortSignal,
+): Promise<BareHouseV1> {
+  const trace = await generateOpenAIJsonFromImage(config, image.base64, image.mimeType,
+    `Return only JSON: {"schemaVersion":"source-wall-trace-v1","walls":[],"doorGaps":[]}.
+Trace visible wall centreline paths in original image pixels, not dimension-chain coordinates.
+Walls have id,start,end and optional curvePoint. Door gaps require explicit observed wall endpoints and
+fromWallId/toWallId; never trace door swing arcs as walls or infer missing boundaries.
+Do not classify rooms, furnishings, components or windows. Do not invent enclosures.`, customFetch, signal);
+  return buildBareHouse(trace);
+}
+
 export async function reconstructFloorPlanImage(
   config: OpenAIConfig,
   image: EncodedFloorPlanImage,
@@ -53,11 +70,12 @@ export async function reconstructFloorPlanImage(
   customFetch: typeof fetch = fetch,
   signal?: AbortSignal,
 ): Promise<Plan2WorldDraft> {
+  const bareHouse = await traceFloorPlanWalls(config, image, customFetch, signal);
   const json = await generateOpenAIJsonFromImage(
     config,
     image.base64,
     image.mimeType,
-    buildReconstructionInstructions(options),
+    `${buildReconstructionInstructions(options)}\n\nMANDATORY SECOND PASS: A deterministic normalizer has already produced the accepted source-pixel Bare House below. Do not retrace or alter its wall topology. Annotate openings and furniture using this geometry; convert all geometry with one consistent cm-per-pixel scale and return the final draft. The JSON below is pixel geometry, not centimetres:\n${JSON.stringify({ walls: bareHouse.walls, doorGaps: bareHouse.sourceWallMap })}`,
     customFetch,
     signal,
   );
