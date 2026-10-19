@@ -76,7 +76,7 @@ describe('Plan2World vision reconstruction', () => {
     const result = await reconstructFloorPlanImage(
       { baseUrl: 'https://example.test/v1', apiKey: 'test', model: 'vision-model' },
       image,
-      {},
+      { sourceWidthPx: 360, sourceHeightPx: 300 },
       customFetch as typeof fetch,
     );
 
@@ -85,6 +85,8 @@ describe('Plan2World vision reconstruction', () => {
     expect(result.floors[0].walls).toHaveLength(4);
     expect(result.floors[0].walls[0]).toMatchObject({ id: 'w1', start: { x: 0, y: 0 }, end: { x: 360, y: 0 } });
     expect(result.floors[0].doors?.[0]).toMatchObject({ id: 'd1', wallId: 'w1', position: 0.5, width: 90 });
+    expect(result.sourceRegistration?.anchors).toHaveLength(4);
+    expect(result.sourceRegistration?.anchors[0]).toEqual({ wallId: 'w1', endpoint: 'start', image: { x: 0, y: 0 } });
     expect(customFetch).toHaveBeenCalledTimes(2);
   });
 
