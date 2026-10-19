@@ -9,24 +9,23 @@ uses evidence-only intermediate artifacts before it:
 
 `source-wall-trace-v1 -> bare-house-v1 -> source-annotation-v1 -> plan2world-draft-v1`
 
-The first and third artifacts may require visual/semantic interpretation. Geometry
-normalization, scale math, opening math, source registration and final draft assembly
-are deterministic.
+The two source artifacts contain observations, not application IDs or derived math.
+Geometry normalization, IDs, scale policy/math, opening association/math, source
+registration and final draft assembly are deterministic.
 
 ## Geometry ownership
 
-`source-wall-trace-v1` stores original-raster wall evidence. `bare-house-v1` stores
-the deterministic normalized wall graph. The Bare House owns the hard source-fidelity
-gate.
+`source-wall-trace-v1` stores only original-raster wall/gap geometry. `buildBareHouse`
+assigns raw wall/gap IDs and normalization produces the program-owned `bare-house-v1`.
+The Bare House owns the hard source-fidelity gate.
 
-Normalization may split existing walls at source-supported intersections/T-junctions
-and snap small endpoint residuals. It must never create a connector across a real
-unsupported gap.
+Normalization may split existing walls at source-supported intersections/T-junctions,
+snap small endpoint residuals and associate an explicitly observed door gap with its
+two wall runs. It must never create a connector across an unsupported source gap.
 
-`source-annotation-v1` stores only source evidence needed after geometry is accepted:
-scale evidence, opening endpoints/operation evidence and optional furniture presence.
-It does not contain cm-per-pixel, opening width/position, source-registration anchors
-or final draft geometry.
+`source-annotation-v1` stores only scale evidence, opening endpoints/operation evidence
+and optional furniture semantics/centres. It contains no IDs, numeric confidence,
+cm-per-pixel, opening host/width/position, registration anchors or final draft geometry.
 
 Doors/windows and furniture annotate an accepted Bare House. They do not create or
 close geometry. Native rooms are derived from draft walls; the draft does not author
@@ -43,32 +42,37 @@ Required:
 - `scale`
 - `floors`
 
-`scale.mode` is `measured`, `provided` or `estimated`; confidence is 0..1.
+The final contract supports `scale.mode` = `measured`, `provided` or `estimated` and
+confidence 0..1. Current image reconstruction derives them from evidence kind:
+
+- `measured_dimension` / `scale_bar` -> `measured`, 0.95;
+- `provided_length` -> `provided`, 1;
+- `estimated_reference` -> `estimated`, 0.5.
 
 ## Walls
 
-Each wall requires `id`, `start`, `end`; optional `curvePoint`, `kind`, positive
-`thickness`/`height`, and confidence are supported. Reconstruction normally omits
-physical thickness/height unless established.
+Each final wall requires `id`, `start`, `end`; optional `curvePoint`, `kind`, positive
+`thickness`/`height`, and confidence remain supported for the application contract.
+Current image reconstruction assigns wall IDs programmatically and normally leaves
+unsupported physical properties to native editable defaults.
 
 Draft walls come from the accepted `bare-house-v1`. Shared walls are emitted once.
 Connected normalized geometry shares coordinates.
 
 A wall-frame failure is hard only when source structure is materially wrong: a real
-wall is missing, unsupported geometry was invented, a source-supported enclosure
-cannot close after normalization, or the whole-plan overlay materially disagrees
-with the original.
+wall is missing, unsupported geometry was invented, or the whole-plan overlay
+materially disagrees with the original.
 
 ## Doors and windows
 
-Each emitted opening requires:
-- unique `id`;
-- existing normalized `wallId`;
-- `position` from 0..1 along the host;
-- positive physical `width`.
+Each final opening requires:
+- unique program-assigned `id`;
+- program-resolved normalized `wallId`;
+- derived `position` from 0..1 along the host;
+- derived positive physical `width`.
 
-These fields are derived by program from source endpoints and scale evidence; the
-annotation model must not calculate them.
+These fields come from source endpoints plus accepted geometry/scale. The annotation
+model never authors them.
 
 Openings have no independent thickness. The logical host remains continuous. A
 full-wall window or full-wall sliding door is valid.
@@ -77,29 +81,28 @@ Door `type` may be `single`, `double`, `sliding` or `opening` when source eviden
 supports it. Omitted window height/sill uses the editable semantic-white-model
 default of floor-to-ceiling fixed glass.
 
-Opening uncertainty is review-level. Missing/approximate position, width,
-operation or completeness does not invalidate an accepted Bare House unless later
-evidence proves the host wall geometry itself is wrong.
+Opening uncertainty is review-level. Missing/approximate extent or operation does
+not invalidate an accepted Bare House unless later evidence proves the host wall
+geometry itself is wrong.
 
 ## Furniture
 
 Current reconstruction emits:
-- stable `id`;
-- `catalogId: "imported_object"`;
-- exact fixed-vocabulary `sourceCategory`;
-- approximate centre `position`;
-- optional confidence.
+- program-assigned `id`;
+- `catalogId: "imported_object"` assigned by the assembler;
+- exact fixed-vocabulary `sourceCategory` observed by the model;
+- centre `position` converted from the observed source-pixel centre.
 
-The model supplies source-category evidence and a source-pixel centre only. The
-assembler supplies `catalogId` and coordinate conversion. Omit source-unknown size,
-rotation and styling. Runtime placeholders remain editable.
+The final draft contract still supports optional confidence/size/rotation fields for
+manual or historical inputs, but current image reconstruction does not ask the model
+to manufacture them. Runtime placeholders remain editable.
 
 ## Scale and source registration
 
 Printed dimensions and dimension-chain subdivisions constrain scale/distances but
-are not wall coordinates. The annotation pass supplies a real length plus its two
-source-pixel endpoints; the assembler computes the single uniform cm-per-pixel
-transform. Do not independently move walls to make dimension arithmetic close.
+are not wall coordinates. The annotation pass supplies an evidence kind, a real
+length and its two source-pixel endpoints; the assembler computes one uniform
+cm-per-pixel transform and applies it to every layer.
 
 When source raster width/height are available, the assembler selects spread Bare
 House endpoints and emits normalized `sourceRegistration` anchors from the same
@@ -112,7 +115,7 @@ this same transform rather than fitting wall bounds to conceal systematic drift.
 ground, but current image reconstruction does not ask the annotation model to invent
 or classify these regions. Downstream room derivation remains wall-driven.
 
-## Minimal example
+## Minimal final-draft example
 
 ```json
 {
@@ -121,7 +124,7 @@ or classify these regions. Downstream room derivation remains wall-driven.
   "furnitureVocabulary":"plan2world-furniture-v1",
   "name":"Source plan",
   "units":"cm",
-  "scale":{"mode":"measured","confidence":0.9,"basis":"visible dimension"},
+  "scale":{"mode":"measured","confidence":0.95,"basis":"visible dimension"},
   "sourceRegistration":{
     "floorId":"floor-0","confidence":1,
     "anchors":[
