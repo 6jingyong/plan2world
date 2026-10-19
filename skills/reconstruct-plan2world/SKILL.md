@@ -25,7 +25,7 @@ For a benchmark rerun, start from the original raster and create a new ignored d
 
 `.plan2world-validation/runs/<run-id>/<sample-id>/`
 
-Never use an existing run directory as reconstruction input and never write generated artifacts under `tests/fixtures`. The reconstruction-side corpus manifest contains source identity only. Do not inspect `evaluation-references/` until the draft and source overlay for the fresh run are generated and frozen.
+Never use an existing run directory as reconstruction input and never write generated artifacts under `tests/fixtures`. The reconstruction-side corpus manifest contains source identity only. Do not inspect `tests/evaluation/plan2world/source-references/` until the draft and source overlay for the fresh run are generated and frozen.
 
 Use the run directory for every generated stage artifact, for example:
 
@@ -66,7 +66,7 @@ Validate the assembled draft with deterministic tooling. Use source overlay only
 
 `NODE_ENV=production node tooling/inspect-plan2world-draft.mjs --draft "$RUN_DIR/draft.json" --source source.jpg --width W --height H --require-furniture-vocabulary true`
 
-Only after the fresh draft and overlay are frozen may post-hoc evaluation read source references.
+Only after the fresh draft and overlay are frozen may post-hoc evaluation read `tests/evaluation/plan2world/source-references/`.
 
 Once the draft is accepted, stop reconstructing. The existing application owns native room derivation, 2D/3D conversion, collision, walkthrough, editing and assets.
 

@@ -1,6 +1,6 @@
 # Real floor-plan fixtures
 
-This directory separates deterministic downstream fixtures from fresh reconstruction evaluation.
+This directory contains reconstruction inputs and deterministic downstream baselines only. It must not contain benchmark answers or generated reconstruction outputs.
 
 ## Deterministic downstream baseline
 
@@ -14,9 +14,9 @@ This directory separates deterministic downstream fixtures from fresh reconstruc
 
 The reconstruction manifest deliberately contains no reference path, prior draft, wall trace, annotation, candidate ID or score. A fresh run starts only from a raster whose dimensions and SHA-256 match that manifest.
 
-## Evaluation truth
+## Evaluation truth lives elsewhere
 
-`evaluation-references/` contains source-space human references. They are post-hoc evaluation data, not reconstruction inputs. Do not inspect or load them until the run's wall evidence, Bare House, source annotations, assembled draft and source overlay have been generated and frozen.
+Human source-space references live under `tests/evaluation/plan2world/source-references/`, outside the fixture tree. They are post-hoc evaluation data, not reconstruction inputs. Do not inspect or load them until the run's wall evidence, Bare House, source annotations, assembled draft and source overlay have been generated and frozen.
 
 Historical model outputs are not stored in the active tree. Git history is the archaeology layer if an old run ever needs to be inspected.
 

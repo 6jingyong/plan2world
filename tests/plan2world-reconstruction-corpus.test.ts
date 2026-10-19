@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import corpus from './fixtures/real-floorplans/reconstruction-corpus/manifest.json';
-import evaluation from './fixtures/real-floorplans/evaluation-references/manifest.json';
-import beikeReference from './fixtures/real-floorplans/evaluation-references/large-irregular-beike.json';
+import evaluation from './evaluation/plan2world/source-references/manifest.json';
+import beikeReference from './evaluation/plan2world/source-references/large-irregular-beike.json';
 import { parseSourceFloorPlanReference } from '$lib/plan2world/sourceReference';
 
 const sampleIds = [
@@ -24,7 +24,7 @@ describe('fresh reconstruction corpus isolation', () => {
     }
   });
 
-  it('keeps post-hoc references in a separate evaluation manifest', () => {
+  it('keeps post-hoc references outside the reconstruction fixture tree', () => {
     expect(evaluation.schemaVersion).toBe('plan2world-evaluation-references-v1');
     expect(evaluation.references.map(item => item.id)).toEqual(sampleIds);
     for (const item of evaluation.references) {
