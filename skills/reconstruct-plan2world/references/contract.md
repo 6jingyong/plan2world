@@ -2,7 +2,7 @@
 
 Version: `plan2world-draft-v1`  
 Presentation: `semantic-white-model`  
-Furniture vocabulary: `plan2world-furniture-v1`  
+Furniture vocabulary: `plan2world-furniture-v1`
 
 All world lengths are centimetres. The draft is the product contract. Reconstruction
 uses evidence-only intermediate artifacts before it:
@@ -10,7 +10,8 @@ uses evidence-only intermediate artifacts before it:
 `source-wall-trace-v1 -> bare-house-v1 -> source-annotation-v1 -> plan2world-draft-v1`
 
 The first and third artifacts may require visual/semantic interpretation. Geometry
-normalization, scale math, opening math and final draft assembly are deterministic.
+normalization, scale math, opening math, source registration and final draft assembly
+are deterministic.
 
 ## Geometry ownership
 
@@ -24,7 +25,8 @@ unsupported gap.
 
 `source-annotation-v1` stores only source evidence needed after geometry is accepted:
 scale evidence, opening endpoints/operation evidence and optional furniture presence.
-It does not contain cm-per-pixel, opening width/position or final draft geometry.
+It does not contain cm-per-pixel, opening width/position, source-registration anchors
+or final draft geometry.
 
 Doors/windows and furniture annotate an accepted Bare House. They do not create or
 close geometry. Native rooms are derived from draft walls; the draft does not author
@@ -92,12 +94,17 @@ The model supplies source-category evidence and a source-pixel centre only. The
 assembler supplies `catalogId` and coordinate conversion. Omit source-unknown size,
 rotation and styling. Runtime placeholders remain editable.
 
-## Scale
+## Scale and source registration
 
 Printed dimensions and dimension-chain subdivisions constrain scale/distances but
 are not wall coordinates. The annotation pass supplies a real length plus its two
 source-pixel endpoints; the assembler computes the single uniform cm-per-pixel
 transform. Do not independently move walls to make dimension arithmetic close.
+
+When source raster width/height are available, the assembler selects spread Bare
+House endpoints and emits normalized `sourceRegistration` anchors from the same
+original-pixel geometry. The model does not choose anchors. Overlay/review must use
+this same transform rather than fitting wall bounds to conceal systematic drift.
 
 ## Optional open ground
 
@@ -115,8 +122,15 @@ or classify these regions. Downstream room derivation remains wall-driven.
   "name":"Source plan",
   "units":"cm",
   "scale":{"mode":"measured","confidence":0.9,"basis":"visible dimension"},
+  "sourceRegistration":{
+    "floorId":"floor-0","confidence":1,
+    "anchors":[
+      {"wallId":"w1","endpoint":"start","image":{"x":0.1,"y":0.2}},
+      {"wallId":"w2","endpoint":"end","image":{"x":0.9,"y":0.8}}
+    ]
+  },
   "floors":[{
-    "id":"f0","name":"Ground floor","level":0,
+    "id":"floor-0","name":"Ground floor","level":0,
     "walls":[
       {"id":"w1","start":{"x":0,"y":0},"end":{"x":400,"y":0}},
       {"id":"w2","start":{"x":400,"y":0},"end":{"x":400,"y":300}},
@@ -129,3 +143,6 @@ or classify these regions. Downstream room derivation remains wall-driven.
   }]
 }
 ```
+
+This example documents the final program-owned contract. Image models emit the two
+evidence contracts instead of reproducing this object.
