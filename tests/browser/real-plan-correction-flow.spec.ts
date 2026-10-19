@@ -152,6 +152,8 @@ for (const width of [1440, 390]) test(`existing real source reaches a corrected,
   const tracePrompt = requests[0].body.input?.[0]?.content?.find((item: any) => item.type === 'input_text')?.text;
   const annotationPrompt = requests[1].body.input?.[0]?.content?.find((item: any) => item.type === 'input_text')?.text;
   expect(tracePrompt).toContain('source-wall-trace-v1');
-  expect(annotationPrompt).toContain('MANDATORY SECOND PASS');
+  expect(annotationPrompt).toContain('source-annotation-v1');
+  expect(annotationPrompt).toContain('BARE_HOUSE_JSON:');
+  expect(annotationPrompt).not.toContain('return the final draft');
   expect(errors).toEqual([]);
 });
