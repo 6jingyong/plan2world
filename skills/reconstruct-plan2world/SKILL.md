@@ -25,8 +25,9 @@ coordinates back to it. Use its top-left origin, x rightward and y downward for
 all passes. Record a reliable scale anchor if visible; otherwise retain pixels
 until the final uniform conversion to cm. Keep the original raster unchanged.
 
-Use the existing `walls`, `furniture`, `doors` and `windows` arrays as layers.
-The outline and inventory below are working traces, not another scene or contract.
+Use the existing `walls`, `furniture`, `doors`, `windows`, optional `floorAreas`
+and optional `floorOpenings` arrays as layers. The outline and inventory below
+are working traces, not another scene or contract.
 
 ## 2. Trace the outer wall outline first
 
@@ -53,21 +54,31 @@ evidence; do not force every shape into a type. Record normalized source locatio
 evidence and floor identity in the working component inventory.
 
 This pass assigns ownership before furniture recognition. Reuse real walls,
-windows and floorAreas for component geometry; never add a duplicate solid or
-furniture block. Complete references to those native draft objects after stage 6.
-For a recognized balcony, trace its actual perimeter, reuse the house-side boundary
-once, and plan continuous outer hosts for policy-derived glazing. Preserve native
-curves and observed solid piers. A label alone cannot establish missing bounds;
-record an incomplete enclosure instead of inventing them. Do not classify access
-passages, equipment ledges or voids as balconies to obtain a floor.
-A built-in cabinet can still be furniture when its own symbol establishes it.
-Do not erase source components to clear space for furniture detection.
+windows, floorAreas and floorOpenings for component geometry/slab semantics;
+never add a duplicate solid or furniture block. Complete references to those
+draft objects after stage 6. For a recognized balcony, trace its actual perimeter,
+reuse the house-side boundary once, and plan continuous outer hosts for
+policy-derived glazing. Preserve native curves and observed solid piers. A label
+alone cannot establish missing bounds; record an incomplete enclosure instead of
+inventing them. Do not classify access passages, equipment ledges or voids as
+balconies to obtain a floor. A built-in cabinet can still be furniture when its
+own symbol establishes it. Do not erase source components to clear space for
+furniture detection.
+
+For a positively recognized enclosed shaft, trace only source-supported enclosure
+walls. If those walls form exactly one closed wall-derived room, plan one
+`floorOpening` using the same wall IDs. It marks that room as a slab void; it is
+not a second polygon or mesh. Do not infer a shaft from small area, lack of a door,
+a label-free rectangle or a service-like location. Generic atria/floor holes that
+do not exactly correspond to one closed wall-derived room remain unsupported and
+must be disclosed instead of forcing walls around them.
 
 For stairs, separate visible up/down direction from an established target floor.
 Never infer unseen levels, rises, layer alignment or floor holes. Identify shafts,
 equipment ledges and voids before room closure/floor filling. Read the vertical
 risk rules in `component-review.md`. Record unsupported geometry explicitly;
-recognition does not imply that the converter models a column, stair or floor void.
+recognition does not imply that the converter models a column, stair or arbitrary
+floor void.
 
 ## 4. Identify real objects using the fixed vocabulary
 
@@ -126,10 +137,12 @@ Fix tracing/rounding gaps only when the source supports a connection. A real
 wall's visible opening does not break its logical boundary. Preserve open-plan
 living/dining areas, passages and exterior voids. Close recognized balconies as
 independent rooms under the declared policy, retaining a shared house-side host
-across evidenced access openings. Never add partitions
-to turn furniture groups or room labels into closed boxes. Keep obscured
-connections uncertain. Closure checks consistency; it does not replace source
-alignment review. Output shared `walls`, no authored `rooms` polygons.
+across evidenced access openings. A supported enclosed shaft may also form a
+closed wall cycle, but its matching `floorOpening` must prevent that cycle from
+becoming walkable slab. Never add partitions to turn furniture groups, room labels
+or generic voids into closed boxes. Keep obscured connections uncertain. Closure
+checks consistency; it does not replace source alignment review. Output shared
+`walls`, no authored ordinary `rooms` polygons.
 
 ## 6. Extract wall-hosted doors and windows
 
@@ -175,8 +188,14 @@ image=(px/width,py/height). Use the same transform; do not fit anchors separatel
   perimeter, such as an exterior access passage. Reference existing shared wall
   paths, including curves. Enclosed balconies use wall-derived rooms, never a
   duplicate floorArea. Outside the balcony policy, do not turn railings into walls
-  or cover blank voids. Omit uncertain
-  outlines and disclose the gap instead of calling them walkable.
+  or cover blank voids. Omit uncertain outlines and disclose the gap instead of
+  calling them walkable.
+- Emit optional `floorOpenings` only for positively recognized slab voids that
+  exactly match one closed wall-derived room. Each item has a unique `id`, `name`,
+  at least three unique existing `wallIds`, and optional confidence. The wall set
+  is unordered and must be the complete detected-room boundary; do not use a
+  subset, copied polygon or size/no-door heuristic. Current reconstruction uses
+  this for supported enclosed shafts. Arbitrary open atria remain a disclosed gap.
 - In local verification, finish `component-review.json` as described in the component
   reference and run its read-only checker. Report unmapped/unmodeled features
   separately from valid references; include those gaps in draft assumptions.
