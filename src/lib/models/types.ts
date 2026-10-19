@@ -50,8 +50,8 @@ export function getWallStartHeight(wall: Partial<Pick<Wall, 'startHeight' | 'hei
   return validWallHeight(wall.startHeight) ? wall.startHeight : validWallHeight(wall.height) ? wall.height : 280;
 }
 
-export function getWallEndHeight(wall: Partial<Pick<Wall, 'endHeight' | 'height'>>): number {
-  return validWallHeight(wall.endHeight) ? wall.endHeight : validWallHeight(wall.height) ? wall.height : 280;
+export function getWallEndHeight(wall: Partial<Pick<Wall, 'startHeight' | 'height'>>): number {
+  return validWallHeight(wall.startHeight) ? wall.startHeight : validWallHeight(wall.height) ? wall.height : 280;
 }
 
 export function getWallHeightAt(wall: Wall, t: number): number {
@@ -122,7 +122,7 @@ export interface FurnitureItem {
   renderStyle?: 'block' | 'model';
   position: Point;
   rotation: number;
-  scale: { x: number; y: number; z: number };
+  scale: { x: 1, y: 1, z: 1 };
   // Per-item overrides (optional — falls back to catalog defaults)
   color?: string;
   width?: number;   // cm
@@ -282,6 +282,7 @@ export interface ReconstructionEvidence {
     doors: { id: string; confidence?: number }[];
     windows: { id: string; confidence?: number }[];
     floorAreas?: { id: string; confidence?: number }[];
+    floorOpenings?: { id: string; confidence?: number }[];
   }[];
 }
 
