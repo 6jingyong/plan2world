@@ -81,6 +81,14 @@ export interface DraftFloorArea {
   confidence?: number;
 }
 
+/** A closed wall-derived room whose slab is intentionally absent. */
+export interface DraftFloorOpening {
+  id: string;
+  name: string;
+  wallIds: string[];
+  confidence?: number;
+}
+
 export interface DraftFloor {
   id: string;
   name: string;
@@ -92,6 +100,8 @@ export interface DraftFloor {
   furniture?: DraftFurniture[];
   /** Ground outline for balconies/terraces; creates no physical partitions. */
   floorAreas?: DraftFloorArea[];
+  /** Closed wall-backed slab voids such as source-supported shafts. */
+  floorOpenings?: DraftFloorOpening[];
 }
 
 export interface Plan2WorldDraft {
@@ -270,16 +280,34 @@ function parseFloor(value: unknown, index: number): DraftFloor {
       boundary, confidence: confidence(area.confidence, `${areaPath}.confidence`) };
   });
 
+  if (v.floorOpenings !== undefined && !Array.isArray(v.floorOpenings)) throw new Plan2WorldDraftError(`${path}.floorOpenings must be an array`);
+  const floorOpenings: DraftFloorOpening[] = ((v.floorOpenings ?? []) as unknown[]).map((item, i) => {
+    const openingPath = `${path}.floorOpenings[${i}]`, opening = record(item, openingPath);
+    if (!Array.isArray(opening.wallIds) || opening.wallIds.length < 3) {
+      throw new Plan2WorldDraftError(`${openingPath}.wallIds must contain at least three wall ids`);
+    }
+    const wallIds = opening.wallIds.map((wallId, wi) => stringValue(wallId, `${openingPath}.wallIds[${wi}]`));
+    if (new Set(wallIds).size !== wallIds.length) throw new Plan2WorldDraftError(`${openingPath}.wallIds must be unique`);
+    return { id: stringValue(opening.id, `${openingPath}.id`), name: stringValue(opening.name, `${openingPath}.name`),
+      wallIds, confidence: confidence(opening.confidence, `${openingPath}.confidence`) };
+  });
+
   uniqueIds(walls, `${path}.walls`);
   uniqueIds(doors, `${path}.doors`);
   uniqueIds(windows, `${path}.windows`);
   uniqueIds(furniture, `${path}.furniture`);
-  uniqueIds([...walls, ...doors, ...windows, ...furniture, ...floorAreas], path);
+  uniqueIds(floorOpenings, `${path}.floorOpenings`);
+  uniqueIds([...walls, ...doors, ...windows, ...furniture, ...floorAreas, ...floorOpenings], path);
 
   const wallIds = new Set(walls.map(w => w.id));
   for (const opening of [...doors, ...windows]) {
     if (!wallIds.has(opening.wallId)) {
       throw new Plan2WorldDraftError(`${path}: opening ${opening.id} references unknown wall ${opening.wallId}`);
+    }
+  }
+  for (const floorOpening of floorOpenings) for (const wallId of floorOpening.wallIds) {
+    if (!wallIds.has(wallId)) {
+      throw new Plan2WorldDraftError(`${path}: floor opening ${floorOpening.id} references unknown wall ${wallId}`);
     }
   }
 
@@ -293,6 +321,7 @@ function parseFloor(value: unknown, index: number): DraftFloor {
     windows,
     furniture,
     floorAreas,
+    floorOpenings,
   };
 }
 
