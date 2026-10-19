@@ -10,7 +10,6 @@ Read:
 - [references/opening-trace.md](references/opening-trace.md)
 - [references/furniture-vocabulary.json](references/furniture-vocabulary.json)
 - [references/component-vocabulary.json](references/component-vocabulary.json)
-- [references/component-review.md](references/component-review.md)
 
 The pipeline is:
 
