@@ -32,15 +32,17 @@ const draft = {
 };
 
 describe('Plan2World vision reconstruction', () => {
-  it('builds an evidence-first prompt and includes a real-length scale hint', () => {
+  it('builds an evidence-first prompt and includes wall-graph normalization', () => {
     const prompt = buildFloorPlanVisionPrompt({ scaleHint: 'bottom wall is 360 cm' });
     expect(PLAN2WORLD_VISION_PROMPT_VERSION).toContain('plan2world-components-v2');
     expect(prompt).toContain('printed dimensions, scale bars');
     expect(prompt).toContain('bottom wall is 360 cm');
-    expect(prompt).toContain('centreline paths');
+    expect(prompt).toContain('wall-centreline skeleton');
     expect(prompt).toContain('curvePoint');
     expect(prompt).toContain('quadratic');
-    expect(prompt).toContain('many tiny straight facets');
+    expect(prompt).toContain('deterministically normalize');
+    expect(prompt).toContain('T-junction');
+    expect(prompt).toContain('review warning');
     expect(prompt).toContain('semantic-white-model');
     expect(prompt).toContain('sourceCategory');
     expect(prompt).toContain('floor-to-ceiling fixed glass');
@@ -49,8 +51,8 @@ describe('Plan2World vision reconstruction', () => {
     expect(prompt).toContain('NOT enough');
     expect(prompt).toContain('dimension-chain subdivisions');
     expect(prompt).toContain('never use cumulative dimension-chain values as wall x/y coordinates');
-    expect(prompt).toContain('reproject final cm wall geometry onto the unchanged source');
-    expect(prompt).toContain('A-layer failure');
+    expect(prompt).toContain('Reproject final cm wall geometry onto the unchanged source');
+    expect(prompt).toContain('hard A-wall failure');
     expect(prompt).toContain('floor.components');
     expect(prompt).toContain('componentVocabulary="plan2world-components-v2"');
     expect(prompt).toContain('Do not emit render, visible, sceneEffect, sceneSupport or requiresNativeSupport flags');

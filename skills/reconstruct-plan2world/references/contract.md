@@ -13,10 +13,16 @@ Native rooms are derived from wall topology; the draft does not author room poly
 
 Geometry is reconstructed before room-use semantics or furniture:
 
-**wall network -> closed room envelopes -> hosted doors/windows -> optional components -> furniture**
+**raw wall trace -> deterministic normalized wall graph -> closed room envelopes -> hosted doors/windows -> optional components -> furniture**
+
+The raw image trace is allowed to contain a long wall crossing several room
+junctions. Before draft emission, deterministic normalization splits that existing
+wall at source-supported intersections/T-junctions and may snap only small endpoint
+residuals within tolerance. It must never create a new connector across a real gap.
+The normalized wall graph, not the unsplit working trace, is the draft skeleton.
 
 A logical wall remains continuous across its openings. A room side may be mostly or
-entirely window/door while still using one continuous host wall. Whether a source
+entirely window/door while still using a continuous host wall. Whether a source
 space is called balcony, bedroom or anything else does not decide its geometry.
 
 ## Root fields
@@ -47,12 +53,20 @@ defaults (currently 280 cm height, 20 cm exterior thickness, 12 cm otherwise).
 Walls are zero-width centreline paths during reconstruction. A visible smooth curve
 uses one quadratic `curvePoint` where appropriate. Shared walls are emitted once.
 
+Before door/window binding, local reconstruction should run the deterministic wall
+graph normalizer described in [opening-trace.md](opening-trace.md). Raw walls may be
+split into deterministic derived IDs at real junctions; downstream openings and
+source-registration anchors must reference the normalized walls.
+
+A normalized wall-frame failure is hard: visibly wrong/missing/invented wall, or a
+supposed closed space that still cannot close without adding unsupported geometry.
+
 ## Doors and windows
 
-Each opening requires:
+Each emitted opening requires:
 
 - unique `id`;
-- existing `wallId`;
+- existing normalized `wallId`;
 - `position` from 0..1 along the logical host;
 - positive physical `width`.
 
@@ -67,8 +81,14 @@ when its track/panel evidence describes one access opening.
 Omitted window height/sill use the semantic-white-model presentation default of
 floor-to-ceiling fixed glass. This is editable presentation, not a source claim.
 
-Read [opening-trace.md](opening-trace.md) for source-pixel endpoint derivation and
-the local bare-room envelope gate.
+Opening extraction/review is separate from the hard wall-frame gate. Uncertain or
+slightly wrong door/window position, width, operation or completeness should be
+reported as an opening-review warning when the normalized wall frame itself is
+correct. Promote an opening issue to a hard failure only if it demonstrates wrong
+or disconnected host-wall geometry.
+
+Read [opening-trace.md](opening-trace.md) for raw-wall normalization and source-pixel
+opening endpoint derivation.
 
 ## Furniture
 
@@ -108,14 +128,14 @@ The local `component-review.json` sidecar is evidence only; see
 
 ## Source registration and scale
 
-Source registration uses existing wall endpoints and normalized coordinates on the
-unchanged original raster. Prefer 3–6 spread-out reliable anchors; 2 is minimum.
-Do not use furniture, text, dimension arrows or page corners.
+Source registration uses existing normalized wall endpoints and normalized
+coordinates on the unchanged original raster. Prefer 3–6 spread-out reliable
+anchors; 2 is minimum. Do not use furniture, text, dimension arrows or page corners.
 
 Printed dimensions and dimension-chain subdivisions constrain scale/distances but
 are not wall x/y coordinates. Use one uniform source-to-cm transform for all layers.
-The final cm wall network must reproject onto the unchanged source with the same
-transform; obvious/systematic drift is an A-layer failure.
+The final normalized cm wall network must reproject onto the unchanged source with
+the same transform; obvious/systematic drift is a hard A-wall failure.
 
 ## Optional open ground
 

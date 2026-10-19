@@ -1,112 +1,114 @@
-# Source opening intervals and bare-room envelope gate
+# Source wall topology and opening review
 
-Plan2World reconstructs the empty architectural shell before furniture. Room use
-labels such as bedroom, balcony or study do not decide geometry. First establish
-closed spaces from the source wall network; then classify each boundary run as
-solid wall, window or door. Furniture is a later layer.
+Plan2World reconstructs the empty architectural shell before furniture. Room-use
+labels such as bedroom, balcony or study do not decide geometry.
 
-A door/window is a zero-thickness interval on a continuous logical wall path, not
-an independent rectangle or solid. The host remains present across the opening so
-room topology survives; the converter cuts the visible aperture later. A complete
-room side may be 100% window or 100% door while its logical host wall still spans
-the full side.
+The A-layer is intentionally split into two responsibilities:
 
-## Door operation
+1. **hard wall-frame topology** — raw wall centrelines must normalize into the
+   correct closed-space graph without inventing new walls;
+2. **soft opening review** — doors/windows are attached to that normalized graph
+   and may remain review warnings for later 2D/3D/walkthrough adjustment.
 
-Establish opening presence before operation:
+## 1. Raw wall graph normalization
 
-- `single`: one evidenced hinged leaf/arc.
-- `double`: two evidenced hinged leaves/arcs sharing one aperture. Use one door
-  from outer jamb to outer jamb, not one door per leaf.
-- `sliding`: evidenced sliding access. Treat a multi-panel sliding assembly as one
-  sliding aperture when the visible track/panel system forms one access opening;
-  it may span most or all of a room side. Do not downgrade it to a window merely
-  because it is wide or glazed.
-- `opening`: evidenced leafless passage.
-
-When a door exists but operation is unclear, omit `type` and retain the unresolved
-evidence. Width alone does not prove double leaves. Two parallel tracks do not
-prove a hinged double door.
-
-Record actual two jamb/glazing endpoints in the original raster, `wallId`, source
-evidence and type evidence. Do not author independent `position`, `width` or
-`thickness` in the source trace. The helper derives draft width/position from the
-wall path. Curved hosts use path distance, not chord length or mean Bezier t.
-
-## Bare-room envelope working trace
-
-For local A-layer verification, the same `opening-trace.json` may include two
-working-only arrays. They are evidence/checking artifacts, not draft contract
-fields and not authored `rooms`:
-
-- `enclosures`: ordered wall loops for every source-supported closed space being
-  reconstructed. Each boundary part is `{wallId, reverse?}`.
-- `wallSurfaces`: a complete partition of each wall used by an enclosure into
-  `solid`, `window` and `door` segments.
-
-Every surface segment uses two original-raster endpoints and visible evidence.
-`window` and `door` segments also reference exactly one `openingId`. The complete
-set of segments for a wall must cover the wall from start to end with no unexplained
-gap or overlap. Do **not** silently treat omitted parts as solid wall.
-
-Example: a fully glazed four-sided room can be represented by three full-wall
-windows plus one full-wall sliding door. No balcony/terrace classification is
-required to create that room. If the source later supports a semantic component
-label, it may be recorded separately, but that label must not create, close or
-modify the room geometry.
+Prepare a local `wall-trace.json` in original source pixels:
 
 ```json
 {
-  "cmPerPixel": 2,
+  "maxJunctionDistancePx": 3,
   "walls": [
-    {"id":"w1","start":{"x":0,"y":0},"end":{"x":100,"y":0}},
-    {"id":"w2","start":{"x":100,"y":0},"end":{"x":100,"y":80}},
-    {"id":"w3","start":{"x":100,"y":80},"end":{"x":0,"y":80}},
-    {"id":"w4","start":{"x":0,"y":80},"end":{"x":0,"y":0}}
+    {"id":"top","start":{"x":0,"y":40},"end":{"x":100,"y":40}},
+    {"id":"right","start":{"x":100,"y":0},"end":{"x":100,"y":100}},
+    {"id":"bottom","start":{"x":100,"y":100},"end":{"x":0,"y":100}},
+    {"id":"left","start":{"x":0,"y":100},"end":{"x":0,"y":40}}
   ],
-  "openings": [
-    {"id":"n1","kind":"window","wallId":"w1","endpoints":[{"x":0,"y":0},{"x":100,"y":0}],"evidence":"Full-height glazing"},
-    {"id":"n2","kind":"window","wallId":"w2","endpoints":[{"x":100,"y":0},{"x":100,"y":80}],"evidence":"Full-height glazing"},
-    {"id":"n3","kind":"window","wallId":"w3","endpoints":[{"x":100,"y":80},{"x":0,"y":80}],"evidence":"Full-height glazing"},
-    {"id":"d1","kind":"door","wallId":"w4","endpoints":[{"x":0,"y":80},{"x":0,"y":0}],"evidence":"Continuous sliding-panel system","doorType":"sliding","typeEvidence":"Parallel sliding track and panels"}
-  ],
-  "enclosures": [{
-    "id":"space-1",
-    "boundary":[{"wallId":"w1"},{"wallId":"w2"},{"wallId":"w3"},{"wallId":"w4"}]
-  }],
-  "wallSurfaces": [
-    {"wallId":"w1","segments":[{"kind":"window","openingId":"n1","endpoints":[{"x":0,"y":0},{"x":100,"y":0}],"evidence":"Complete glazed side"}]},
-    {"wallId":"w2","segments":[{"kind":"window","openingId":"n2","endpoints":[{"x":100,"y":0},{"x":100,"y":80}],"evidence":"Complete glazed side"}]},
-    {"wallId":"w3","segments":[{"kind":"window","openingId":"n3","endpoints":[{"x":100,"y":80},{"x":0,"y":80}],"evidence":"Complete glazed side"}]},
-    {"wallId":"w4","segments":[{"kind":"door","openingId":"d1","endpoints":[{"x":0,"y":80},{"x":0,"y":0}],"evidence":"Complete sliding-door side"}]}
-  ]
+  "enclosures":[{
+    "id":"room-1",
+    "boundary":[{"wallId":"top"},{"wallId":"right"},{"wallId":"bottom"},{"wallId":"left"}]
+  }]
 }
 ```
 
 Run:
 
+`node tooling/normalize-plan2world-wall-graph.mjs --trace wall-trace.json`
+
+The normalizer may only reuse geometry already present in the trace:
+
+- exact straight-wall intersections become graph nodes;
+- an endpoint within the tolerance of another wall may snap onto that wall;
+- a long wall is split at real T-junctions/intersections into deterministic IDs;
+- enclosure boundaries are rewritten onto the normalized segments.
+
+In the example above, `right` is allowed to start at y=0 even though the room uses
+it only from y=40 downward. The algorithm splits it at `(100,40)` rather than
+requiring the image model to pre-split the wall manually.
+
+This is **topology completion, not wall invention**. The normalizer must never draw
+a connector across an unsupported gap. If adjacent room sides still have no shared
+intersection/junction within tolerance, the wall skeleton is a hard A-layer failure.
+
+Freeze both the raw trace and normalized result. Use the normalized walls as the
+actual draft skeleton and as later opening hosts.
+
+## 2. Door/window operation
+
+A door/window is a zero-thickness interval on a continuous normalized logical wall.
+The host remains present across the aperture; the renderer cuts the visible opening
+later.
+
+Establish opening presence before operation:
+
+- `single`: one evidenced hinged leaf/arc;
+- `double`: two evidenced hinged leaves/arcs sharing one full aperture;
+- `sliding`: evidenced sliding-panel/track access, including very wide or full-side systems;
+- `opening`: evidenced leafless passage.
+
+A multi-panel sliding system may occupy most or all of one room side. Do not call
+it a window merely because it is wide/glazed. Fixed glazing remains a window.
+
+Record actual two jamb/glazing endpoints in the original raster, `wallId`, source
+evidence and type evidence. Do not author independent `position`, `width` or
+`thickness`; the helper derives draft width/position from the wall path.
+
+## 3. Opening review trace
+
+After wall normalization, prepare `opening-trace.json` using the **normalized wall
+IDs**. It may contain:
+
+- `walls`: normalized walls;
+- `openings`: observed door/window intervals;
+- optional `enclosures`: normalized closed-space loops;
+- optional `wallSurfaces`: source-facing `solid/window/door` partitions.
+
+Run:
+
 `node tooling/derive-plan2world-openings.mjs --trace opening-trace.json`
 
-The helper is a **mandatory A-layer freeze gate** for a local reconstruction run.
-It checks:
+The helper still checks endpoint projection, host association, opening width and
+surface consistency. These checks are useful evidence, but their ownership is now
+explicit:
 
-1. each opening has two observed endpoints on one continuous host wall;
-2. split hosts fail instead of being stitched or extended automatically;
-3. every enclosure wall has a complete `wallSurfaces` partition;
-4. every door/window surface interval matches the corresponding opening trace;
-5. every listed enclosure wall loop actually closes in source-pixel space.
+- if an opening problem reveals that the **wall itself** is disconnected/wrong,
+  promote it to a hard wall-frame failure;
+- otherwise an inaccurate/missing window or door interval is an **opening-review
+  warning**, not a reason to discard an already correct wall skeleton.
 
-A nonzero error means A fails. Freeze the failed trace/candidate and stop; do not
-repair the JSON by hand and do not continue to contract/native/3D validation.
-Fix the reusable recognition/tracing procedure, then rerun from the original raster.
+Examples of soft review issues: window width slightly wrong, sliding-door extent
+uncertain, operation unclear, one opening omitted from a long glazed wall. Those
+can be inspected and adjusted later in 2D/3D/walkthrough.
 
-The default endpoint/loop tolerance is 3 source pixels. Do not raise it just to
-hide incorrect tracing. Solid piers remain explicit `solid` intervals between
-openings. If a wall is entirely glazing or entirely a sliding door, its single
-surface segment may legitimately cover the complete wall path.
+Examples of hard wall issues: a wall is visibly misplaced, a real wall is missing,
+an unsupported wall was invented, or normalized room topology cannot close without
+adding geometry absent from the source.
 
-The helper validates consistency, not visual truth. A model can still misclassify
-a source region while producing internally valid intervals. Therefore the frozen
-whole-plan source overlay remains the final A-layer visual check. Valid projection,
-closed loops and complete surface coverage cannot replace comparing the candidate
-against the unchanged original image.
+## 4. Visual truth still owns the result
+
+Neither graph normalization nor valid opening mathematics proves source accuracy.
+The frozen normalized wall network must still be reprojected onto the unchanged
+original raster. A systematic wall-centreline mismatch remains a hard A-wall
+failure.
+
+Door/window overlays are reviewed separately and may remain flagged for later
+interactive correction without invalidating the bare-house wall frame.
