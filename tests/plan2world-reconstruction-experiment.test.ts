@@ -4,12 +4,14 @@ import {
   parseReconstructionExperimentMetadata,
 } from '../src/lib/plan2world/reconstructionExperiment';
 import { PLAN2WORLD_VISION_PROMPT_VERSION } from '../src/lib/plan2world/vision';
+import { PLAN2WORLD_RECONSTRUCTION_INSTRUCTIONS_VERSION } from '../src/lib/plan2world/reconstructionInstructions';
+import { PLAN2WORLD_COMPONENT_VOCABULARY } from '../src/lib/plan2world/componentVocabulary';
 
 const sha = 'ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789';
 
 describe('reconstruction experiment identity', () => {
   it('versions the semantic white-model reconstruction instructions', () => {
-    expect(PLAN2WORLD_VISION_PROMPT_VERSION).toBe('plan2world-white-model-instructions-v11');
+    expect(PLAN2WORLD_VISION_PROMPT_VERSION).toBe(`${PLAN2WORLD_RECONSTRUCTION_INSTRUCTIONS_VERSION}+${PLAN2WORLD_COMPONENT_VOCABULARY}`);
   });
 
   it('records provider separately from model so the contract is not vendor-bound', () => {
