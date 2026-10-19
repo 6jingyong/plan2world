@@ -10,7 +10,8 @@ Everything else belongs to scripts or the downstream application.
 | Source annotations | LLM | source raster + accepted Bare House IDs | `source-annotation-v1` |
 | Scale math | program | real length + source endpoints | cm-per-pixel |
 | Opening math | program | Bare House + source opening endpoints | host position + physical width |
-| Draft assembly | program | Bare House + annotations | `plan2world-draft-v1` |
+| Source registration | program | Bare House source pixels + raster width/height | spread normalized anchors |
+| Draft assembly | program | Bare House + annotations + source size | `plan2world-draft-v1` |
 | Contract/reference checks | program | draft | validation report |
 | Rooms/2D/3D/collision | application | accepted draft | native editable home |
 | Walkthrough/editing/assets | application/user | native home | product experience |
@@ -21,11 +22,12 @@ Normalize raw walls:
 
 `node tooling/normalize-plan2world-wall-graph.mjs --trace wall-trace.json > bare-house.json`
 
-Assemble the final draft from evidence:
+Assemble the final draft from evidence. Pass source dimensions when an image-backed
+review/overlay is required so registration uses the same source-pixel transform:
 
-`node tooling/assemble-plan2world-draft.mjs --bare-house bare-house.json --annotations annotations.json > draft.json`
+`node tooling/assemble-plan2world-draft.mjs --bare-house bare-house.json --annotations annotations.json --source-width W --source-height H > draft.json`
 
-Validate final draft/source registration when applicable:
+Validate the assembled draft:
 
 `NODE_ENV=production node tooling/inspect-plan2world-draft.mjs --draft draft.json --source source.jpg --width W --height H --require-furniture-vocabulary true`
 
@@ -41,6 +43,7 @@ stage. In particular, do not ask it to:
 - repair T-junctions or close wall loops;
 - calculate scale, width or opening position;
 - convert pixels to centimetres;
+- choose source-registration anchors or fit the source image;
 - validate IDs/vocabulary/schema;
 - derive rooms;
 - decide collision/walkability from source semantics;
