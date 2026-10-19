@@ -1,12 +1,12 @@
 import { PLAN2WORLD_FURNITURE_TYPES } from './furnitureVocabulary';
 
-export const PLAN2WORLD_RECONSTRUCTION_INSTRUCTIONS_VERSION = 'plan2world-source-annotation-instructions-v16' as const;
+export const PLAN2WORLD_RECONSTRUCTION_INSTRUCTIONS_VERSION = 'plan2world-source-annotation-instructions-v17' as const;
 
 export interface ReconstructionOptions { scaleHint?: string }
 
 /**
  * Compatibility name: this now instructs the second Vision pass to emit source
- * evidence only. Deterministic code owns all geometry math and draft assembly.
+ * evidence only. Deterministic code owns host association, geometry math and draft assembly.
  */
 export function buildReconstructionInstructions(options: ReconstructionOptions = {}): string {
   const scaleHint = options.scaleHint?.trim();
@@ -15,7 +15,8 @@ export function buildReconstructionInstructions(options: ReconstructionOptions =
 Return ONLY one source-annotation-v1 JSON object. Do not return plan2world-draft-v1.
 
 A deterministic program already normalized the wall trace into the Bare House supplied below.
-Use its normalized wall IDs as references. Do not retrace, split, snap, close, move, scale or classify walls.
+Do not retrace, split, snap, close, move, scale or classify walls. Bare House geometry is context only;
+the program will associate each observed opening with its host wall from the source endpoints.
 
 Output shape:
 {
@@ -30,7 +31,6 @@ Output shape:
   "openings":[{
     "id":"d1",
     "kind":"door|window",
-    "wallId":"normalized-wall-id",
     "endpoints":[{"x":200,"y":300},{"x":260,"y":300}],
     "evidence":"visible jamb/glazing endpoints",
     "doorType":"single|double|sliding|opening",
@@ -58,7 +58,7 @@ ${scaleHint ? `User scale hint: ${scaleHint}` : 'User scale hint: none.'}
 
 Openings:
 - First establish that an opening exists, then report its two observed source endpoints.
-- wallId MUST be an existing normalized Bare House wall ID supplied below.
+- Do NOT choose or emit a wallId. The program resolves the Bare House host from those endpoints.
 - doorType is optional and only evidence-backed: single, double, sliding, opening.
 - Fixed glazing is kind="window". Full-side glazing/sliding access is valid.
 - Do not invent an opening for circulation.
@@ -71,10 +71,10 @@ Furniture:
 FORBIDDEN derived/output fields:
 - cmPerPixel;
 - centimetre coordinates;
-- opening width or position;
+- opening wallId, width or position;
 - wall kind/thickness/height or modified wall geometry;
 - catalogId, furniture size or rotation;
 - floors, rooms, sourceRegistration, components, meshes or final draft fields.
 
-Programs will calculate scale, opening projection/width/position, coordinate conversion, catalogId, validation and final draft assembly.`;
+Programs will calculate scale, opening host/projection/width/position, coordinate conversion, catalogId, validation and final draft assembly.`;
 }
