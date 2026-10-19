@@ -46,21 +46,31 @@ function sha256(value: string, field: string): string {
   return normalized;
 }
 
+function emptyStages(): Record<Plan2WorldValidationStage, Plan2WorldValidationStageResult> {
+  return {
+    'source-to-draft': { status: 'not-run' },
+    'draft-contract': { status: 'not-run' },
+    'draft-to-native': { status: 'not-run' },
+    'native-geometry': { status: 'not-run' },
+    'walkthrough-world': { status: 'not-run' },
+    'interaction-persistence': { status: 'not-run' },
+    'runtime-assets': { status: 'not-run' },
+  };
+}
+
 export function createPlan2WorldValidationRun(input: {
   runId: string;
   repoCommit: string;
   draftCandidateId: string;
   experiment: ReconstructionExperimentMetadata;
 }): Plan2WorldValidationRun {
-  const stages = Object.fromEntries(PLAN2WORLD_VALIDATION_STAGES.map(stage => [stage, { status: 'not-run' as const }]))
-    as Record<Plan2WorldValidationStage, Plan2WorldValidationStageResult>;
   return {
     schemaVersion: PLAN2WORLD_VALIDATION_RUN_VERSION,
     runId: nonEmpty(input.runId, 'runId'),
     repoCommit: nonEmpty(input.repoCommit, 'repoCommit'),
     draftCandidateId: nonEmpty(input.draftCandidateId, 'draftCandidateId'),
     experiment: structuredClone(input.experiment),
-    stages,
+    stages: emptyStages(),
   };
 }
 
