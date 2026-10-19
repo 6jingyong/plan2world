@@ -28,7 +28,7 @@ const annotation = {
     basis: '360 cm printed dimension',
   },
   openings: [{
-    id: 'd1', kind: 'door', wallId: 'w1',
+    id: 'd1', kind: 'door',
     endpoints: [{ x: 135, y: 0 }, { x: 225, y: 0 }],
     evidence: 'Visible jamb-to-jamb aperture',
   }],
@@ -45,19 +45,19 @@ function responseJson(value: unknown): Response {
 describe('Plan2World vision reconstruction', () => {
   it('instructs the second pass to return evidence instead of calculated draft geometry', () => {
     const prompt = buildFloorPlanVisionPrompt({ scaleHint: 'bottom wall is 360 cm' });
-    expect(PLAN2WORLD_VISION_PROMPT_VERSION).toContain('source-annotation-instructions-v16');
+    expect(PLAN2WORLD_VISION_PROMPT_VERSION).toContain('source-annotation-instructions-v17');
     expect(prompt).toContain('source-annotation-v1');
     expect(prompt).toContain('Do not return plan2world-draft-v1');
     expect(prompt).toContain('ORIGINAL SOURCE IMAGE PIXELS');
-    expect(prompt).toContain('wallId MUST be an existing normalized Bare House wall ID');
+    expect(prompt).toContain('Do NOT choose or emit a wallId');
     expect(prompt).toContain('DO NOT calculate cmPerPixel');
-    expect(prompt).toContain('opening width or position');
+    expect(prompt).toContain('opening wallId, width or position');
     expect(prompt).toContain('catalogId');
     expect(prompt).toContain('Programs will calculate scale');
     expect(prompt).toContain('bottom wall is 360 cm');
   });
 
-  it('uses two visual passes then assembles the returned evidence deterministically', async () => {
+  it('uses two visual passes then resolves hosts and assembles evidence deterministically', async () => {
     let pass = 0;
     const customFetch = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body));
@@ -118,13 +118,13 @@ describe('Plan2World vision reconstruction', () => {
     )).rejects.toThrow(failure === 'missing-version' ? 'source-annotation-v1' : 'not in plan2world-furniture-v1');
   });
 
-  it('rejects model-authored derived opening geometry', async () => {
+  it('rejects model-authored derived opening geometry or host IDs', async () => {
     const invalid: any = structuredClone(annotation);
-    invalid.openings[0].width = 90;
+    invalid.openings[0].wallId = 'w1';
     let pass = 0;
     const customFetch = vi.fn(async () => responseJson(pass++ === 0 ? trace : invalid));
     await expect(reconstructFloorPlanImage(
       { baseUrl: 'https://example.test/v1', apiKey: 'test', model: 'vision-model' }, image, {}, customFetch as typeof fetch,
-    )).rejects.toThrow(/unsupported fields: width/);
+    )).rejects.toThrow(/unsupported fields: wallId/);
   });
 });
