@@ -16,6 +16,7 @@ describe('Plan2World component vocabulary', () => {
     expect(registry.reviewSchema).toBe(PLAN2WORLD_COMPONENT_REVIEW_SCHEMA);
     expect(schema.$defs.fixedComponentType.enum).toEqual(PLAN2WORLD_COMPONENT_TYPES);
     expect(registry.types.map((item: any) => item.id)).toEqual(PLAN2WORLD_COMPONENT_TYPES);
+    expect(schema.$defs.component.additionalProperties).toBe(false);
   });
 
   it('requires deterministic scene policy for every component type', () => {
