@@ -33,7 +33,7 @@ Use `schemas/plan2world-draft-v1.schema.json` and `docs/plan2world-draft-v1.md`.
 Important conventions:
 
 - Lengths are centimetres.
-- A wall is represented by its centreline start/end points plus thickness and height.
+- Trace walls as zero-width centrelines. Draft start/end and optional curvePoint own position; omit optional positive thickness/height unless established. Normalization supplies physical defaults later. Never emit thickness 0.
 - Doors/windows reference an existing wall by `wallId` and use `position` in `[0, 1]` along that wall.
 - If a drawing contains a trustworthy dimension, use it as the scale anchor.
 - If no trustworthy scale exists, mark the scale as estimated and state the assumption; do not present guessed dimensions as measured facts.
@@ -46,7 +46,7 @@ Important conventions:
 - Keep parsing/normalization as pure functions where possible so they are testable without a browser.
 - Reject malformed references, duplicate IDs, non-finite coordinates, negative dimensions, and openings that do not reference a known wall.
 - Defaults belong in one normalization layer, not scattered through UI components.
-- Do not silently invent architectural details that are not present in the source image.
+- Do not silently invent architectural details that are not present in the source image. The explicit balcony enclosure policy below is a declared product assumption, not source-observed glazing.
 
 ## Default v1 assumptions
 
@@ -95,3 +95,5 @@ The first useful release should support:
 Avoid expanding into BIM, photorealistic rendering, structural analysis, or automatic interior design until this loop is reliable.
 
 Architectural component recognition precedes furniture. Use the Skill's fixed component vocabulary and review evidence, reference existing walls/windows/floorAreas once, and disclose missing native support for columns, stairs or floor voids. Do not treat equipment platforms/shafts/voids as usable floor or infer unseen floor connections. After every Skill revision, complete at least one fresh source application and frozen review before publishing; unit tests alone do not validate extraction.
+
+Recognized balconies/terraces default to independent enclosed glazed rooms. Follow the Skill balcony policy: trace their supported perimeter, reuse continuous house-side hosts once, and place hosted outer windows except observed solid walls/piers. Preserve native curves and source-open guard evidence. Declare affected host/window IDs and source region as policy assumptions. Do not invent missing boundaries, apply this to access passages/equipment platforms/voids, or add a duplicate floorArea. Historical/manual open floorAreas remain import-compatible.

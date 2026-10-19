@@ -11,6 +11,8 @@ Also read [references/component-review.md](references/component-review.md) and
 [references/component-vocabulary.json](references/component-vocabulary.json).
 Read [references/opening-trace.md](references/opening-trace.md) for opening
 evidence, single/double leaves and deterministic interval measurement.
+Read [references/balcony-policy.md](references/balcony-policy.md) when a balcony
+is present: default to a separate enclosed glazed room and disclose that policy.
 Use the attached image as evidence. Produce `plan2world-draft-v1` with
 `presentation: "semantic-white-model"` and
 `furnitureVocabulary: "plan2world-furniture-v1"`. Require no particular model
@@ -37,7 +39,8 @@ across door/window interruptions; attach those openings in stage 6.
 
 Use this outline to establish architectural context. A bay projection, window
 ledge, wall pier or planter platform belongs to that context, not to the furniture
-inventory. Do not force open exterior edges to become walls. Do not infer walkable
+inventory. Keep observed open edges distinct from physical walls. In stage 3,
+apply the explicit balcony enclosure policy to recognized balconies only. Do not infer walkable
 ground merely because the outline encloses it. Keep stable wall IDs for reuse
 when completing the interior network in stage 5.
 
@@ -52,6 +55,11 @@ evidence and floor identity in the working component inventory.
 This pass assigns ownership before furniture recognition. Reuse real walls,
 windows and floorAreas for component geometry; never add a duplicate solid or
 furniture block. Complete references to those native draft objects after stage 6.
+For a recognized balcony, trace its actual perimeter, reuse the house-side boundary
+once, and plan continuous outer hosts for policy-derived glazing. Preserve native
+curves and observed solid piers. A label alone cannot establish missing bounds;
+record an incomplete enclosure instead of inventing them. Do not classify access
+passages, equipment ledges or voids as balconies to obtain a floor.
 A built-in cabinet can still be furniture when its own symbol establishes it.
 Do not erase source components to clear space for furniture detection.
 
@@ -116,7 +124,9 @@ and T-junctions. Split/reuse outer wall IDs consistently where new junctions lan
 Follow each source-supported enclosed boundary before adding thickness or doors.
 Fix tracing/rounding gaps only when the source supports a connection. A real
 wall's visible opening does not break its logical boundary. Preserve open-plan
-living/dining areas, passages, balconies and exterior voids. Never add partitions
+living/dining areas, passages and exterior voids. Close recognized balconies as
+independent rooms under the declared policy, retaining a shared house-side host
+across evidenced access openings. Never add partitions
 to turn furniture groups or room labels into closed boxes. Keep obscured
 connections uncertain. Closure checks consistency; it does not replace source
 alignment review. Output shared `walls`, no authored `rooms` polygons.
@@ -128,6 +138,9 @@ shower access. First establish presence, then single/double/sliding operation fr
 visible source evidence. Two hinged leaves share one full-width aperture; neither
 width alone nor two sliding tracks establish a double hinged door. Omit an
 unsupported opening; disclose uncertain operation instead of claiming a leaf count.
+The sole default enclosure exception is policy-derived balcony glazing: use traced
+outer boundary endpoints and explicitly identify its window/host IDs in assumptions
+and local evidence. Do not claim observed glazing where only a guard is visible.
 
 Every door/window is a zero-thickness interval on an existing `wallId`. Keep the
 host continuous. Record original-raster jamb/glazing endpoints and evidence, then
@@ -159,8 +172,10 @@ image=(px/width,py/height). Use the same transform; do not fit anchors separatel
   vocabulary version and exact category IDs. The enum cannot check visual identity;
   compare each object's presence/type/region with the original as well.
 - Emit optional `floorAreas` only for source-visible open ground with a supported
-  perimeter. Reference existing shared wall paths, including curves. Do not turn
-  railings into walls, duplicate enclosed rooms or cover blank voids. Omit uncertain
+  perimeter, such as an exterior access passage. Reference existing shared wall
+  paths, including curves. Enclosed balconies use wall-derived rooms, never a
+  duplicate floorArea. Outside the balcony policy, do not turn railings into walls
+  or cover blank voids. Omit uncertain
   outlines and disclose the gap instead of calling them walkable.
 - In local verification, finish `component-review.json` as described in the component
   reference and run its read-only checker. Report unmapped/unmodeled features

@@ -38,8 +38,12 @@ do not call the result completely modeled/walkable because the checker parses it
   geometry exactly once. A bay is not another box on top of those objects.
 - A wall pier integrated with walls is not also a standalone column. Fixed storage
   needs recognizable cabinet evidence; a rectangular ledge alone is architecture.
-- Balcony railing is not a full-height wall. Equipment ledges and shafts are not
-  automatically living floor. Visible plants alone do not establish a built-in planter.
+- A balcony guard remains observed guard evidence. Under `balcony-policy.md`, its
+  supported perimeter may host assumed full-height glazing. Reference those walls
+  and windows from the balcony; never add duplicate solids or floorAreas. The
+  checker tests current enclosure mappings, not historical open-balcony policy or
+  actual room closure. Equipment ledges and shafts are not automatically living
+  floor. Visible plants alone do not establish a built-in planter.
 - Recognize stairs from tread/flight or labelled stair evidence. Distinguish an
   up/down arrow from a compass, door arc, rug, lift and annotation. Optional
   `vertical: {"direction":"up","toFloorId":"f1"}` is only for stairs. Omit

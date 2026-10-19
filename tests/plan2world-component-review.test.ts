@@ -50,6 +50,14 @@ describe('component evidence ownership',()=>{
     if(failure==='wrong-vertical-owner')item.vertical={direction:'up'};
     expect(run(input).status).toBe(1);
   });
+  it('requires enclosing walls and windows for current balcony mappings',()=>{
+    const input=review();input.components[0].type='balcony';
+    expect(JSON.parse(run(input).stdout).unmappedComponents).toEqual([]);
+    input.components[0].geometryRefs=[{kind:'wall',id:'w1'}];
+    expect(JSON.parse(run(input).stdout).unmappedComponents).toEqual(['c1']);
+    input.components[0].geometryRefs=[{kind:'window',id:'win1'}];
+    expect(JSON.parse(run(input).stdout).unmappedComponents).toEqual(['c1']);
+  });
   it('keeps fixed architectural IDs separate from furniture IDs',()=>{
     expect(PLAN2WORLD_COMPONENT_TYPES).toHaveLength(11);
     expect(PLAN2WORLD_COMPONENT_TYPES.filter(id=>PLAN2WORLD_FURNITURE_TYPES.includes(id))).toEqual([]);

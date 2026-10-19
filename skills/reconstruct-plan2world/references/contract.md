@@ -52,7 +52,9 @@ normalization defaults after the skeleton is checked; zero thickness is invalid.
 - `scale.mode`: `measured`, `provided` or `estimated`; confidence 0..1 is required.
 - Wall: `id`, `start`, `end` required; optional `curvePoint`, positive `thickness`
   and `height`, `kind` (`interior`, `exterior`, `unknown`), confidence 0..1.
-  Default height 280; exterior thickness 20, other thickness 12.
+  Extraction omits these physical properties unless established: the geometry is
+  a zero-width centreline skeleton, not two wall faces. Normalization supplies
+  default height 280; exterior thickness 20, other thickness 12.
 - Door/window: require `id`, existing `wallId`, `position` 0..1 and positive
   `width`. Position is the centre along the straight wall, or the quadratic
   parameter t on a curved wall; use curve-path distance for physical width.
@@ -95,8 +97,14 @@ their prior window defaults and optional catalog furniture hints.
 
 ## Open ground outlines
 
-Optional `floors[].floorAreas` supplies source-visible open outdoor ground,
-including balconies, terraces and exterior access passages, not inferred rooms. Each area requires unique `id`, `name`, and `boundary`;
+Current reconstruction treats recognized balconies/terraces as independent enclosed
+glazed rooms under [balcony-policy.md](balcony-policy.md): continuous wall paths,
+hosted windows, no duplicate floorArea. Declare assumed enclosure in `assumptions`.
+
+Optional `floors[].floorAreas` remains available for source-visible open ground
+such as exterior access passages, and for historical/manual open balconies. The
+following example describes that existing format, not the reconstruction default.
+Each area requires unique `id`, `name`, and `boundary`;
 confidence 0..1 is optional. Each boundary has 1–256 ordered parts:
 
 - `{"wallId":"w1"}` traces the whole existing wall from start to end;
