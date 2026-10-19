@@ -13,6 +13,8 @@ export interface SourceWallTraceV1 {
   schemaVersion: typeof SOURCE_WALL_TRACE_VERSION;
   maxJunctionDistancePx?: number;
   walls: DraftWall[];
+  /** Source-supported door gaps that continue a logical wall boundary. */
+  doorGaps?: { id: string; fromWallId: string; toWallId: string; from: DraftPoint; to: DraftPoint }[];
   enclosures?: {
     id: string;
     boundary: BareHouseBoundaryRef[];
@@ -56,6 +58,7 @@ export function buildBareHouse(input: unknown): BareHouseV1 {
   }
 
   const normalized = normalizeSourceWallGraph({
+    doorGaps: trace.doorGaps,
     maxJunctionDistancePx: trace.maxJunctionDistancePx,
     walls: trace.walls,
     enclosures: trace.enclosures,
