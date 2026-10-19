@@ -1,7 +1,6 @@
-import { PLAN2WORLD_COMPONENT_TYPES, PLAN2WORLD_COMPONENT_GUIDE } from './componentVocabulary';
 import { PLAN2WORLD_FURNITURE_TYPES, PLAN2WORLD_FURNITURE_VOCABULARY } from './furnitureVocabulary';
 
-export const PLAN2WORLD_RECONSTRUCTION_INSTRUCTIONS_VERSION = "plan2world-white-model-instructions-v14" as const;
+export const PLAN2WORLD_RECONSTRUCTION_INSTRUCTIONS_VERSION = "plan2world-white-model-instructions-v15" as const;
 
 export interface ReconstructionOptions { scaleHint?: string }
 
@@ -11,15 +10,7 @@ export function buildReconstructionInstructions(options: ReconstructionOptions =
   return `You are reconstructing one architectural floor-plan image into Plan2World draft JSON.
 Return ONLY one JSON object.
 
-Use this internal order even though the final response is one draft:
-1. Trace source-pixel wall centrelines only (conceptually source-wall-trace-v1).
-2. Normalize intersections/T-junctions and small endpoint residuals into one Bare House (conceptually bare-house-v1). Never invent a connector across unsupported source space.
-3. Verify the Bare House wall overlay against the unchanged source. This is the geometry hard gate.
-4. Annotate doors/windows on normalized hosts. Opening uncertainty is a review warning unless it proves the host wall itself is wrong.
-5. Add optional components and furniture only after the empty house exists.
-6. Apply one uniform cm-per-pixel transform and emit plan2world-draft-v1.
-
-Bare House rules:
+This is the annotation pass. A separate first pass already traced source walls and deterministic code normalized them into the Bare House supplied with this request. Do not run or simulate wall extraction again. Preserve the supplied wall topology and IDs. Convert its source-pixel coordinates to cm with one uniform scale, then annotate openings and optional furniture.\n\nBare House rules:
 - Walls are zero-width centreline paths. Preserve recesses, diagonals, T-junctions and visible quadratic curves via curvePoint.
 - A raw long wall may span several rooms; deterministic normalization may split it at real source-supported junctions.
 - A door/window interruption never breaks its logical host wall.
@@ -39,14 +30,7 @@ Furniture:
 - Allowed sourceCategory IDs: ${PLAN2WORLD_FURNITURE_TYPES.join(', ')}.
 - Emit catalogId="imported_object" and approximate centre only; omit source-unknown size/rotation.
 
-Architectural components:
-- Allowed fixed component types: ${PLAN2WORLD_COMPONENT_TYPES.join(', ')}.
-${PLAN2WORLD_COMPONENT_GUIDE}
-- floor.components are optional source semantics. componentVocabulary="plan2world-components-v2" is required when components are present.
-- Do not emit render, visible, sceneEffect, sceneSupport or requiresNativeSupport flags.
-- A balcony semantic is optional evidence only and never changes geometry.
-
-Source fidelity and scale:
+Architectural components are optional and must never create geometry. Omit floor.components unless clearly evidenced; no separate component review or scene policy output is required.\n\nSource fidelity and scale:
 - Inspect printed dimensions and scale bars first, but printed dimensions and dimension-chain subdivisions are scale/distance evidence only.
 - Never use cumulative dimension-chain values as wall x/y coordinates.
 - A bare drawing ratio is NOT enough without physical page size/DPI or a usable scale bar.
