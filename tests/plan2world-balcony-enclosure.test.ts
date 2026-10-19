@@ -5,39 +5,39 @@ import { buildBareHouse, SOURCE_WALL_TRACE_VERSION } from '$lib/plan2world/bareH
 import { planOpening, planWallSpans } from '$lib/utils/planOpening';
 
 // Declared enclosure geometry, not an image recognizer or a converter inference.
-function enclosedBalcony(curved: boolean) {
+function enclosedAnnex(curved: boolean) {
   const walls = [
     { id: 'house-top', start: { x: 0, y: 0 }, end: { x: 400, y: 0 } },
     { id: 'shared', start: { x: 400, y: 0 }, end: { x: 400, y: 300 } },
     { id: 'house-bottom', start: { x: 400, y: 300 }, end: { x: 0, y: 300 } },
     { id: 'house-left', start: { x: 0, y: 300 }, end: { x: 0, y: 0 } },
-    { id: 'balcony-top', start: { x: 400, y: 0 }, end: { x: 550, y: 0 } },
-    { id: 'balcony-outer', start: { x: 550, y: 0 }, end: { x: 550, y: 300 },
+    { id: 'annex-top', start: { x: 400, y: 0 }, end: { x: 550, y: 0 } },
+    { id: 'annex-outer', start: { x: 550, y: 0 }, end: { x: 550, y: 300 },
       ...(curved ? { curvePoint: { x: 650, y: 100 } } : {}) },
-    { id: 'balcony-bottom', start: { x: 550, y: 300 }, end: { x: 400, y: 300 } },
+    { id: 'annex-bottom', start: { x: 550, y: 300 }, end: { x: 400, y: 300 } },
   ];
   const bareHouse = buildBareHouse({ schemaVersion: SOURCE_WALL_TRACE_VERSION, walls });
   const trace = { cmPerPixel: 1, bareHouse, openings: walls.slice(4).map(wall => ({
     id: `glass-${wall.id}`, kind: 'window', wallId: wall.id,
     endpoints: [wall.start, wall.end],
-    evidence: 'Default balcony enclosure policy on a traced source-open guard boundary.',
+    evidence: 'Observed full-side glazing on the source boundary.',
   })) };
   const windows = deriveSourceOpenings(trace).windows;
   return { schemaVersion: 'plan2world-draft-v1', presentation: 'semantic-white-model',
-    furnitureVocabulary: 'plan2world-furniture-v1', name: 'Declared balcony enclosure', units: 'cm',
+    furnitureVocabulary: 'plan2world-furniture-v1', name: 'Declared annex enclosure', units: 'cm',
     scale: { mode: 'provided', confidence: 1, basis: 'Synthetic dimensions in cm' },
-    assumptions: ['Default balcony enclosure policy: outer glass is assumed on balcony-top, balcony-outer and balcony-bottom.'],
+    assumptions: ['Synthetic fixture: three source-observed glazed sides.'],
     floors: [{ id: 'f0', name: 'Floor', level: 0, walls, windows,
       doors: [{ id: 'access', wallId: 'shared', position: .5, width: 90, type: 'single' }], furniture: [] }],
   };
 }
 
-describe('declared balcony enclosure through existing draft conversion', () => {
+describe('declared annex enclosure through existing draft conversion', () => {
   it.each([false, true])('keeps two rooms and full-path glazing (curved=%s)', curved => {
-    const input = enclosedBalcony(curved), before = JSON.stringify(input);
+    const input = enclosedAnnex(curved), before = JSON.stringify(input);
     const floor = draftToProject(input).floors[0];
     expect(JSON.stringify(input)).toBe(before);
-    expect(floor.walls).toHaveLength(7); // the house/balcony separator is shared once
+    expect(floor.walls).toHaveLength(7); // the house/annex separator is shared once
     expect(floor.rooms).toHaveLength(2);
     expect(floor.rooms.every(room => !room.boundary)).toBe(true); // no duplicate explicit floorArea
     expect(floor.rooms.map(room => room.area)).toContain(12);
