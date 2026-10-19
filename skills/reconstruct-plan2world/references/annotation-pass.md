@@ -1,8 +1,8 @@
 # Source annotation pass
 
 Run this only after `bare-house-v1` has been accepted. The model sees the unchanged
-source image plus normalized Bare House wall IDs, but it does not produce final
-Plan2World geometry.
+source image plus Bare House geometry for context, but it does not produce final
+Plan2World geometry or choose normalized host IDs.
 
 Output only `source-annotation-v1` evidence:
 
@@ -20,7 +20,6 @@ Output only `source-annotation-v1` evidence:
     {
       "id":"d1",
       "kind":"door",
-      "wallId":"w7",
       "endpoints":[{"x":250,"y":300},{"x":310,"y":300}],
       "evidence":"Visible jamb-to-jamb aperture",
       "doorType":"sliding",
@@ -51,14 +50,15 @@ the program still performs the division.
 
 - `cmPerPixel`;
 - centimetre wall/furniture coordinates;
-- opening `width` or `position`;
+- opening `wallId`, `width` or `position`;
 - wall splitting, snapping or closure repairs;
 - `catalogId`, furniture dimensions or rotation;
 - `plan2world-draft-v1`, floors, rooms or scene/render fields;
 - source registration anchors derived from already known pixel geometry.
 
-`wallId` must reference a normalized Bare House wall. Opening endpoints and furniture
-positions stay in original source pixels.
+Opening endpoints and furniture positions stay in original source pixels. The
+opening program matches both endpoints to one Bare House host and reports a warning
+when no single host fits within tolerance.
 
 After this pass, hand the unchanged annotation JSON directly to the deterministic
 assembler together with `bare-house-v1` and the original raster dimensions:
@@ -66,4 +66,5 @@ assembler together with `bare-house-v1` and the original raster dimensions:
 `node tooling/assemble-plan2world-draft.mjs --bare-house bare-house.json --annotations annotations.json --source-width W --source-height H`
 
 The assembler rejects unsupported/derived fields rather than trusting them, and it
-derives source-registration anchors from the same accepted source-pixel geometry.
+derives opening hosts, source-registration anchors and final draft fields from the
+same accepted source-pixel geometry.
