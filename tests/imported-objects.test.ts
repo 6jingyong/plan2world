@@ -60,11 +60,11 @@ it('imports semantic type and position alone using the imported-object block thr
   expect(source).toEqual(before);
 });
 
-it('calibrates explicit imported-object footprints with architecture and retains vertical estimates and labels', () => {
+it('calibrates explicit imported-object footprints with architecture and retains vertical estimates and source labels', () => {
   const source = draft(), before = structuredClone(source);
   const project = readProject(JSON.parse(JSON.stringify(draftToProject(calibratePlan2WorldDraft(source, 500, 1000)))));
   expect(project.floors[0].furniture[0]).toMatchObject({ id: 'sofa-block', sourceCategory: 'sofa', position: { x: 400, y: 300 }, width: 440, depth: 190, height: 85, rotation: 90 });
-  expect(furnitureItemName(project.floors[0].furniture[0], 'en')).toBe('Sofa');
+  expect(furnitureItemName(project.floors[0].furniture[0], 'en')).toBe('sofa');
   expect(source).toEqual(before);
 });
 
