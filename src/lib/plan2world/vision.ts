@@ -1,7 +1,8 @@
 import type { OpenAIConfig } from '$lib/utils/openaiClient';
 import { generateOpenAIJsonFromImage } from '$lib/utils/openaiClient';
-import { parsePlan2WorldDraft, type Plan2WorldDraft } from './draft';
+import type { Plan2WorldDraft } from './draft';
 import { buildBareHouse, type BareHouseV1 } from './bareHouse';
+import { assemblePlan2WorldDraft } from './reconstructionAssembly';
 import { buildReconstructionInstructions, PLAN2WORLD_RECONSTRUCTION_INSTRUCTIONS_VERSION, type ReconstructionOptions } from './reconstructionInstructions';
 export { buildReconstructionInstructions as buildFloorPlanVisionPrompt } from './reconstructionInstructions';
 
@@ -46,7 +47,7 @@ export async function encodeFloorPlanImage(file: File): Promise<EncodedFloorPlan
   return { base64: dataUrl.slice(index + marker.length), dataUrl, mimeType: file.type };
 }
 
-/** First actual model pass: extract only source-pixel walls and evidenced door gaps. */
+/** First model pass: extract only source-pixel walls and evidenced door gaps. */
 export async function traceFloorPlanWalls(
   config: OpenAIConfig,
   image: EncodedFloorPlanImage,
@@ -70,13 +71,13 @@ export async function reconstructFloorPlanImage(
   signal?: AbortSignal,
 ): Promise<Plan2WorldDraft> {
   const bareHouse = await traceFloorPlanWalls(config, image, customFetch, signal);
-  const json = await generateOpenAIJsonFromImage(
+  const annotations = await generateOpenAIJsonFromImage(
     config,
     image.base64,
     image.mimeType,
-    `${buildReconstructionInstructions(options)}\n\nMANDATORY SECOND PASS: A deterministic normalizer has already produced the accepted source-pixel Bare House below. Do not retrace or alter its wall topology. Annotate openings and furniture using this geometry; convert all geometry with one consistent cm-per-pixel scale and return the final draft. The JSON below is pixel geometry, not centimetres:\n${JSON.stringify({ walls: bareHouse.walls, doorGaps: bareHouse.sourceWallMap })}`,
+    `${buildReconstructionInstructions(options)}\n\nBARE_HOUSE_JSON:\n${JSON.stringify(bareHouse)}`,
     customFetch,
     signal,
   );
-  return parsePlan2WorldDraft(json, { requireFurnitureVocabulary: true });
+  return assemblePlan2WorldDraft(bareHouse, annotations);
 }
