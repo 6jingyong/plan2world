@@ -82,6 +82,16 @@ existing inventory ID instead of adding the same object twice. Check kitchens,
 bathrooms, storage, balconies and edges. Make at most one targeted pass for
 specific unresolved regions; disclose what remains unresolved.
 
+During that regional scan, keep a small coverage ledger: original-pixel region
+bounds, object inventory IDs, and readable object-related labels/abbreviations
+with their source locations. Give each such label a matching object ID or an
+explicit exclusion reason (architecture, room-use label, unsupported type or
+uncertain evidence). A room name does not establish that its usual furniture
+exists. Keep scanning unlabeled symbols too; text coverage alone is not object
+coverage. Architectural classification must not silently discard real built-in
+storage. Reconcile the ledger with the inventory before the first complete output;
+do not add another full-image pass merely to fill this ledger.
+
 Mark recognized objects using an inventory/overlay while preserving the original.
 Furniture erasure is optional, not a required step. Never erase architectural
 evidence or verify wall traces against inpainted pixels. Omit dimensions and
@@ -149,6 +159,11 @@ image=(px/width,py/height). Use the same transform; do not fit anchors separatel
 - In local verification, finish `component-review.json` as described in the component
   reference and run its read-only checker. Report unmapped/unmodeled features
   separately from valid references; include those gaps in draft assumptions.
+- Before freezing, reconcile inventory IDs and label decisions against the
+  serialized furniture array so accepted objects are not lost during export. In
+  local verification include the working region/label ledger in `source-evidence.json`
+  and freeze it with the draft. In a one-JSON application response keep the ledger
+  internal and disclose unresolved labels/regions in existing `assumptions`.
 - Freeze the complete emitted JSON and component inventory before verification. Preserve them even if checks
   fail. Never hand-edit a verification output to make a picture or test pass.
 - With a Plan2World checkout, run its existing deterministic checker:

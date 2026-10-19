@@ -19,6 +19,7 @@
     {"id":"tv_cabinet","group":"furniture","label":"电视柜"},
     {"id":"shoe_cabinet","group":"furniture","label":"鞋柜"},
     {"id":"dressing_table","group":"furniture","label":"梳妆台"},
+    {"id":"piano","group":"furniture","label":"钢琴（含立式／三角钢琴，须有琴体和键盘证据）"},
     {"id":"television","group":"appliance","label":"电视机"},
     {"id":"refrigerator","group":"appliance","label":"冰箱"},
     {"id":"washing_machine","group":"appliance","label":"洗衣机"},
@@ -29,6 +30,7 @@
     {"id":"air_conditioner","group":"appliance","label":"空调"},
     {"id":"sink","group":"fixture","label":"水槽／洗手盆"},
     {"id":"toilet","group":"fixture","label":"坐便器"},
+    {"id":"bidet","group":"fixture","label":"净身盆（须有独立盆体及龙头等证据，不与坐便器合并）"},
     {"id":"bathtub","group":"fixture","label":"浴缸"},
     {"id":"shower","group":"fixture","label":"淋浴设施（须有设施符号或标签）"}
   ]

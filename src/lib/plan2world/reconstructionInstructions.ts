@@ -1,7 +1,7 @@
 import { PLAN2WORLD_COMPONENT_TYPES, PLAN2WORLD_COMPONENT_GUIDE } from './componentVocabulary';
 import { PLAN2WORLD_FURNITURE_TYPES, PLAN2WORLD_FURNITURE_VOCABULARY } from './furnitureVocabulary';
 
-export const PLAN2WORLD_RECONSTRUCTION_INSTRUCTIONS_VERSION = "plan2world-white-model-instructions-v8" as const;
+export const PLAN2WORLD_RECONSTRUCTION_INSTRUCTIONS_VERSION = "plan2world-white-model-instructions-v9" as const;
 
 export interface ReconstructionOptions { scaleHint?: string }
 
@@ -27,6 +27,10 @@ Required contract:
 - furnitureVocabulary must be "${PLAN2WORLD_FURNITURE_VOCABULARY}".
 - Allowed sourceCategory IDs (exact, no free-form values): ${PLAN2WORLD_FURNITURE_TYPES.join(', ')}.
 - Use exactly one supplied floor for this application version. If the image contains multiple levels, disclose that limitation; do not flatten them into one floor or invent vertical connections.
+
+Object coverage check:
+- During the existing regional scan, keep an internal ledger of original-pixel region bounds, object inventory IDs and readable object-related labels/abbreviations with source locations. Match each such label to an object ID or an explicit exclusion reason: architecture, room-use label, unsupported type or uncertain evidence. A room name does not establish furniture presence. Scan unlabeled symbols too; architectural classification must not silently discard real built-in storage. Do not add another full-image pass just for the ledger.
+- Before emitting the complete JSON, reconcile the ledger/inventory with the serialized furniture IDs so accepted objects are not lost on export. Disclose unresolved labels/regions in existing assumptions. The ledger is internal working evidence, not another application scene or required root field.
 
 Architectural component handling:
 ${PLAN2WORLD_COMPONENT_GUIDE}
