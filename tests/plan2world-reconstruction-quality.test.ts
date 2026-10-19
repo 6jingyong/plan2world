@@ -37,8 +37,8 @@ describe('Plan2World reconstruction quality scorecard', () => {
 
   it('reports missing openings without depending on a historical model snapshot', () => {
     const candidate = parsePlan2WorldDraft(referenceJson);
-    candidate.floors[0].doors = candidate.floors[0].doors.slice(0, -1);
-    candidate.floors[0].windows = candidate.floors[0].windows.slice(0, -1);
+    candidate.floors[0].doors = (candidate.floors[0].doors ?? []).slice(0, -1);
+    candidate.floors[0].windows = (candidate.floors[0].windows ?? []).slice(0, -1);
 
     const report = scoreReconstructionAgainstReference(referenceJson, candidate, SOURCE);
     expect(report.doors.referenceCount).toBe(10);
