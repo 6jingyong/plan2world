@@ -22,7 +22,7 @@ function wallThickness(wall: DraftWall): number {
   return wall.kind === 'exterior' ? DEFAULTS.exteriorWallThickness : DEFAULTS.interiorWallThickness;
 }
 
-function toFloor(draft: DraftFloor, presentation?: Plan2WorldDraft['presentation']): Floor {
+function toFloor(draft: DraftFloor, presentation: Plan2WorldDraft['presentation'] | undefined, roomIdSeed: string): Floor {
   const walls: Wall[] = draft.walls.map(wall => ({
     id: wall.id,
     start: { ...wall.start },
@@ -87,7 +87,14 @@ function toFloor(draft: DraftFloor, presentation?: Plan2WorldDraft['presentation
     groups: [],
   };
 
-  floor.rooms = resolveRooms(floor);
+  // resolveRooms intentionally uses wall-clock IDs for newly detected rooms in the
+  // interactive editor. At this conversion boundary we replace only those transient
+  // IDs so the same validated draft + conversion seed produces the same native artifact.
+  let detectedRoomIndex = 0;
+  floor.rooms = resolveRooms(floor).map(room => room.boundary ? room : {
+    ...room,
+    id: `plan2world-room-${draft.id}-${++detectedRoomIndex}-${roomIdSeed}`,
+  });
   return floor;
 }
 
@@ -96,12 +103,13 @@ function toFloor(draft: DraftFloor, presentation?: Plan2WorldDraft['presentation
  * This boundary deliberately performs no source interpretation or semantic repair.
  */
 export function validatedDraftToProject(draft: Plan2WorldDraft, now = new Date()): Project {
-  const floors = draft.floors.map(floor => toFloor(floor, draft.presentation));
+  const roomIdSeed = now.getTime().toString(36);
+  const floors = draft.floors.map(floor => toFloor(floor, draft.presentation, roomIdSeed));
   const scaleDescription = `Scale: ${draft.scale.mode} (${Math.round(draft.scale.confidence * 100)}% confidence)${draft.scale.basis ? ` — ${draft.scale.basis}` : ''}.`;
   const assumptions = draft.assumptions?.length ? ` Assumptions: ${draft.assumptions.join(' | ')}` : '';
 
   return {
-    id: `plan2world-${now.getTime().toString(36)}`,
+    id: `plan2world-${roomIdSeed}`,
     name: draft.name,
     reconstruction: {
       version: 1,
