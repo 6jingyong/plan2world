@@ -1,131 +1,151 @@
 # Plan2World semantic white-model contract
 
-Version: `plan2world-draft-v1`, presentation `semantic-white-model`, furniture
-vocabulary `plan2world-furniture-v1` for current reconstruction. Read the exact
-IDs and exclusions in [furniture-vocabulary.json](furniture-vocabulary.json).
-All world lengths are centimetres. Rotations are degrees around the item's
-centre, clockwise in the source's right/down coordinate system. Width is local
-x; depth is local y. The editor uses the same live native geometry in 2D, 3D,
-architectural cut and collision.
+Version: `plan2world-draft-v1`  
+Presentation: `semantic-white-model`  
+Furniture vocabulary: `plan2world-furniture-v1`
+
+All world lengths are centimetres. The draft is the product contract. Reconstruction
+uses evidence-only intermediate artifacts before it:
+
+`source-wall-trace-v1 -> bare-house-v1 -> source-annotation-v1 -> plan2world-draft-v1`
+
+The two source artifacts contain observations, not application IDs or derived math.
+Geometry normalization, IDs, scale policy/math, opening association/math, source
+registration and final draft assembly are deterministic.
+
+## Geometry ownership
+
+`source-wall-trace-v1` stores only original-raster wall/gap geometry. `buildBareHouse`
+assigns raw wall/gap IDs and normalization produces the program-owned `bare-house-v1`.
+The Bare House owns the hard source-fidelity gate.
+
+Normalization may split existing walls at source-supported intersections/T-junctions,
+snap small endpoint residuals and associate an explicitly observed door gap with its
+two wall runs. It must never create a connector across an unsupported source gap.
+
+`source-annotation-v1` stores only scale evidence, opening endpoints/operation evidence
+and optional furniture semantics/centres. It contains no IDs, numeric confidence,
+cm-per-pixel, opening host/width/position, registration anchors or final draft geometry.
+
+Doors/windows and furniture annotate an accepted Bare House. They do not create or
+close geometry. Native rooms are derived from draft walls; the draft does not author
+room polygons.
+
+## Root fields
+
+Required:
+- `schemaVersion: "plan2world-draft-v1"`
+- `presentation: "semantic-white-model"`
+- `furnitureVocabulary: "plan2world-furniture-v1"`
+- `name`
+- `units: "cm"`
+- `scale`
+- `floors`
+
+The final contract supports `scale.mode` = `measured`, `provided` or `estimated` and
+confidence 0..1. Current image reconstruction derives them from evidence kind:
+
+- `measured_dimension` / `scale_bar` -> `measured`, 0.95;
+- `provided_length` -> `provided`, 1;
+- `estimated_reference` -> `estimated`, 0.5.
+
+## Walls
+
+Each final wall requires `id`, `start`, `end`; optional `curvePoint`, `kind`, positive
+`thickness`/`height`, and confidence remain supported for the application contract.
+Current image reconstruction assigns wall IDs programmatically and normally leaves
+unsupported physical properties to native editable defaults.
+
+Draft walls come from the accepted `bare-house-v1`. Shared walls are emitted once.
+Connected normalized geometry shares coordinates.
+
+A wall-frame failure is hard only when source structure is materially wrong: a real
+wall is missing, unsupported geometry was invented, or the whole-plan overlay
+materially disagrees with the original.
+
+## Doors and windows
+
+Each final opening requires:
+- unique program-assigned `id`;
+- program-resolved normalized `wallId`;
+- derived `position` from 0..1 along the host;
+- derived positive physical `width`.
+
+These fields come from source endpoints plus accepted geometry/scale. The annotation
+model never authors them.
+
+Openings have no independent thickness. The logical host remains continuous. A
+full-wall window or full-wall sliding door is valid.
+
+Door `type` may be `single`, `double`, `sliding` or `opening` when source evidence
+supports it. Omitted window height/sill uses the editable semantic-white-model
+default of floor-to-ceiling fixed glass.
+
+Opening uncertainty is review-level. Missing/approximate extent or operation does
+not invalidate an accepted Bare House unless later evidence proves the host wall
+geometry itself is wrong.
+
+## Furniture
+
+Current reconstruction emits:
+- program-assigned `id`;
+- `catalogId: "imported_object"` assigned by the assembler;
+- exact fixed-vocabulary `sourceCategory` observed by the model;
+- centre `position` converted from the observed source-pixel centre.
+
+The final draft contract still supports optional confidence/size/rotation fields for
+manual or historical inputs, but current image reconstruction does not ask the model
+to manufacture them. Runtime placeholders remain editable.
+
+## Scale and source registration
+
+Printed dimensions and dimension-chain subdivisions constrain scale/distances but
+are not wall coordinates. The annotation pass supplies an evidence kind, a real
+length and its two source-pixel endpoints; the assembler computes one uniform
+cm-per-pixel transform and applies it to every layer.
+
+When source raster width/height are available, the assembler selects spread Bare
+House endpoints and emits normalized `sourceRegistration` anchors from the same
+original-pixel geometry. The model does not choose anchors. Overlay/review must use
+this same transform rather than fitting wall bounds to conceal systematic drift.
+
+## Optional open ground
+
+`floors[].floorAreas` remains import-compatible for explicit source-visible open
+ground, but current image reconstruction does not ask the annotation model to invent
+or classify these regions. Downstream room derivation remains wall-driven.
+
+## Minimal final-draft example
 
 ```json
 {
-  "schemaVersion": "plan2world-draft-v1",
-  "presentation": "semantic-white-model",
-  "furnitureVocabulary": "plan2world-furniture-v1",
-  "name": "Source plan",
-  "units": "cm",
-  "scale": {"mode": "estimated", "confidence": 0.6, "basis": "Explain the actual source scale basis"},
-  "assumptions": ["Windows use floor-to-ceiling glass as a presentation default. Furniture size and direction use editable display defaults, not source measurements."],
-  "sourceRegistration": {
-    "floorId": "f0", "confidence": 0.9,
-    "anchors": [
-      {"wallId": "w1", "endpoint": "start", "image": {"x": 0.1, "y": 0.2}},
-      {"wallId": "w2", "endpoint": "end", "image": {"x": 0.9, "y": 0.8}}
+  "schemaVersion":"plan2world-draft-v1",
+  "presentation":"semantic-white-model",
+  "furnitureVocabulary":"plan2world-furniture-v1",
+  "name":"Source plan",
+  "units":"cm",
+  "scale":{"mode":"measured","confidence":0.95,"basis":"visible dimension"},
+  "sourceRegistration":{
+    "floorId":"floor-0","confidence":1,
+    "anchors":[
+      {"wallId":"w1","endpoint":"start","image":{"x":0.1,"y":0.2}},
+      {"wallId":"w2","endpoint":"end","image":{"x":0.9,"y":0.8}}
     ]
   },
-  "floors": [{
-    "id": "f0", "name": "Ground floor", "level": 0,
-    "walls": [
-      {"id": "w1", "start": {"x": 0, "y": 0}, "end": {"x": 600, "y": 0}, "kind": "exterior", "confidence": 0.9},
-      {"id": "w2", "start": {"x": 600, "y": 0}, "end": {"x": 600, "y": 450}, "kind": "exterior", "confidence": 0.9},
-      {"id": "w3", "start": {"x": 600, "y": 450}, "end": {"x": 0, "y": 450}, "kind": "exterior", "confidence": 0.9},
-      {"id": "w4", "start": {"x": 0, "y": 450}, "end": {"x": 0, "y": 0}, "kind": "exterior", "confidence": 0.9},
-      {"id": "w5", "start": {"x": 300, "y": 0}, "end": {"x": 300, "y": 450}, "kind": "interior", "confidence": 0.9}
+  "floors":[{
+    "id":"floor-0","name":"Ground floor","level":0,
+    "walls":[
+      {"id":"w1","start":{"x":0,"y":0},"end":{"x":400,"y":0}},
+      {"id":"w2","start":{"x":400,"y":0},"end":{"x":400,"y":300}},
+      {"id":"w3","start":{"x":400,"y":300},"end":{"x":0,"y":300}},
+      {"id":"w4","start":{"x":0,"y":300},"end":{"x":0,"y":0}}
     ],
-    "doors": [
-      {"id": "d1", "wallId": "w1", "position": 0.3, "width": 90, "confidence": 0.8},
-      {"id": "d2", "wallId": "w5", "position": 0.5, "width": 90, "confidence": 0.8}
-    ],
-    "windows": [{"id": "n1", "wallId": "w2", "position": 0.5, "width": 180, "confidence": 0.8}],
-    "furniture": [{"id": "b1", "catalogId": "imported_object", "sourceCategory": "sofa", "position": {"x": 150, "y": 250}, "confidence": 0.7}]
+    "doors":[{"id":"d1","wallId":"w4","position":0.5,"width":90,"type":"sliding"}],
+    "windows":[],
+    "furniture":[]
   }]
 }
 ```
 
-Treat the example as a field guide, not a complete home or a source template.
-Replace its geometry, scale and anchors using the actual source. Here `w5` is
-one shared wall between two closed spaces; output it once. Doors preserve the
-logical wall paths while supplying apertures. Omitted thickness/height use
-normalization defaults after the skeleton is checked; zero thickness is invalid.
-
-- `scale.mode`: `measured`, `provided` or `estimated`; confidence 0..1 is required.
-- Wall: `id`, `start`, `end` required; optional `curvePoint`, positive `thickness`
-  and `height`, `kind` (`interior`, `exterior`, `unknown`), confidence 0..1.
-  Extraction omits these physical properties unless established: the geometry is
-  a zero-width centreline skeleton, not two wall faces. Normalization supplies
-  default height 280; exterior thickness 20, other thickness 12.
-- Door/window: require `id`, existing `wallId`, `position` 0..1 and positive
-  `width`. Position is the centre along the straight wall, or the quadratic
-  parameter t on a curved wall; use curve-path distance for physical width.
-  Doors default to 210 cm single doors. Optional explicit window `height` and
-  nonnegative `sillHeight` override white-model defaults; omitted values give
-  sill 0 and height to the wall top. Use explicit heights only when requested.
-  Openings have no independent thickness: they mark intervals in continuous host
-  walls. Use explicit `type: single` or `double` when leaf evidence establishes it;
-  a double door's width is the full shared aperture. Supported sliding access uses
-  `type: sliding`; uncertain operation is omitted and disclosed as an assumption.
-  Read [opening-trace.md](opening-trace.md) for source evidence and endpoint maths.
-- Furniture under this presentation: require `id`, `catalogId: imported_object`,
-  exact permitted `sourceCategory` and approximate centre `position`; confidence is
-  optional. Omit dimensions and rotation during image extraction. The existing
-  imported-object defaults provide a 50 cm cube at rotation 0 in the program.
-  Users adjust size, direction, precise position and styles later. Optional
-  positive `width`, `depth`, `height` and finite `rotation` remain supported for
-  existing drafts and explicit user input; supplied values take precedence.
-  SVG uses a position marker without a physical footprint when width/depth
-  are omitted. Evaluate extraction on coverage, semantic type and broad position.
-  First confirm a real furniture/appliance/sanitary fixture, then choose its
-  exact ID from the fixed vocabulary. Bays, ledges, wall piers and planting
-  platforms are architectural features, not furniture. If presence/type is
-  unconfirmed or unlisted, omit it and record the region/reason in `assumptions`.
-  Do not emit `unknown`, `other`, synonyms or invented types. Add vocabulary
-  entries only through deliberate versioned maintenance, never during extraction.
-- `furnitureVocabulary` must be `plan2world-furniture-v1` for current Skill/AI
-  outputs. Strict verification rejects a missing version and unlisted categories.
-  Historical drafts without this field retain free-form source labels for import
-  compatibility; do not rewrite those saved drafts to pass new verification.
-- Source registration: existing `floorId`, confidence 0..1, at least two anchors
-  with existing `wallId`, `endpoint` (`start`/`end`) and normalized `image` point.
-- Preserve evidence in `assumptions`; do not output native editor selection,
-  inferred room polygons, rendering meshes or provider-specific metadata in the draft.
-
-Canonical application schema and conversion live in repository
-`6jingyong/plan2world`, `schemas/plan2world-draft-v1.schema.json` and
-`src/lib/plan2world/draft.ts`. Legacy drafts without this presentation retain
-their prior window defaults and optional catalog furniture hints.
-
-## Open ground outlines
-
-Current reconstruction treats recognized balconies/terraces as independent enclosed
-glazed rooms under [balcony-policy.md](balcony-policy.md): continuous wall paths,
-hosted windows, no duplicate floorArea. Declare assumed enclosure in `assumptions`.
-
-Optional `floors[].floorAreas` remains available for source-visible open ground
-such as exterior access passages, and for historical/manual open balconies. The
-following example describes that existing format, not the reconstruction default.
-Each area requires unique `id`, `name`, and `boundary`;
-confidence 0..1 is optional. Each boundary has 1–256 ordered parts:
-
-- `{"wallId":"w1"}` traces the whole existing wall from start to end;
-  `"reverse":true` traverses it backwards. This follows later wall edits.
-- `{"point":{"x":600,"y":-180}}` adds a free source point. Its optional
-  `curvePoint` controls the quadratic edge to the next part's first point.
-- Consecutive parts connect with straight edges and the final edge closes
-  automatically. Do not repeat the first point. Use cm and the same scale as walls.
-
-For the example wall w1 from (0,0) to (600,0), an outdoor strip on its upper side is:
-
-```json
-{"id":"balcony","name":"Balcony","confidence":0.8,"boundary":[
-  {"wallId":"w1"},
-  {"point":{"x":600,"y":-180}},
-  {"point":{"x":0,"y":-180}}
-]}
-```
-
-References must exist on the same floor. Reject zero-area/self-crossing outlines.
-Do not copy shared curved wall points, create physical railings, cover a blank
-void, or duplicate an enclosed room. Omit uncertain limits and record the gap.
-The editor stores these surfaces in the existing native Room with an explicit
-boundary and outdoor category; wall-derived room detection stays independent.
+This example documents the final program-owned contract. Image models emit the two
+evidence contracts instead of reproducing this object.

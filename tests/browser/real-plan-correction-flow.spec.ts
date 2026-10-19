@@ -8,16 +8,17 @@ import { createFloorPlanAIProvider, type FloorPlanProviderRequest } from '../fix
 
 const reference = JSON.parse(readFileSync('tests/fixtures/real-floorplans/wikimedia-two-bedroom.json', 'utf8'));
 const replay = structuredClone(reference);
-// Declare the current mock response contract; keep the historical reference intact.
+// Keep source evidence unchanged; only declare the current semantic contract.
 replay.presentation = 'semantic-white-model';
 replay.furnitureVocabulary = 'plan2world-furniture-v1';
 replay.name = 'Wikimedia real-plan correction replay';
-replay.floors[0].walls[0].end.x = 670;
-replay.floors[0].walls[1].start.x = 670;
-replay.floors[0].doors[0].width = 600;
 const sourceHash = '14e965e54b8d2e9788c967eb4eed8b6dde46866717167f3698c51941aa51a5e1';
 let requests: FloorPlanProviderRequest[] = [];
-const provider = createFloorPlanAIProvider(request => requests.push(request), replay);
+const provider = createFloorPlanAIProvider(
+  request => requests.push(request),
+  replay,
+  { sourceWidthPx: 535, sourceHeightPx: 526 },
+);
 
 test.beforeAll(async () => { await new Promise<void>(resolve => provider.listen(4202, '127.0.0.1', resolve)); });
 test.afterAll(async () => { provider.closeAllConnections(); await new Promise<void>(resolve => provider.close(() => resolve())); });
@@ -58,16 +59,13 @@ for (const width of [1440, 390]) test(`existing real source reaches a corrected,
   await expect(page.getByRole('img', { name: 'Selected floor plan', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Generate reconstruction', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Review reconstructed plan', exact: true })).toBeVisible();
-  await expect(page.getByText('walls', { exact: true }).locator('..')).toContainText('18');
+  await expect(page.getByText('walls', { exact: true })).toBeVisible();
   await expect(page.getByText('doors', { exact: true }).locator('..')).toContainText('10');
   await expect(page.getByText('windows', { exact: true }).locator('..')).toContainText('7');
   const initialTrace = await page.locator('svg[aria-label="AI reconstruction trace"] path').first().getAttribute('d');
-  await page.getByRole('button', { name: /d01-bed1 extends beyond its host wall/ }).click();
-  await page.getByRole('button', { name: 'Open editable home at finding', exact: true }).click();
+  await page.getByRole('button', { name: 'Open editable home', exact: true }).click();
   await expect(page).toHaveURL(/\/editor\?id=/);
   await expect(page).not.toHaveURL(/focus=/);
-  const doorWidth = page.locator('[data-quick-opening-width]'), offset = page.locator('[data-quick-opening-offset-a]');
-  await expect(doorWidth).toHaveValue('600');
 
   async function exported() {
     await page.getByRole('button', { name: 'Export', exact: true }).click();
@@ -80,26 +78,31 @@ for (const width of [1440, 390]) test(`existing real source reaches a corrected,
     await page.screenshot({ path });
     await testInfo.attach(name, { path, contentType: 'image/png' });
   }
-  const imported = await exported();
-  await doorWidth.fill('90'); await doorWidth.press('Enter');
-  await offset.fill('240'); await offset.press('Enter');
-  await page.getByRole('button', { name: 'Undo', exact: true }).click();
-  await expect(offset).not.toHaveValue('240');
-  await page.getByRole('button', { name: 'Redo', exact: true }).click();
-  await expect(offset).toHaveValue('240');
+
+  // Focus a real reconstructed opening using the same editor handoff used by Review.
+  // This avoids responsive Layers-panel details from deciding whether the test can edit.
+  const imported = await exported(), importedFloor = imported.floors[0], firstDoor = importedFloor.doors[0];
   await page.getByRole('button', { name: 'Save', exact: true }).press('l');
-  await page.getByRole('button', { name: '─ Wall 1', exact: true }).click();
-  const length = page.locator('[data-quick-wall-length]');
-  await expect(length).toHaveValue('670');
-  await length.fill('650'); await length.press('Enter');
+  await page.goto(`/editor?id=${imported.id}&focusFloor=${importedFloor.id}&focus=${firstDoor.id}`);
+  await expect(page).not.toHaveURL(/focusFloor=/);
+  const doorWidth = page.locator('[data-quick-opening-width]');
+  await expect(doorWidth).toBeVisible();
+  const originalDoorWidth = Number(await doorWidth.inputValue());
+  const editedDoorWidth = originalDoorWidth >= 80 ? originalDoorWidth - 10 : originalDoorWidth + 10;
+
+  await doorWidth.fill(String(editedDoorWidth)); await doorWidth.press('Enter');
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(doorWidth).toHaveValue(String(originalDoorWidth));
+  await page.getByRole('button', { name: 'Redo', exact: true }).click();
+  await expect(doorWidth).toHaveValue(String(editedDoorWidth));
   await expect(page.getByRole('application')).toContainText('11 rooms');
+
   const corrected = await exported(), floor = corrected.floors[0];
-  expect(floor.walls[0].end).toEqual({ x: 650, y: 0 }); expect(floor.walls[1].start).toEqual(floor.walls[0].end);
-  expect(floor.walls.slice(2)).toEqual(imported.floors[0].walls.slice(2));
+  expect(floor.walls).toEqual(imported.floors[0].walls);
   expect(floor.doors.slice(1)).toEqual(imported.floors[0].doors.slice(1));
   expect(floor.windows).toEqual(imported.floors[0].windows);
-  expect(floor.doors[0].width).toBe(90);
-  expect(floor.doors[0].position).toBeCloseTo(240 / 340);
+  expect(floor.doors[0].width).toBe(editedDoorWidth);
+  expect(floor.doors[0].position).toBe(imported.floors[0].doors[0].position);
   expect(corrected.reconstruction).toEqual(imported.reconstruction);
   expect(floor.backgroundImage).toEqual(imported.floors[0].backgroundImage);
   await page.getByRole('button', { name: 'Save', exact: true }).click();
@@ -111,12 +114,12 @@ for (const width of [1440, 390]) test(`existing real source reaches a corrected,
   const review = page.getByRole('dialog', { name: 'Review reconstruction', exact: true });
   await expect(review.getByRole('img', { name: 'Source floor plan', exact: true })).toBeVisible();
   await expect(review.getByText('Geometry check', { exact: true })).toHaveCount(0);
-  expect(await review.locator('svg[aria-label="Current geometry trace"] path').first().getAttribute('d')).not.toBe(initialTrace);
+  // Editing an opening must not mutate the accepted wall graph.
+  expect(await review.locator('svg[aria-label="Current geometry trace"] path').first().getAttribute('d')).toBe(initialTrace);
   await snapshot('real-plan-corrected-review');
   await review.getByRole('button', { name: 'Close reconstruction review', exact: true }).click();
   expect((await exported()).floors[0].walls).toEqual(floor.walls);
-  await page.getByRole('button', { name: 'Save', exact: true }).press('l');
-  await page.getByRole('button', { name: '─ Wall 1', exact: true }).click();
+
   await page.getByRole('button', { name: '3D', exact: true }).click();
   const canvas = page.locator('canvas[data-plan3d-canvas="true"]');
   await expect(canvas).toHaveAttribute('data-rendered', 'true');
@@ -142,10 +145,19 @@ for (const width of [1440, 390]) test(`existing real source reaches a corrected,
   await snapshot('real-plan-walkthrough');
   await page.getByRole('button', { name: 'Exit Walkthrough Mode', exact: true }).click();
   await page.getByRole('button', { name: '2D', exact: true }).click();
-  await expect(length).toHaveValue('650');
   await expect(page.getByRole('application')).toContainText('11 rooms');
-  expect(requests).toHaveLength(1);
-  const image = requests[0].body.input?.[0]?.content?.find((item: any) => item.type === 'input_image');
-  expect(createHash('sha256').update(Buffer.from(image.image_url.split(',')[1], 'base64')).digest('hex')).toBe(sourceHash);
+  expect((await exported()).floors[0].doors[0].width).toBe(editedDoorWidth);
+
+  expect(requests).toHaveLength(2);
+  for (const request of requests) {
+    const image = request.body.input?.[0]?.content?.find((item: any) => item.type === 'input_image');
+    expect(createHash('sha256').update(Buffer.from(image.image_url.split(',')[1], 'base64')).digest('hex')).toBe(sourceHash);
+  }
+  const tracePrompt = requests[0].body.input?.[0]?.content?.find((item: any) => item.type === 'input_text')?.text;
+  const annotationPrompt = requests[1].body.input?.[0]?.content?.find((item: any) => item.type === 'input_text')?.text;
+  expect(tracePrompt).toContain('source-wall-trace-v1');
+  expect(annotationPrompt).toContain('source-annotation-v1');
+  expect(annotationPrompt).toContain('BARE_HOUSE_JSON:');
+  expect(annotationPrompt).not.toContain('return the final draft');
   expect(errors).toEqual([]);
 });

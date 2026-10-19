@@ -52,14 +52,20 @@ test('image upload reaches the provider, pauses for review, then opens the edita
   await expect(page.getByText('100% confidence', { exact: true })).toBeVisible();
   await expect(page.getByText(/User calibration:/).first()).toContainText('480 cm actual');
 
-  expect(requests).toHaveLength(1);
-  const request = requests[0];
-  expect(request.path).toBe('/v1/responses');
-  expect(request.method).toBe('POST');
-  expect(request.body).toMatchObject({ model: 'floorplan-draft', store: false, text: { format: { type: 'json_object' } } });
-  const content = request.body.input?.[0]?.content;
-  expect(content?.some((item: any) => item.type === 'input_image' && /^data:image\/png;base64,/.test(item.image_url))).toBe(true);
-  expect(content?.some((item: any) => item.type === 'input_text' && /plan2world-draft-v1/.test(item.text))).toBe(true);
+  expect(requests).toHaveLength(2);
+  for (const request of requests) {
+    expect(request.path).toBe('/v1/responses');
+    expect(request.method).toBe('POST');
+    expect(request.body).toMatchObject({ model: 'floorplan-draft', store: false, text: { format: { type: 'json_object' } } });
+    const content = request.body.input?.[0]?.content;
+    expect(content?.some((item: any) => item.type === 'input_image' && /^data:image\/png;base64,/.test(item.image_url))).toBe(true);
+  }
+  const tracePrompt = requests[0].body.input?.[0]?.content?.find((item: any) => item.type === 'input_text')?.text;
+  const annotationPrompt = requests[1].body.input?.[0]?.content?.find((item: any) => item.type === 'input_text')?.text;
+  expect(tracePrompt).toContain('source-wall-trace-v1');
+  expect(annotationPrompt).toContain('source-annotation-v1');
+  expect(annotationPrompt).toContain('BARE_HOUSE_JSON:');
+  expect(annotationPrompt).not.toContain('Return ONLY one plan2world-draft-v1');
 
   await page.getByRole('button', { name: 'Open editable home', exact: true }).click();
   await expect(page).toHaveURL(/\/editor\?id=/);
@@ -77,7 +83,7 @@ test('image upload reaches the provider, pauses for review, then opens the edita
   await expect(review).toContainText('100% confidence');
   await expect(review).toContainText('Browser smoke-test response.');
   await expect(review.getByRole('img', { name: 'Source floor plan', exact: true })).toBeVisible();
-  expect(requests).toHaveLength(1);
+  expect(requests).toHaveLength(2);
   await review.getByRole('button', { name: 'Close reconstruction review', exact: true }).click();
 
   await page.getByRole('button', { name: '3D', exact: true }).click();

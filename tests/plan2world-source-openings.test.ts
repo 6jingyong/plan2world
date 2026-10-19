@@ -1,53 +1,105 @@
 import { describe, expect, it } from 'vitest';
 import { deriveSourceOpenings } from '$lib/plan2world/sourceOpenings';
+import { BARE_HOUSE_VERSION, SOURCE_WALL_TRACE_VERSION } from '$lib/plan2world/bareHouse';
 import { planOpening } from '$lib/utils/planOpening';
 
-function trace(): any {
-  return {cmPerPixel:2,walls:[{id:'w',start:{x:0,y:0},end:{x:400,y:0}}],openings:[{
-    id:'d',kind:'door',wallId:'w',endpoints:[{x:50,y:0},{x:250,y:0}],
-    evidence:'Visible frame/jambs and two opposing swing arcs',doorType:'double',typeEvidence:'Two leaves share one jamb-to-jamb aperture',
-  }]};
+function bareHouse(walls: any[]) {
+  return {
+    schemaVersion: BARE_HOUSE_VERSION,
+    sourceSchemaVersion: SOURCE_WALL_TRACE_VERSION,
+    walls,
+    enclosures: [],
+    sourceWallMap: Object.fromEntries(walls.map(wall => [wall.id, [wall.id]])),
+    junctions: [],
+    virtualSplitCount: 0,
+    snappedEndpointCount: 0,
+    maxJunctionDistancePx: 3,
+    limitation: 'test',
+  };
 }
 
-describe('source opening intervals',()=>{
-  it('keeps a double door as one total-width aperture and preserves inputs',()=>{
-    const input=trace(),before=JSON.stringify(input),result=deriveSourceOpenings(input);
-    expect(result.doors).toEqual([{id:'d',wallId:'w',position:.375,width:400,type:'double'}]);
+function trace(): any {
+  return {
+    cmPerPixel: 2,
+    bareHouse: bareHouse([{ id: 'w', start: { x: 0, y: 0 }, end: { x: 400, y: 0 } }]),
+    openings: [{
+      id: 'd', kind: 'door', wallId: 'w', endpoints: [{ x: 50, y: 0 }, { x: 250, y: 0 }],
+      evidence: 'Visible frame/jambs and two opposing swing arcs', doorType: 'double', typeEvidence: 'Two leaves share one jamb-to-jamb aperture',
+    }],
+  };
+}
+
+describe('source opening review', () => {
+  it('derives a supported opening from an accepted bare house', () => {
+    const input = trace();
+    const before = JSON.stringify(input);
+    const result = deriveSourceOpenings(input);
+    expect(result.doors).toEqual([{ id: 'd', wallId: 'w', position: .375, width: 400, type: 'double' }]);
+    expect(result.reviewStatus).toBe('pass');
+    expect(result.warnings).toEqual([]);
     expect(JSON.stringify(input)).toBe(before);
-    expect(result.unresolvedDoorTypes).toEqual([]);
-    input.openings[0].endpoints.reverse();input.walls[0].start={x:400,y:0};input.walls[0].end={x:0,y:0};
-    expect(deriveSourceOpenings(input).doors[0]).toMatchObject({position:.625,width:400,type:'double'});
   });
-  it('does not infer leaf count from a wide aperture or give windows thickness',()=>{
-    const input=trace();delete input.openings[0].doorType;delete input.openings[0].typeEvidence;
-    let result=deriveSourceOpenings(input);
-    expect(result.doors[0].type).toBeUndefined();expect(result.unresolvedDoorTypes).toEqual(['d']);
-    input.openings[0].kind='window';result=deriveSourceOpenings(input);
-    expect(result.windows).toEqual([{id:'d',wallId:'w',position:.375,width:400}]);
-    expect(result.unresolvedDoorTypes).toEqual([]);
+
+  it('keeps an aperture and warns when door operation is unresolved', () => {
+    const input = trace();
+    delete input.openings[0].doorType;
+    delete input.openings[0].typeEvidence;
+    const result = deriveSourceOpenings(input);
+    expect(result.doors[0]).toEqual({ id: 'd', wallId: 'w', position: .375, width: 400 });
+    expect(result.unresolvedDoorTypes).toEqual(['d']);
+    expect(result.reviewStatus).toBe('warning');
+    expect(result.warnings[0].message).toMatch(/operation is unresolved/);
   });
-  it('round trips asymmetric curved intervals through the existing physical opening metric',()=>{
-    const input=trace();input.cmPerPixel=1;
-    input.walls[0]={id:'w',start:{x:0,y:0},end:{x:1000,y:0},curvePoint:{x:0,y:1000}};
-    input.openings[0].endpoints=[{x:14.4,y:211.2},{x:409.6,y:460.8}]; // analytic t=.12 and t=.64
-    const result=deriveSourceOpenings(input),door=result.doors[0];
-    expect(door.position).not.toBeCloseTo((.12+.64)/2,3);
-    expect(door.width).toBeGreaterThan(Math.hypot(409.6-14.4,460.8-211.2));
-    const projected=planOpening({...input.walls[0],thickness:20,height:280,color:'#fff'},door.position,door.width)!;
-    expect(projected.curve!.start.x).toBeCloseTo(14.4,8);expect(projected.curve!.start.y).toBeCloseTo(211.2,8);
-    expect(projected.curve!.end.x).toBeCloseTo(409.6,8);expect(projected.curve!.end.y).toBeCloseTo(460.8,8);
+
+  it('round trips curved opening endpoints through the existing physical metric', () => {
+    const input = trace();
+    input.cmPerPixel = 1;
+    input.bareHouse = bareHouse([{ id: 'w', start: { x: 0, y: 0 }, end: { x: 1000, y: 0 }, curvePoint: { x: 0, y: 1000 } }]);
+    input.openings[0].endpoints = [{ x: 14.4, y: 211.2 }, { x: 409.6, y: 460.8 }];
+    const result = deriveSourceOpenings(input), door = result.doors[0];
+    expect(door.position).not.toBeCloseTo((.12 + .64) / 2, 3);
+    expect(door.width).toBeGreaterThan(Math.hypot(409.6 - 14.4, 460.8 - 211.2));
+    const projected = planOpening({ ...input.bareHouse.walls[0], thickness: 20, height: 280, color: '#fff' }, door.position, door.width)!;
+    expect(projected.curve!.start.x).toBeCloseTo(14.4, 8);
+    expect(projected.curve!.end.y).toBeCloseTo(460.8, 8);
   });
-  it.each(['no-evidence','no-leaf-evidence','no-endpoints','off-host','unknown-host','duplicate-id','thickness','heuristic-width','window-leaves'])('rejects %s rather than repairing source traces',failure=>{
-    const input=trace(),opening=input.openings[0];
-    if(failure==='no-evidence')opening.evidence='';
-    if(failure==='no-leaf-evidence')delete opening.typeEvidence;
-    if(failure==='no-endpoints')delete opening.endpoints;
-    if(failure==='off-host')opening.endpoints[0].y=20;
-    if(failure==='unknown-host')opening.wallId='missing';
-    if(failure==='duplicate-id')input.openings.push(structuredClone(opening));
-    if(failure==='thickness')opening.thickness=12;
-    if(failure==='heuristic-width')opening.width=320;
-    if(failure==='window-leaves')opening.kind='window';
-    expect(()=>deriveSourceOpenings(input)).toThrow();
+
+  it('turns a split-host mistake into a review warning instead of failing the bare house', () => {
+    const input = trace();
+    input.bareHouse = bareHouse([
+      { id: 'w-left', start: { x: 0, y: 0 }, end: { x: 45, y: 0 } },
+      { id: 'w-right', start: { x: 55, y: 0 }, end: { x: 100, y: 0 } },
+    ]);
+    input.openings[0].wallId = 'w-left';
+    input.openings[0].endpoints = [{ x: 40, y: 0 }, { x: 60, y: 0 }];
+    const result = deriveSourceOpenings(input);
+    expect(result.doors).toEqual([]);
+    expect(result.reviewStatus).toBe('warning');
+    expect(result.warnings[0].message).toMatch(/different normalized wall segments|too far/);
+  });
+
+  it('does not require complete solid/window/door surface partitions', () => {
+    const input = trace();
+    input.openings = [{ id: 'n', kind: 'window', wallId: 'w', endpoints: [{ x: 10, y: 0 }, { x: 60, y: 0 }], evidence: 'Visible glazing' }];
+    const result = deriveSourceOpenings(input);
+    expect(result.windows).toHaveLength(1);
+    expect(result.reviewStatus).toBe('pass');
+  });
+
+  it('requires the accepted bare-house contract globally', () => {
+    const input = trace();
+    delete input.bareHouse.schemaVersion;
+    expect(() => deriveSourceOpenings(input)).toThrow(/bare-house-v1/);
+  });
+
+  it('reports malformed individual opening evidence as warnings and continues', () => {
+    const input = trace();
+    input.openings[0].evidence = '';
+    input.openings.push({ id: 'n', kind: 'window', wallId: 'w', endpoints: [{ x: 300, y: 0 }, { x: 350, y: 0 }], evidence: 'Visible glazing' });
+    const result = deriveSourceOpenings(input);
+    expect(result.doors).toEqual([]);
+    expect(result.windows).toHaveLength(1);
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0].id).toBe('d');
   });
 });

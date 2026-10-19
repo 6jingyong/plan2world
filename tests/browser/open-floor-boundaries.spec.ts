@@ -1,6 +1,34 @@
 import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+
+const openBalconyPlan = {
+  schemaVersion: 'plan2world-draft-v1',
+  presentation: 'semantic-white-model',
+  name: 'Open balcony example',
+  units: 'cm',
+  scale: { mode: 'provided', confidence: 1, basis: 'Synthetic 600 x 400 cm room' },
+  assumptions: ['Synthetic browser fixture for explicit open-ground editing.'],
+  floors: [{
+    id: 'white-floor', name: 'Ground Floor', level: 0,
+    walls: [
+      { id: 'w1', start: { x: 0, y: 0 }, end: { x: 600, y: 0 }, height: 280, thickness: 20, kind: 'exterior' },
+      { id: 'w2', start: { x: 600, y: 0 }, end: { x: 600, y: 400 }, height: 280, thickness: 20, kind: 'exterior' },
+      { id: 'w3', start: { x: 600, y: 400 }, end: { x: 0, y: 400 }, height: 280, thickness: 20, kind: 'exterior' },
+      { id: 'w4', start: { x: 0, y: 400 }, end: { x: 0, y: 0 }, height: 280, thickness: 20, kind: 'exterior' },
+    ],
+    doors: [
+      { id: 'door', wallId: 'w4', position: 0.5, width: 90 },
+      { id: 'balcony-door', wallId: 'w3', position: 0.5, width: 180, type: 'double' },
+    ],
+    windows: [{ id: 'window', wallId: 'w1', position: 0.5, width: 220 }],
+    furniture: [{ id: 'sofa', catalogId: 'imported_object', sourceCategory: 'sofa', position: { x: 300, y: 240 }, width: 210.25, depth: 92.5, height: 84.75, rotation: 0 }],
+    floorAreas: [{
+      id: 'balcony', name: 'Balcony', roomType: 'outdoor',
+      boundary: [{ wallId: 'w3' }, { point: { x: 0, y: 600 } }, { point: { x: 600, y: 600 } }],
+      confidence: 1,
+    }],
+  }],
+};
 
 for (const width of [1440, 390]) test(`open balcony ground edits survive views, history and saving at ${width}px`, async ({ page }, testInfo) => {
   test.setTimeout(150_000);
@@ -14,7 +42,7 @@ for (const width of [1440, 390]) test(`open balcony ground edits survive views, 
   await page.getByRole('button', { name: 'Export', exact: true }).click();
   const chooser = page.waitForEvent('filechooser');
   await page.getByRole('button', { name: 'Import JSON', exact: true }).click();
-  await (await chooser).setFiles(resolve('examples/plan2world-open-balcony.example.json'));
+  await (await chooser).setFiles({ name: 'open-balcony-test.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(openBalconyPlan)) });
   await expect(page.getByRole('button', { name: 'Open balcony example', exact: true })).toBeVisible();
   async function exported() {
     await page.getByRole('button', { name: 'Export', exact: true }).click();

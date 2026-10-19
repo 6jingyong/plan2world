@@ -43,6 +43,16 @@ it('converts a simple draft into the existing editable project model', () => {
   expect(floor.rooms[0].area).toBe(12);
 });
 
+it('rejects retired architectural component fields', () => {
+  const withComponents: any = rectangleDraft();
+  withComponents.floors[0].components = [{ id: 'c1', type: 'shaft', position: { x: 40, y: 40 } }];
+  expect(() => parsePlan2WorldDraft(withComponents)).toThrow(/components is retired/);
+
+  const withVocabulary: any = rectangleDraft();
+  withVocabulary.componentVocabulary = 'plan2world-components-v2';
+  expect(() => parsePlan2WorldDraft(withVocabulary)).toThrow(/componentVocabulary is retired/);
+});
+
 it('rejects openings that reference a wall that does not exist', () => {
   const draft = rectangleDraft();
   draft.floors[0].doors[0].wallId = 'missing-wall';

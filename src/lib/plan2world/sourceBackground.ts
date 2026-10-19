@@ -75,11 +75,7 @@ export async function decodeSourceFloorPlanImage(dataUrl: string): Promise<Sourc
   });
 }
 
-/**
- * Fit the source raster around reconstructed wall bounds without stretching it.
- * Curved walls use the same faceted path as the editor rather than only their chord endpoints.
- * This remains the deterministic fallback when AI source-registration anchors are absent or inconsistent.
- */
+/** Fit a source raster around wall bounds without stretching it. Used only when no source registration exists. */
 export function sourceBackgroundForWalls(
   walls: Wall[],
   source: SourceFloorPlanImage,
@@ -127,11 +123,7 @@ function resolveRegistrationAnchors(
   });
 }
 
-/**
- * Solve the best-fit 2D similarity transform (uniform scale + rotation + translation)
- * from source-image anchors to draft wall endpoints. Canvas and draft coordinates both
- * use x-right/y-down, so the standard 2D rotation matrix can be used directly.
- */
+/** Solve a best-fit 2D similarity transform from source-image anchors to draft wall endpoints. */
 function similarityBackground(
   correspondences: Correspondence[],
   source: SourceFloorPlanImage,
@@ -167,7 +159,6 @@ function similarityBackground(
   };
   if (!Number.isFinite(position.x) || !Number.isFinite(position.y)) return undefined;
 
-  // With 3+ anchors, reject a visibly inconsistent fit and fall back to wall-bounds registration.
   if (correspondences.length >= 3) {
     let squaredError = 0;
     let maxWorldSpan = 0;
@@ -212,25 +203,34 @@ export function sourceBackgroundForRegistration(
   return similarityBackground(anchors, source, opacity);
 }
 
-/** Resolve the same source-image transform that will be attached to the editor. */
+function requireRegisteredBackground(
+  draft: Plan2WorldDraft,
+  source: SourceFloorPlanImage,
+  opacity: number,
+): BackgroundImage | undefined {
+  if (!draft.sourceRegistration) return undefined;
+  const background = sourceBackgroundForRegistration(draft, source, draft.sourceRegistration, opacity);
+  if (!background) {
+    throw new Error('Source registration anchors are inconsistent with the reconstructed geometry.');
+  }
+  return background;
+}
+
+/** Resolve the source-image transform that will be attached to the editor. */
 export function sourceBackgroundForDraft(
   input: unknown,
   source: SourceFloorPlanImage,
   opacity = 0.35,
 ): BackgroundImage | undefined {
   const draft = parsePlan2WorldDraft(input);
-  const registered = sourceBackgroundForRegistration(draft, source, draft.sourceRegistration, opacity);
+  const registered = requireRegisteredBackground(draft, source, opacity);
   if (registered) return registered;
   const project = draftToProject(draft);
-  const floor = project.floors.find(item => item.id === draft.sourceRegistration?.floorId) ?? project.floors[0];
+  const floor = project.floors[0];
   return floor ? sourceBackgroundForWalls(floor.walls, source, opacity) : undefined;
 }
 
-/**
- * Convert a user-picked line on the source raster into its current reconstructed
- * plan length. Because source registration is a similarity transform, rotation and
- * translation do not affect the length; only pixel distance and uniform scale matter.
- */
+/** Convert a user-picked source-raster line into its current reconstructed plan length. */
 export function sourceImageDistanceInPlanCm(
   input: unknown,
   source: SourceFloorPlanImage,
@@ -260,12 +260,14 @@ export function draftToProjectWithSourceBackground(
   const floor = project.floors.find(item => item.id === draft.sourceRegistration?.floorId) ?? project.floors[0];
   if (!floor) return project;
 
-  const registered = sourceBackgroundForRegistration(draft, source);
+  const registered = requireRegisteredBackground(draft, source, 0.35);
   const backgroundImage = registered ?? sourceBackgroundForWalls(floor.walls, source);
   if (backgroundImage) floor.backgroundImage = {
     ...backgroundImage,
     reconstructionSource: {
-      width: source.width, height: source.height, name: source.name,
+      width: source.width,
+      height: source.height,
+      name: source.name,
       registration: registered ? 'anchors' : 'bounds',
       confidence: registered ? draft.sourceRegistration?.confidence : undefined,
     },

@@ -92,10 +92,12 @@ it('renders the native footprint as a full block with the saved rotation and mir
   expect(item).toEqual(before); disposeModel(model);
 });
 
-it('keeps the portable instruction example valid under the same application parser', () => {
+it('keeps second-pass instructions evidence-only instead of embedding an application draft', () => {
   const instructions = buildReconstructionInstructions();
-  const example = instructions.slice(instructions.indexOf('{\n  "schemaVersion"'), instructions.lastIndexOf('\n}') + 2);
-  const parsed = parsePlan2WorldDraft(JSON.parse(example));
-  expect(parsed.presentation).toBe('semantic-white-model');
-  expect(parsed.floors[0].furniture![0].width).toBeUndefined();
+  expect(instructions).toContain('"schemaVersion":"source-annotation-v1"');
+  expect(instructions).toContain('Do NOT emit IDs or numeric confidence values');
+  expect(instructions).toContain('Do NOT choose or emit a wallId');
+  expect(instructions).not.toContain('"presentation":"semantic-white-model"');
+  expect(instructions).not.toContain('"furnitureVocabulary"');
+  expect(instructions).not.toContain('"floors"');
 });
