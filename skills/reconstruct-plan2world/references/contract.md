@@ -3,7 +3,6 @@
 Version: `plan2world-draft-v1`  
 Presentation: `semantic-white-model`  
 Furniture vocabulary: `plan2world-furniture-v1`  
-Architectural component vocabulary: `plan2world-components-v2`
 
 All world lengths are centimetres. The draft is the product contract; reconstruction
 uses only two geometry-side internal contracts before it:
@@ -20,7 +19,7 @@ Normalization may split existing walls at source-supported intersections/T-junct
 and snap small endpoint residuals. It must never create a connector across a real
 unsupported gap.
 
-Doors/windows, architectural semantics and furniture annotate an accepted Bare
+Doors/windows and furniture annotate an accepted Bare
 House. They do not create or close geometry. Native rooms are derived from draft
 walls; the draft does not author room polygons.
 
@@ -34,9 +33,6 @@ Required:
 - `units: "cm"`
 - `scale`
 - `floors`
-
-When components exist, also require
-`componentVocabulary: "plan2world-components-v2"`.
 
 `scale.mode` is `measured`, `provided` or `estimated`; confidence is 0..1.
 
@@ -85,23 +81,6 @@ Current reconstruction emits:
 - optional confidence.
 
 Omit source-unknown size, rotation and styling. Runtime placeholders remain editable.
-
-## Architectural components
-
-`floors[].components` records optional source semantics. Each component has a stable
-`id`, exact fixed `type`, approximate position, optional confidence, optional
-same-floor `geometryRefs`, and stair-only vertical evidence.
-
-Components never author scene policy. Do not emit `render`, `visible`,
-`sceneEffect`, `sceneSupport`, `requiresNativeSupport` or equivalents. The fixed
-registry owns behavior.
-
-A component label is not geometry authority. In particular, `balcony` is optional
-evidence only. A sealed `shaft` may reference visible enclosure walls without
-requiring a hidden floor hole. Unsupported visible `column`, `stair`, `floor_void`,
-`planter` and standalone `railing` remain explicit support gaps.
-
-`component-review.json` remains evidence-only and cannot change application policy.
 
 ## Source registration and scale
 
