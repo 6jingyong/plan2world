@@ -30,10 +30,11 @@ describe('component evidence ownership',()=>{
     const result=run(review());expect(result.status).toBe(0);
     expect(JSON.parse(result.stdout)).toMatchObject({componentCount:1,unmappedComponents:[],unmodeledComponents:[]});
   });
-  it('separates unmapped evidence from unsupported native modeling and stair targets',()=>{
+  it('keeps sealed shafts out of native gaps while visible voids and stairs remain explicit',()=>{
     const input=review();input.components[0].geometryRefs=[];
     input.components.push({id:'s1',type:'stair',floorId:'f0',image:{x:.2,y:.6},evidence:'Treads and UP label',vertical:{direction:'up'}});
     input.components.push({id:'v1',type:'floor_void',floorId:'f1',image:{x:.3,y:.6},evidence:'Explicit VOID annotation'});
+    input.components.push({id:'sh1',type:'shaft',floorId:'f0',image:{x:.8,y:.3},evidence:'Sealed service shaft enclosure',geometryRefs:[{kind:'wall',id:'w1'}]});
     let result=run(input);expect(result.status).toBe(0);
     expect(JSON.parse(result.stdout)).toMatchObject({unmappedComponents:['c1'],unmodeledComponents:['s1','v1'],unresolvedStairTargets:['s1']});
     input.components[1].vertical.toFloorId='f1';result=run(input);
