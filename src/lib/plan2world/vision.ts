@@ -3,6 +3,7 @@ import { generateOpenAIJsonFromImage } from '$lib/utils/openaiClient';
 import type { Plan2WorldDraft } from './draft';
 import { buildBareHouse, type BareHouseV1 } from './bareHouse';
 import { assemblePlan2WorldDraft } from './reconstructionAssembly';
+import { decodeSourceFloorPlanImage } from './sourceBackground';
 import { buildReconstructionInstructions, PLAN2WORLD_RECONSTRUCTION_INSTRUCTIONS_VERSION, type ReconstructionOptions } from './reconstructionInstructions';
 export { buildReconstructionInstructions as buildFloorPlanVisionPrompt } from './reconstructionInstructions';
 
@@ -12,7 +13,7 @@ export const MAX_FLOOR_PLAN_IMAGE_BYTES = 12 * 1024 * 1024;
 export const PLAN2WORLD_VISION_PROMPT_VERSION = PLAN2WORLD_RECONSTRUCTION_INSTRUCTIONS_VERSION;
 
 export interface FloorPlanVisionOptions extends ReconstructionOptions {
-  /** Deterministic source registration context; never sent to the model as evidence. */
+  /** Optional deterministic override for non-browser callers/tests. */
   sourceWidthPx?: number;
   sourceHeightPx?: number;
 }
@@ -67,6 +68,21 @@ Do not classify rooms, furnishings, components or windows. Do not invent enclosu
   return buildBareHouse(trace);
 }
 
+async function sourceSizeForAssembly(image: EncodedFloorPlanImage, options: FloorPlanVisionOptions) {
+  if (options.sourceWidthPx !== undefined || options.sourceHeightPx !== undefined) {
+    return { sourceWidthPx: options.sourceWidthPx, sourceHeightPx: options.sourceHeightPx };
+  }
+  // Browser production path: reuse the exact unchanged image already sent to the model.
+  // Node tests can omit dimensions because Image is unavailable there.
+  if (typeof Image === 'undefined') return {};
+  try {
+    const source = await decodeSourceFloorPlanImage(image.dataUrl);
+    return { sourceWidthPx: source.width, sourceHeightPx: source.height };
+  } catch {
+    return {};
+  }
+}
+
 export async function reconstructFloorPlanImage(
   config: OpenAIConfig,
   image: EncodedFloorPlanImage,
@@ -75,7 +91,7 @@ export async function reconstructFloorPlanImage(
   signal?: AbortSignal,
 ): Promise<Plan2WorldDraft> {
   const bareHouse = await traceFloorPlanWalls(config, image, customFetch, signal);
-  const { sourceWidthPx, sourceHeightPx, ...instructionOptions } = options;
+  const { sourceWidthPx: _sourceWidthPx, sourceHeightPx: _sourceHeightPx, ...instructionOptions } = options;
   const annotations = await generateOpenAIJsonFromImage(
     config,
     image.base64,
@@ -84,5 +100,5 @@ export async function reconstructFloorPlanImage(
     customFetch,
     signal,
   );
-  return assemblePlan2WorldDraft(bareHouse, annotations, { sourceWidthPx, sourceHeightPx });
+  return assemblePlan2WorldDraft(bareHouse, annotations, await sourceSizeForAssembly(image, options));
 }
