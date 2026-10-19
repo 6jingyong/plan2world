@@ -67,15 +67,6 @@ for (const width of [1440, 390]) test(`existing real source reaches a corrected,
   await expect(page).toHaveURL(/\/editor\?id=/);
   await expect(page).not.toHaveURL(/focus=/);
 
-  // Pick a real reconstructed door through the normal editor UI. Correction belongs
-  // here, not in the AI/provider fixture as a fabricated source-derived width.
-  await page.getByRole('button', { name: 'Save', exact: true }).press('l');
-  const doorsGroup = page.getByRole('button', { name: /Doors/ }).locator('..');
-  await doorsGroup.locator('button').nth(1).click();
-  const doorWidth = page.locator('[data-quick-opening-width]');
-  const originalDoorWidth = Number(await doorWidth.inputValue());
-  const editedDoorWidth = originalDoorWidth >= 80 ? originalDoorWidth - 10 : originalDoorWidth + 10;
-
   async function exported() {
     await page.getByRole('button', { name: 'Export', exact: true }).click();
     const pending = page.waitForEvent('download');
@@ -88,7 +79,17 @@ for (const width of [1440, 390]) test(`existing real source reaches a corrected,
     await testInfo.attach(name, { path, contentType: 'image/png' });
   }
 
-  const imported = await exported();
+  // Focus a real reconstructed opening using the same editor handoff used by Review.
+  // This avoids responsive Layers-panel details from deciding whether the test can edit.
+  const imported = await exported(), importedFloor = imported.floors[0], firstDoor = importedFloor.doors[0];
+  await page.getByRole('button', { name: 'Save', exact: true }).press('l');
+  await page.goto(`/editor?id=${imported.id}&focusFloor=${importedFloor.id}&focus=${firstDoor.id}`);
+  await expect(page).not.toHaveURL(/focusFloor=/);
+  const doorWidth = page.locator('[data-quick-opening-width]');
+  await expect(doorWidth).toBeVisible();
+  const originalDoorWidth = Number(await doorWidth.inputValue());
+  const editedDoorWidth = originalDoorWidth >= 80 ? originalDoorWidth - 10 : originalDoorWidth + 10;
+
   await doorWidth.fill(String(editedDoorWidth)); await doorWidth.press('Enter');
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect(doorWidth).toHaveValue(String(originalDoorWidth));
