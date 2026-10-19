@@ -14,7 +14,11 @@ replay.furnitureVocabulary = 'plan2world-furniture-v1';
 replay.name = 'Wikimedia real-plan correction replay';
 const sourceHash = '14e965e54b8d2e9788c967eb4eed8b6dde46866717167f3698c51941aa51a5e1';
 let requests: FloorPlanProviderRequest[] = [];
-const provider = createFloorPlanAIProvider(request => requests.push(request), replay);
+const provider = createFloorPlanAIProvider(
+  request => requests.push(request),
+  replay,
+  { sourceWidthPx: 535, sourceHeightPx: 526 },
+);
 
 test.beforeAll(async () => { await new Promise<void>(resolve => provider.listen(4202, '127.0.0.1', resolve)); });
 test.afterAll(async () => { provider.closeAllConnections(); await new Promise<void>(resolve => provider.close(() => resolve())); });
