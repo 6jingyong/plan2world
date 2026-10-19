@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import { draftToProject, parsePlan2WorldDraft, Plan2WorldDraftError } from '$lib/plan2world/draft';
 
-function rectangleDraft(): any {
+function rectangleDraft() {
   return {
     schemaVersion: 'plan2world-draft-v1',
     name: 'Test apartment',
@@ -43,46 +43,14 @@ it('converts a simple draft into the existing editable project model', () => {
   expect(floor.rooms[0].area).toBe(12);
 });
 
-it('records architectural components without letting them author native 3D geometry', () => {
-  const plain = draftToProject(rectangleDraft(), new Date(0));
-  const input = rectangleDraft();
-  input.componentVocabulary = 'plan2world-components-v2';
-  input.floors[0].components = [
-    { id: 'c1', type: 'shaft', position: { x: 40, y: 40 }, geometryRefs: [{ kind: 'wall', id: 'w1' }], confidence: 0.9 },
-    { id: 'c2', type: 'equipment_ledge', position: { x: 360, y: 40 }, confidence: 0.8 },
-  ];
-  const parsed = parsePlan2WorldDraft(input);
-  expect(parsed.componentVocabulary).toBe('plan2world-components-v2');
-  expect(parsed.floors[0].components).toMatchObject([{ id: 'c1', type: 'shaft' }, { id: 'c2', type: 'equipment_ledge' }]);
+it('rejects retired architectural component fields', () => {
+  const withComponents: any = rectangleDraft();
+  withComponents.floors[0].components = [{ id: 'c1', type: 'shaft', position: { x: 40, y: 40 } }];
+  expect(() => parsePlan2WorldDraft(withComponents)).toThrow(/components is retired/);
 
-  const project = draftToProject(input, new Date(0));
-  expect(project.floors[0].walls).toEqual(plain.floors[0].walls);
-  expect(project.floors[0].doors).toEqual(plain.floors[0].doors);
-  expect(project.floors[0].windows).toEqual(plain.floors[0].windows);
-  expect(project.floors[0].rooms).toEqual(plain.floors[0].rooms);
-  expect(project.floors[0].stairs).toEqual([]);
-  expect(project.floors[0].columns).toEqual([]);
-});
-
-it('requires the fixed component vocabulary and same-floor references', () => {
-  const input = rectangleDraft();
-  input.floors[0].components = [{ id: 'c1', type: 'shaft', position: { x: 40, y: 40 }, geometryRefs: [{ kind: 'wall', id: 'w1' }] }];
-  expect(() => parsePlan2WorldDraft(input)).toThrow(/componentVocabulary/);
-  input.componentVocabulary = 'plan2world-components-v2';
-  input.floors[0].components[0].geometryRefs[0].id = 'missing';
-  expect(() => parsePlan2WorldDraft(input)).toThrow(/unknown wall missing/);
-});
-
-it('rejects model-authored or invented component semantics', () => {
-  const input = rectangleDraft();
-  input.componentVocabulary = 'plan2world-components-v2';
-  input.floors[0].components = [{
-    id: 'c1', type: 'shaft', position: { x: 40, y: 40 }, geometryRefs: [{ kind: 'wall', id: 'w1' }], sceneEffect: 'void',
-  }];
-  expect(() => parsePlan2WorldDraft(input)).toThrow(/scene policy is registry-owned/);
-  delete input.floors[0].components[0].sceneEffect;
-  input.floors[0].components[0].type = 'mystery_void';
-  expect(() => parsePlan2WorldDraft(input)).toThrow(/not in plan2world-components-v2/);
+  const withVocabulary: any = rectangleDraft();
+  withVocabulary.componentVocabulary = 'plan2world-components-v2';
+  expect(() => parsePlan2WorldDraft(withVocabulary)).toThrow(/componentVocabulary is retired/);
 });
 
 it('rejects openings that reference a wall that does not exist', () => {
