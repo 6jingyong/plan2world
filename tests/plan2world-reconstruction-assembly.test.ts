@@ -39,7 +39,7 @@ function annotations(): any {
 
 describe('deterministic reconstruction assembly', () => {
   it('turns source evidence into cm draft geometry without model-authored calculations', () => {
-    const result = assemblePlan2WorldDraft(bareHouse(), annotations());
+    const result = assemblePlan2WorldDraft(bareHouse(), annotations(), { sourceWidthPx: 200, sourceHeightPx: 200 });
     const floor = result.floors[0];
     expect(result.scale).toEqual({ mode: 'measured', confidence: 0.95, basis: 'Visible 200 cm dimension spanning 100 source pixels' });
     expect(floor.walls[0].start).toEqual({ x: 0, y: 0 });
@@ -52,6 +52,11 @@ describe('deterministic reconstruction assembly', () => {
       sourceCategory: 'sofa',
       position: { x: 100, y: 100 },
     });
+    expect(result.sourceRegistration?.floorId).toBe('floor-0');
+    expect(result.sourceRegistration?.anchors).toHaveLength(4);
+    expect(result.sourceRegistration?.anchors[0]).toEqual({
+      wallId: 'top', endpoint: 'start', image: { x: 0.05, y: 0.1 },
+    });
   });
 
   it('rejects LLM-owned derived geometry fields instead of silently trusting them', () => {
@@ -62,6 +67,10 @@ describe('deterministic reconstruction assembly', () => {
     delete input.openings[0].width;
     input.scaleEvidence.cmPerPixel = 2;
     expect(() => assemblePlan2WorldDraft(bareHouse(), input)).toThrow(/unsupported fields: cmPerPixel/);
+  });
+
+  it('rejects incomplete deterministic source-registration context', () => {
+    expect(() => assemblePlan2WorldDraft(bareHouse(), annotations(), { sourceWidthPx: 200 })).toThrow(/requires both/);
   });
 
   it('rejects furniture outside the fixed vocabulary before draft assembly', () => {
