@@ -1,6 +1,6 @@
 ---
 name: reconstruct-plan2world
-description: Reconstruct a floor-plan image into a bare architectural shell first, then annotate openings, lightweight furniture before emitting plan2world-draft-v1.
+description: Reconstruct a floor-plan image into a normalized bare house, then annotate openings and optional furniture before emitting plan2world-draft-v1.
 ---
 
 # Reconstruct Plan2World
@@ -10,146 +10,57 @@ Read:
 - [references/opening-trace.md](references/opening-trace.md)
 - [references/furniture-vocabulary.json](references/furniture-vocabulary.json)
 
-The pipeline is:
+Pipeline:
 
-**source raster -> source-wall-trace-v1 -> bare-house-v1 -> opening/furniture annotations -> plan2world-draft-v1**
+**source raster -> source-wall-trace-v1 -> bare-house-v1 -> annotations -> plan2world-draft-v1**
 
-Geometry comes first. Room-use labels, doors/windows, furniture never
-create or close walls.
+Geometry owns geometry. Labels, openings and furniture never create or close walls.
 
-## 1. Trace source walls only
+## 1. Trace walls in source pixels
 
-Use the unchanged original raster: top-left origin, x right, y down. Map every crop
-back to this coordinate system.
+Use the unchanged original raster: top-left origin, x right, y down. Map crops back to it.
 
-Create `source-wall-trace-v1` with:
-- raw wall centrelines in source pixels;
-- optional ordered enclosure boundaries using raw wall IDs;
-- an optional junction tolerance, normally 3 px.
+Emit `source-wall-trace-v1` with raw wall centrelines, optional enclosure boundaries and a small junction tolerance. A raw wall may span multiple rooms; deterministic normalization may split it later.
 
-A raw wall may span several rooms. Do not manually pre-split every T-junction.
-Door/window gaps do not break their logical host. Do not turn furniture, cabinet
-edges, dimension lines, swing arcs or semantic labels into walls.
+Do not trace furniture, cabinet edges, dimension lines, swing arcs or semantic labels as walls. Door/window gaps do not break their logical host. Printed dimensions constrain scale/distances only; never use cumulative dimension values as wall coordinates.
 
-Printed dimensions and dimension-chain subdivisions are scale/distance evidence,
-not wall x/y coordinates.
-
-## 2. Build the Bare House deterministically
+## 2. Normalize to Bare House
 
 Run:
 
 `node tooling/normalize-plan2world-wall-graph.mjs --trace wall-trace.json`
 
-The result is `bare-house-v1`: normalized walls, closed enclosure loops and the
-source-to-normalized wall mapping.
+`bare-house-v1` may split walls at real intersections/T-junctions and snap small endpoint residuals onto existing geometry. It may never invent a connector across unsupported source space.
 
-The normalizer may:
-- detect real intersections and endpoint-on-wall T-junctions;
-- split long walls at those junctions;
-- snap only small endpoint residuals onto existing geometry.
+Fail the geometry gate only when a real wall is missing, an unsupported wall is invented, a source-supported enclosure still cannot close, or the whole-plan overlay materially disagrees with the source. Freeze the accepted raw trace and Bare House before continuing.
 
-It may never invent a connector across unsupported source space.
+## 3. Annotate openings
 
-### Geometry hard gate
-
-The Bare House fails only when:
-- a real wall is missing;
-- an unsupported wall is invented;
-- a supposed source-supported enclosure still cannot close after normalization;
-- the normalized whole-plan wall overlay materially disagrees with the original.
-
-A T-junction that the algorithm can split from already traced geometry is not an AI
-failure. Small later-editable wall offsets are not automatically a failure either;
-structure is the priority.
-
-Freeze the raw trace and accepted `bare-house-v1` before continuing.
-
-## 3. Annotate doors and windows
-
-Openings consume the accepted Bare House; they do not own geometry.
-
-Record each observed opening with:
-- normalized bare-house `wallId`;
-- two original-raster endpoints;
-- visible evidence;
-- optional evidence-backed door operation.
-
-Run:
+Openings reference normalized Bare House wall IDs and observed source endpoints. Derive position/width with:
 
 `node tooling/derive-plan2world-openings.mjs --trace opening-trace.json`
 
-The helper derives draft position/width. Individual opening mistakes are review
-warnings, not Bare House failures. Examples:
-- window extent slightly wrong;
-- sliding-door width uncertain;
-- single/double/sliding operation uncertain;
-- an opening temporarily omitted;
-- a room temporarily unreachable because a door was missed.
+Opening extent, operation or completeness errors are review warnings. Reopen the geometry gate only when opening evidence proves the host wall itself is wrong or disconnected.
 
-Only reopen the geometry gate when opening evidence proves the host wall itself is
-wrong or disconnected.
-
-Door types when evidenced:
-- `single` — one hinged leaf;
-- `double` — two hinged leaves sharing one aperture;
-- `sliding` — sliding-panel/track access, including full-side systems;
-- `opening` — leafless passage.
-
-Fixed glazing remains a window. A room may have entire sides of glazing or a
-full-side sliding door without any `balcony` label.
+Evidence-backed door types are `single`, `double`, `sliding` and `opening`. Fixed glazing remains a window; full-side glazing/sliding access is valid without any balcony semantic.
 
 ## 4. Add optional furniture
 
-After the empty house exists:
+After the empty house exists, establish a real object first and then choose an exact `sourceCategory` from `furniture-vocabulary.json`.
 
-### Furniture
-Identify a real object first, then choose an exact ID from
-`furniture-vocabulary.json`. Emit stable IDs, `catalogId: "imported_object"`, exact
-`sourceCategory`, approximate centre and optional confidence. Omit source-unknown
-size and rotation; runtime placeholders remain editable.
+Emit stable `id`, `catalogId: "imported_object"`, `sourceCategory`, approximate centre and optional confidence. Omit source-unknown size/rotation; runtime placeholders remain editable.
 
-## 5. Convert once and emit the draft
+## 5. Convert once and emit
 
-Derive one uniform cm-per-pixel transform from a trustworthy dimension or explicit
-user length. A bare drawing ratio is NOT enough without physical page size/DPI or a
-usable scale bar. If no reliable length exists, estimate conservatively and lower
-confidence.
+Use one cm-per-pixel transform for Bare House walls, openings, furniture and source registration. Prefer a trustworthy dimension or explicit user length; a bare drawing ratio is insufficient without page size/DPI or a usable scale bar.
 
-Apply the same transform to Bare House walls, opening widths, furniture centres and
-furniture positions. Never move walls independently to make dimension arithmetic
-close.
+Emit `plan2world-draft-v1` with `presentation: "semantic-white-model"`, `furnitureVocabulary: "plan2world-furniture-v1"` and `units: "cm"`. Draft walls come from the accepted Bare House; do not author room polygons. Use 3–6 spread-out source-registration anchors when reliable.
 
-Use 3–6 spread-out source-registration anchors when reliable. Anchors reference
-actual normalized Bare House wall endpoints on the unchanged original raster.
+## 6. Validate without regenerating good geometry
 
-Emit:
-- `schemaVersion: "plan2world-draft-v1"`
-- `presentation: "semantic-white-model"`
-- `furnitureVocabulary: "plan2world-furniture-v1"`
-- `units: "cm"`
+Freeze the original raster, raw wall trace, Bare House, opening evidence/warnings and final draft. A soft opening warning does not justify retracing accepted walls.
 
-Draft walls come from `bare-house-v1`. Do not author room polygons; native rooms are
-derived from wall topology. Doors/windows reference existing normalized walls.
-Current white-model windows default to editable floor-to-ceiling fixed glass when
-height/sill are omitted.
-
-## 6. Freeze and validate
-
-Freeze:
-1. original source raster;
-2. `source-wall-trace-v1`;
-3. `bare-house-v1`;
-4. opening warnings/evidence;
-5. emitted `plan2world-draft-v1`.
-
-Then continue through contract -> native -> 2D/cut/3D -> walkthrough -> editing/assets.
-Do not regenerate geometry merely to fix a soft opening warning.
-
-Local tools:
-
-`node tooling/normalize-plan2world-wall-graph.mjs --trace wall-trace.json`
-
-`node tooling/derive-plan2world-openings.mjs --trace opening-trace.json`
+Useful checks:
 
 `NODE_ENV=production node tooling/inspect-plan2world-draft.mjs --draft draft.json --source source.jpg --width W --height H --require-furniture-vocabulary true`
 
