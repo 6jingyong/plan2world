@@ -30,7 +30,7 @@ Furniture:
 - Allowed sourceCategory IDs: ${PLAN2WORLD_FURNITURE_TYPES.join(', ')}.
 - Emit catalogId="imported_object" and approximate centre only; omit source-unknown size/rotation.
 
-Architectural components are optional and must never create geometry. Omit floor.components unless clearly evidenced; no separate component review or scene policy output is required.\n\nSource fidelity and scale:
+Do not emit floor.components or componentVocabulary. Architectural semantics without native geometry support are outside this reconstruction pass.\n\nSource fidelity and scale:
 - Inspect printed dimensions and scale bars first, but printed dimensions and dimension-chain subdivisions are scale/distance evidence only.
 - Never use cumulative dimension-chain values as wall x/y coordinates.
 - A bare drawing ratio is NOT enough without physical page size/DPI or a usable scale bar.
@@ -56,7 +56,6 @@ Return JSON shaped like:
   "schemaVersion":"plan2world-draft-v1",
   "presentation":"semantic-white-model",
   "furnitureVocabulary":"${PLAN2WORLD_FURNITURE_VOCABULARY}",
-  "componentVocabulary":"plan2world-components-v2",
   "name":"...",
   "units":"cm",
   "scale":{"mode":"estimated","confidence":0.5,"basis":"..."},
@@ -67,8 +66,7 @@ Return JSON shaped like:
     "walls":[{"id":"w1","start":{"x":0,"y":0},"end":{"x":400,"y":0},"kind":"exterior"}],
     "doors":[{"id":"d1","wallId":"w1","position":0.5,"width":160,"type":"sliding"}],
     "windows":[],
-    "furniture":[{"id":"f1","catalogId":"imported_object","sourceCategory":"sofa","position":{"x":100,"y":200}}],
-    "components":[]
+    "furniture":[{"id":"f1","catalogId":"imported_object","sourceCategory":"sofa","position":{"x":100,"y":200}}]
   }]
 }`;
 }
