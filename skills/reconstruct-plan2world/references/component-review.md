@@ -1,96 +1,117 @@
 # Component recognition evidence
 
-Read `component-vocabulary.json` before the dedicated architectural pass. Keep a
-working source inventory before furniture, then resolve geometry references after
-walls/openings/floorAreas are complete. In a local verification deliver this
-companion `component-review.json` with the frozen draft:
+Read `component-vocabulary.json` before the dedicated architectural pass. The
+application draft owns architectural semantics; the review sidecar owns only
+source evidence.
+
+## Draft component contract
+
+Every positively recognized architectural component belongs in its draft floor's
+`components` array. Emit root `componentVocabulary: "plan2world-components-v2"`
+whenever any component is present.
 
 ```json
 {
-  "schemaVersion":"plan2world-component-review-v1",
-  "vocabularyVersion":"plan2world-components-v1",
-  "components":[{
-    "id":"c1","type":"bay_window","floorId":"f0",
-    "image":{"x":0.4,"y":0.2},
-    "evidence":"A projecting outer wall with visible glazing, not a separate storage unit.",
-    "geometryRefs":[{"kind":"wall","id":"w1"},{"kind":"window","id":"win1"}]
+  "componentVocabulary":"plan2world-components-v2",
+  "floors":[{
+    "id":"f0",
+    "components":[{
+      "id":"c1",
+      "type":"bay_window",
+      "position":{"x":420,"y":180},
+      "confidence":0.9,
+      "geometryRefs":[{"kind":"wall","id":"w1"},{"kind":"window","id":"win1"}]
+    }]
   }]
 }
 ```
 
-Use exact type IDs, a normalized location on the original raster and visible
-evidence. Geometry references use `wall`, `door`, `window` or `floorArea` IDs on
-that same draft floor. Do not add furniture references or copied meshes/outlines.
-Missing mapping is a reported gap, not permission to add source-unsupported walls.
-In the ordinary one-JSON AI response keep the working inventory internal; include
-unresolved/unmodeled component types and locations in draft `assumptions`. The
-companion file is review evidence, not a second application interchange format.
+`type` must be an exact registry ID. `position` is an approximate plan-space cm
+centre after the same uniform source transform used by the rest of the draft.
+`geometryRefs` may point only to existing same-floor `wall`, `door`, `window` or
+`floorArea` IDs. They identify geometry that already owns the visible shape; they
+do not create a second mesh. Optional stair `vertical` may contain visible
+`direction` and an established `toFloorId` only.
+
+Never emit `render`, `visible`, `sceneEffect`, `sceneSupport`,
+`requiresNativeSupport` or equivalent model-authored policy flags. The LLM records
+what the source contains. Deterministic code reads the fixed registry and decides
+what the 3D scene does with that type.
+
+## Source-review sidecar
+
+For local verification, freeze a companion `component-review.json` containing
+source evidence for exactly the same component IDs:
+
+```json
+{
+  "schemaVersion":"plan2world-component-review-v2",
+  "vocabularyVersion":"plan2world-components-v2",
+  "components":[{
+    "id":"c1",
+    "image":{"x":0.4,"y":0.2},
+    "evidence":"A projecting outer wall with visible glazing, not a storage unit."
+  }]
+}
+```
+
+The sidecar deliberately does **not** repeat type, floor, geometry references or
+scene policy. That prevents a verification artifact from silently changing what
+the application imports. `image` is normalized on the unchanged original raster;
+`evidence` states the visible reason for recognition.
+
+Run:
+
+`python scripts/check-component-review.py --review component-review.json --draft draft.json`
+
+The checker validates evidence IDs against draft components, same-floor geometry
+references, required geometry kinds and the deterministic scene policy. It reports
+`ignoredSceneComponents` for intentional 3D no-ops and `unmodeledComponents` for
+registry types whose visible scene effect is not yet implemented. Source evidence
+and source-overlay alignment remain separate visual checks.
+
+## Deterministic scene policy
+
+The fixed registry has two code-owned fields for each type:
+
+- `sceneEffect`: what kind of scene consequence the type represents.
+- `sceneSupport`: `ignore`, `existing-geometry`, or `unsupported`.
+
+`ignore` means recognition is retained but no dedicated 3D object is created.
+`existing-geometry` means referenced walls/windows/floorAreas already own the
+scene result; the component itself creates no second object. `unsupported` means a
+user-perceptible scene effect still needs deterministic native support.
+
+For example, a sealed `shaft` is `boundary-only / existing-geometry`: its correct
+visible enclosure walls matter, but the hidden cavity does not require a special
+slab hole. `window_ledge` and `equipment_ledge` are `evidence-only / ignore`.
+`column`, `stair`, `floor_void`, visible built-in `planter` and standalone
+`railing` remain explicit scene-support gaps until their deterministic handlers
+exist.
 
 ## Source-fidelity gate
 
 Wall position belongs to the visible source trace. Trace wall centrelines in the
-original raster first and keep those pixel positions as the geometry evidence.
-Printed dimensions, dimension chains and scale bars may constrain distance/scale;
-they do not supply wall x/y coordinates. In particular, never accumulate dimension-
-chain subdivisions and substitute those cumulative values for visually traced wall
-positions. A dimension may validate the distance between two walls only when its
-witness/extension endpoints visibly identify those exact walls; it still does not
-move the traced centrelines to make the arithmetic close.
+original raster first. Printed dimensions, dimension chains and scale bars may
+constrain scale or distances; they do not supply wall x/y coordinates. Never
+accumulate dimension-chain subdivisions and substitute those cumulative values
+for visually traced wall positions.
 
-Before an A-layer reconstruction can pass, compare the complete transformed wall
-network back against the unchanged source. Use the same uniform source-to-cm
-transform in reverse, or the saved registration derived from that transform; do not
-fit registration independently to hide geometry drift. In local verification,
-freeze the emitted candidate as evidence and generate the source overlay. An
-obvious or systematic wall-centreline mismatch is an A-layer failure: stop there,
-preserve the failed candidate, fix the reusable reconstruction instructions and
-make a fresh candidate from the original source. Do not continue into contract,
-native conversion or rendering, and never hand-correct the failed candidate.
+Before A can pass, reproject the complete transformed wall network onto the
+unchanged source with the same uniform transform. Do not independently fit
+registration to hide drift. An obvious or systematic centreline mismatch is an
+A-layer failure: preserve the failed candidate, stop, fix the reusable
+reconstruction instructions and generate a fresh candidate from the original.
+Do not continue to contract, native conversion or rendering.
 
-## Walkthrough relevance gate
+## Ownership and vertical risks
 
-Plan2World targets a user-visible, walkable, editable immersive scene rather than
-BIM completeness. A discrepancy is blocking when it changes something the user can
-see, reach, collide with or edit: visible wall faces, openings, accessible floor,
-room shape, collision boundaries or interactive assets. Completely sealed technical
-cavities may omit or simplify hidden internal floor/ceiling construction when a
-walkthrough user cannot see or enter them and that simplification does not change
-visible enclosure geometry or collision. Preserve their source-supported boundary
-walls, but do not create BIM-only schema or native work merely to model an unseen
-shaft slab. An explicit atrium, stairwell opening or other visible/reachable floor
-void remains user-perceptible and must still be reported as a real modeling gap.
-
-Run `python scripts/check-component-review.py --review component-review.json --draft draft.json`
-from this Skill directory. It is read-only and reports missing mappings, evidence-only
-features and native modeling gaps separately. The report cannot certify visual
-recognition or source-overlay alignment. Any user-perceptible unmodeled or unresolved
-component must be stated in the review; hidden BIM-only detail is not a blocking gap.
-
-## Vertical and ownership risks
-
-- A component describes a feature; referenced walls/windows/floorAreas own its
-  geometry exactly once. A bay is not another box on top of those objects.
-- A wall pier integrated with walls is not also a standalone column. Fixed storage
-  needs recognizable cabinet evidence; a rectangular ledge alone is architecture.
-- A balcony guard remains observed guard evidence. Under `balcony-policy.md`, its
-  supported perimeter may host assumed full-height glazing. Reference those walls
-  and windows from the balcony; never add duplicate solids or floorAreas. The
-  checker tests current enclosure mappings, not historical open-balcony policy or
-  actual room closure. Equipment ledges and shafts are not automatically living
-  floor. Visible plants alone do not establish a built-in planter.
-- A sealed shaft still needs correct visible enclosure walls, but its unseen
-  internal slab/ceiling state is intentionally ignored when it cannot be seen,
-  entered, collided with or edited. Do not invent an access opening to expose it.
-- Recognize stairs from tread/flight or labelled stair evidence. Distinguish an
-  up/down arrow from a compass, door arc, rug, lift and annotation. Optional
-  `vertical: {"direction":"up","toFloorId":"f1"}` is only for stairs. Omit
-  direction/target when not established; never invent an unseen destination floor,
-  rise, storey height or ceiling opening. An unknown target remains unresolved.
-- For duplexes, do not concatenate separate floor drawings in a single floor or
-  assume their raster origins align. Establish a coordinate/scale relationship
-  separately for each supplied floor before claiming a vertical connection.
-- Native Stair/Column types exist, but current draft conversion does not import
-  them, and explicit visible/reachable floor voids are not subtracted. Capture
-  those user-perceptible gaps explicitly. This recognition pass does not implement
-  multi-floor modeling, visible floor-hole subtraction, stair collision or
-  cross-floor walkthrough.
+- A component describes a feature; referenced geometry owns its shape exactly once.
+- Wall piers are not duplicate columns. Bays are not furniture. Shafts and equipment
+  ledges are not living floor.
+- Balcony policy may derive glazing from a supported balcony perimeter, but the
+  balcony component still references the actual wall/window owners rather than a
+  duplicate room mesh.
+- Stair arrows establish only visible direction. Never infer unseen target floors,
+  rises, holes or alignment between separate floor drawings.
+- An unresolved stair target is reported separately from scene support.
