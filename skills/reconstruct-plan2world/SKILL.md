@@ -37,20 +37,22 @@ visually wrong. A program error is not permission for an LLM topology workaround
 
 ## B. Source annotation
 
-After Bare House geometry is accepted, use the original raster plus normalized wall
-IDs and emit only `source-annotation-v1` as defined in `annotation-pass.md`.
+After Bare House geometry is accepted, use the original raster plus Bare House
+geometry as context and emit only `source-annotation-v1` as defined in
+`annotation-pass.md`.
 
-The model may identify scale evidence, opening evidence/operation and fixed-vocabulary
-furniture. It must not emit calculated opening width/position, cm-per-pixel, cm
-coordinates, source-registration anchors or final draft structure.
+The model may identify scale evidence, opening existence/endpoints/operation and
+fixed-vocabulary furniture. It must not choose opening host IDs or emit calculated
+opening width/position, cm-per-pixel, cm coordinates, source-registration anchors or
+final draft structure.
 
 Immediately hand Bare House + annotations + the known raster dimensions to:
 
 `node tooling/assemble-plan2world-draft.mjs --bare-house bare-house.json --annotations annotations.json --source-width W --source-height H > draft.json`
 
-The assembler owns unit conversion, scale math, opening projection/width/position,
-furniture coordinate conversion, fixed `catalogId`, source-registration anchors,
-warning collection and final `plan2world-draft-v1` construction.
+The assembler owns unit conversion, scale math, opening host association,
+projection/width/position, furniture coordinate conversion, fixed `catalogId`,
+source-registration anchors, warning collection and final `plan2world-draft-v1`.
 
 ## C. Validate, then hand off
 
@@ -70,7 +72,7 @@ Always fix the earliest wrong artifact:
 - wrong visible wall evidence → wall LLM pass;
 - wrong split/snap/topology → normalizer/program;
 - wrong opening/furniture/scale evidence → annotation LLM pass;
-- wrong cm conversion, opening width/position, registration, schema or IDs → assembler/program;
+- wrong host match, cm conversion, opening width/position, registration, schema or IDs → assembler/program;
 - wrong rooms/rendering/collision/walkthrough → downstream application.
 
 Never repair a deterministic-stage bug by adding more LLM instructions.
