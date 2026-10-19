@@ -1,54 +1,39 @@
-# Opening trace on an accepted Bare House
+# Opening derivation behavior
 
-Geometry is already owned by:
+Openings are source annotations on an already accepted `bare-house-v1`. They do not
+own wall geometry.
 
-`source-wall-trace-v1 -> bare-house-v1`
+The annotation pass supplies only:
 
-Doors/windows annotate `bare-house-v1`; they never create walls or a second enclosure contract. Use normalized Bare House wall IDs and keep the logical host continuous.
+- `id`;
+- `kind: door | window`;
+- normalized Bare House `wallId`;
+- two observed source-pixel endpoints;
+- source evidence;
+- optional evidence-backed door operation/confidence.
 
-## Opening evidence
+It must not supply `width`, `position` or thickness.
 
-For each observed opening record:
-- `id` and `kind` (`door` or `window`);
-- normalized `wallId`;
-- two jamb/glazing endpoints in the original raster;
-- visible evidence;
-- optional evidence-backed door operation.
+`deriveSourceOpenings` / `tooling/derive-plan2world-openings.mjs` owns:
 
-Example:
+- endpoint projection onto the normalized host;
+- projection-distance tolerance;
+- path-distance width in source pixels;
+- opening midpoint parameter along straight or quadratic hosts;
+- cm width after scale is supplied;
+- warnings for invalid host association or unresolved door operation.
 
-```json
-{
-  "cmPerPixel":1.8,
-  "bareHouse":{"schemaVersion":"bare-house-v1","...":"..."},
-  "openings":[{
-    "id":"d1",
-    "kind":"door",
-    "wallId":"w7",
-    "endpoints":[{"x":200,"y":300},{"x":250,"y":300}],
-    "evidence":"visible jamb-to-jamb aperture",
-    "doorType":"sliding",
-    "typeEvidence":"parallel sliding panels/track"
-  }]
-}
-```
+Door operation remains source evidence, not geometry math:
 
-Run:
+- `single` — one hinged leaf;
+- `double` — two hinged leaves sharing one aperture;
+- `sliding` — sliding-panel/track access;
+- `opening` — evidenced leafless passage.
 
-`node tooling/derive-plan2world-openings.mjs --trace opening-trace.json`
+Fixed glazing remains a window. Missing/uncertain opening extent or operation is a
+review warning. Reopen the geometry gate only if later evidence proves the Bare House
+host wall itself is wrong or disconnected.
 
-The helper derives draft `position` and `width` from source endpoints and normalized wall geometry. Do not substitute host-length percentages, default widths or swing-arc diameter.
-
-## Review boundary
-
-Opening errors are soft warnings: omitted openings, uncertain extent, wrong operation, or temporary loss of room access do not invalidate an accepted Bare House.
-
-Reopen the geometry gate only when opening evidence proves the host wall itself is missing, misplaced or disconnected.
-
-Door operation is evidence-driven:
-- `single`: one hinged leaf;
-- `double`: two hinged leaves sharing one aperture;
-- `sliding`: sliding-panel/track access, including full-side systems;
-- `opening`: evidenced leafless passage.
-
-Fixed glazing remains a window. Solid piers remain wall; do not stretch glazing across them. Full-side glazing or sliding access is valid without any balcony semantic.
+The deterministic assembler calls the same opening derivation logic when converting
+`source-annotation-v1` into the final draft, so the Skill should normally call the
+assembler rather than recomputing opening fields itself.
