@@ -40,17 +40,20 @@ describe('fixed reconstruction furniture vocabulary', () => {
     expect(()=>parsePlan2WorldDraft(input)).toThrow('requires semantic-white-model');
   });
 
-  it('keeps the portable Skill list, runtime, JSON schema and generated instructions in sync', () => {
+  it('keeps the portable Skill list, runtime, JSON schema and evidence instructions in sync', () => {
     const registry=JSON.parse(readFileSync('skills/reconstruct-plan2world/references/furniture-vocabulary.json','utf8'));
     const schema=JSON.parse(readFileSync('schemas/plan2world-draft-v1.schema.json','utf8'));
     expect(registry.version).toBe(PLAN2WORLD_FURNITURE_VOCABULARY);
     expect(new Set(PLAN2WORLD_FURNITURE_TYPES).size).toBe(PLAN2WORLD_FURNITURE_TYPES.length);
     expect(schema.properties.furnitureVocabulary.const).toBe(PLAN2WORLD_FURNITURE_VOCABULARY);
     expect(schema.$defs.fixedFurnitureType.enum).toEqual(PLAN2WORLD_FURNITURE_TYPES);
+
     const instructions=buildReconstructionInstructions();
     const line=instructions.split('\n').find(line=>line.startsWith('- Allowed sourceCategory IDs'))!;
     expect(line.slice(line.indexOf(': ')+2,-1).split(', ')).toEqual(PLAN2WORLD_FURNITURE_TYPES);
-    const example=instructions.slice(instructions.indexOf('{\n  "schemaVersion"'),instructions.lastIndexOf('\n}')+2);
-    expect(parsePlan2WorldDraft(JSON.parse(example),{requireFurnitureVocabulary:true}).furnitureVocabulary).toBe(registry.version);
+    expect(instructions).toContain('"schemaVersion":"source-annotation-v1"');
+    expect(instructions).toContain('Report only exact sourceCategory and approximate source-pixel centre.');
+    expect(instructions).toContain('catalogId, furniture size or rotation');
+    expect(instructions).not.toContain('"furnitureVocabulary"');
   });
 });
