@@ -1,134 +1,68 @@
 # Plan2World
 
-**Floor-plan image → editable Three.js home → first-person walkthrough.**
+**Floor-plan image → frozen reconstruction draft → editable Three.js home → first-person walkthrough.**
 
-Plan2World is an MIT-licensed experiment built on top of [openPlan3D](https://github.com/laanlabs/openPlan3D). The goal is deliberately simpler than BIM: upload a normal floor-plan image, reconstruct the visible geometry into an editable browser scene, place furniture, then walk through the result in first person.
+Plan2World is an MIT-licensed project built on top of [openPlan3D](https://github.com/laanlabs/openPlan3D). It keeps the existing deterministic editor, project model and Three.js viewer, and adds a provider-neutral floor-plan reconstruction layer.
 
-## Workflow
+## Current pipeline
 
 ```text
 floor-plan JPG / PNG / WebP
         ↓
-vision-capable provider (BYOK) or external agent
+reconstruct-plan2world Skill
         ↓
 plan2world-draft-v1 JSON
         ↓
-validation + normalization
+validation + Review
         ↓
-existing editable project model
+existing native Project model
         ↓
-2D furniture editing  ⇄  Three.js first-person walkthrough
+2D edit ⇄ 1.20 m architectural cut ⇄ 3D ⇄ first-person walkthrough
 ```
 
-The AI is intentionally kept outside the core renderer. A model only needs to understand the image and produce the documented draft format; it does not need to know Svelte, Three.js, editor history, materials, persistence, or BIM.
+The AI boundary is the draft JSON. Geometry validation, conversion, room analysis, editing, collision and rendering remain deterministic application code.
 
-## Current status
+## Current reconstruction scope
 
-The underlying editor already provides:
+The current reconstruction contract supports:
 
-- 2D wall, door, window, stair, room, and annotation editing;
-- a categorized furniture catalog with placement, rotation, resizing, and snapping;
-- real-time Three.js 3D preview;
-- first-person walkthrough;
-- local project persistence and JSON import/export;
-- material and lighting controls.
+- zero-width wall centrelines with straight segments and native quadratic curves;
+- hosted doors and windows referenced to existing walls;
+- source registration, scale evidence and reconstruction assumptions;
+- source-derived semantic furniture blocks using the fixed `plan2world-furniture-v1` vocabulary;
+- optional source-supported open-ground outlines through `floorAreas`;
+- the declared balcony policy: recognized balconies/terraces default to independent enclosed glazed rooms unless source evidence triggers the policy guard;
+- conversion into the existing editable `Project` model without a parallel scene graph;
+- native 2D correction, semantic-block style replacement, 3D inspection and first-person walkthrough.
 
-Plan2World adds the image reconstruction layer:
+A draft is evidence-bearing input, not ground truth. Ambiguous or unsupported source details should be disclosed rather than invented.
 
-- upload PNG, JPEG, or WebP floor-plan images from the welcome screen;
-- optionally provide a known real-world length when the image itself has no readable dimension;
-- call the configured vision-capable provider directly from the browser;
-- prefer visible dimensions and scale bars before estimating scale;
-- never treat a bare ratio such as `1:100` as sufficient to calibrate an arbitrary raster screenshot unless physical page size/DPI or another usable scale reference is preserved;
-- label estimated scale explicitly instead of presenting guessed measurements as exact;
-- reconstruct straight walls, doors, and windows into `plan2world-draft-v1`;
-- validate references and geometry before converting into the native editor project;
-- run the existing room detector rather than asking the model to invent room polygons;
-- continue editing the result with the existing furniture and first-person tools.
+## Validation rule
 
-The same draft format remains usable without the built-in provider flow. Codex, DeepSeek Harness, or another vision-capable agent can generate a draft JSON file externally and import it through the normal JSON import action.
+For reconstruction validation, treat each emitted draft as immutable evidence:
 
-## Privacy and provider model
+1. generate a fresh draft from the source image and the current Skill;
+2. freeze that complete JSON before inspecting downstream output;
+3. if a stage fails, identify the earliest incorrect artifact;
+4. repair the responsible reusable Skill, converter, editor, viewer or walkthrough code;
+5. generate a separate fresh output for the retest.
 
-Plan2World does not require a Plan2World AI backend. The built-in image flow reuses the editor's existing bring-your-own-provider settings.
+Do **not** hand-edit a failed JSON or 3D/native project to make a validation case pass. SVG overlays are diagnostic aids for image-to-JSON review, not a product output.
 
-When you generate a home from an image:
+## Important references
 
-1. the browser reads the selected image locally;
-2. the browser sends it directly to the provider URL you configured;
-3. the provider returns JSON geometry;
-4. Plan2World validates that JSON locally and opens it as an editable project.
-
-Plan2World does not proxy or store the uploaded floor-plan image in this flow. Provider billing, retention, supported models, CORS behavior, and data handling are governed by the provider you choose.
-
-## v1 scope
-
-Keep the first useful version small:
-
-1. one floor-plan image;
-2. one floor;
-3. straight walls;
-4. doors and windows;
-5. either a trustworthy scale anchor or an explicitly estimated scale;
-6. import into the existing editor;
-7. manual correction and furniture placement;
-8. first-person walkthrough.
-
-Furniture is intentionally **not** inferred from the source image in v1. The model reconstructs architecture; users furnish the result with the existing catalog. This avoids fragile guesses about product/category IDs and keeps the most interactive part of the workflow under user control.
-
-### Furniture as game pieces
-
-Furniture should stay deliberately lightweight rather than becoming a miniature asset pipeline. A piece is primarily defined by its **category, footprint (width × depth), position, rotation, and palette color**. In the 2D editor it can render as a colored footprint/glyph; in 3D it can render as a simple box, prism, or similarly cheap low-poly marker using the same footprint.
-
-The footprint is the gameplay-relevant truth: a bed occupies more space than a chair, a sofa has a different shape from a table, and colors make categories readable at a glance. Detailed GLTF furniture can remain an optional visual skin later, rather than being required by the core project format or the image-reconstruction model.
-
-Not v1: BIM/Revit, structural analysis, automatic architectural-code checking, photorealistic rendering, or automatic interior-design recommendations.
-
-## Draft format
-
-A reconstruction provider or agent should output `plan2world-draft-v1`, for example:
-
-```json
-{
-  "schemaVersion": "plan2world-draft-v1",
-  "name": "Apartment",
-  "units": "cm",
-  "scale": {
-    "mode": "measured",
-    "confidence": 0.98,
-    "basis": "Visible 360 cm dimension"
-  },
-  "floors": [
-    {
-      "id": "floor-0",
-      "name": "Ground Floor",
-      "level": 0,
-      "walls": [
-        {
-          "id": "w1",
-          "start": { "x": 0, "y": 0 },
-          "end": { "x": 360, "y": 0 },
-          "thickness": 20
-        }
-      ],
-      "doors": [],
-      "windows": [],
-      "furniture": []
-    }
-  ]
-}
-```
-
-See:
-
-- [`docs/plan2world-draft-v1.md`](docs/plan2world-draft-v1.md) — human-readable contract;
+- [`AGENTS.md`](AGENTS.md) — project invariants and validation rules for coding agents;
+- [`skills/reconstruct-plan2world/SKILL.md`](skills/reconstruct-plan2world/SKILL.md) — provider-neutral reconstruction procedure;
+- [`docs/plan2world-draft-v1.md`](docs/plan2world-draft-v1.md) — human-readable draft contract;
 - [`schemas/plan2world-draft-v1.schema.json`](schemas/plan2world-draft-v1.schema.json) — machine-readable schema;
-- [`examples/plan2world-draft-v1.example.json`](examples/plan2world-draft-v1.example.json) — complete example;
-- [`src/lib/plan2world/draft.ts`](src/lib/plan2world/draft.ts) — runtime parser and native project conversion.
+- [`FEATURES.md`](FEATURES.md) — current Plan2World-focused capability reference;
+- [`docs/reviews/2026-10-17-semantic-white-model.md`](docs/reviews/2026-10-17-semantic-white-model.md) and [`docs/reviews/2026-10-18-open-ground.md`](docs/reviews/2026-10-18-open-ground.md) — retained current validation records.
+
+Historical QA reports and development diaries are intentionally not kept in the current tree; Git history remains the archive.
 
 ## Run locally
 
-Plan2World currently inherits the upstream toolchain. Use Node.js 24 (see `.nvmrc`) and npm:
+Use Node.js 24 (see `.nvmrc`) and npm:
 
 ```bash
 git clone https://github.com/6jingyong/plan2world.git
@@ -137,9 +71,9 @@ npm ci
 npm run dev
 ```
 
-Open `http://localhost:5173`.
+The development server normally opens on `http://localhost:5173`.
 
-Useful checks:
+Core checks:
 
 ```bash
 npm test
@@ -147,42 +81,25 @@ npm run check
 npm run build
 ```
 
-The upstream project contains a much larger browser regression suite and rendering benchmarks; see [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`FEATURES.md`](FEATURES.md).
+For a production-server Chromium smoke test, build first and use the repository's normal Playwright config:
 
-## Using the built-in image flow
-
-1. Open Plan2World and choose **Generate from floor-plan image**.
-2. Expand **AI provider → Configure** on first use and save a vision-capable provider/model.
-3. Drop in a PNG, JPEG, or WebP plan.
-4. If the drawing has no usable dimensions but you know one real-world length, enter that length as the optional hint.
-5. Generate the editable home.
-6. Correct any uncertain geometry in 2D, place furniture from the catalog, then switch to 3D/walkthrough.
-
-## Working with Codex or another external agent
-
-Open this repository as the working directory and give the agent the source floor-plan image. `AGENTS.md` defines the architectural contract and v1 constraints.
-
-A useful task is:
-
-```text
-Read AGENTS.md and docs/plan2world-draft-v1.md.
-Inspect the attached floor-plan image.
-Create a plan2world-draft-v1 JSON file using visible dimensions where available.
-Do not invent precise measurements when the scale is unknown; record assumptions.
-Do not infer furniture; leave furniture empty for manual placement in Plan2World.
-Validate references between walls, doors, and windows.
+```bash
+npm run build
+npx playwright install chromium
+npx playwright test tests/browser/walkthrough.spec.ts --project=chromium
 ```
 
-Then use Plan2World's JSON import action to open the generated draft. This keeps Codex, DeepSeek Harness, or another model interchangeable: the application contract is JSON, not a single vendor API.
+`playwright.config.ts` starts `node build/index.js` itself. No separate `playwright.local.config.ts` is required by the repository.
+
+## Architecture principles
+
+- SvelteKit + Three.js remain the application stack.
+- Keep using the existing openPlan3D `Project`/`Floor`/wall/opening/furniture model rather than introducing a second geometry store.
+- Keep provider-specific transport outside the editor core.
+- Preserve deterministic conversion, geometry checks, room analysis, collision and rendering.
+- Keep local/manual JSON import possible; no mandatory AI backend is required.
+- Keep upstream MIT attribution.
 
 ## Upstream and license
 
-Plan2World is forked from [laanlabs/openPlan3D](https://github.com/laanlabs/openPlan3D) and keeps the upstream MIT license and copyright notice. The original editor remains the foundation for 2D editing, furniture placement, persistence, and Three.js walkthrough functionality.
-
-This repository is licensed under the [MIT License](LICENSE). Third-party models/assets may have their own attribution or license requirements; retain the existing model-source records when redistributing them.
-
-## Direction
-
-The product test is simple: **can a normal person upload a flat apartment plan, correct any AI mistakes in a familiar editor, place a sofa and bed, press Tab, and walk through the home?**
-
-If that loop works reliably, more sophisticated model integrations should remain adapters/plugins rather than becoming architectural dependencies.
+Plan2World is built on [laanlabs/openPlan3D](https://github.com/laanlabs/openPlan3D) and retains the upstream MIT license and attribution. The upstream editor remains the foundation for native editing, persistence and Three.js walkthrough functionality.

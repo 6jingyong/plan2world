@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { detectOuterWalls, getOuterWalls } from '$lib/utils/outerWalls';
-import { createProjectFromRoomPlan, DEFAULT_ROOMPLAN_OPTIONS } from '$lib/utils/roomplanImport';
+import { createProjectFromRoomPlan } from '$lib/utils/roomplanImport';
 import { detectRooms } from '$lib/utils/roomDetection';
 import type { Wall, Point } from '$lib/models/types';
 
@@ -35,9 +35,12 @@ it('retains open sketches when no enclosed rooms can establish an exterior', () 
   }
 });
 
-it.each(['test-roomplan.json', 'static/test-roomplan-multiroom.json'])('keeps a usable envelope for the capture fixture %s', file => {
-  const project = createProjectFromRoomPlan(JSON.parse(readFileSync(file, 'utf8')), file, DEFAULT_ROOMPLAN_OPTIONS);
-  for (const floor of project.floors) {
+it('keeps a usable envelope after importing the maintained RoomPlan handoff fixture', () => {
+  const fixture = JSON.parse(readFileSync(new URL('./fixtures/handoff-roomplan.json', import.meta.url), 'utf8'));
+  const project = createProjectFromRoomPlan(fixture, 'handoff-roomplan.json');
+  const populatedFloors = project.floors.filter(floor => floor.walls.length > 0);
+  expect(populatedFloors.length).toBeGreaterThan(0);
+  for (const floor of populatedFloors) {
     const ids = detectOuterWalls(floor.walls);
     expect(ids.size).toBeGreaterThan(0);
     expect([...ids].every(id => floor.walls.some(w => w.id === id))).toBe(true);

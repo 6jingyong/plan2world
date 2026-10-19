@@ -2,55 +2,62 @@
 
 ## Mission
 
-Plan2World turns a floor-plan image into an editable browser scene: first reconstruct the architectural geometry, then let the user correct geometry, choose styles for semantic furniture blocks, and walk the result in first person with Three.js.
+Plan2World turns a floor-plan image into an editable browser home: reconstruct source-supported architecture and semantic furniture, review the reconstruction, convert it into the existing native project model, then edit and walk it in Three.js.
 
-The existing openPlan3D editor is the downstream engine. Do not replace working drawing, furniture, persistence, or 3D walkthrough systems unless a task specifically requires it.
+The existing openPlan3D editor is the downstream engine. Reuse its `Project`, editing, history, persistence, collision and viewer systems. Do not create a competing scene graph or replace working subsystems unless the task specifically requires it.
 
-## Core pipeline
+## Canonical pipeline
 
-1. Inspect a JPG/PNG floor plan.
-2. Trace outer wall centrelines, inventory architectural components using their fixed vocabulary, then identify real furniture from its fixed vocabulary in that context, complete the shared interior walls and source-supported closure, then extract hosted doors/windows. Use the provider-neutral `skills/reconstruct-plan2world` procedure.
-3. Emit `plan2world-draft-v1` JSON.
-4. Validate and normalize that JSON.
-5. Convert it into the existing `Project` model in `src/lib/models/types.ts`.
-6. Open the result in the existing editor for correction, native-object style selection, furniture placement, and first-person walkthrough.
+1. Inspect the original JPG/PNG/WebP floor plan.
+2. Apply `skills/reconstruct-plan2world/SKILL.md` from the source image.
+3. Emit one complete `plan2world-draft-v1` JSON.
+4. Freeze that JSON before downstream inspection.
+5. Validate/Review it and convert it into the existing native `Project` model.
+6. Inspect 2D, the 1.20 m architectural cut, 3D and first-person walkthrough.
+7. When a failure appears, identify the earliest incorrect artifact and repair only the reusable layer responsible for it.
 
-The AI boundary is the draft JSON. Keep model-provider-specific code outside the core editor.
+The AI boundary is the draft JSON. Geometry validation, normalization, room analysis, editing, collision and rendering remain deterministic application code.
 
-## Product invariants
+## Non-negotiable validation rule
 
-- 2D editing and first-person walkthrough are equally important. `Tab` should remain a fast way to move between editing and experience.
-- A generated plan is a draft, not ground truth. The user must be able to correct walls, openings, scale, and furniture manually.
-- Never require BIM/Revit for the core workflow.
-- Do not add a mandatory cloud backend or paid model dependency. Local/manual JSON import must remain possible.
-- Keep the project usable as a normal floor-plan editor when AI features are unavailable.
-- Preserve upstream MIT attribution.
+A validation candidate is evidence, not a canvas for manual rescue.
 
-## Geometry contract
+- Never hand-edit a frozen JSON after finding a failure.
+- Never move, add or delete native/3D geometry merely to make that candidate look correct or walkable.
+- Never hide a downstream defect by compensating in an upstream artifact.
+- If image → JSON is wrong, improve the reconstruction Skill/procedure and generate a separate fresh candidate.
+- If JSON → native project is wrong, fix conversion/normalization and retest the same frozen JSON where appropriate.
+- If native geometry is correct but cut/3D/walkthrough is wrong, fix the viewer, collision, entry or interaction code.
+- SVG/overlay output is only a diagnostic for image-to-JSON review; it is not a product goal or alternate source of truth.
+
+Record the earliest failing stage. A polished final screenshot does not count as validation if an earlier stage was manually corrected.
+
+## Reconstruction contract
 
 Use `schemas/plan2world-draft-v1.schema.json` and `docs/plan2world-draft-v1.md`.
 
 Important conventions:
 
 - Lengths are centimetres.
-- Trace walls as zero-width centrelines. Draft start/end and optional curvePoint own position; omit optional positive thickness/height unless established. Normalization supplies physical defaults later. Never emit thickness 0.
-- Doors/windows reference an existing wall by `wallId` and use `position` in `[0, 1]` along that wall.
-- If a drawing contains a trustworthy dimension, use it as the scale anchor.
-- If no trustworthy scale exists, mark the scale as estimated and state the assumption; do not present guessed dimensions as measured facts.
-- Use straight segments for straight walls and native quadratic `curvePoint` for visible curves. Do not approximate a simple arc with tiny facets.
+- Walls are zero-width centrelines in the draft. Use straight segments for straight walls and native quadratic `curvePoint` geometry for visible curves; do not facet a simple curve into many tiny lines.
+- Omit optional positive wall thickness/height unless established. Normalization supplies physical defaults; never emit thickness `0`.
+- Doors/windows reference an existing wall with `wallId` and a path position in `[0, 1]`.
+- Use trustworthy visible dimensions/scale anchors when available. If scale is estimated, label it as estimated and disclose the basis.
+- Current semantic reconstruction declares `furnitureVocabulary: "plan2world-furniture-v1"` and uses exact IDs from `skills/reconstruct-plan2world/references/furniture-vocabulary.json`.
+- Confirm an object is actually furniture before typing it. Bay windows, ledges, piers, planter platforms, shafts and voids do not become furniture.
+- Omit unsupported or unconfirmed objects and disclose the affected source region/reason instead of inventing an `unknown` placeholder.
+- Furniture extraction acceptance is presence, semantic type and broad position. Fine orientation/dimensions are editable estimates unless source evidence supports them.
+- Source-explicit open ground may use `floorAreas`; do not add fake walls solely to close a floor polygon.
 
-## Coding guidance
+## Balcony policy
 
-- TypeScript/SvelteKit/Three.js are the current stack.
-- Reuse `Project`, `Floor`, `Wall`, `Door`, `Window`, and `FurnitureItem` from `src/lib/models/types.ts` rather than creating a competing scene graph.
-- Keep parsing/normalization as pure functions where possible so they are testable without a browser.
-- Reject malformed references, duplicate IDs, non-finite coordinates, negative dimensions, and openings that do not reference a known wall.
-- Defaults belong in one normalization layer, not scattered through UI components.
-- Do not silently invent architectural details that are not present in the source image. The explicit balcony enclosure policy below is a declared product assumption, not source-observed glazing.
+Recognized balconies/terraces default to independent enclosed glazed rooms as a declared product assumption. Trace source-supported perimeter geometry, reuse continuous house-side hosts once, and place hosted outer windows except where the source visibly shows solid wall/pier structure.
 
-## Default v1 assumptions
+Disclose the affected host/window IDs and source region as a policy assumption. Do not invent missing boundaries, apply the policy to access passages/equipment platforms/shafts/voids, or create a duplicate `floorArea`. Historical/manual open `floorAreas` remain import-compatible.
 
-When the source gives no better information:
+## Native defaults
+
+When the source gives no better information, the legacy normalization defaults remain editable assumptions:
 
 - wall height: 280 cm
 - interior wall thickness: 12 cm
@@ -60,17 +67,32 @@ When the source gives no better information:
 - window sill height: 90 cm
 - window height: 120 cm
 
-These are editable defaults, not claims about the source building. The opt-in `semantic-white-model` presentation instead defaults omitted windows to sill 0, host-wall height and fixed glass. Semantic furniture requires `imported_object`, `sourceCategory` and approximate centre position. Dimensions and rotation are optional: reuse the existing imported-object 50 cm cube and zero rotation; users refine these later. Supplied dimensions must remain positive. Drafts without the presentation retain the legacy defaults above. User-chosen styling must preserve native IDs, placement and dimensions.
+The opt-in `semantic-white-model` presentation instead defaults omitted windows to floor-level, host-wall-height fixed glass. Semantic furniture uses native imported objects/blocks and can later be replaced with local styles while preserving native identity, placement and dimensions.
 
-When an SVG review looks wrong, preserve the JSON and determine whether the source-to-JSON extraction or JSON-to-SVG projection is incorrect. Repair the responsible reusable Skill/script or renderer and test that stage. Hand-correcting a candidate is not evidence of Skill improvement; do not compensate in 3D. Furniture extraction acceptance covers presence, semantic type and broad position, not direction, dimensions or fine alignment.
+## Product invariants
 
-Current reconstruction must declare `furnitureVocabulary: "plan2world-furniture-v1"` and use exact IDs from `skills/reconstruct-plan2world/references/furniture-vocabulary.json`. Confirm object presence before choosing its type; bay windows, ledges, wall piers and planter platforms do not become furniture. Omit unsupported/unconfirmed objects and disclose their region/reason in assumptions. Do not invent labels or use unknown/other furniture placeholders. Keep extraction semantics separate from user-selectable model/style catalogs. Historical drafts without a vocabulary version remain import-compatible.
+- 2D correction and first-person walkthrough are equally important; `Tab` remains a fast transition between editing and experience.
+- Generated geometry is a draft, not ground truth. Source evidence and assumptions must remain inspectable.
+- Keep local/manual JSON import possible; do not require a mandatory cloud backend or paid provider.
+- Keep Plan2World usable as a normal floor-plan editor when AI features are unavailable.
+- Preserve upstream MIT attribution.
+- Do not expand the core reliability task into BIM, structural analysis or photorealistic interior design.
 
-During reconstruction verification, freeze each complete emitted JSON before checking it and never hand-edit that output after a failure. Change the responsible reusable Skill/script or conversion/viewing program, then generate a separate new output for any retest. SVG is a temporary intermediate diagnostic for image-to-JSON reliability, not a product goal.
+## Responsibility boundaries
+
+Use the earliest wrong artifact to decide where to fix:
+
+- source image → draft JSON: reconstruction Skill/procedure;
+- draft JSON → native `Project`: parser, schema, normalization or conversion;
+- native project → 2D/cut/3D: geometry analysis or renderer;
+- correct scene → failed movement/entry: walkthrough, collision or input handling;
+- saved/reloaded mismatch: persistence/package layer.
+
+Do not cross these boundaries merely because a later-stage workaround is easier.
 
 ## Verification
 
-Before merging implementation changes, run the relevant subset and preferably all of:
+For implementation changes run the relevant focused tests and, before merge, normally:
 
 ```bash
 npm test
@@ -78,22 +100,6 @@ npm run check
 npm run build
 ```
 
-For UI/3D changes, also run the existing Playwright/browser checks when practical.
+For UI/3D/walkthrough changes also run the relevant Playwright browser regression. `playwright.config.ts` uses the production `build/` and starts `node build/index.js` itself.
 
-## MVP scope
-
-The first useful release should support:
-
-- one floor-plan JPG/PNG as source evidence;
-- one scale anchor or explicit estimated-scale mode;
-- straight walls;
-- doors and windows;
-- conversion into the existing editable project format;
-- furniture placement using the existing catalog;
-- first-person walkthrough using the existing viewer.
-
-Avoid expanding into BIM, photorealistic rendering, structural analysis, or automatic interior design until this loop is reliable.
-
-Architectural component recognition precedes furniture. Use the Skill's fixed component vocabulary and review evidence, reference existing walls/windows/floorAreas once, and disclose missing native support for columns, stairs or floor voids. Do not treat equipment platforms/shafts/voids as usable floor or infer unseen floor connections. After every Skill revision, complete at least one fresh source application and frozen review before publishing; unit tests alone do not validate extraction.
-
-Recognized balconies/terraces default to independent enclosed glazed rooms. Follow the Skill balcony policy: trace their supported perimeter, reuse continuous house-side hosts once, and place hosted outer windows except observed solid walls/piers. Preserve native curves and source-open guard evidence. Declare affected host/window IDs and source region as policy assumptions. Do not invent missing boundaries, apply this to access passages/equipment platforms/voids, or add a duplicate floorArea. Historical/manual open floorAreas remain import-compatible.
+After every reconstruction-Skill revision, perform at least one fresh application from an original raster and freeze/review its new output. Unit tests alone do not establish image-extraction quality.
