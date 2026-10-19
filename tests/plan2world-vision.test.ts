@@ -44,6 +44,12 @@ describe('Plan2World vision reconstruction', () => {
     expect(prompt).toContain('one uniform cm-per-pixel');
     expect(prompt).toContain('bare drawing ratio');
     expect(prompt).toContain('NOT enough');
+    expect(prompt).toContain('dimension-chain subdivisions');
+    expect(prompt).toContain('never use cumulative dimension-chain values as wall x/y coordinates');
+    expect(prompt).toContain('reproject final cm wall geometry onto the unchanged source');
+    expect(prompt).toContain('A-layer failure');
+    expect(prompt).toContain('completely sealed technical cavity');
+    expect(prompt).toContain('hidden BIM detail is intentionally out of scope');
   });
 
   it('sends the image through Responses JSON mode and validates the returned draft', async () => {
