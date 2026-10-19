@@ -50,8 +50,8 @@ export function getWallStartHeight(wall: Partial<Pick<Wall, 'startHeight' | 'hei
   return validWallHeight(wall.startHeight) ? wall.startHeight : validWallHeight(wall.height) ? wall.height : 280;
 }
 
-export function getWallEndHeight(wall: Partial<Pick<Wall, 'startHeight' | 'height'>>): number {
-  return validWallHeight(wall.startHeight) ? wall.startHeight : validWallHeight(wall.height) ? wall.height : 280;
+export function getWallEndHeight(wall: Partial<Pick<Wall, 'endHeight' | 'height'>>): number {
+  return validWallHeight(wall.endHeight) ? wall.endHeight : validWallHeight(wall.height) ? wall.height : 280;
 }
 
 export function getWallHeightAt(wall: Wall, t: number): number {
