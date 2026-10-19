@@ -13,8 +13,8 @@ export interface SourceWallTraceV1 {
   schemaVersion: typeof SOURCE_WALL_TRACE_VERSION;
   maxJunctionDistancePx?: number;
   walls: DraftWall[];
-  /** Source-supported door gaps that continue a logical wall boundary. */
-  doorGaps?: { id: string; fromWallId: string; toWallId: string; from: DraftPoint; to: DraftPoint }[];
+  /** Source-observed wall interruptions; the normalizer resolves their wall hosts. */
+  doorGaps?: { id: string; from: DraftPoint; to: DraftPoint }[];
   enclosures?: {
     id: string;
     boundary: BareHouseBoundaryRef[];
@@ -46,11 +46,7 @@ function record(value: unknown): Record<string, any> {
   return value as Record<string, any>;
 }
 
-/**
- * Convert image-model wall evidence into the one geometry artifact owned by A.
- * The normalizer may split/snap existing traced walls, but it never invents a
- * connector across unsupported source space.
- */
+/** Convert image-model wall evidence into the program-owned geometry artifact. */
 export function buildBareHouse(input: unknown): BareHouseV1 {
   const trace = record(input);
   if (trace.schemaVersion !== SOURCE_WALL_TRACE_VERSION) {
