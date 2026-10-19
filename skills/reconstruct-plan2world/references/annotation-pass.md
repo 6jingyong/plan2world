@@ -61,8 +61,9 @@ the program still performs the division.
 positions stay in original source pixels.
 
 After this pass, hand the unchanged annotation JSON directly to the deterministic
-assembler together with `bare-house-v1`:
+assembler together with `bare-house-v1` and the original raster dimensions:
 
-`node tooling/assemble-plan2world-draft.mjs --bare-house bare-house.json --annotations annotations.json`
+`node tooling/assemble-plan2world-draft.mjs --bare-house bare-house.json --annotations annotations.json --source-width W --source-height H`
 
-The assembler rejects unsupported/derived fields rather than trusting them.
+The assembler rejects unsupported/derived fields rather than trusting them, and it
+derives source-registration anchors from the same accepted source-pixel geometry.
