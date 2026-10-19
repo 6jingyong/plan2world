@@ -29,30 +29,22 @@ function isFloorPlanImageType(value: string): value is FloorPlanImageType {
 }
 
 export async function encodeFloorPlanImage(file: File): Promise<EncodedFloorPlanImage> {
-  if (!isFloorPlanImageType(file.type)) {
-    throw new Error('Choose a PNG, JPEG, or WebP floor-plan image.');
-  }
+  if (!isFloorPlanImageType(file.type)) throw new Error('Choose a PNG, JPEG, or WebP floor-plan image.');
   if (file.size <= 0) throw new Error('The selected image is empty.');
-  if (file.size > MAX_FLOOR_PLAN_IMAGE_BYTES) {
-    throw new Error('The floor-plan image is larger than 12 MB. Resize or compress it first.');
-  }
+  if (file.size > MAX_FLOOR_PLAN_IMAGE_BYTES) throw new Error('The floor-plan image is larger than 12 MB. Resize or compress it first.');
 
   const dataUrl = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error('The selected image could not be read.'));
-    reader.onload = () => typeof reader.result === 'string'
-      ? resolve(reader.result)
-      : reject(new Error('The selected image could not be read.'));
+    reader.onload = () => typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('The selected image could not be read.'));
     reader.readAsDataURL(file);
   });
-
-  const marker = ';base64,';
-  const index = dataUrl.indexOf(marker);
+  const marker = ';base64,', index = dataUrl.indexOf(marker);
   if (index < 0) throw new Error('The selected image could not be encoded.');
   return { base64: dataUrl.slice(index + marker.length), dataUrl, mimeType: file.type };
 }
 
-/** First model pass: extract only source-pixel walls and evidenced door gaps. */
+/** First model pass: extract only source-pixel wall and explicit wall-gap evidence. */
 export async function traceFloorPlanWalls(
   config: OpenAIConfig,
   image: EncodedFloorPlanImage,
@@ -62,8 +54,9 @@ export async function traceFloorPlanWalls(
   const trace = await generateOpenAIJsonFromImage(config, image.base64, image.mimeType,
     `Return only JSON: {"schemaVersion":"source-wall-trace-v1","walls":[],"doorGaps":[]}.
 Trace visible wall centreline paths in original image pixels, not dimension-chain coordinates.
-Walls have id,start,end and optional curvePoint. Door gaps require explicit observed wall endpoints and
-fromWallId/toWallId; never trace door swing arcs as walls or infer missing boundaries.
+Walls have id,start,end and optional curvePoint. If a visible door symbol interrupts one logical wall stroke,
+doorGaps may contain only {id,from,to} source-pixel endpoints. Do not choose wall host IDs; the normalizer does that.
+Never trace door swing arcs as walls or infer an unsupported missing boundary.
 Do not classify rooms, furnishings, components or windows. Do not invent enclosures.`, customFetch, signal);
   return buildBareHouse(trace);
 }
@@ -72,8 +65,6 @@ async function sourceSizeForAssembly(image: EncodedFloorPlanImage, options: Floo
   if (options.sourceWidthPx !== undefined || options.sourceHeightPx !== undefined) {
     return { sourceWidthPx: options.sourceWidthPx, sourceHeightPx: options.sourceHeightPx };
   }
-  // Browser production path: reuse the exact unchanged image already sent to the model.
-  // Node tests can omit dimensions because Image is unavailable there.
   if (typeof Image === 'undefined') return {};
   try {
     const source = await decodeSourceFloorPlanImage(image.dataUrl);
