@@ -1,7 +1,7 @@
 import { PLAN2WORLD_COMPONENT_TYPES, PLAN2WORLD_COMPONENT_GUIDE } from './componentVocabulary';
 import { PLAN2WORLD_FURNITURE_TYPES, PLAN2WORLD_FURNITURE_VOCABULARY } from './furnitureVocabulary';
 
-export const PLAN2WORLD_RECONSTRUCTION_INSTRUCTIONS_VERSION = "plan2world-white-model-instructions-v9" as const;
+export const PLAN2WORLD_RECONSTRUCTION_INSTRUCTIONS_VERSION = "plan2world-white-model-instructions-v10" as const;
 
 export interface ReconstructionOptions { scaleHint?: string }
 
@@ -17,7 +17,7 @@ Work in this order:
 3. Make a separate architectural-component recognition pass before furniture using only these fixed types: ${PLAN2WORLD_COMPONENT_TYPES.join(', ')}. Record visible evidence, normalized source location and floor identity internally. Components assign ownership, not extra meshes: reference existing walls, hosted windows or explicit floorAreas once as appropriate; never create a furniture block or a second solid for them. Finalize references after stage 6. Distinguish wall piers from separate columns, railings from full-height walls, shafts/voids/equipment ledges from living floor, and true fixed planters from loose plants. For stairs, distinguish tread/up-down evidence from a compass, rug, lift or door arc. Never infer an unseen destination floor, rise, ceiling hole or alignment of separate floor drawings. Record unmapped/unmodeled component type and source location in assumptions. Current draft conversion does not import native stairs/columns or subtract floor voids; do not present recognized geometry as a complete walkable multi-floor home.
 4. Establish each candidate as a separate real furniture item, appliance or sanitary fixture from a recognizable symbol or label, then choose an exact sourceCategory from the fixed vocabulary below. Both checks are required: a permitted word does not establish object presence. Exclude architectural bays/ledges/platforms, walls, columns and floor patterns. Built-in cabinets require recognizable cabinet evidence. Visible balcony furniture remains eligible outside the outer wall line. If presence or a supported type cannot be established, omit it from furniture and record its region/reason in assumptions for later vocabulary review. Do not emit unknown/other or invent/translate IDs. Inventory stable IDs and approximate pixel centres; scan the whole plan, then regions once for omissions/duplicates, with at most one targeted pass. Keep the original; erasure is optional and must preserve architectural evidence. Do not estimate furniture dimensions/direction; users refine size, rotation, placement and style later.
 5. Complete all interior walls using the outer trace. Keep one zero-width centreline per physical wall, including native curves; do not duplicate shared walls or trace both faces. Keep cabinet edges and swing arcs separate. Join corners/T-junctions at shared coordinates and split/reuse existing wall IDs consistently. Check source-supported enclosed boundaries before physical properties. Fix tracing/rounding gaps only where supported. Preserve open living/dining circulation, passages, balconies and voids. Never add a partition to close a furniture group or match a room label; disclose obscured connections. Closure checks the wall network; it does not create authored room polygons or prove source accuracy.
-6. Extract hosted doors/windows on the completed walls, including sliding, concealed and shower access. Double tracks alone do not establish fixed glass; consider panel/access evidence. Never invent or widen openings for navigation. Preserve each continuous host; the converter creates apertures.
+6. Extract hosted doors/windows on the completed walls, including sliding, concealed and shower access. First establish source-supported opening presence, then operation/leaf count. Every opening is a zero-thickness interval on its existing host; preserve the continuous wall. Record its two original-raster jamb/glazing endpoints and positive evidence before deriving position and width. Never use a host-length percentage or a repeated default width. Preserve solid piers. Use single for one evidenced hinged leaf, double for two hinged leaves sharing ONE full outer-jamb-to-outer-jamb aperture, sliding for evidenced sliding access, and opening for a supported leafless passage. Width alone does not establish two leaves; two sliding tracks are not double hinged leaves or proof of fixed glass. Omit unsupported openings and disclose uncertain operation. Never invent or widen an opening for circulation; the converter cuts through the host thickness later.
 7. Apply one uniform source-to-cm transform to all layers, then assign physical properties or leave optional thickness/height to editable defaults. Never export zero thickness or move centrelines to make thickened faces meet. Output the existing furniture/walls/doors/windows arrays, not a second outline/room representation.
 
 Required contract:
@@ -72,8 +72,8 @@ Source-image registration:
 
 Openings:
 - A door/window must sit on the wall it visually interrupts.
-- Estimate opening width only when not labelled; lower confidence accordingly.
-- Infer swing direction only when the swing arc is clear; otherwise use a conservative single door and default orientation.
+- Use its observed two endpoints to derive width and midpoint position; no independent opening thickness. On curved hosts use path distances and the parameter at the distance midpoint, not chord width or averaged parameters. The existing source-opening helper can calculate these fields from a working pixel trace.
+- Preserve evidenced single/double/sliding operation independently of styling. A double door is one full-width aperture. If a door exists but operation is unclear, omit type and disclose the editable default; do not claim single leaves from lack of evidence. Infer swing direction only from a clear arc.
 
 The following field guide has two closed spaces sharing w5 once. Replace all example geometry, scale and anchors using the source; it is not a source template.
 The JSON object must have this shape:
@@ -121,7 +121,7 @@ The JSON object must have this shape:
       "swingDirection": "left",
       "flipSide": false,
       "confidence": 0.8
-    }, { "id": "d2", "wallId": "w5", "position": 0.5, "width": 90 }],
+    }, { "id": "d2", "wallId": "w5", "position": 0.5, "width": 160, "type": "double" }],
     "windows": [],
     "furniture": [{ "id": "f1", "catalogId": "imported_object", "sourceCategory": "sofa", "position": { "x": 100, "y": 200 }, "confidence": 0.7 }]
   }]

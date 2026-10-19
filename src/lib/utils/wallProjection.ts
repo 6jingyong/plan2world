@@ -26,7 +26,7 @@ function roots(coefficients: number[], lo: number, hi: number): number[] {
 }
 
 /** Closest point on the analytic path, optionally restricted to a parameter range. */
-export function projectOntoWall(point: Point, wall: Wall, min = 0, max = 1): { position: number; distance: number } | null {
+export function projectOntoWall(point: Point, wall: Pick<Wall, 'start' | 'end' | 'curvePoint'>, min = 0, max = 1): { position: number; distance: number } | null {
     let result: { position: number; distance: number } | null = null;
     const control = wall.curvePoint ?? { x: (wall.start.x + wall.end.x) / 2, y: (wall.start.y + wall.end.y) / 2 };
     const a = { x: wall.start.x - 2 * control.x + wall.end.x, y: wall.start.y - 2 * control.y + wall.end.y };
