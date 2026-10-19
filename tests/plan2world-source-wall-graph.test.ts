@@ -14,6 +14,12 @@ function tRoom(): any {
   };
 }
 
+function wallById(result: ReturnType<typeof normalizeSourceWallGraph>, id: string) {
+  const wall = result.walls.find(item => item.id === id);
+  if (!wall) throw new Error(`expected normalized wall ${id}`);
+  return wall;
+}
+
 describe('source wall graph normalization', () => {
   it('splits a long wall at a real T-junction so the room closes without inventing a wall', () => {
     const input = tRoom();
@@ -22,7 +28,7 @@ describe('source wall graph normalization', () => {
     expect(result.sourceWallMap.right).toEqual(['right~1', 'right~2']);
     expect(result.virtualSplitCount).toBeGreaterThanOrEqual(1);
     expect(result.enclosures[0].boundary.map((item: any) => item.wallId)).toEqual(['top', 'right~2', 'bottom', 'left']);
-    const rightRoomSide = result.walls.find((wall: any) => wall.id === 'right~2');
+    const rightRoomSide = wallById(result, 'right~2');
     expect(rightRoomSide.start).toEqual({ x: 100, y: 40 });
     expect(rightRoomSide.end).toEqual({ x: 100, y: 100 });
     expect(JSON.stringify(input)).toBe(before);
@@ -32,7 +38,7 @@ describe('source wall graph normalization', () => {
     const input = tRoom();
     input.walls[0].end = { x: 98.5, y: 40 };
     const result = normalizeSourceWallGraph(input);
-    const top = result.walls.find((wall: any) => wall.id === 'top');
+    const top = wallById(result, 'top');
     expect(top.end.x).toBeCloseTo(100, 8);
     expect(top.end.y).toBeCloseTo(40, 8);
     expect(result.snappedEndpointCount).toBeGreaterThan(0);

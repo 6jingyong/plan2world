@@ -32,31 +32,28 @@ const draft = {
 };
 
 describe('Plan2World vision reconstruction', () => {
-  it('builds an evidence-first prompt and includes wall-graph normalization', () => {
+  it('keeps the one-shot vision path aligned with the simplified reconstruction stages', () => {
     const prompt = buildFloorPlanVisionPrompt({ scaleHint: 'bottom wall is 360 cm' });
     expect(PLAN2WORLD_VISION_PROMPT_VERSION).toContain('plan2world-components-v2');
-    expect(prompt).toContain('printed dimensions, scale bars');
-    expect(prompt).toContain('bottom wall is 360 cm');
-    expect(prompt).toContain('wall-centreline skeleton');
-    expect(prompt).toContain('curvePoint');
-    expect(prompt).toContain('quadratic');
-    expect(prompt).toContain('deterministically normalize');
+    expect(prompt).toContain('source-wall-trace-v1');
+    expect(prompt).toContain('bare-house-v1');
+    expect(prompt).toContain('Bare House');
     expect(prompt).toContain('T-junction');
     expect(prompt).toContain('review warning');
-    expect(prompt).toContain('semantic-white-model');
-    expect(prompt).toContain('sourceCategory');
+    expect(prompt).toContain('curvePoint');
     expect(prompt).toContain('floor-to-ceiling fixed glass');
     expect(prompt).toContain('one uniform cm-per-pixel');
-    expect(prompt).toContain('bare drawing ratio');
-    expect(prompt).toContain('NOT enough');
+    expect(prompt).toContain('bare drawing ratio is NOT enough');
     expect(prompt).toContain('dimension-chain subdivisions');
-    expect(prompt).toContain('never use cumulative dimension-chain values as wall x/y coordinates');
+    expect(prompt).toContain('Never use cumulative dimension-chain values as wall x/y coordinates');
     expect(prompt).toContain('Reproject final cm wall geometry onto the unchanged source');
     expect(prompt).toContain('hard A-wall failure');
     expect(prompt).toContain('floor.components');
     expect(prompt).toContain('componentVocabulary="plan2world-components-v2"');
     expect(prompt).toContain('Do not emit render, visible, sceneEffect, sceneSupport or requiresNativeSupport flags');
-    expect(prompt).toContain('sealed cavity itself creates no extra 3D object');
+    expect(prompt).toContain('semantic-white-model');
+    expect(prompt).toContain('sourceCategory');
+    expect(prompt).toContain('bottom wall is 360 cm');
   });
 
   it('sends the image through Responses JSON mode and validates the returned draft', async () => {

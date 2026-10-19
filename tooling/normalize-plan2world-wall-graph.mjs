@@ -20,8 +20,8 @@ const server = await createServer({
   appType: 'custom',
 });
 try {
-  const { normalizeSourceWallGraph } = await server.ssrLoadModule('/src/lib/plan2world/sourceWallGraph.ts');
-  console.log(JSON.stringify(normalizeSourceWallGraph(input), null, 2));
+  const { buildBareHouse } = await server.ssrLoadModule('/src/lib/plan2world/bareHouse.ts');
+  console.log(JSON.stringify(buildBareHouse(input), null, 2));
 } finally {
   await server.close();
 }

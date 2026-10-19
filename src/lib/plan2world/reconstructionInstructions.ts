@@ -1,7 +1,7 @@
 import { PLAN2WORLD_COMPONENT_TYPES, PLAN2WORLD_COMPONENT_GUIDE } from './componentVocabulary';
 import { PLAN2WORLD_FURNITURE_TYPES, PLAN2WORLD_FURNITURE_VOCABULARY } from './furnitureVocabulary';
 
-export const PLAN2WORLD_RECONSTRUCTION_INSTRUCTIONS_VERSION = "plan2world-white-model-instructions-v13" as const;
+export const PLAN2WORLD_RECONSTRUCTION_INSTRUCTIONS_VERSION = "plan2world-white-model-instructions-v14" as const;
 
 export interface ReconstructionOptions { scaleHint?: string }
 
@@ -9,73 +9,63 @@ export function buildReconstructionInstructions(options: ReconstructionOptions =
   const scaleHint = options.scaleHint?.trim();
 
   return `You are reconstructing one architectural floor-plan image into Plan2World draft JSON.
-Return ONLY one JSON object. Do not wrap it in markdown and do not include commentary outside JSON.
+Return ONLY one JSON object.
 
-Core order:
-1. Establish the ORIGINAL raster coordinate system (top-left origin, x right, y down). Keep the source unchanged and map crops back to it.
-2. Trace the bare raw wall-centreline skeleton BEFORE furniture, room-use semantics or openings. A long wall may span several rooms at this raw stage.
-3. Deterministically normalize that wall graph before binding openings: existing line intersections and endpoint-on-wall T-junctions become graph nodes; long walls are split at those nodes; small endpoint residuals within tolerance may snap to the existing host. Never invent a connector across an unsupported gap.
-4. The normalized wall graph is the actual architectural skeleton. Closed rooms are derived from it regardless of labels such as balcony/bedroom/study.
-5. Attach doors/windows to normalized hosts. Treat opening location/extent/type uncertainty as a review issue unless it proves the wall geometry itself is wrong.
-6. Only after the empty house wall frame is correct, recognize optional architectural semantics and then furniture/fixtures.
-7. Apply one uniform cm-per-pixel transform, register to the unchanged source, and emit the frozen draft.
+Use this internal order even though the final response is one draft:
+1. Trace source-pixel wall centrelines only (conceptually source-wall-trace-v1).
+2. Normalize intersections/T-junctions and small endpoint residuals into one Bare House (conceptually bare-house-v1). Never invent a connector across unsupported source space.
+3. Verify the Bare House wall overlay against the unchanged source. This is the geometry hard gate.
+4. Annotate doors/windows on normalized hosts. Opening uncertainty is a review warning unless it proves the host wall itself is wrong.
+5. Add optional components and furniture only after the empty house exists.
+6. Apply one uniform cm-per-pixel transform and emit plan2world-draft-v1.
 
-Wall tracing and topology:
-- Walls are zero-width centreline paths. Preserve recesses, diagonals and curves.
-- Use one quadratic curvePoint for a simple visible quadratic curve; do not approximate it with many tiny straight facets.
-- A door/window interruption never splits its logical host. Shared walls are emitted once.
-- Room-use labels and furniture must never create or close geometry.
-- A T-junction does not require the image model to pre-split a long wall perfectly. If the traced lines already intersect, deterministic graph normalization should split the long wall there.
-- Topology normalization may split/snap existing traced geometry only. It must never draw a new unsupported wall across a gap.
-- Hard wall-frame failure means: visibly misplaced/missing/invented wall, or a supposed closed space that still cannot close after deterministic normalization.
-- Do not output authored rooms; Plan2World derives closed rooms from normalized wall geometry.
+Bare House rules:
+- Walls are zero-width centreline paths. Preserve recesses, diagonals, T-junctions and visible quadratic curves via curvePoint.
+- A raw long wall may span several rooms; deterministic normalization may split it at real source-supported junctions.
+- A door/window interruption never breaks its logical host wall.
+- Room-use labels and furniture never create or close geometry.
+- Hard geometry failure means a materially misplaced/missing/invented wall or a source-supported enclosure that still cannot close after normalization.
+- Do not output authored room polygons; Plan2World derives rooms from normalized wall geometry.
 
 Openings:
-- A door/window must reference an existing normalized wall and use observed source endpoints to derive width/position; never guess host percentages or repeated default widths.
-- single = one evidenced hinged leaf; double = two evidenced hinged leaves sharing one full aperture; sliding = evidenced sliding access; opening = evidenced leafless passage.
-- A multi-panel sliding assembly is one sliding aperture when its visible track/panel system forms one access opening. It may span the full logical wall side.
-- Fixed glazing remains windows. A room may have several sides that are entirely windows and another side entirely a sliding door; no balcony/terrace classification is required.
-- Preserve solid piers.
-- If a window/door position, width, operation or completeness is uncertain but the normalized wall frame is correct, retain it as a review warning for later 2D/3D/walkthrough adjustment rather than rejecting the wall skeleton.
-- Promote an opening issue to a hard failure only when it demonstrates that the host wall geometry itself is wrong/disconnected.
-- The current white-model presentation uses floor-to-ceiling fixed glass when window height/sill are omitted; this is a presentation default, not a source measurement.
+- Every emitted opening references an existing normalized wall and uses observed source endpoints to derive width/position.
+- single = one hinged leaf; double = two hinged leaves sharing one aperture; sliding = evidenced sliding-panel/track access; opening = evidenced leafless passage.
+- Fixed glazing remains a window. Full-side windows and full-side sliding doors are valid.
+- Missing/uncertain opening extent or operation is a later review issue, not a reason to regenerate a correct Bare House.
+- Current white-model windows default to editable floor-to-ceiling fixed glass when height/sill are omitted.
 
 Furniture:
-- Furniture comes after the bare house. Establish a real object first, then use an exact sourceCategory from the fixed vocabulary.
+- Furniture comes after the Bare House. Establish a real object first, then use an exact sourceCategory.
 - Allowed sourceCategory IDs: ${PLAN2WORLD_FURNITURE_TYPES.join(', ')}.
 - Emit catalogId="imported_object" and approximate centre only; omit source-unknown size/rotation.
-- Do not turn bays, ledges, walls, columns, planters or room outlines into furniture.
 
 Architectural components:
 - Allowed fixed component types: ${PLAN2WORLD_COMPONENT_TYPES.join(', ')}.
 ${PLAN2WORLD_COMPONENT_GUIDE}
 - floor.components are optional source semantics. componentVocabulary="plan2world-components-v2" is required when components are present.
 - Do not emit render, visible, sceneEffect, sceneSupport or requiresNativeSupport flags.
-- A balcony/terrace semantic is optional evidence only; it never creates, closes or alters a room.
+- A balcony semantic is optional evidence only and never changes geometry.
 
 Source fidelity and scale:
-- First inspect printed dimensions, scale bars and clearly labelled lengths.
-- A bare drawing ratio is NOT enough to calibrate an arbitrary raster without physical page size/DPI or a usable scale bar.
-- Printed dimensions and dimension-chain subdivisions are scale/distance evidence only; never use cumulative dimension-chain values as wall x/y coordinates.
-- Use one uniform cm-per-pixel transform for normalized walls, curve controls, openings, furniture and component positions.
-- Reproject final cm wall geometry onto the unchanged source using that same transform. An obvious/systematic wall mismatch is a hard A-wall failure; do not refit registration to hide it.
+- Inspect printed dimensions and scale bars first, but printed dimensions and dimension-chain subdivisions are scale/distance evidence only.
+- Never use cumulative dimension-chain values as wall x/y coordinates.
+- A bare drawing ratio is NOT enough without physical page size/DPI or a usable scale bar.
+- Use one uniform cm-per-pixel transform for normalized walls, openings, furniture and components.
+- Reproject final cm wall geometry onto the unchanged source with that same transform; a material/systematic wall mismatch is a hard A-wall failure.
 ${scaleHint ? `User scale hint: ${scaleHint}` : 'User scale hint: none.'}
 
 Source registration:
-- When reliable, return sourceRegistration with 3–6 spread-out normalized wall endpoint anchors (2 minimum), using normalized ORIGINAL-image coordinates.
-- Anchors must reference real reconstructed wall endpoints; never use text, dimensions, furniture or page corners.
+- When reliable, return 3–6 spread-out anchors (2 minimum) referencing actual normalized wall endpoints in ORIGINAL-image coordinates.
 
 Required contract:
 - schemaVersion="plan2world-draft-v1"
 - units="cm"
 - presentation="semantic-white-model"
 - furnitureVocabulary="${PLAN2WORLD_FURNITURE_VOCABULARY}"
-- Use one supplied floor for this application version; disclose multi-level limitations instead of flattening levels.
-- x increases rightward; y increases downward.
+- One floor for this application version.
 - Door/window position is 0..1 along the host; width is positive physical cm.
-- Omit unsupported optional architectural values rather than pretending they were measured.
 - confidence values, when present, are 0..1.
-- Connected normalized source geometry must share coordinates; avoid duplicate/nearly duplicate walls.
+- Connected normalized geometry shares coordinates; avoid duplicate/nearly duplicate walls.
 
 Return JSON shaped like:
 {
@@ -96,7 +86,5 @@ Return JSON shaped like:
     "furniture":[{"id":"f1","catalogId":"imported_object","sourceCategory":"sofa","position":{"x":100,"y":200}}],
     "components":[]
   }]
-}
-
-Before answering, internally check that the normalized wall topology matches the source independently of furniture/semantic labels. Opening uncertainty may remain for later review, but every emitted opening must reference an existing normalized wall.`;
+}`;
 }

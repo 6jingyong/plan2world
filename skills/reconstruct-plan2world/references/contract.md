@@ -5,30 +5,28 @@ Presentation: `semantic-white-model`
 Furniture vocabulary: `plan2world-furniture-v1`  
 Architectural component vocabulary: `plan2world-components-v2`
 
-All world lengths are centimetres. The draft describes the architectural shell,
-hosted openings, optional source semantics and lightweight furniture placeholders.
-Native rooms are derived from wall topology; the draft does not author room polygons.
+All world lengths are centimetres. The draft is the product contract; reconstruction
+uses only two geometry-side internal contracts before it:
 
-## Reconstruction invariant
+`source-wall-trace-v1 -> bare-house-v1 -> annotations -> plan2world-draft-v1`
 
-Geometry is reconstructed before room-use semantics or furniture:
+## Geometry ownership
 
-**raw wall trace -> deterministic normalized wall graph -> closed room envelopes -> hosted doors/windows -> optional components -> furniture**
+`source-wall-trace-v1` stores original-raster wall evidence. `bare-house-v1` stores
+the deterministic normalized wall graph and closed enclosure loops. The Bare House
+owns the hard source-fidelity gate.
 
-The raw image trace is allowed to contain a long wall crossing several room
-junctions. Before draft emission, deterministic normalization splits that existing
-wall at source-supported intersections/T-junctions and may snap only small endpoint
-residuals within tolerance. It must never create a new connector across a real gap.
-The normalized wall graph, not the unsplit working trace, is the draft skeleton.
+Normalization may split existing walls at source-supported intersections/T-junctions
+and snap small endpoint residuals. It must never create a connector across a real
+unsupported gap.
 
-A logical wall remains continuous across its openings. A room side may be mostly or
-entirely window/door while still using a continuous host wall. Whether a source
-space is called balcony, bedroom or anything else does not decide its geometry.
+Doors/windows, architectural semantics and furniture annotate an accepted Bare
+House. They do not create or close geometry. Native rooms are derived from draft
+walls; the draft does not author room polygons.
 
 ## Root fields
 
-Required for current reconstruction:
-
+Required:
 - `schemaVersion: "plan2world-draft-v1"`
 - `presentation: "semantic-white-model"`
 - `furnitureVocabulary: "plan2world-furniture-v1"`
@@ -37,112 +35,87 @@ Required for current reconstruction:
 - `scale`
 - `floors`
 
-When any architectural component is present, also require
+When components exist, also require
 `componentVocabulary: "plan2world-components-v2"`.
 
 `scale.mode` is `measured`, `provided` or `estimated`; confidence is 0..1.
-`assumptions` records uncertainty and presentation defaults.
 
 ## Walls
 
 Each wall requires `id`, `start`, `end`; optional `curvePoint`, `kind`, positive
-`thickness`/`height`, and confidence are supported. Image extraction should usually
-omit physical thickness/height unless established. Normalization supplies editable
-defaults (currently 280 cm height, 20 cm exterior thickness, 12 cm otherwise).
+`thickness`/`height`, and confidence are supported. Reconstruction normally omits
+physical thickness/height unless established.
 
-Walls are zero-width centreline paths during reconstruction. A visible smooth curve
-uses one quadratic `curvePoint` where appropriate. Shared walls are emitted once.
+Draft walls come from the accepted `bare-house-v1`. Shared walls are emitted once.
+Connected normalized geometry shares coordinates.
 
-Before door/window binding, local reconstruction should run the deterministic wall
-graph normalizer described in [opening-trace.md](opening-trace.md). Raw walls may be
-split into deterministic derived IDs at real junctions; downstream openings and
-source-registration anchors must reference the normalized walls.
+A wall-frame failure is hard only when source structure is materially wrong: a real
+wall is missing, unsupported geometry was invented, a source-supported enclosure
+cannot close after normalization, or the whole-plan overlay materially disagrees
+with the original.
 
-A normalized wall-frame failure is hard: visibly wrong/missing/invented wall, or a
-supposed closed space that still cannot close without adding unsupported geometry.
+See [opening-trace.md](opening-trace.md) for the two internal geometry stages.
 
 ## Doors and windows
 
 Each emitted opening requires:
-
 - unique `id`;
 - existing normalized `wallId`;
-- `position` from 0..1 along the logical host;
+- `position` from 0..1 along the host;
 - positive physical `width`.
 
 Openings have no independent thickness. The logical host remains continuous. A
-full-wall window or full-wall sliding door is valid: its interval may reach both
-host endpoints.
+full-wall window or full-wall sliding door is valid.
 
-Door `type` may be `single`, `double`, `sliding` or `opening` when supported by
-source evidence. A wide/multi-panel sliding system remains one `sliding` aperture
-when its track/panel evidence describes one access opening.
+Door `type` may be `single`, `double`, `sliding` or `opening` when source evidence
+supports it. Omitted window height/sill uses the editable semantic-white-model
+default of floor-to-ceiling fixed glass.
 
-Omitted window height/sill use the semantic-white-model presentation default of
-floor-to-ceiling fixed glass. This is editable presentation, not a source claim.
-
-Opening extraction/review is separate from the hard wall-frame gate. Uncertain or
-slightly wrong door/window position, width, operation or completeness should be
-reported as an opening-review warning when the normalized wall frame itself is
-correct. Promote an opening issue to a hard failure only if it demonstrates wrong
-or disconnected host-wall geometry.
-
-Read [opening-trace.md](opening-trace.md) for raw-wall normalization and source-pixel
-opening endpoint derivation.
+Opening uncertainty is review-level. Missing/approximate position, width,
+operation or completeness does not invalidate an accepted Bare House unless later
+evidence proves the host wall geometry itself is wrong.
 
 ## Furniture
 
-Current image reconstruction requires:
-
-- `id`;
+Current reconstruction emits:
+- stable `id`;
 - `catalogId: "imported_object"`;
 - exact fixed-vocabulary `sourceCategory`;
 - approximate centre `position`;
 - optional confidence.
 
-Omit source-unknown size, rotation and styling. The runtime supplies editable
-placeholder defaults. Architectural shapes are not furniture.
+Omit source-unknown size, rotation and styling. Runtime placeholders remain editable.
 
 ## Architectural components
 
-`floors[].components` records optional source semantics that are not naturally
-owned by furniture arrays. Each component has a unique `id`, exact fixed `type`,
-approximate cm `position`, optional confidence, optional same-floor `geometryRefs`,
-and stair-only `vertical` evidence.
+`floors[].components` records optional source semantics. Each component has a stable
+`id`, exact fixed `type`, approximate position, optional confidence, optional
+same-floor `geometryRefs`, and stair-only vertical evidence.
 
 Components never author scene policy. Do not emit `render`, `visible`,
 `sceneEffect`, `sceneSupport`, `requiresNativeSupport` or equivalents. The fixed
-registry decides `ignore`, `existing-geometry` or `unsupported` behavior.
+registry owns behavior.
 
 A component label is not geometry authority. In particular, `balcony` is optional
-evidence-only semantics: adding/removing that label must not change room closure,
-walls, windows, doors, floor, collision or native room detection.
+evidence only. A sealed `shaft` may reference visible enclosure walls without
+requiring a hidden floor hole. Unsupported visible `column`, `stair`, `floor_void`,
+`planter` and standalone `railing` remain explicit support gaps.
 
-A sealed `shaft` may reference its visible enclosure walls while its hidden cavity
-creates no dedicated mesh/floor hole. Visible `column`, `stair`, `floor_void`,
-built-in `planter` and standalone `railing` remain deterministic support gaps until
-native handlers exist.
-
-The local `component-review.json` sidecar is evidence only; see
-[component-review.md](component-review.md).
+`component-review.json` remains evidence-only and cannot change application policy.
 
 ## Source registration and scale
 
-Source registration uses existing normalized wall endpoints and normalized
-coordinates on the unchanged original raster. Prefer 3–6 spread-out reliable
-anchors; 2 is minimum. Do not use furniture, text, dimension arrows or page corners.
+Source registration uses actual normalized Bare House wall endpoints on the
+unchanged original raster. Prefer 3–6 spread-out reliable anchors; 2 is minimum.
 
 Printed dimensions and dimension-chain subdivisions constrain scale/distances but
-are not wall x/y coordinates. Use one uniform source-to-cm transform for all layers.
-The final normalized cm wall network must reproject onto the unchanged source with
-the same transform; obvious/systematic drift is a hard A-wall failure.
+are not wall coordinates. Use one uniform source-to-cm transform for all layers.
+Do not independently move walls to make dimension arithmetic close.
 
 ## Optional open ground
 
 `floors[].floorAreas` is only for source-visible open ground that is not an enclosed
-wall-derived room. Each area has `id`, `name`, optional confidence and an ordered
-boundary made from existing wall refs and/or explicit source points. Do not overlap
-an existing closed room or use `floorArea` merely because a semantic label suggests
+wall-derived room. Do not use `floorArea` merely because a semantic label suggests
 walkable floor.
 
 ## Minimal example
@@ -155,7 +128,6 @@ walkable floor.
   "name":"Source plan",
   "units":"cm",
   "scale":{"mode":"measured","confidence":0.9,"basis":"visible dimension"},
-  "assumptions":["Window height/sill omitted: semantic-white-model uses editable floor-to-ceiling glass."],
   "floors":[{
     "id":"f0","name":"Ground floor","level":0,
     "walls":[
@@ -165,15 +137,8 @@ walkable floor.
       {"id":"w4","start":{"x":0,"y":300},"end":{"x":0,"y":0}}
     ],
     "doors":[{"id":"d1","wallId":"w4","position":0.5,"width":300,"type":"sliding"}],
-    "windows":[
-      {"id":"n1","wallId":"w1","position":0.5,"width":400},
-      {"id":"n2","wallId":"w2","position":0.5,"width":300},
-      {"id":"n3","wallId":"w3","position":0.5,"width":400}
-    ],
+    "windows":[],
     "furniture":[]
   }]
 }
 ```
-
-This is one empty closed room with three fully glazed sides and one full-side
-sliding door. It requires no semantic room label.
