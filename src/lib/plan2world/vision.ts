@@ -13,7 +13,6 @@ export const MAX_FLOOR_PLAN_IMAGE_BYTES = 12 * 1024 * 1024;
 export const PLAN2WORLD_VISION_PROMPT_VERSION = PLAN2WORLD_RECONSTRUCTION_INSTRUCTIONS_VERSION;
 
 export interface FloorPlanVisionOptions extends ReconstructionOptions {
-  /** Optional deterministic override for non-browser callers/tests. */
   sourceWidthPx?: number;
   sourceHeightPx?: number;
 }
@@ -44,7 +43,7 @@ export async function encodeFloorPlanImage(file: File): Promise<EncodedFloorPlan
   return { base64: dataUrl.slice(index + marker.length), dataUrl, mimeType: file.type };
 }
 
-/** First model pass: extract only source-pixel wall and explicit wall-gap evidence. */
+/** First model pass: source-pixel wall and explicit wall-gap observations only. */
 export async function traceFloorPlanWalls(
   config: OpenAIConfig,
   image: EncodedFloorPlanImage,
@@ -53,9 +52,10 @@ export async function traceFloorPlanWalls(
 ): Promise<BareHouseV1> {
   const trace = await generateOpenAIJsonFromImage(config, image.base64, image.mimeType,
     `Return only JSON: {"schemaVersion":"source-wall-trace-v1","walls":[],"doorGaps":[]}.
-Trace visible wall centreline paths in original image pixels, not dimension-chain coordinates.
-Walls have id,start,end and optional curvePoint. If a visible door symbol interrupts one logical wall stroke,
-doorGaps may contain only {id,from,to} source-pixel endpoints. Do not choose wall host IDs; the normalizer does that.
+Trace visible wall centreline paths in ORIGINAL image pixels, not dimension-chain coordinates.
+Each wall contains only start,end and optional curvePoint. Do NOT emit wall IDs, thickness, kind or confidence.
+If a visible door symbol interrupts one logical wall stroke, doorGaps may contain only {from,to} source-pixel endpoints.
+Do NOT emit gap IDs or choose wall host IDs; deterministic code assigns and associates all IDs.
 Never trace door swing arcs as walls or infer an unsupported missing boundary.
 Do not classify rooms, furnishings, components or windows. Do not invent enclosures.`, customFetch, signal);
   return buildBareHouse(trace);
