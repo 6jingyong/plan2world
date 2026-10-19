@@ -31,8 +31,17 @@ const draft = {
   }],
 };
 
+const trace = { schemaVersion: 'source-wall-trace-v1', walls: draft.floors[0].walls, doorGaps: [] };
+
+function responseJson(value: unknown): Response {
+  return new Response(JSON.stringify({ status: 'completed', output: [{
+    type: 'message', role: 'assistant', status: 'completed',
+    content: [{ type: 'output_text', text: JSON.stringify(value), annotations: [] }],
+  }] }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+}
+
 describe('Plan2World vision reconstruction', () => {
-  it('keeps the one-shot vision path aligned with the simplified reconstruction stages', () => {
+  it('keeps the annotation prompt aligned with the simplified reconstruction stages', () => {
     const prompt = buildFloorPlanVisionPrompt({ scaleHint: 'bottom wall is 360 cm' });
     expect(PLAN2WORLD_VISION_PROMPT_VERSION).toContain('plan2world-components-v2');
     expect(prompt).toContain('source-wall-trace-v1');
@@ -57,19 +66,14 @@ describe('Plan2World vision reconstruction', () => {
   });
 
   it('sends the image through Responses JSON mode and validates the returned draft', async () => {
+    let pass = 0;
     const customFetch = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body));
       expect(body.model).toBe('vision-model');
       expect(body.store).toBe(false);
       expect(body.text.format.type).toBe('json_object');
       expect(body.input[0].content[0]).toEqual({ type: 'input_image', image_url: image.dataUrl });
-      return new Response(JSON.stringify({
-        status: 'completed',
-        output: [{
-          type: 'message', role: 'assistant', status: 'completed',
-          content: [{ type: 'output_text', text: JSON.stringify(draft), annotations: [] }],
-        }],
-      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      return responseJson(pass++ === 0 ? trace : draft);
     });
 
     const result = await reconstructFloorPlanImage(
@@ -83,7 +87,7 @@ describe('Plan2World vision reconstruction', () => {
     expect(result.floors[0].walls).toHaveLength(4);
     expect(result.floors[0].doors?.[0].wallId).toBe('w1');
     expect(result.floors[0].components?.[0]).toMatchObject({ id: 'c1', type: 'shaft' });
-    expect(customFetch).toHaveBeenCalledTimes(1);
+    expect(customFetch).toHaveBeenCalledTimes(2);
   });
 
   it('surfaces provider refusals instead of trying to import them', async () => {
@@ -108,10 +112,8 @@ describe('Plan2World vision reconstruction', () => {
     if (failure === 'missing-version') delete invalid.furnitureVocabulary;
     else if (failure === 'invented-type') invalid.floors[0].furniture = [{id:'f1',catalogId:'imported_object',sourceCategory:'bay_window',position:{x:100,y:100}}];
     else delete invalid.componentVocabulary;
-    const customFetch = vi.fn(async () => new Response(JSON.stringify({
-      status: 'completed', output: [{type:'message',role:'assistant',status:'completed',
-        content:[{type:'output_text',text:JSON.stringify(invalid)}]}],
-    }), {status:200,headers:{'Content-Type':'application/json'}}));
+    let pass = 0;
+    const customFetch = vi.fn(async () => responseJson(pass++ === 0 ? trace : invalid));
     await expect(reconstructFloorPlanImage(
       {baseUrl:'https://example.test/v1',apiKey:'test',model:'vision-model'},image,{},customFetch as typeof fetch,
     )).rejects.toThrow(failure === 'missing-version' ? 'requires furnitureVocabulary' : failure === 'invented-type' ? 'not in plan2world-furniture-v1' : 'componentVocabulary');
