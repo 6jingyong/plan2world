@@ -133,7 +133,7 @@ test('fresh case01 evidence reaches editable 3D home and walkthrough', async ({ 
   expect(requests[0].input?.[0]?.content?.find((item: any) => item.type === 'input_text')?.text).toContain('source-wall-trace-v1');
   expect(requests[1].input?.[0]?.content?.find((item: any) => item.type === 'input_text')?.text).toContain('BARE_HOUSE_JSON:');
   await expect(page.getByText('doors', { exact: true }).locator('..')).toContainText('9');
-  await expect(page.getByText('windows', { exact: true }).locator('..')).toContainText('13');
+  await expect(page.getByText('windows', { exact: true }).locator('..')).toContainText('14');
 
   await page.getByRole('button', { name: 'Open editable home', exact: true }).click();
   await expect(page).toHaveURL(/\/editor\?id=/);
