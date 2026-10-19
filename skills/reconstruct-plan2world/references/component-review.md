@@ -26,11 +26,45 @@ In the ordinary one-JSON AI response keep the working inventory internal; includ
 unresolved/unmodeled component types and locations in draft `assumptions`. The
 companion file is review evidence, not a second application interchange format.
 
+## Source-fidelity gate
+
+Wall position belongs to the visible source trace. Trace wall centrelines in the
+original raster first and keep those pixel positions as the geometry evidence.
+Printed dimensions, dimension chains and scale bars may constrain distance/scale;
+they do not supply wall x/y coordinates. In particular, never accumulate dimension-
+chain subdivisions and substitute those cumulative values for visually traced wall
+positions. A dimension may validate the distance between two walls only when its
+witness/extension endpoints visibly identify those exact walls; it still does not
+move the traced centrelines to make the arithmetic close.
+
+Before an A-layer reconstruction can pass, compare the complete transformed wall
+network back against the unchanged source. Use the same uniform source-to-cm
+transform in reverse, or the saved registration derived from that transform; do not
+fit registration independently to hide geometry drift. In local verification,
+freeze the emitted candidate as evidence and generate the source overlay. An
+obvious or systematic wall-centreline mismatch is an A-layer failure: stop there,
+preserve the failed candidate, fix the reusable reconstruction instructions and
+make a fresh candidate from the original source. Do not continue into contract,
+native conversion or rendering, and never hand-correct the failed candidate.
+
+## Walkthrough relevance gate
+
+Plan2World targets a user-visible, walkable, editable immersive scene rather than
+BIM completeness. A discrepancy is blocking when it changes something the user can
+see, reach, collide with or edit: visible wall faces, openings, accessible floor,
+room shape, collision boundaries or interactive assets. Completely sealed technical
+cavities may omit or simplify hidden internal floor/ceiling construction when a
+walkthrough user cannot see or enter them and that simplification does not change
+visible enclosure geometry or collision. Preserve their source-supported boundary
+walls, but do not create BIM-only schema or native work merely to model an unseen
+shaft slab. An explicit atrium, stairwell opening or other visible/reachable floor
+void remains user-perceptible and must still be reported as a real modeling gap.
+
 Run `python scripts/check-component-review.py --review component-review.json --draft draft.json`
 from this Skill directory. It is read-only and reports missing mappings, evidence-only
 features and native modeling gaps separately. The report cannot certify visual
-recognition. Any unmodeled or unresolved component must be stated in the review;
-do not call the result completely modeled/walkable because the checker parses it.
+recognition or source-overlay alignment. Any user-perceptible unmodeled or unresolved
+component must be stated in the review; hidden BIM-only detail is not a blocking gap.
 
 ## Vertical and ownership risks
 
@@ -44,6 +78,9 @@ do not call the result completely modeled/walkable because the checker parses it
   checker tests current enclosure mappings, not historical open-balcony policy or
   actual room closure. Equipment ledges and shafts are not automatically living
   floor. Visible plants alone do not establish a built-in planter.
+- A sealed shaft still needs correct visible enclosure walls, but its unseen
+  internal slab/ceiling state is intentionally ignored when it cannot be seen,
+  entered, collided with or edited. Do not invent an access opening to expose it.
 - Recognize stairs from tread/flight or labelled stair evidence. Distinguish an
   up/down arrow from a compass, door arc, rug, lift and annotation. Optional
   `vertical: {"direction":"up","toFloorId":"f1"}` is only for stairs. Omit
@@ -53,6 +90,7 @@ do not call the result completely modeled/walkable because the checker parses it
   assume their raster origins align. Establish a coordinate/scale relationship
   separately for each supplied floor before claiming a vertical connection.
 - Native Stair/Column types exist, but current draft conversion does not import
-  them; native room floors also do not subtract authored floor voids. Capture these
-  gaps explicitly. This recognition pass does not implement multi-floor modeling,
-  floor-hole subtraction, stair collision or cross-floor walkthrough.
+  them, and explicit visible/reachable floor voids are not subtracted. Capture
+  those user-perceptible gaps explicitly. This recognition pass does not implement
+  multi-floor modeling, visible floor-hole subtraction, stair collision or
+  cross-floor walkthrough.
