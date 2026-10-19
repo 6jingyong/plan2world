@@ -6,6 +6,8 @@ Plan2World turns a floor-plan image into an editable browser home: reconstruct s
 
 The existing openPlan3D editor is the downstream engine. Reuse its `Project`, editing, history, persistence, collision and viewer systems. Do not create a competing scene graph or replace working subsystems unless the task specifically requires it.
 
+Walkthrough is not a read-only terminal state. The long-term runtime also supports selecting/replacing scene assets while preserving native entity identity; custom model/package infrastructure should be reused rather than replaced when that work begins.
+
 ## Canonical pipeline
 
 1. Inspect the original JPG/PNG/WebP floor plan.
@@ -14,9 +16,12 @@ The existing openPlan3D editor is the downstream engine. Reuse its `Project`, ed
 4. Freeze that JSON before downstream inspection.
 5. Validate/Review it and convert it into the existing native `Project` model.
 6. Inspect 2D, the 1.20 m architectural cut, 3D and first-person walkthrough.
-7. When a failure appears, identify the earliest incorrect artifact and repair only the reusable layer responsible for it.
+7. Verify interaction/persistence where affected.
+8. When a failure appears, identify the earliest incorrect artifact and repair only the reusable layer responsible for it.
 
 The AI boundary is the draft JSON. Geometry validation, normalization, room analysis, editing, collision and rendering remain deterministic application code.
+
+For repeatable validation, use the ordered stages in `src/lib/plan2world/validationRun.ts`. `reconstructionExperiment.ts` owns source/model/prompt identity; the validation run records the repository revision, draft candidate identity and the first failing boundary. A later boundary must not be recorded as passing while an earlier one has failed.
 
 ## Non-negotiable validation rule
 
@@ -26,8 +31,9 @@ A validation candidate is evidence, not a canvas for manual rescue.
 - Never move, add or delete native/3D geometry merely to make that candidate look correct or walkable.
 - Never hide a downstream defect by compensating in an upstream artifact.
 - If image → JSON is wrong, improve the reconstruction Skill/procedure and generate a separate fresh candidate.
-- If JSON → native project is wrong, fix conversion/normalization and retest the same frozen JSON where appropriate.
-- If native geometry is correct but cut/3D/walkthrough is wrong, fix the viewer, collision, entry or interaction code.
+- If the JSON contract is wrong, fix schema/parser rules without changing its intended semantics.
+- If a validated JSON → native project conversion is wrong, fix conversion/normalization and retest the same frozen JSON.
+- If native geometry is correct but cut/3D/walkthrough is wrong, fix the geometry/viewer/collision/entry layer that first diverges.
 - SVG/overlay output is only a diagnostic for image-to-JSON review; it is not a product goal or alternate source of truth.
 
 Record the earliest failing stage. A polished final screenshot does not count as validation if an earlier stage was manually corrected.
@@ -72,9 +78,12 @@ The opt-in `semantic-white-model` presentation instead defaults omitted windows 
 ## Product invariants
 
 - 2D correction and first-person walkthrough are equally important; `Tab` remains a fast transition between editing and experience.
+- Walkthrough remains an editable runtime view, not a separate scene graph. Future furniture/model replacement must resolve back to stable native entity IDs.
+- Wall-mounted decor such as artwork belongs to a future hosted-asset model, not to door/window opening geometry and not to anonymous Three.js meshes.
 - Generated geometry is a draft, not ground truth. Source evidence and assumptions must remain inspectable.
 - Keep local/manual JSON import possible; do not require a mandatory cloud backend or paid provider.
 - Keep Plan2World usable as a normal floor-plan editor when AI features are unavailable.
+- Keep existing custom-model/project-package primitives available for future user-imported assets.
 - Preserve upstream MIT attribution.
 - Do not expand the core reliability task into BIM, structural analysis or photorealistic interior design.
 
@@ -82,13 +91,15 @@ The opt-in `semantic-white-model` presentation instead defaults omitted windows 
 
 Use the earliest wrong artifact to decide where to fix:
 
-- source image → draft JSON: reconstruction Skill/procedure;
-- draft JSON → native `Project`: parser, schema, normalization or conversion;
-- native project → 2D/cut/3D: geometry analysis or renderer;
-- correct scene → failed movement/entry: walkthrough, collision or input handling;
-- saved/reloaded mismatch: persistence/package layer.
+- A — source image → draft JSON: reconstruction Skill/procedure;
+- B — draft JSON → validated draft: draft contract/schema/parser;
+- C — validated draft → native `Project`: normalization/conversion;
+- D — native project → 2D/cut/3D: deterministic geometry analysis or renderer;
+- E — correct scene → failed movement/entry: walkthrough world, collision or spawn;
+- F — correct runtime → failed interaction/save/reload: input, camera, persistence/package layer;
+- G — runtime scene → asset replacement/import/hosted decor: future scene-asset editing layer, built on native IDs and existing custom-model/package infrastructure.
 
-Do not cross these boundaries merely because a later-stage workaround is easier.
+`src/lib/plan2world/draftContract.ts` owns B. `src/lib/plan2world/draftConverter.ts` owns C. `src/lib/plan2world/draft.ts` is only the backwards-compatible public facade. Do not put semantic repair into the converter merely because a later-stage workaround is easier.
 
 ## Verification
 
