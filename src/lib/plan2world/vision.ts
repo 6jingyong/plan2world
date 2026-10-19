@@ -11,7 +11,11 @@ export type FloorPlanImageType = typeof FLOOR_PLAN_IMAGE_TYPES[number];
 export const MAX_FLOOR_PLAN_IMAGE_BYTES = 12 * 1024 * 1024;
 export const PLAN2WORLD_VISION_PROMPT_VERSION = PLAN2WORLD_RECONSTRUCTION_INSTRUCTIONS_VERSION;
 
-export type FloorPlanVisionOptions = ReconstructionOptions;
+export interface FloorPlanVisionOptions extends ReconstructionOptions {
+  /** Deterministic source registration context; never sent to the model as evidence. */
+  sourceWidthPx?: number;
+  sourceHeightPx?: number;
+}
 
 export interface EncodedFloorPlanImage {
   base64: string;
@@ -71,13 +75,14 @@ export async function reconstructFloorPlanImage(
   signal?: AbortSignal,
 ): Promise<Plan2WorldDraft> {
   const bareHouse = await traceFloorPlanWalls(config, image, customFetch, signal);
+  const { sourceWidthPx, sourceHeightPx, ...instructionOptions } = options;
   const annotations = await generateOpenAIJsonFromImage(
     config,
     image.base64,
     image.mimeType,
-    `${buildReconstructionInstructions(options)}\n\nBARE_HOUSE_JSON:\n${JSON.stringify(bareHouse)}`,
+    `${buildReconstructionInstructions(instructionOptions)}\n\nBARE_HOUSE_JSON:\n${JSON.stringify(bareHouse)}`,
     customFetch,
     signal,
   );
-  return assemblePlan2WorldDraft(bareHouse, annotations);
+  return assemblePlan2WorldDraft(bareHouse, annotations, { sourceWidthPx, sourceHeightPx });
 }
