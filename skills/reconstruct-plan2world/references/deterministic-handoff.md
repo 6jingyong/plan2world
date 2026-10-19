@@ -7,9 +7,9 @@ Everything else belongs to scripts or the downstream application.
 | --- | --- | --- | --- |
 | Wall evidence | LLM | unchanged source raster | `source-wall-trace-v1` |
 | Wall topology | program | wall trace | `bare-house-v1` |
-| Source annotations | LLM | source raster + accepted Bare House IDs | `source-annotation-v1` |
+| Source annotations | LLM | source raster + Bare House context | `source-annotation-v1` |
 | Scale math | program | real length + source endpoints | cm-per-pixel |
-| Opening math | program | Bare House + source opening endpoints | host position + physical width |
+| Opening association/math | program | Bare House + source opening endpoints | host ID + position + physical width |
 | Source registration | program | Bare House source pixels + raster width/height | spread normalized anchors |
 | Draft assembly | program | Bare House + annotations + source size | `plan2world-draft-v1` |
 | Contract/reference checks | program | draft | validation report |
@@ -41,6 +41,7 @@ Do not ask an LLM to recompute an artifact already owned by a later deterministi
 stage. In particular, do not ask it to:
 
 - repair T-junctions or close wall loops;
+- choose an opening host wall ID;
 - calculate scale, width or opening position;
 - convert pixels to centimetres;
 - choose source-registration anchors or fit the source image;
