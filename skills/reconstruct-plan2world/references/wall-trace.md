@@ -9,11 +9,11 @@ Output `source-wall-trace-v1`:
 {
   "schemaVersion":"source-wall-trace-v1",
   "walls":[
-    {"id":"w1","start":{"x":120,"y":80},"end":{"x":300,"y":80}},
-    {"id":"w2","start":{"x":380,"y":80},"end":{"x":520,"y":80}}
+    {"start":{"x":120,"y":80},"end":{"x":300,"y":80}},
+    {"start":{"x":380,"y":80},"end":{"x":520,"y":80}}
   ],
   "doorGaps":[
-    {"id":"gap1","from":{"x":300,"y":80},"to":{"x":380,"y":80}}
+    {"from":{"x":300,"y":80},"to":{"x":380,"y":80}}
   ]
 }
 ```
@@ -22,28 +22,26 @@ The model owns only visual tracing:
 
 - zero-width wall centrelines in original raster pixels;
 - optional `curvePoint` for one visible quadratic curve;
-- stable raw wall IDs;
 - `doorGaps` only when a visible door symbol interrupts one logical wall stroke;
 - for each gap, only the two observed source-pixel endpoints.
 
-The model must not:
+The model must not emit:
 
-- choose `fromWallId` / `toWallId` for a door gap;
-- convert pixels to centimetres;
-- use printed dimension-chain numbers as wall coordinates;
-- split walls at T-junctions merely for topology;
-- snap endpoints or repair closure;
-- infer rooms, room polygons or enclosure loops;
-- classify furniture/windows/components;
-- add thickness, height, rendering or scene fields.
+- wall or gap IDs;
+- `fromWallId` / `toWallId`;
+- junction tolerance or enclosure/topology metadata;
+- centimetres, wall kind/thickness/height or confidence;
+- printed dimension-chain numbers as wall coordinates;
+- T-junction splits, snapped endpoints or closure repairs;
+- rooms, furniture, windows, components, rendering or scene fields.
 
-A long raw wall may cross several later rooms. That is intentional: deterministic
-normalization owns intersections, splitting, small endpoint snapping and matching
-door-gap endpoints to the two observed wall segments they interrupt.
+A long raw wall may cross several later rooms. That is intentional. `buildBareHouse`
+assigns stable IDs by evidence order, then deterministic normalization owns
+intersections, splitting, endpoint snapping and door-gap host association.
 
 After this pass, hand the JSON directly to:
 
 `node tooling/normalize-plan2world-wall-graph.mjs --trace wall-trace.json`
 
-Do not ask the model to review or repair the normalizer's output. A normalizer error
-or a material source-overlay mismatch is a geometry-stage failure.
+Do not ask the model to review or imitate the normalizer. A normalizer bug belongs to
+the program; visually wrong source evidence belongs to this pass.
