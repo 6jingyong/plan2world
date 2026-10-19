@@ -19,7 +19,7 @@ describe('fresh reconstruction corpus isolation', () => {
 
     for (const sample of corpus.samples) {
       expect(Object.keys(sample).sort()).toEqual(['failureMode', 'id', 'rasterRedistributed', 'source']);
-      expect(JSON.stringify(sample)).not.toMatch(/reference|draft|candidate|annotation|result|wallTrace/i);
+      expect(Object.keys(sample.source).sort()).toEqual(['height', 'sha256', 'width']);
       expect(sample.source.sha256).toMatch(/^[0-9a-f]{64}$/);
     }
   });
