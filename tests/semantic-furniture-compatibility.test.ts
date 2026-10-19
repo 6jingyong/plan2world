@@ -7,7 +7,23 @@ import { createPlacedFurnitureModel } from '$lib/utils/furnitureModelLoader';
 import { disposeModel } from '$lib/utils/furnitureModelResources';
 import { furnitureStylePatch } from '$lib/utils/furnitureStyling';
 
-const example = () => JSON.parse(readFileSync('examples/plan2world-white-model.example.json', 'utf8'));
+function importedObjectDraft() {
+  return {
+    schemaVersion: 'plan2world-draft-v1',
+    furnitureVocabulary: 'plan2world-furniture-v1',
+    name: 'Imported object styling',
+    units: 'cm',
+    scale: { mode: 'provided', confidence: 1, basis: 'Synthetic fixture dimensions' },
+    floors: [{
+      id: 'f0', name: 'Floor', level: 0,
+      walls: [{ id: 'w1', start: { x: 0, y: 0 }, end: { x: 400, y: 0 } }],
+      furniture: [{
+        id: 'sofa-block', catalogId: 'imported_object', sourceCategory: 'sofa',
+        position: { x: 200, y: 150 }, width: 220, depth: 95, height: 85,
+      }],
+    }],
+  };
+}
 
 it('keeps legacy unknown-category previews and names without promoting them to semantic blocks', () => {
   const raw = JSON.parse(readFileSync('tests/fixtures/legacy-furniture-previews.openplan.json', 'utf8'));
@@ -24,8 +40,8 @@ it('keeps legacy unknown-category previews and names without promoting them to s
   expect(JSON.stringify(raw)).toBe(before);
 });
 
-it('persists an explicit semantic-block presentation and restores it after choosing a style', () => {
-  const project = readProject(JSON.parse(JSON.stringify(draftToProject(example()))));
+it('persists imported-object block rendering and restores it after choosing a style', () => {
+  const project = readProject(JSON.parse(JSON.stringify(draftToProject(importedObjectDraft()))));
   const item = project.floors[0].furniture[0];
   expect(item.renderStyle).toBe('block');
   expect(furnitureItemName(item, 'en')).toBe('sofa');

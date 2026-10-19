@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
-for (const width of [1440, 390]) test(`semantic block can be selected and styled in the existing editor at ${width}px`, async ({ page }, testInfo) => {
+for (const width of [1440, 390]) test(`imported object can be selected and styled in the existing editor at ${width}px`, async ({ page }, testInfo) => {
   test.setTimeout(180_000);
   await page.setViewportSize({ width, height: 900 });
   await page.addInitScript(() => localStorage.setItem('o3d_tips_seen', JSON.stringify(['first-wall','first-furniture','first-3d','first-export','first-door'])));
@@ -11,8 +11,8 @@ for (const width of [1440, 390]) test(`semantic block can be selected and styled
   await page.getByRole('button', { name: 'Export', exact: true }).click();
   const chooser = page.waitForEvent('filechooser');
   await page.getByRole('button', { name: 'Import JSON', exact: true }).click();
-  await (await chooser).setFiles(resolve('examples/plan2world-white-model.example.json'));
-  await expect(page.getByRole('button', { name: 'Semantic white model example', exact: true })).toBeVisible();
+  await (await chooser).setFiles(resolve('examples/plan2world-imported-objects.example.json'));
+  await expect(page.getByRole('button', { name: 'Imported object editing example', exact: true })).toBeVisible();
   async function exported() {
     await page.getByRole('button', { name: 'Export', exact: true }).click();
     const pending = page.waitForEvent('download');
@@ -25,8 +25,6 @@ for (const width of [1440, 390]) test(`semantic block can be selected and styled
   await page.getByRole('button', { name: /sofa$/i }).click();
   const styles = page.locator('[data-furniture-style]');
   await expect(styles).toHaveValue('imported_object');
-  // Give the actual block a unique colour so the click targets a rendered surface,
-  // independently of camera projection, aspect ratio or inspector insets.
   await page.getByLabel('Custom color', { exact: true }).fill('#ff00ff');
   await page.getByRole('button', { name: 'Save', exact: true }).press('Escape');
   await page.getByRole('button', { name: '3D', exact: true }).click();
@@ -71,7 +69,6 @@ for (const width of [1440, 390]) test(`semantic block can be selected and styled
   expect(withOpenings.floors[0].windows[0]).toEqual({ ...styled.floors[0].windows[0], type: 'sliding' });
   expect(withOpenings.floors[0].doors[0]).toEqual({ ...styled.floors[0].doors[0], type: 'double' });
   await page.getByRole('button', { name: 'Save', exact: true }).click();
-  // A click starts an async native save; wait for its acknowledged completion.
   await expect(page.getByText('Saved ✓', { exact: true })).toHaveAttribute('title', /^Last saved:/);
   await page.reload(); await expect(page.locator('[data-furniture-style]')).toHaveCount(0);
   expect((await exported()).floors).toEqual(withOpenings.floors);

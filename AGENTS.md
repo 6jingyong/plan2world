@@ -2,108 +2,68 @@
 
 ## Mission
 
-Plan2World turns a floor-plan image into an editable browser home: reconstruct source-supported architecture and semantic furniture, review the reconstruction, convert it into the existing native project model, then edit and walk it in Three.js.
+Plan2World turns a floor-plan raster into an editable browser home while reusing the existing openPlan3D `Project`, editor, history, persistence, Three.js viewer and walkthrough. Do not create a competing scene graph.
 
-The existing openPlan3D editor is the downstream engine. Reuse its `Project`, editing, history, persistence, collision and viewer systems. Do not create a competing scene graph or replace working subsystems unless the task specifically requires it.
+## Canonical reconstruction
 
-Walkthrough is not a read-only terminal state. The long-term runtime also supports selecting/replacing scene assets while preserving native entity identity; custom model/package infrastructure should be reused rather than replaced when that work begins.
+**source raster → wall evidence → deterministic Bare House → semantic evidence → deterministic draft assembly → native application**
 
-## Canonical pipeline
+- Wall evidence is `source-wall-trace-v1` in original image pixels.
+- The normalizer owns intersections, splitting, snapping and evidenced door-gap connectivity.
+- Semantic evidence is `source-annotation-v1`: scale evidence, openings and fixed-vocabulary furniture positions only.
+- The assembler owns IDs, host matching, cm conversion, opening width/position, furniture catalog IDs, source registration and `plan2world-draft-v1`.
+- The existing application owns room derivation, editing, rendering, collision, walkthrough and persistence.
 
-1. Inspect the original JPG/PNG/WebP floor plan.
-2. Apply `skills/reconstruct-plan2world/SKILL.md` from the source image.
-3. Emit one complete `plan2world-draft-v1` JSON.
-4. Freeze that JSON before downstream inspection.
-5. Validate/Review it and convert it into the existing native `Project` model.
-6. Inspect 2D, the 1.20 m architectural cut, 3D and first-person walkthrough.
-7. Verify interaction/persistence where affected.
-8. When a failure appears, identify the earliest incorrect artifact and repair only the reusable layer responsible for it.
+Core rule: **LLM observes; programs calculate and assemble.**
 
-The AI boundary is the draft JSON. Geometry validation, normalization, room analysis, editing, collision and rendering remain deterministic application code.
+## Fix the earliest wrong artifact
 
-For repeatable validation, use the ordered stages in `src/lib/plan2world/validationRun.ts`. `reconstructionExperiment.ts` owns source/model/prompt identity; the validation run records the repository revision, draft candidate identity and the first failing boundary. A later boundary must not be recorded as passing while an earlier one has failed.
+- wrong visible wall evidence → wall pass;
+- wrong split/snap/topology → normalizer;
+- wrong scale/opening/furniture evidence → annotation pass;
+- wrong host match, units, IDs, registration or final draft → assembler/parser;
+- wrong room/2D/3D/collision/walkthrough → downstream application.
 
-## Non-negotiable validation rule
+Never compensate for a deterministic bug with prompt instructions. Never hand-edit a generated artifact to make a later screenshot pass.
 
-A validation candidate is evidence, not a canvas for manual rescue.
+## Fresh validation
 
-- Never hand-edit a frozen JSON after finding a failure.
-- Never move, add or delete native/3D geometry merely to make that candidate look correct or walkable.
-- Never hide a downstream defect by compensating in an upstream artifact.
-- If image → JSON is wrong, improve the reconstruction Skill/procedure and generate a separate fresh candidate.
-- If the JSON contract is wrong, fix schema/parser rules without changing its intended semantics.
-- If a validated JSON → native project conversion is wrong, fix conversion/normalization and retest the same frozen JSON.
-- If native geometry is correct but cut/3D/walkthrough is wrong, fix the geometry/viewer/collision/entry layer that first diverges.
-- SVG/overlay output is only a diagnostic for image-to-JSON review; it is not a product goal or alternate source of truth.
+Every image-quality rerun starts from the original raster and a new ignored directory:
 
-Record the earliest failing stage. A polished final screenshot does not count as validation if an earlier stage was manually corrected.
+`.plan2world-validation/runs/<run-id>/<sample-id>/`
 
-## Reconstruction contract
+Do not use an older run as input. Do not write generated wall traces, annotations, drafts, overlays or reports under `tests/fixtures`.
+
+`tests/fixtures/real-floorplans/reconstruction-corpus/manifest.json` contains source identity only. Human source references live separately under `tests/evaluation/plan2world/source-references/` and may be read only after the fresh wall evidence, Bare House, annotations, draft and source overlay are generated and frozen.
+
+Historical runs and development diaries belong in Git history, not the active tree.
+
+## Draft invariants
 
 Use `schemas/plan2world-draft-v1.schema.json` and `docs/plan2world-draft-v1.md`.
 
-Important conventions:
-
-- Lengths are centimetres.
-- Walls are zero-width centrelines in the draft. Use straight segments for straight walls and native quadratic `curvePoint` geometry for visible curves; do not facet a simple curve into many tiny lines.
-- Omit optional positive wall thickness/height unless established. Normalization supplies physical defaults; never emit thickness `0`.
-- Doors/windows reference an existing wall with `wallId` and a path position in `[0, 1]`.
-- Use trustworthy visible dimensions/scale anchors when available. If scale is estimated, label it as estimated and disclose the basis.
-- Current semantic reconstruction declares `furnitureVocabulary: "plan2world-furniture-v1"` and uses exact IDs from `skills/reconstruct-plan2world/references/furniture-vocabulary.json`.
-- Confirm an object is actually furniture before typing it. Bay windows, ledges, piers, planter platforms, shafts and voids do not become furniture.
-- Omit unsupported or unconfirmed objects and disclose the affected source region/reason instead of inventing an `unknown` placeholder.
-- Furniture extraction acceptance is presence, semantic type and broad position. Fine orientation/dimensions are editable estimates unless source evidence supports them.
-- Source-explicit open ground may use `floorAreas`; do not add fake walls solely to close a floor polygon.
-
-## Balcony policy
-
-Recognized balconies/terraces default to independent enclosed glazed rooms as a declared product assumption. Trace source-supported perimeter geometry, reuse continuous house-side hosts once, and place hosted outer windows except where the source visibly shows solid wall/pier structure.
-
-Disclose the affected host/window IDs and source region as a policy assumption. Do not invent missing boundaries, apply the policy to access passages/equipment platforms/shafts/voids, or create a duplicate `floorArea`. Historical/manual open `floorAreas` remain import-compatible.
-
-## Native defaults
-
-When the source gives no better information, the legacy normalization defaults remain editable assumptions:
-
-- wall height: 280 cm
-- interior wall thickness: 12 cm
-- exterior wall thickness: 20 cm
-- single door width: 90 cm
-- door height: 210 cm
-- window sill height: 90 cm
-- window height: 120 cm
-
-The opt-in `semantic-white-model` presentation instead defaults omitted windows to floor-level, host-wall-height fixed glass. Semantic furniture uses native imported objects/blocks and can later be replaced with local styles while preserving native identity, placement and dimensions.
+- lengths are centimetres;
+- walls are zero-width centrelines with optional quadratic `curvePoint`;
+- doors/windows reference existing walls;
+- source registration, when present, is strict and must not fall back to independently fitted bounds;
+- current semantic reconstruction declares `furnitureVocabulary: "plan2world-furniture-v1"`;
+- fixed-vocabulary furniture uses `catalogId: "imported_object"` plus exact `sourceCategory` and source-supported position;
+- `imported_object` renders as an editable native block; no project-wide presentation flag is required;
+- ordinary missing window defaults remain 120 cm height, 90 cm sill and standard type;
+- source-supported open ground may use `floorAreas`; never invent walls merely to force closure.
 
 ## Product invariants
 
-- 2D correction and first-person walkthrough are equally important; `Tab` remains a fast transition between editing and experience.
-- Walkthrough remains an editable runtime view, not a separate scene graph. Future furniture/model replacement must resolve back to stable native entity IDs.
-- Wall-mounted decor such as artwork belongs to a future hosted-asset model, not to door/window opening geometry and not to anonymous Three.js meshes.
-- Generated geometry is a draft, not ground truth. Source evidence and assumptions must remain inspectable.
-- Keep local/manual JSON import possible; do not require a mandatory cloud backend or paid provider.
-- Keep Plan2World usable as a normal floor-plan editor when AI features are unavailable.
-- Keep existing custom-model/project-package primitives available for future user-imported assets.
+- Keep 2D correction and first-person walkthrough on the same native geometry.
+- Keep local/manual JSON import possible; AI must not be mandatory.
+- Preserve existing custom-model/project-package infrastructure for future asset replacement.
+- Generated geometry is evidence-bearing draft data, not ground truth.
 - Preserve upstream MIT attribution.
-- Do not expand the core reliability task into BIM, structural analysis or photorealistic interior design.
-
-## Responsibility boundaries
-
-Use the earliest wrong artifact to decide where to fix:
-
-- A — source image → draft JSON: reconstruction Skill/procedure;
-- B — draft JSON → validated draft: draft contract/schema/parser;
-- C — validated draft → native `Project`: normalization/conversion;
-- D — native project → 2D/cut/3D: deterministic geometry analysis or renderer;
-- E — correct scene → failed movement/entry: walkthrough world, collision or spawn;
-- F — correct runtime → failed interaction/save/reload: input, camera, persistence/package layer;
-- G — runtime scene → asset replacement/import/hosted decor: future scene-asset editing layer, built on native IDs and existing custom-model/package infrastructure.
-
-`src/lib/plan2world/draftContract.ts` owns B. `src/lib/plan2world/draftConverter.ts` owns C. `src/lib/plan2world/draft.ts` is only the backwards-compatible public facade. Do not put semantic repair into the converter merely because a later-stage workaround is easier.
+- Do not expand reliability work into BIM, structural analysis or photorealistic reconstruction.
 
 ## Verification
 
-For implementation changes run the relevant focused tests and, before merge, normally:
+Run relevant focused tests and normally, before merge:
 
 ```bash
 npm test
@@ -111,6 +71,4 @@ npm run check
 npm run build
 ```
 
-For UI/3D/walkthrough changes also run the relevant Playwright browser regression. `playwright.config.ts` uses the production `build/` and starts `node build/index.js` itself.
-
-After every reconstruction-Skill revision, perform at least one fresh application from an original raster and freeze/review its new output. Unit tests alone do not establish image-extraction quality.
+For UI/3D/walkthrough changes, run the relevant Playwright regression. After any reconstruction-Skill change, also perform at least one fresh run from an original raster; unit tests alone do not establish image-extraction quality.

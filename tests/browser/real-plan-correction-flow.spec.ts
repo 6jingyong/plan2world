@@ -7,16 +7,14 @@ import { Matrix4, Vector3 } from 'three';
 import { createFloorPlanAIProvider, type FloorPlanProviderRequest } from '../fixtures/floorplan-ai-provider';
 
 const reference = JSON.parse(readFileSync('tests/fixtures/real-floorplans/wikimedia-two-bedroom.json', 'utf8'));
-const replay = structuredClone(reference);
-// Keep source evidence unchanged; only declare the current semantic contract.
-replay.presentation = 'semantic-white-model';
-replay.furnitureVocabulary = 'plan2world-furniture-v1';
-replay.name = 'Wikimedia real-plan correction replay';
+const evidenceFixture = structuredClone(reference);
+evidenceFixture.furnitureVocabulary = 'plan2world-furniture-v1';
+evidenceFixture.name = 'Wikimedia real-plan correction fixture';
 const sourceHash = '14e965e54b8d2e9788c967eb4eed8b6dde46866717167f3698c51941aa51a5e1';
 let requests: FloorPlanProviderRequest[] = [];
 const provider = createFloorPlanAIProvider(
   request => requests.push(request),
-  replay,
+  evidenceFixture,
   { sourceWidthPx: 535, sourceHeightPx: 526 },
 );
 
@@ -52,7 +50,7 @@ for (const width of [1440, 390]) test(`existing real source reaches a corrected,
   await page.getByRole('button', { name: /Generate from floor-plan image/ }).click();
   await page.getByRole('button', { name: 'Configure', exact: true }).click();
   await page.getByLabel('Provider base URL', { exact: true }).fill('http://127.0.0.1:4202/v1');
-  await page.getByLabel('OpenAI model', { exact: true }).fill('existing-draft-replay');
+  await page.getByLabel('OpenAI model', { exact: true }).fill('deterministic-evidence-fixture');
   await page.getByRole('button', { name: 'Save OpenAI settings', exact: true }).click();
   await page.locator('input[type="file"][accept="image/png,image/jpeg,image/webp"]')
     .setInputFiles(resolve('tests/fixtures/real-floorplans/wikimedia-two-bedroom-source.jpg'));
@@ -79,8 +77,6 @@ for (const width of [1440, 390]) test(`existing real source reaches a corrected,
     await testInfo.attach(name, { path, contentType: 'image/png' });
   }
 
-  // Focus a real reconstructed opening using the same editor handoff used by Review.
-  // This avoids responsive Layers-panel details from deciding whether the test can edit.
   const imported = await exported(), importedFloor = imported.floors[0], firstDoor = importedFloor.doors[0];
   await page.getByRole('button', { name: 'Save', exact: true }).press('l');
   await page.goto(`/editor?id=${imported.id}&focusFloor=${importedFloor.id}&focus=${firstDoor.id}`);
@@ -114,7 +110,6 @@ for (const width of [1440, 390]) test(`existing real source reaches a corrected,
   const review = page.getByRole('dialog', { name: 'Review reconstruction', exact: true });
   await expect(review.getByRole('img', { name: 'Source floor plan', exact: true })).toBeVisible();
   await expect(review.getByText('Geometry check', { exact: true })).toHaveCount(0);
-  // Editing an opening must not mutate the accepted wall graph.
   expect(await review.locator('svg[aria-label="Current geometry trace"] path').first().getAttribute('d')).toBe(initialTrace);
   await snapshot('real-plan-corrected-review');
   await review.getByRole('button', { name: 'Close reconstruction review', exact: true }).click();

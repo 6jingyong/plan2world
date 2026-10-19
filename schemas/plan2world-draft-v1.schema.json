@@ -7,7 +7,6 @@
   "required": ["schemaVersion", "name", "units", "scale", "floors"],
   "properties": {
     "schemaVersion": { "const": "plan2world-draft-v1" },
-    "presentation": { "enum": ["semantic-white-model"] },
     "furnitureVocabulary": { "const": "plan2world-furniture-v1" },
     "name": { "type": "string", "minLength": 1 },
     "units": { "const": "cm" },
@@ -21,274 +20,40 @@
         "basis": { "type": "string" }
       }
     },
-    "assumptions": {
-      "type": "array",
-      "items": { "type": "string" }
-    },
+    "assumptions": { "type": "array", "items": { "type": "string" } },
     "sourceRegistration": { "$ref": "#/$defs/sourceRegistration" },
-    "floors": {
-      "type": "array",
-      "minItems": 1,
-      "items": { "$ref": "#/$defs/floor" }
-    }
+    "floors": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/floor" } }
   },
-  "allOf": [
-    {
-      "if": {
-        "properties": {
-          "presentation": {
-            "const": "semantic-white-model"
-          }
-        },
-        "required": [
-          "presentation"
-        ]
-      },
-      "then": {
-        "properties": {
-          "floors": {
-            "items": {
-              "properties": {
-                "furniture": {
-                  "items": {
-                    "required": [
-                      "sourceCategory"
-                    ],
-                    "properties": {
-                      "catalogId": {
-                        "const": "imported_object"
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    {
-      "if": { "required": ["furnitureVocabulary"] },
-      "then": {
-        "required": ["presentation"],
-        "properties": {
-          "floors": { "items": { "properties": {
-            "furniture": { "items": { "properties": {
-              "sourceCategory": { "$ref": "#/$defs/fixedFurnitureType" }
-            } } }
-          } } }
-        }
-      }
-    }
-  ],
+  "allOf": [{
+    "if": { "required": ["furnitureVocabulary"] },
+    "then": { "properties": { "floors": { "items": { "properties": { "furniture": { "items": {
+      "required": ["sourceCategory"],
+      "properties": { "catalogId": { "const": "imported_object" }, "sourceCategory": { "$ref": "#/$defs/fixedFurnitureType" } }
+    } } } } } } }
+  }],
   "$defs": {
     "fixedFurnitureType": { "enum": ["bed", "sofa", "chair", "bench", "table", "dining_table", "coffee_table", "side_table", "desk", "nightstand", "cabinet", "wardrobe", "shelf", "tv_cabinet", "shoe_cabinet", "dressing_table", "piano", "television", "refrigerator", "washing_machine", "dryer", "dishwasher", "cooktop", "oven", "air_conditioner", "sink", "toilet", "bidet", "bathtub", "shower"] },
-    "point": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["x", "y"],
-      "properties": {
-        "x": { "type": "number" },
-        "y": { "type": "number" }
-      }
-    },
-    "normalizedPoint": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["x", "y"],
-      "properties": {
-        "x": { "type": "number", "minimum": 0, "maximum": 1 },
-        "y": { "type": "number", "minimum": 0, "maximum": 1 }
-      }
-    },
-    "confidence": {
-      "type": "number",
-      "minimum": 0,
-      "maximum": 1
-    },
-    "sourceAnchor": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["wallId", "endpoint", "image"],
-      "properties": {
-        "wallId": { "type": "string", "minLength": 1 },
-        "endpoint": { "enum": ["start", "end"] },
-        "image": { "$ref": "#/$defs/normalizedPoint" }
-      }
-    },
-    "sourceRegistration": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["floorId", "confidence", "anchors"],
-      "properties": {
-        "floorId": { "type": "string", "minLength": 1 },
-        "confidence": { "$ref": "#/$defs/confidence" },
-        "anchors": {
-          "type": "array",
-          "minItems": 2,
-          "maxItems": 8,
-          "items": { "$ref": "#/$defs/sourceAnchor" }
-        }
-      }
-    },
-    "wall": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["id", "start", "end"],
-      "properties": {
-        "id": { "type": "string", "minLength": 1 },
-        "start": { "$ref": "#/$defs/point" },
-        "end": { "$ref": "#/$defs/point" },
-        "curvePoint": { "$ref": "#/$defs/point" },
-        "thickness": { "type": "number", "exclusiveMinimum": 0 },
-        "height": { "type": "number", "exclusiveMinimum": 0 },
-        "kind": { "enum": ["interior", "exterior", "unknown"] },
-        "confidence": { "$ref": "#/$defs/confidence" }
-      }
-    },
-    "door": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["id", "wallId", "position", "width"],
-      "properties": {
-        "id": { "type": "string", "minLength": 1 },
-        "wallId": { "type": "string", "minLength": 1 },
-        "position": { "type": "number", "minimum": 0, "maximum": 1 },
-        "width": { "type": "number", "exclusiveMinimum": 0 },
-        "height": { "type": "number", "exclusiveMinimum": 0 },
-        "type": { "enum": ["single", "double", "sliding", "french", "pocket", "bifold", "opening", "garage"] },
-        "swingDirection": { "enum": ["left", "right"] },
-        "flipSide": { "type": "boolean" },
-        "confidence": { "$ref": "#/$defs/confidence" }
-      }
-    },
-    "window": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["id", "wallId", "position", "width"],
-      "properties": {
-        "id": { "type": "string", "minLength": 1 },
-        "wallId": { "type": "string", "minLength": 1 },
-        "position": { "type": "number", "minimum": 0, "maximum": 1 },
-        "width": { "type": "number", "exclusiveMinimum": 0 },
-        "height": { "type": "number", "exclusiveMinimum": 0 },
-        "sillHeight": { "type": "number", "minimum": 0 },
-        "type": { "enum": ["standard", "fixed", "casement", "sliding", "bay"] },
-        "confidence": { "$ref": "#/$defs/confidence" }
-      }
-    },
-    "furniture": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["id", "catalogId", "position"],
-      "properties": {
-        "id": { "type": "string", "minLength": 1 },
-        "catalogId": { "type": "string", "minLength": 1 },
-        "sourceCategory": { "type": "string", "minLength": 1, "pattern": "\\S" },
-        "width": { "type": "number", "exclusiveMinimum": 0 },
-        "depth": { "type": "number", "exclusiveMinimum": 0 },
-        "height": { "type": "number", "exclusiveMinimum": 0 },
-        "position": { "$ref": "#/$defs/point" },
-        "rotation": { "type": "number" },
-        "confidence": { "$ref": "#/$defs/confidence" }
-      }
-    },
-    "floorBoundaryPart": {
-      "oneOf": [
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "point"
-          ],
-          "properties": {
-            "point": {
-              "$ref": "#/$defs/point"
-            },
-            "curvePoint": {
-              "$ref": "#/$defs/point"
-            }
-          }
-        },
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "wallId"
-          ],
-          "properties": {
-            "wallId": {
-              "type": "string",
-              "minLength": 1
-            },
-            "reverse": {
-              "type": "boolean"
-            }
-          }
-        }
-      ]
-    },
-    "floorArea": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "id",
-        "name",
-        "boundary"
-      ],
-      "properties": {
-        "id": {
-          "type": "string",
-          "minLength": 1
-        },
-        "name": {
-          "type": "string",
-          "minLength": 1
-        },
-        "boundary": {
-          "type": "array",
-          "minItems": 1,
-          "maxItems": 256,
-          "items": {
-            "$ref": "#/$defs/floorBoundaryPart"
-          }
-        },
-        "confidence": {
-          "$ref": "#/$defs/confidence"
-        }
-      }
-    },
-    "floor": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["id", "name", "level", "walls"],
-      "properties": {
-        "id": { "type": "string", "minLength": 1 },
-        "name": { "type": "string", "minLength": 1 },
-        "level": { "type": "integer" },
-        "elevation": { "type": "number" },
-        "walls": {
-          "type": "array",
-          "minItems": 1,
-          "items": { "$ref": "#/$defs/wall" }
-        },
-        "doors": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/door" },
-          "default": []
-        },
-        "windows": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/window" },
-          "default": []
-        },
-        "floorAreas": { "type": "array", "items": { "$ref": "#/$defs/floorArea" }, "default": [] },
-        "furniture": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/furniture" },
-          "default": []
-        }
-      }
-    }
+    "point": { "type": "object", "additionalProperties": false, "required": ["x", "y"], "properties": { "x": { "type": "number" }, "y": { "type": "number" } } },
+    "normalizedPoint": { "type": "object", "additionalProperties": false, "required": ["x", "y"], "properties": { "x": { "type": "number", "minimum": 0, "maximum": 1 }, "y": { "type": "number", "minimum": 0, "maximum": 1 } } },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "sourceAnchor": { "type": "object", "additionalProperties": false, "required": ["wallId", "endpoint", "image"], "properties": { "wallId": { "type": "string", "minLength": 1 }, "endpoint": { "enum": ["start", "end"] }, "image": { "$ref": "#/$defs/normalizedPoint" } } },
+    "sourceRegistration": { "type": "object", "additionalProperties": false, "required": ["floorId", "confidence", "anchors"], "properties": { "floorId": { "type": "string", "minLength": 1 }, "confidence": { "$ref": "#/$defs/confidence" }, "anchors": { "type": "array", "minItems": 2, "maxItems": 8, "items": { "$ref": "#/$defs/sourceAnchor" } } } },
+    "wall": { "type": "object", "additionalProperties": false, "required": ["id", "start", "end"], "properties": { "id": { "type": "string", "minLength": 1 }, "start": { "$ref": "#/$defs/point" }, "end": { "$ref": "#/$defs/point" }, "curvePoint": { "$ref": "#/$defs/point" }, "thickness": { "type": "number", "exclusiveMinimum": 0 }, "height": { "type": "number", "exclusiveMinimum": 0 }, "kind": { "enum": ["interior", "exterior", "unknown"] }, "confidence": { "$ref": "#/$defs/confidence" } } },
+    "door": { "type": "object", "additionalProperties": false, "required": ["id", "wallId", "position", "width"], "properties": { "id": { "type": "string", "minLength": 1 }, "wallId": { "type": "string", "minLength": 1 }, "position": { "type": "number", "minimum": 0, "maximum": 1 }, "width": { "type": "number", "exclusiveMinimum": 0 }, "height": { "type": "number", "exclusiveMinimum": 0 }, "type": { "enum": ["single", "double", "sliding", "french", "pocket", "bifold", "opening", "garage"] }, "swingDirection": { "enum": ["left", "right"] }, "flipSide": { "type": "boolean" }, "confidence": { "$ref": "#/$defs/confidence" } } },
+    "window": { "type": "object", "additionalProperties": false, "required": ["id", "wallId", "position", "width"], "properties": { "id": { "type": "string", "minLength": 1 }, "wallId": { "type": "string", "minLength": 1 }, "position": { "type": "number", "minimum": 0, "maximum": 1 }, "width": { "type": "number", "exclusiveMinimum": 0 }, "height": { "type": "number", "exclusiveMinimum": 0 }, "sillHeight": { "type": "number", "minimum": 0 }, "type": { "enum": ["standard", "fixed", "casement", "sliding", "bay"] }, "confidence": { "$ref": "#/$defs/confidence" } } },
+    "furniture": { "type": "object", "additionalProperties": false, "required": ["id", "catalogId", "position"], "properties": { "id": { "type": "string", "minLength": 1 }, "catalogId": { "type": "string", "minLength": 1 }, "sourceCategory": { "type": "string", "minLength": 1, "pattern": "\\S" }, "width": { "type": "number", "exclusiveMinimum": 0 }, "depth": { "type": "number", "exclusiveMinimum": 0 }, "height": { "type": "number", "exclusiveMinimum": 0 }, "position": { "$ref": "#/$defs/point" }, "rotation": { "type": "number" }, "confidence": { "$ref": "#/$defs/confidence" } } },
+    "floorBoundaryPart": { "oneOf": [
+      { "type": "object", "additionalProperties": false, "required": ["point"], "properties": { "point": { "$ref": "#/$defs/point" }, "curvePoint": { "$ref": "#/$defs/point" } } },
+      { "type": "object", "additionalProperties": false, "required": ["wallId"], "properties": { "wallId": { "type": "string", "minLength": 1 }, "reverse": { "type": "boolean" } } }
+    ] },
+    "floorArea": { "type": "object", "additionalProperties": false, "required": ["id", "name", "boundary"], "properties": { "id": { "type": "string", "minLength": 1 }, "name": { "type": "string", "minLength": 1 }, "boundary": { "type": "array", "minItems": 1, "maxItems": 256, "items": { "$ref": "#/$defs/floorBoundaryPart" } }, "confidence": { "$ref": "#/$defs/confidence" } } },
+    "floor": { "type": "object", "additionalProperties": false, "required": ["id", "name", "level", "walls"], "properties": {
+      "id": { "type": "string", "minLength": 1 }, "name": { "type": "string", "minLength": 1 }, "level": { "type": "integer" }, "elevation": { "type": "number" },
+      "walls": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/wall" } },
+      "doors": { "type": "array", "items": { "$ref": "#/$defs/door" }, "default": [] },
+      "windows": { "type": "array", "items": { "$ref": "#/$defs/window" }, "default": [] },
+      "floorAreas": { "type": "array", "items": { "$ref": "#/$defs/floorArea" }, "default": [] },
+      "furniture": { "type": "array", "items": { "$ref": "#/$defs/furniture" }, "default": [] }
+    } }
   }
 }

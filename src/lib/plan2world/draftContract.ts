@@ -16,7 +16,6 @@ export interface DraftScale {
 export interface DraftSourceAnchor {
   wallId: string;
   endpoint: 'start' | 'end';
-  /** Source-image coordinates normalized to 0..1 from the top-left corner. */
   image: DraftPoint;
 }
 
@@ -30,7 +29,6 @@ export interface DraftWall {
   id: string;
   start: DraftPoint;
   end: DraftPoint;
-  /** Optional quadratic Bezier control point. Missing means a straight wall. */
   curvePoint?: DraftPoint;
   thickness?: number;
   height?: number;
@@ -67,7 +65,6 @@ export interface DraftFurniture {
   position: DraftPoint;
   rotation?: number;
   confidence?: number;
-  /** Source semantics for an unstyled imported_object block. */
   sourceCategory?: string;
   width?: number;
   depth?: number;
@@ -90,7 +87,6 @@ export interface DraftFloor {
   doors?: DraftDoor[];
   windows?: DraftWindow[];
   furniture?: DraftFurniture[];
-  /** Ground outline for balconies/terraces; creates no physical partitions. */
   floorAreas?: DraftFloorArea[];
 }
 
@@ -98,13 +94,9 @@ export interface Plan2WorldDraft {
   schemaVersion: typeof PLAN2WORLD_DRAFT_VERSION;
   name: string;
   units: 'cm';
-  /** Opt-in reconstruction presentation; legacy drafts keep their defaults. */
-  presentation?: 'semantic-white-model';
-  /** Fixed extraction vocabulary; omitted only for historical drafts. */
   furnitureVocabulary?: typeof PLAN2WORLD_FURNITURE_VOCABULARY;
   scale: DraftScale;
   assumptions?: string[];
-  /** Optional image-to-plan registration metadata. When present it must be valid. */
   sourceRegistration?: DraftSourceRegistration;
   floors: DraftFloor[];
 }
@@ -117,30 +109,24 @@ export class Plan2WorldDraftError extends Error {
 }
 
 function record(value: unknown, path: string): Record<string, unknown> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new Plan2WorldDraftError(`${path} must be an object`);
-  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Plan2WorldDraftError(`${path} must be an object`);
   return value as Record<string, unknown>;
 }
 
 function stringValue(value: unknown, path: string): string {
-  if (typeof value !== 'string' || value.trim() === '') {
-    throw new Plan2WorldDraftError(`${path} must be a non-empty string`);
-  }
+  if (typeof value !== 'string' || !value.trim()) throw new Plan2WorldDraftError(`${path} must be a non-empty string`);
   return value;
 }
 
 function finite(value: unknown, path: string): number {
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
-    throw new Plan2WorldDraftError(`${path} must be a finite number`);
-  }
+  if (typeof value !== 'number' || !Number.isFinite(value)) throw new Plan2WorldDraftError(`${path} must be a finite number`);
   return value;
 }
 
 function positive(value: unknown, path: string): number {
-  const n = finite(value, path);
-  if (n <= 0) throw new Plan2WorldDraftError(`${path} must be greater than zero`);
-  return n;
+  const valueNumber = finite(value, path);
+  if (valueNumber <= 0) throw new Plan2WorldDraftError(`${path} must be greater than zero`);
+  return valueNumber;
 }
 
 function optionalPositive(value: unknown, path: string): number | undefined {
@@ -149,29 +135,27 @@ function optionalPositive(value: unknown, path: string): number | undefined {
 
 function confidence(value: unknown, path: string): number | undefined {
   if (value === undefined) return undefined;
-  const n = finite(value, path);
-  if (n < 0 || n > 1) throw new Plan2WorldDraftError(`${path} must be between 0 and 1`);
-  return n;
+  const valueNumber = finite(value, path);
+  if (valueNumber < 0 || valueNumber > 1) throw new Plan2WorldDraftError(`${path} must be between 0 and 1`);
+  return valueNumber;
 }
 
 function point(value: unknown, path: string): DraftPoint {
-  const v = record(value, path);
-  return { x: finite(v.x, `${path}.x`), y: finite(v.y, `${path}.y`) };
+  const item = record(value, path);
+  return { x: finite(item.x, `${path}.x`), y: finite(item.y, `${path}.y`) };
 }
 
 function normalizedPoint(value: unknown, path: string): DraftPoint {
-  const p = point(value, path);
-  if (p.x < 0 || p.x > 1 || p.y < 0 || p.y > 1) {
+  const valuePoint = point(value, path);
+  if (valuePoint.x < 0 || valuePoint.x > 1 || valuePoint.y < 0 || valuePoint.y > 1) {
     throw new Plan2WorldDraftError(`${path} coordinates must be between 0 and 1`);
   }
-  return p;
+  return valuePoint;
 }
 
 function enumValue<T extends string>(value: unknown, allowed: readonly T[], fallback: T, path: string): T {
   if (value === undefined) return fallback;
-  if (typeof value !== 'string' || !allowed.includes(value as T)) {
-    throw new Plan2WorldDraftError(`${path} has an unsupported value`);
-  }
+  if (typeof value !== 'string' || !allowed.includes(value as T)) throw new Plan2WorldDraftError(`${path} has an unsupported value`);
   return value as T;
 }
 
@@ -184,141 +168,106 @@ function uniqueIds(items: { id: string }[], path: string): void {
 }
 
 function parseWall(value: unknown, path: string): DraftWall {
-  const v = record(value, path);
-  const kind = v.kind === undefined
-    ? undefined
-    : enumValue(v.kind, ['interior', 'exterior', 'unknown'] as const, 'unknown', `${path}.kind`);
+  const item = record(value, path);
   return {
-    id: stringValue(v.id, `${path}.id`),
-    start: point(v.start, `${path}.start`),
-    end: point(v.end, `${path}.end`),
-    curvePoint: v.curvePoint === undefined ? undefined : point(v.curvePoint, `${path}.curvePoint`),
-    thickness: optionalPositive(v.thickness, `${path}.thickness`),
-    height: optionalPositive(v.height, `${path}.height`),
-    kind,
-    confidence: confidence(v.confidence, `${path}.confidence`),
+    id: stringValue(item.id, `${path}.id`),
+    start: point(item.start, `${path}.start`),
+    end: point(item.end, `${path}.end`),
+    curvePoint: item.curvePoint === undefined ? undefined : point(item.curvePoint, `${path}.curvePoint`),
+    thickness: optionalPositive(item.thickness, `${path}.thickness`),
+    height: optionalPositive(item.height, `${path}.height`),
+    kind: item.kind === undefined ? undefined : enumValue(item.kind, ['interior', 'exterior', 'unknown'] as const, 'unknown', `${path}.kind`),
+    confidence: confidence(item.confidence, `${path}.confidence`),
   };
 }
 
 function parseDoor(value: unknown, path: string): DraftDoor {
-  const v = record(value, path);
-  const position = finite(v.position, `${path}.position`);
+  const item = record(value, path);
+  const position = finite(item.position, `${path}.position`);
   if (position < 0 || position > 1) throw new Plan2WorldDraftError(`${path}.position must be between 0 and 1`);
   return {
-    id: stringValue(v.id, `${path}.id`),
-    wallId: stringValue(v.wallId, `${path}.wallId`),
-    position,
-    width: positive(v.width, `${path}.width`),
-    height: optionalPositive(v.height, `${path}.height`),
-    type: v.type === undefined ? undefined : enumValue(v.type, ['single', 'double', 'sliding', 'french', 'pocket', 'bifold', 'opening', 'garage'] as const, 'single', `${path}.type`),
-    swingDirection: v.swingDirection === undefined ? undefined : enumValue(v.swingDirection, ['left', 'right'] as const, 'left', `${path}.swingDirection`),
-    flipSide: v.flipSide === undefined ? undefined : Boolean(v.flipSide),
-    confidence: confidence(v.confidence, `${path}.confidence`),
+    id: stringValue(item.id, `${path}.id`), wallId: stringValue(item.wallId, `${path}.wallId`), position,
+    width: positive(item.width, `${path}.width`), height: optionalPositive(item.height, `${path}.height`),
+    type: item.type === undefined ? undefined : enumValue(item.type, ['single', 'double', 'sliding', 'french', 'pocket', 'bifold', 'opening', 'garage'] as const, 'single', `${path}.type`),
+    swingDirection: item.swingDirection === undefined ? undefined : enumValue(item.swingDirection, ['left', 'right'] as const, 'left', `${path}.swingDirection`),
+    flipSide: item.flipSide === undefined ? undefined : Boolean(item.flipSide),
+    confidence: confidence(item.confidence, `${path}.confidence`),
   };
 }
 
 function parseWindow(value: unknown, path: string): DraftWindow {
-  const v = record(value, path);
-  const position = finite(v.position, `${path}.position`);
+  const item = record(value, path);
+  const position = finite(item.position, `${path}.position`);
   if (position < 0 || position > 1) throw new Plan2WorldDraftError(`${path}.position must be between 0 and 1`);
   return {
-    id: stringValue(v.id, `${path}.id`),
-    wallId: stringValue(v.wallId, `${path}.wallId`),
-    position,
-    width: positive(v.width, `${path}.width`),
-    height: optionalPositive(v.height, `${path}.height`),
-    sillHeight: v.sillHeight === undefined ? undefined : finite(v.sillHeight, `${path}.sillHeight`),
-    type: v.type === undefined ? undefined : enumValue(v.type, ['standard', 'fixed', 'casement', 'sliding', 'bay'] as const, 'standard', `${path}.type`),
-    confidence: confidence(v.confidence, `${path}.confidence`),
+    id: stringValue(item.id, `${path}.id`), wallId: stringValue(item.wallId, `${path}.wallId`), position,
+    width: positive(item.width, `${path}.width`), height: optionalPositive(item.height, `${path}.height`),
+    sillHeight: item.sillHeight === undefined ? undefined : finite(item.sillHeight, `${path}.sillHeight`),
+    type: item.type === undefined ? undefined : enumValue(item.type, ['standard', 'fixed', 'casement', 'sliding', 'bay'] as const, 'standard', `${path}.type`),
+    confidence: confidence(item.confidence, `${path}.confidence`),
   };
 }
 
 function parseFurniture(value: unknown, path: string): DraftFurniture {
-  const v = record(value, path);
+  const item = record(value, path);
   return {
-    id: stringValue(v.id, `${path}.id`),
-    catalogId: stringValue(v.catalogId, `${path}.catalogId`),
-    position: point(v.position, `${path}.position`),
-    rotation: v.rotation === undefined ? undefined : finite(v.rotation, `${path}.rotation`),
-    confidence: confidence(v.confidence, `${path}.confidence`),
-    sourceCategory: v.sourceCategory === undefined ? undefined : stringValue(v.sourceCategory, `${path}.sourceCategory`),
-    width: optionalPositive(v.width, `${path}.width`),
-    depth: optionalPositive(v.depth, `${path}.depth`),
-    height: optionalPositive(v.height, `${path}.height`),
+    id: stringValue(item.id, `${path}.id`), catalogId: stringValue(item.catalogId, `${path}.catalogId`),
+    position: point(item.position, `${path}.position`), rotation: item.rotation === undefined ? undefined : finite(item.rotation, `${path}.rotation`),
+    confidence: confidence(item.confidence, `${path}.confidence`),
+    sourceCategory: item.sourceCategory === undefined ? undefined : stringValue(item.sourceCategory, `${path}.sourceCategory`),
+    width: optionalPositive(item.width, `${path}.width`), depth: optionalPositive(item.depth, `${path}.depth`), height: optionalPositive(item.height, `${path}.height`),
   };
 }
 
 function parseFloor(value: unknown, index: number): DraftFloor {
-  const path = `floors[${index}]`;
-  const v = record(value, path);
-  if (!Number.isInteger(v.level)) throw new Plan2WorldDraftError(`${path}.level must be an integer`);
-  if (!Array.isArray(v.walls) || v.walls.length === 0) throw new Plan2WorldDraftError(`${path}.walls must contain at least one wall`);
+  const path = `floors[${index}]`, item = record(value, path);
+  if (!Number.isInteger(item.level)) throw new Plan2WorldDraftError(`${path}.level must be an integer`);
+  if (!Array.isArray(item.walls) || item.walls.length === 0) throw new Plan2WorldDraftError(`${path}.walls must contain at least one wall`);
 
-  const walls = v.walls.map((item, i) => parseWall(item, `${path}.walls[${i}]`));
-  const doors = Array.isArray(v.doors) ? v.doors.map((item, i) => parseDoor(item, `${path}.doors[${i}]`)) : [];
-  const windows = Array.isArray(v.windows) ? v.windows.map((item, i) => parseWindow(item, `${path}.windows[${i}]`)) : [];
-  const furniture = Array.isArray(v.furniture) ? v.furniture.map((item, i) => parseFurniture(item, `${path}.furniture[${i}]`)) : [];
-  if (v.components !== undefined) throw new Plan2WorldDraftError(`${path}.components is retired; 2D geometry must use walls, openings and floorAreas`);
-  if (v.floorAreas !== undefined && !Array.isArray(v.floorAreas)) throw new Plan2WorldDraftError(`${path}.floorAreas must be an array`);
-  const floorAreas: DraftFloorArea[] = ((v.floorAreas ?? []) as unknown[]).map((item, i) => {
-    const areaPath = `${path}.floorAreas[${i}]`, area = record(item, areaPath);
+  const walls = item.walls.map((wall, wallIndex) => parseWall(wall, `${path}.walls[${wallIndex}]`));
+  const doors = Array.isArray(item.doors) ? item.doors.map((door, doorIndex) => parseDoor(door, `${path}.doors[${doorIndex}]`)) : [];
+  const windows = Array.isArray(item.windows) ? item.windows.map((window, windowIndex) => parseWindow(window, `${path}.windows[${windowIndex}]`)) : [];
+  const furniture = Array.isArray(item.furniture) ? item.furniture.map((entry, furnitureIndex) => parseFurniture(entry, `${path}.furniture[${furnitureIndex}]`)) : [];
+  if (item.components !== undefined) throw new Plan2WorldDraftError(`${path}.components is retired; 2D geometry must use walls, openings and floorAreas`);
+  if (item.floorAreas !== undefined && !Array.isArray(item.floorAreas)) throw new Plan2WorldDraftError(`${path}.floorAreas must be an array`);
+  const floorAreas: DraftFloorArea[] = ((item.floorAreas ?? []) as unknown[]).map((raw, areaIndex) => {
+    const areaPath = `${path}.floorAreas[${areaIndex}]`, area = record(raw, areaPath);
     let boundary: FloorBoundaryPart[];
     try { boundary = readFloorBoundary(area.boundary, `${areaPath}.boundary`); }
     catch (error) { throw new Plan2WorldDraftError((error as Error).message); }
     const problem = floorBoundaryProblem(boundary, walls.map(wall => ({ ...wall, height: wall.height ?? 280, thickness: wall.thickness ?? 12, color: '#444444' })));
     if (problem) throw new Plan2WorldDraftError(`${areaPath}.boundary: ${problem}`);
-    return { id: stringValue(area.id, `${areaPath}.id`), name: stringValue(area.name, `${areaPath}.name`),
-      boundary, confidence: confidence(area.confidence, `${areaPath}.confidence`) };
+    return { id: stringValue(area.id, `${areaPath}.id`), name: stringValue(area.name, `${areaPath}.name`), boundary, confidence: confidence(area.confidence, `${areaPath}.confidence`) };
   });
 
-  uniqueIds(walls, `${path}.walls`);
-  uniqueIds(doors, `${path}.doors`);
-  uniqueIds(windows, `${path}.windows`);
-  uniqueIds(furniture, `${path}.furniture`);
+  uniqueIds(walls, `${path}.walls`); uniqueIds(doors, `${path}.doors`); uniqueIds(windows, `${path}.windows`); uniqueIds(furniture, `${path}.furniture`);
   uniqueIds([...walls, ...doors, ...windows, ...furniture, ...floorAreas], path);
-
-  const idsByKind: Record<'wall' | 'door' | 'window' | 'floorArea', Set<string>> = {
-    wall: new Set(walls.map(item => item.id)),
-    door: new Set(doors.map(item => item.id)),
-    window: new Set(windows.map(item => item.id)),
-    floorArea: new Set(floorAreas.map(item => item.id)),
-  };
+  const wallIds = new Set(walls.map(wall => wall.id));
   for (const opening of [...doors, ...windows]) {
-    if (!idsByKind.wall.has(opening.wallId)) {
-      throw new Plan2WorldDraftError(`${path}: opening ${opening.id} references unknown wall ${opening.wallId}`);
-    }
+    if (!wallIds.has(opening.wallId)) throw new Plan2WorldDraftError(`${path}: opening ${opening.id} references unknown wall ${opening.wallId}`);
   }
+
   return {
-    id: stringValue(v.id, `${path}.id`),
-    name: stringValue(v.name, `${path}.name`),
-    level: v.level as number,
-    elevation: v.elevation === undefined ? undefined : finite(v.elevation, `${path}.elevation`),
-    walls,
-    doors,
-    windows,
-    furniture,
-    floorAreas,
+    id: stringValue(item.id, `${path}.id`), name: stringValue(item.name, `${path}.name`), level: item.level as number,
+    elevation: item.elevation === undefined ? undefined : finite(item.elevation, `${path}.elevation`),
+    walls, doors, windows, furniture, floorAreas,
   };
 }
 
-/** Registration may be absent, but once supplied it is part of the draft contract and must be valid. */
 function parseSourceRegistration(value: unknown, floors: DraftFloor[]): DraftSourceRegistration | undefined {
   if (value === undefined) return undefined;
-  const v = record(value, 'sourceRegistration');
-  const floorId = stringValue(v.floorId, 'sourceRegistration.floorId');
-  const floor = floors.find(item => item.id === floorId);
+  const item = record(value, 'sourceRegistration');
+  const floorId = stringValue(item.floorId, 'sourceRegistration.floorId');
+  const floor = floors.find(entry => entry.id === floorId);
   if (!floor) throw new Plan2WorldDraftError('sourceRegistration.floorId must refer to a draft floor');
-  const registrationConfidence = confidence(v.confidence, 'sourceRegistration.confidence');
+  const registrationConfidence = confidence(item.confidence, 'sourceRegistration.confidence');
   if (registrationConfidence === undefined) throw new Plan2WorldDraftError('sourceRegistration.confidence is required');
-  if (!Array.isArray(v.anchors)) throw new Plan2WorldDraftError('sourceRegistration.anchors must be an array');
-  const walls = new Set(floor.walls.map(wall => wall.id));
-  const seen = new Set<string>();
-  const anchors: DraftSourceAnchor[] = [];
-  for (const [index, raw] of v.anchors.entries()) {
-    const path = `sourceRegistration.anchors[${index}]`;
-    const anchor = record(raw, path);
+  if (!Array.isArray(item.anchors)) throw new Plan2WorldDraftError('sourceRegistration.anchors must be an array');
+  const wallIds = new Set(floor.walls.map(wall => wall.id)), seen = new Set<string>(), anchors: DraftSourceAnchor[] = [];
+  for (const [index, raw] of item.anchors.entries()) {
+    const path = `sourceRegistration.anchors[${index}]`, anchor = record(raw, path);
     const wallId = stringValue(anchor.wallId, `${path}.wallId`);
-    if (!walls.has(wallId)) throw new Plan2WorldDraftError(`${path}.wallId must refer to a wall on the registration floor`);
+    if (!wallIds.has(wallId)) throw new Plan2WorldDraftError(`${path}.wallId must refer to a wall on the registration floor`);
     const endpoint = enumValue(anchor.endpoint, ['start', 'end'] as const, 'start', `${path}.endpoint`);
     const key = `${wallId}:${endpoint}`;
     if (seen.has(key)) continue;
@@ -330,64 +279,44 @@ function parseSourceRegistration(value: unknown, floors: DraftFloor[]): DraftSou
 }
 
 export function parsePlan2WorldDraft(input: unknown, options: { requireFurnitureVocabulary?: boolean } = {}): Plan2WorldDraft {
-  const v = record(input, 'draft');
-  if (v.schemaVersion !== PLAN2WORLD_DRAFT_VERSION) {
-    throw new Plan2WorldDraftError(`schemaVersion must be ${PLAN2WORLD_DRAFT_VERSION}`);
-  }
-  if (v.units !== 'cm') throw new Plan2WorldDraftError('units must be cm');
+  const draft = record(input, 'draft');
+  if (draft.schemaVersion !== PLAN2WORLD_DRAFT_VERSION) throw new Plan2WorldDraftError(`schemaVersion must be ${PLAN2WORLD_DRAFT_VERSION}`);
+  if (draft.units !== 'cm') throw new Plan2WorldDraftError('units must be cm');
 
-  const scaleRaw = record(v.scale, 'scale');
+  const scaleRaw = record(draft.scale, 'scale');
   const mode = enumValue(scaleRaw.mode, ['measured', 'provided', 'estimated'] as const, 'estimated', 'scale.mode');
   const scaleConfidence = confidence(scaleRaw.confidence, 'scale.confidence');
   if (scaleConfidence === undefined) throw new Plan2WorldDraftError('scale.confidence is required');
+  if (!Array.isArray(draft.floors) || draft.floors.length === 0) throw new Plan2WorldDraftError('floors must contain at least one floor');
 
-  if (!Array.isArray(v.floors) || v.floors.length === 0) {
-    throw new Plan2WorldDraftError('floors must contain at least one floor');
-  }
-
-  const floors = v.floors.map((item, i) => parseFloor(item, i));
+  const floors = draft.floors.map((floor, index) => parseFloor(floor, index));
   uniqueIds(floors, 'floors');
-  const presentation = v.presentation === undefined ? undefined
-    : enumValue(v.presentation, ['semantic-white-model'] as const, 'semantic-white-model', 'presentation');
-  const furnitureVocabulary = v.furnitureVocabulary === undefined ? undefined
-    : enumValue(v.furnitureVocabulary, [PLAN2WORLD_FURNITURE_VOCABULARY] as const, PLAN2WORLD_FURNITURE_VOCABULARY, 'furnitureVocabulary');
-  if (v.componentVocabulary !== undefined) throw new Plan2WorldDraftError('componentVocabulary is retired');
+  const furnitureVocabulary = draft.furnitureVocabulary === undefined ? undefined
+    : enumValue(draft.furnitureVocabulary, [PLAN2WORLD_FURNITURE_VOCABULARY] as const, PLAN2WORLD_FURNITURE_VOCABULARY, 'furnitureVocabulary');
+  if (draft.componentVocabulary !== undefined) throw new Plan2WorldDraftError('componentVocabulary is retired');
   if (options.requireFurnitureVocabulary && !furnitureVocabulary) {
     throw new Plan2WorldDraftError(`Current reconstruction requires furnitureVocabulary: ${PLAN2WORLD_FURNITURE_VOCABULARY}`);
   }
-  if (furnitureVocabulary && !presentation) {
-    throw new Plan2WorldDraftError('Fixed furniture vocabulary requires semantic-white-model presentation');
-  }
-  if (presentation) {
+  if (furnitureVocabulary) {
     for (const floor of floors) for (const item of floor.furniture ?? []) {
       if (item.catalogId !== 'imported_object' || !item.sourceCategory) {
-        throw new Plan2WorldDraftError('Semantic furniture requires imported_object and sourceCategory');
+        throw new Plan2WorldDraftError('Fixed-vocabulary furniture requires imported_object and sourceCategory');
       }
-      if (furnitureVocabulary && !isPlan2WorldFurnitureType(item.sourceCategory)) {
+      if (!isPlan2WorldFurnitureType(item.sourceCategory)) {
         throw new Plan2WorldDraftError(`Furniture ${item.id}: sourceCategory ${item.sourceCategory} is not in ${furnitureVocabulary}`);
       }
     }
   }
 
-  const assumptions = v.assumptions === undefined
-    ? undefined
-    : Array.isArray(v.assumptions) && v.assumptions.every(item => typeof item === 'string')
-      ? v.assumptions as string[]
+  const assumptions = draft.assumptions === undefined ? undefined
+    : Array.isArray(draft.assumptions) && draft.assumptions.every(item => typeof item === 'string')
+      ? draft.assumptions as string[]
       : (() => { throw new Plan2WorldDraftError('assumptions must be an array of strings'); })();
 
   return {
     schemaVersion: PLAN2WORLD_DRAFT_VERSION,
-    name: stringValue(v.name, 'name'),
-    units: 'cm',
-    presentation,
-    furnitureVocabulary,
-    scale: {
-      mode,
-      confidence: scaleConfidence,
-      basis: scaleRaw.basis === undefined ? undefined : stringValue(scaleRaw.basis, 'scale.basis'),
-    },
-    assumptions,
-    sourceRegistration: parseSourceRegistration(v.sourceRegistration, floors),
-    floors,
+    name: stringValue(draft.name, 'name'), units: 'cm', furnitureVocabulary,
+    scale: { mode, confidence: scaleConfidence, basis: scaleRaw.basis === undefined ? undefined : stringValue(scaleRaw.basis, 'scale.basis') },
+    assumptions, sourceRegistration: parseSourceRegistration(draft.sourceRegistration, floors), floors,
   };
 }
