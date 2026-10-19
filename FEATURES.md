@@ -1,61 +1,63 @@
-# Capability reference
+# Plan2World capability reference
 
-Updated September 12, 2026 for this checkout. This replaces the original UI
-mockup checklist. “Implemented” means the capability has code and regression
-coverage linked below; it does not assert that this branch is deployed or that
-all devices have passed qualification. See [NEXT](NEXT.md) for remaining work,
-release gates and dated validation reports, and [README](README.md#development-checks)
-for the commands used to run checks.
+This file describes the current Plan2World path that matters for reconstruction validation. It is not a historical upstream feature wishlist and is not a declaration that every real floor plan is reconstructed correctly.
 
-## Web editor
+## Reconstruction
 
-| Capability | Current scope | Evidence and limits |
+| Capability | Current behavior | Evidence / limits |
 | --- | --- | --- |
-| Reconstruction Review | Provider-neutral import scale/assumptions and per-object confidence survive project save, JSON and web/native package return. Review can be reopened from the editor and uses current geometry and the saved underlay transform; all findings can be expanded and focused. Object findings select one editable subject while related geometry supplies framing context; aggregate topology/component findings frame an inspection without preselecting a wall to delete. | [Evidence/validation and package return](tests/plan2world-project-evidence.test.ts), [save/edit/Undo/reopen](tests/browser/persistent-reconstruction-review.spec.ts), [subject-only correction handoff](tests/review-correction-focus.test.ts), [all findings and topology repair](tests/browser/topology-correction.spec.ts), [host framing and Delete/Undo](tests/browser/review-editor-focus.spec.ts), [image import](tests/browser/plan2world-image-flow.spec.ts). Confidence describes the import, not a renewed assessment after edits. Legacy projects without evidence remain editable; replacing/removing the source raster disables its trace. |
-| Walls and room geometry | Implemented: straight/curved boundaries, detected room polygons, labels and areas. Shared project-derived room analysis supplies 2D, 3D and area summaries independently of Canvas mounting; inferred room IDs survive view/floor switches without saving derived geometry. Linked endpoint, wall, room and multi-wall drags publish each complete wall step together. Single wall/opening corrections show A/B at the live host-wall endpoints. Magnetic joins take priority over automatic angle suggestions and project onto the actual curved path. | [Shared floor analysis](tests/floor-analysis.test.ts), [3D import/edit](tests/browser/room-analysis-continuity.spec.ts), [Atomic wall updates](tests/joined-wall-drag.test.ts), [drag/Undo](tests/browser/geometry-drag-undo.spec.ts), [Review gap repair and room recovery](tests/browser/wall-join-correction.spec.ts), [Quick correction](tests/browser/quick-geometry-correction.spec.ts), [Room tests](tests/rooms.test.ts), [crossing boundaries](tests/browser/crossing-rooms.spec.ts), [curved rooms](tests/browser/curved-rooms.spec.ts). Native and web area totals are not an established cross-platform guarantee. |
-| Open balcony/terrace ground | Source-explicit `floorAreas` become native rooms with ordered live wall references and free straight/curved edges; no artificial walls or ceiling. Properties edits, wall reversal/splitting, Undo/Redo, source Review and saved packages reuse the shared geometry. | [Contract and limits](docs/plan2world-draft-v1.md#open-ground-outlines), [geometry/history/package tests](tests/open-floor-boundaries.test.ts), [desktop/narrow browser flow](tests/browser/open-floor-boundaries.spec.ts). No automatic clipping of partial overlaps; native companion rendering is unqualified. |
-| Doors and windows | Implemented: wall-mounted openings, curved-wall placement and exported symbols. A/B distances, quick correction and elevation dragging use the shared physical wall path while saved positions retain their Bezier parameter. | [Path conversions](tests/wall-path.test.ts), [curved correction](tests/browser/curved-opening-distances.spec.ts), [Curved openings](tests/curved-wall-openings.test.ts), [opening hit testing](tests/opening-hit-testing.test.ts), [browser coverage](tests/browser/curved-openings.spec.ts). Symbol/style support is not a photorealistic product catalog. |
-| Wall splitting | Straight and quadratic walls split while retaining room/group references, sloped heights and opening positions. Splits crossing an opening are rejected. | [Curve and reference preservation](tests/wall-room-split.test.ts), [browser save/reopen](tests/browser/canvas-wall-actions-localization.spec.ts). Curves subdivide exactly; fixed rendering facets can change the approximation and estimated area. |
-| Selection and history | Implemented: group/individual selection, geometry drag history, clipboard and fit selection. Primary and multi-selection share one state; selecting or deselecting in 3D replaces the previous 2D selection. | [Selection invariants](tests/selection.test.ts), [2D/3D continuity](tests/browser/3d-focus-continuity.spec.ts), [Drag Undo](tests/browser/geometry-drag-undo.spec.ts), [clipboard](tests/browser/selection-clipboard.spec.ts), [fit selection](tests/browser/fit-selection.spec.ts). These tests cover named interactions, not every touch/device combination. |
-| Room deletion | Deletes the selected room's saved record and exclusive boundary in one undo operation. Walls and openings referenced by neighboring rooms remain; furniture remains. | [Saved/detected room deletion](tests/room-deletion.test.ts), [connected rooms and Undo/Redo](tests/browser/shared-room-deletion.spec.ts). Shared boundaries use wall IDs; coincident walls imported with separate IDs are not qualified by these tests. |
-| Unchanged property edits | Reapplying saved room or furniture values preserves Undo/Redo; door/window scalar updates also skip unchanged values. | [Room history](tests/room-update-history.test.ts), [furniture interactions](tests/furniture-interactions.test.ts), [wall/opening updates](tests/wall-editing.test.ts). This does not assert equivalent handling for every item type or metadata path. |
-| Canvas keyboard menus | Shift+F10/Menu opens the selection's menu. Arrow/Home/End navigation, Enter activation and Escape/Tab dismissal are supported. Explicit Properties/material actions focus their editing controls. | [Menu navigation](tests/browser/catalog-keyboard.spec.ts), [opening Properties](tests/browser/context-properties-keyboard.spec.ts), [room actions](tests/browser/context-room-keyboard.spec.ts). Physical assistive-technology qualification remains open. |
-| Properties and annotations | Implemented: property drafts, multiline text, annotation visibility and dimension/text exports. | [Property drafts](tests/browser/property-drafts.spec.ts), [multiline notes](tests/browser/multiline-note-properties.spec.ts), [text exports](tests/browser/text-annotation-exports.spec.ts), [dimensions](tests/browser/dimension-exports.spec.ts). |
-| 3D inspector viewport | Implemented: on narrow screens, the selected object's inspector takes layout space below the 3D canvas. Fitted views and navigation use the remaining viewport while preserving native selection and editing. | [Portrait, landscape and desktop coverage](tests/browser/3d-inspector-viewport.spec.ts): no inspector/canvas overlap, rendered corner visibility, cut/walkthrough access and unchanged exported geometry. |
-| Floors, slabs and stairs | Implemented: floor views/elevations, slab geometry/depth, floor openings and stair symbols. | [Floor views](tests/browser/floor-view.spec.ts), [slab geometry](tests/room-slab-geometry.test.ts), [floor openings](tests/floor-openings.test.ts), [stair geometry](tests/stair-plan-geometry.test.ts), [package values](tests/slab-package.test.ts). Common roof forms remain backlog work. |
-| Semantic reconstruction white model | Opt-in draft presentation imports labelled furniture blocks with measured footprints and estimated heights; omitted windows become floor-to-ceiling fixed glass. Legacy drafts retain their defaults. | [Contract](docs/plan2world-draft-v1.md), [provider-neutral Skill](skills/reconstruct-plan2world/SKILL.md), [conversion and model checks](tests/semantic-white-model.test.ts). Structural validity does not certify image accuracy. |
-| Furniture | Implemented: categorized catalog, placement/interactions, loaded 3D assets and fallback representations for unknown items. | [Catalog inventory](docs/furniture-inventory.md), [catalog source](src/lib/utils/furnitureCatalog.ts), [interaction tests](tests/furniture-interactions.test.ts), [model tests](tests/furniture-models.test.ts), [unknown items](tests/unknown-furniture.test.ts). Asset attribution/dimension curation and native visual fidelity remain work areas. |
-| Semantic block styling | Click native elements in 3D edit mode; replace a semantic block with one of 24 local procedural styles while retaining placement and dimensions. Existing door/window type controls remain available. | [Style and selection tests](tests/furniture-styling.test.ts), [desktop/narrow browser flow](tests/browser/semantic-white-model.spec.ts), [five-source verification and limits](docs/reviews/2026-10-17-semantic-white-model.md). |
-| Local custom models | Implemented: static GLB preview, provenance, source deduplication, placement, saved references and unused-model removal. | [Import guide and limits](docs/local-custom-models.md), [admission tests](tests/custom-model-import.test.ts), [browser import/save](tests/browser/custom-model-import.spec.ts), [package edit return](tests/custom-model-native-return.test.ts). Expanded browser, keyboard, native-return and physical-device qualification remains in progress; see the [verification record](docs/reviews/2026-09-12-local-model-import.md). |
-| Interactive 3D | Implemented: Three.js preview and walkthrough; idle rendering stops when interaction settles. Automatic entry uses the live room interior, avoids nested holes/floor openings and resolves blocking geometry with the existing player collision rule. The 1.20 m cut retains lower geometry and removes upper walls. Edited doorway widths remain live across plan, architectural cut, walkthrough and Undo/Redo. | [Entry geometry](tests/walkthrough-entry.test.ts), [Cut pixels](tests/browser/architectural-cut.spec.ts), [Walkthrough and live door correction](tests/browser/walkthrough.spec.ts), [viewer idle](tests/browser/viewer-idle.spec.ts), [measured idle report](docs/reviews/2026-09-07-idle-rendering.md). Idle behavior does not establish active FPS, battery or physical-device memory budgets. |
-| Plan exports | Implemented: PNG, PDF, SVG and DXF paths, including annotations and object-only plans. | [Object-only exports](tests/browser/object-only-exports.spec.ts), [text exports](tests/browser/text-annotation-exports.spec.ts), [furniture DXF](tests/furniture-dxf.test.ts), [3D PNG capture](tests/capture-main-3d.test.ts). Formats represent different views; none implies lossless editable CAD round trips. |
-| Local project storage | Implemented: IndexedDB-backed storage, legacy localStorage migration, save feedback and recovery paths. | [Storage implementation](src/lib/services/localDatabase.ts), [save status](tests/saveStatus.test.ts), [library restore](tests/libraryRestore.test.ts), [project opening](tests/browser/project-opening.spec.ts). Browser storage can fail or be cleared; exported backups remain useful. |
-| Project and scan import | Implemented: saved project JSON, Apple RoomPlan conversion and versioned project-package ZIP exchange. | [RoomPlan tests](tests/roomplan-import.test.ts), [package tests](tests/projectPackage.test.ts), [browser package workflow](tests/browser/project-package.spec.ts). Use the [package contract](docs/project-package-v1.md) for assets, preservation rules and limits. |
-| English/Portuguese interface | Typed translation dictionaries cover Settings, library/recovery, editor controls and properties, and major 3D controls. Stored names, catalog identifiers and provider prompt values retain their original meaning. | [Key/token parity](tests/localization.test.ts), [dated verification and limits](docs/reviews/2026-09-10-localization.md). Remaining catalog text, service errors and device accessibility need further review; complete interface translation is not claimed. |
+| Provider-neutral image reconstruction | `skills/reconstruct-plan2world` produces `plan2world-draft-v1` from a source floor-plan raster. The model/provider boundary ends at JSON. | Contract: `docs/plan2world-draft-v1.md`; schema: `schemas/plan2world-draft-v1.schema.json`; Skill: `skills/reconstruct-plan2world/SKILL.md`. Image accuracy still requires fresh source-based review. |
+| Walls | Draft walls are zero-width centrelines; straight walls and native quadratic curves are supported. | Conversion/geometry coverage includes `tests/semantic-white-model.test.ts`, `tests/curved-wall-openings.test.ts`, `tests/floor-analysis.test.ts`. Do not replace a visible simple curve with many tiny facets. |
+| Doors and windows | Openings are hosted on existing wall paths. Curved-wall placement and live opening correction use the shared physical path. | `tests/wall-path.test.ts`, `tests/opening-hit-testing.test.ts`, `tests/browser/curved-openings.spec.ts`, `tests/browser/quick-geometry-correction.spec.ts`. |
+| Scale and source evidence | Drafts retain measured/estimated scale information, assumptions, registration and Review evidence. | `tests/plan2world-project-evidence.test.ts`, `tests/browser/persistent-reconstruction-review.spec.ts`. Registration consistency is not proof of visual correctness. |
+| Semantic furniture | Reconstruction can emit source-derived semantic furniture blocks using the fixed `plan2world-furniture-v1` vocabulary. | `tests/semantic-white-model.test.ts`, `tests/furniture-styling.test.ts`, retained validation `docs/reviews/2026-10-17-semantic-white-model.md`. Fine dimensions/orientation remain editable estimates unless source-supported. |
+| Balcony / terrace policy | Recognized balconies/terraces default to independent enclosed glazed rooms under the declared Skill policy, except where source evidence triggers the guard. | The policy is defined in the Skill/agent contract. It is an explicit product assumption and must be disclosed, not presented as observed source glazing. |
+| Open ground outlines | Source-explicit open balcony/terrace ground can use `floorAreas`, referencing live walls and free straight/curved edges without fake closure walls or ceilings. | `tests/open-floor-boundaries.test.ts`, `tests/browser/open-floor-boundaries.spec.ts`, `docs/reviews/2026-10-18-open-ground.md`. No automatic clipping of partially overlapping outlines. |
 
-## Companion and cross-platform scope
+## Review and correction
 
-The native companion has its own source, tests and release process. Project-package
-exchange carries edited geometry and supported attachments between platforms;
-retained data is not necessarily editable or rendered identically on both sides.
-The [package contract](docs/project-package-v1.md) is the format reference. Native
-validation and hardware/release requirements are tracked in [NEXT](NEXT.md).
+| Capability | Current behavior | Evidence / limits |
+| --- | --- | --- |
+| Reconstruction Review | Import evidence, assumptions and geometry findings can be reopened and focused into the editor. | `tests/browser/persistent-reconstruction-review.spec.ts`, `tests/browser/review-editor-focus.spec.ts`, `tests/review-correction-focus.test.ts`. Confidence describes the import evidence, not a fresh assessment after edits. |
+| Native project conversion | Valid drafts convert into the existing openPlan3D `Project`/`Floor`/wall/opening/furniture model rather than a second scene graph. | `src/lib/plan2world/draft.ts` plus Plan2World unit tests. |
+| 2D correction | Native wall/opening/furniture selection, properties, geometry correction, Undo/Redo and save/reload remain available after import. | `tests/browser/quick-geometry-correction.spec.ts`, `tests/browser/geometry-drag-undo.spec.ts`, `tests/browser/3d-focus-continuity.spec.ts`. |
+| Room/floor analysis | Room polygons and areas are derived from current native geometry; explicit open-ground boundaries share the same downstream floor path. | `tests/floor-analysis.test.ts`, `tests/rooms.test.ts`, `tests/open-floor-boundaries.test.ts`. Derived room-face counts are not source room counts. |
+| Semantic block styling | Imported semantic furniture blocks can be replaced with existing local procedural styles while retaining native identity, placement and dimensions. Existing door/window type controls remain available. | `tests/furniture-styling.test.ts`, `tests/browser/semantic-white-model.spec.ts`. |
 
-The Mac Blender render workflow and portable render experiments are separate
-from the interactive web preview. Their current handoff and validation are linked
-from [NEXT](NEXT.md#computer-switch-handoff); this matrix does not describe them
-as generally released browser features.
+## 3D and walkthrough
 
-## Still open
+| Capability | Current behavior | Evidence / limits |
+| --- | --- | --- |
+| Three.js 3D view | Native project geometry renders through the existing viewer; 2D and 3D share native selection/state rather than parallel geometry. | `tests/browser/3d-focus-continuity.spec.ts`, `tests/browser/room-analysis-continuity.spec.ts`. |
+| 1.20 m architectural cut | The cut keeps lower architecture and removes upper wall geometry using current native geometry. | `tests/browser/architectural-cut.spec.ts`. |
+| First-person walkthrough | Existing walkthrough uses live room geometry, automatic entry selection and collision. Door width corrections remain live across plan, cut and walkthrough. | `tests/walkthrough-entry.test.ts`, `tests/browser/walkthrough.spec.ts`. Real-plan walkthrough quality must still be validated case by case. |
+| Persistence | Native edits and supported reconstruction evidence survive the existing local/project-package paths. | `tests/projectPackage.test.ts`, `tests/browser/project-package.spec.ts`, Plan2World evidence tests. |
 
-- Physical iPhone/iPad interaction, capture, storage/share-sheet and performance qualification.
-- Native/web area agreement and broader native geometry/material fidelity.
-- Common roof forms, complete catalog provenance/dimensions and curated room sets.
-- Remaining English/Portuguese strings and first-room usability/accessibility qualification.
-- Broader custom-model format/device qualification and reviewable recognition/layout assistance.
-- Account-backed sync, collaboration and read-only sharing, subject to the release/cost gates.
+## Validation policy
 
-These are work areas, not assertions that every associated interaction is broken.
-[NEXT](NEXT.md) remains the authoritative backlog. The old
-[comparison review](COMPARISON_REVIEW.md) is historical and must not be used as a
-current release checklist.
+A reconstruction candidate is frozen evidence. After a JSON is emitted for a validation run, do not hand-edit that JSON or repair its native/3D result to make the case pass.
+
+Find the earliest incorrect artifact instead:
+
+```text
+source image
+  → Skill output JSON
+  → validation / normalization
+  → native Project
+  → 2D / 1.20 m cut / 3D
+  → walkthrough / collision / input
+```
+
+Repair the reusable layer responsible for the first error and create a separate fresh reconstruction when the Skill itself changes. See `AGENTS.md` for the canonical responsibility boundaries.
+
+## Current known limits
+
+- Real floor-plan extraction is not certified by schema validity or clean geometry checks alone; source-image review remains necessary.
+- Hidden doors, dense service cores, watermarks and ambiguous boundaries can remain uncertain and should be disclosed rather than invented.
+- Furniture acceptance is semantic presence/type/broad position, not exact product geometry.
+- Source registration validates transform consistency, not visual accuracy.
+- Open-ground extents require visible evidence; uncertain extents should be omitted/disclosed.
+- Browser regressions establish named flows, not every physical device/browser combination.
+- Plan2World is not BIM, structural analysis or photorealistic reconstruction.
+
+Historical upstream QA reports and development diaries remain available in Git history but are intentionally not treated as current product truth.
