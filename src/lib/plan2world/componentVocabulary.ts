@@ -1,13 +1,12 @@
 import vocabulary from '../../../skills/reconstruct-plan2world/references/component-vocabulary.json';
 
 export const PLAN2WORLD_COMPONENT_VOCABULARY = 'plan2world-components-v2' as const;
-export const PLAN2WORLD_COMPONENT_REVIEW_SCHEMA = 'plan2world-component-review-v2' as const;
-if (vocabulary.version !== PLAN2WORLD_COMPONENT_VOCABULARY || vocabulary.reviewSchema !== PLAN2WORLD_COMPONENT_REVIEW_SCHEMA) {
+if (vocabulary.version !== PLAN2WORLD_COMPONENT_VOCABULARY) {
   throw new Error('Plan2World component registry version mismatch');
 }
 
 export const PLAN2WORLD_COMPONENT_TYPES: readonly string[] = vocabulary.types.map(item => item.id);
-export type Plan2WorldSceneEffect = 'evidence-only' | 'boundary-only' | 'room-policy' | 'solid' | 'void' | 'vertical-structure' | 'hosted-asset';
+export type Plan2WorldSceneEffect = 'evidence-only' | 'boundary-only' | 'solid' | 'void' | 'vertical-structure' | 'hosted-asset';
 export type Plan2WorldSceneSupport = 'ignore' | 'existing-geometry' | 'unsupported';
 
 export function isPlan2WorldComponentType(value: unknown): value is string {
@@ -43,7 +42,6 @@ export const PLAN2WORLD_COMPONENT_CONTRACT = [
   `Emit root componentVocabulary="${PLAN2WORLD_COMPONENT_VOCABULARY}" whenever floor.components is non-empty.`,
   'Each recognized architectural component belongs in floor.components with id, fixed type, approximate cm position, optional confidence and geometryRefs to existing same-floor wall/door/window/floorArea IDs.',
   'Do not emit render, visible, sceneEffect, sceneSupport or requiresNativeSupport flags. Scene behavior is determined only by the fixed component registry after parsing.',
-  'The source-review sidecar records only source evidence for the same component IDs; it does not own type, floor, geometry references or scene behavior.',
 ].join(' ');
 
 export const PLAN2WORLD_COMPONENT_GUIDE = `${PLAN2WORLD_SOURCE_FIDELITY_GATE}\n${PLAN2WORLD_ROOM_ENVELOPE_GATE}\n${PLAN2WORLD_COMPONENT_CONTRACT}\n${vocabulary.types.map(item => `${item.id}: ${item.handling}`).join('\n')}`;

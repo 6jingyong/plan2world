@@ -1,18 +1,101 @@
 {
   "version": "plan2world-components-v2",
-  "reviewSchema": "plan2world-component-review-v2",
   "rule": "The model records source semantics; deterministic code decides scene behavior. Components live in draft floor.components and never carry model-authored render flags. sceneEffect and sceneSupport are registry policy, not AI output. Closed-room geometry is reconstructed independently from room-use/component labels.",
   "types": [
-    {"id":"bay_window","label":"凸窗","geometryKinds":["wall","window"],"sceneEffect":"boundary-only","sceneSupport":"existing-geometry","handling":"Reference the enclosing wall paths and hosted glazing once. The projection is not a cabinet or automatically walkable floor."},
-    {"id":"window_ledge","label":"窗台","geometryKinds":[],"sceneEffect":"evidence-only","sceneSupport":"ignore","handling":"Record the source semantic and approximate plan position. Do not create furniture, floor or a dedicated 3D object."},
-    {"id":"wall_pier","label":"墙垛","geometryKinds":["wall"],"sceneEffect":"boundary-only","sceneSupport":"existing-geometry","handling":"Reference its real wall runs once; do not add a second column or solid."},
-    {"id":"column","label":"独立柱","geometryKinds":[],"sceneEffect":"solid","sceneSupport":"unsupported","handling":"Record a separate structural column when source evidence establishes one. Do not replace it with furniture; current draft conversion does not yet create native Column geometry."},
-    {"id":"shaft","label":"管井／竖井","geometryKinds":["wall"],"sceneEffect":"boundary-only","sceneSupport":"existing-geometry","handling":"Reference source-supported enclosure walls and do not invent access. The sealed cavity itself creates no extra 3D object and does not require hidden slab or ceiling fidelity."},
-    {"id":"balcony","label":"阳台／露台","geometryKinds":[],"sceneEffect":"evidence-only","sceneSupport":"ignore","handling":"Optional source semantic only. Never create, close or alter a room because it is classified as balcony/terrace; the generic bare-room envelope and hosted openings already own all geometry."},
-    {"id":"equipment_ledge","label":"设备平台","geometryKinds":[],"sceneEffect":"evidence-only","sceneSupport":"ignore","handling":"Record the source semantic and approximate plan position. Do not extend living floor or create furniture or a dedicated 3D object."},
-    {"id":"planter","label":"固定花池／种植平台","geometryKinds":[],"sceneEffect":"solid","sceneSupport":"unsupported","handling":"Require a drawn built-in planting boundary; loose plant symbols alone do not establish a structural planter. A visible built-in planter remains a scene-support gap until modeled."},
-    {"id":"railing","label":"栏杆／护栏","geometryKinds":[],"sceneEffect":"hosted-asset","sceneSupport":"unsupported","handling":"Record observed guard evidence. A standalone railing remains a separate visible asset when required; it must not silently become a wall/window."},
-    {"id":"stair","label":"楼梯","geometryKinds":[],"sceneEffect":"vertical-structure","sceneSupport":"unsupported","handling":"Record tread or flight evidence and only visible up or down direction. Never infer an unseen destination floor, rise or ceiling hole."},
-    {"id":"floor_void","label":"挑空／楼板洞口","geometryKinds":[],"sceneEffect":"void","sceneSupport":"unsupported","handling":"Record an explicit visible or reachable void. Never close it with inferred walkable floor; floor subtraction remains unsupported until a dedicated deterministic contract exists."}
+    {
+      "id": "bay_window",
+      "label": "凸窗",
+      "geometryKinds": [
+        "wall",
+        "window"
+      ],
+      "sceneEffect": "boundary-only",
+      "sceneSupport": "existing-geometry",
+      "handling": "Reference the enclosing wall paths and hosted glazing once. The projection is not a cabinet or automatically walkable floor."
+    },
+    {
+      "id": "window_ledge",
+      "label": "窗台",
+      "geometryKinds": [],
+      "sceneEffect": "evidence-only",
+      "sceneSupport": "ignore",
+      "handling": "Record the source semantic and approximate plan position. Do not create furniture, floor or a dedicated 3D object."
+    },
+    {
+      "id": "wall_pier",
+      "label": "墙垛",
+      "geometryKinds": [
+        "wall"
+      ],
+      "sceneEffect": "boundary-only",
+      "sceneSupport": "existing-geometry",
+      "handling": "Reference its real wall runs once; do not add a second column or solid."
+    },
+    {
+      "id": "column",
+      "label": "独立柱",
+      "geometryKinds": [],
+      "sceneEffect": "solid",
+      "sceneSupport": "unsupported",
+      "handling": "Record a separate structural column when source evidence establishes one. Do not replace it with furniture; current draft conversion does not yet create native Column geometry."
+    },
+    {
+      "id": "shaft",
+      "label": "管井／竖井",
+      "geometryKinds": [
+        "wall"
+      ],
+      "sceneEffect": "boundary-only",
+      "sceneSupport": "existing-geometry",
+      "handling": "Reference source-supported enclosure walls and do not invent access. The sealed cavity itself creates no extra 3D object and does not require hidden slab or ceiling fidelity."
+    },
+    {
+      "id": "balcony",
+      "label": "阳台／露台",
+      "geometryKinds": [],
+      "sceneEffect": "evidence-only",
+      "sceneSupport": "ignore",
+      "handling": "Optional source semantic only. Never create, close or alter a room because it is classified as balcony/terrace; the generic bare-room envelope and hosted openings already own all geometry."
+    },
+    {
+      "id": "equipment_ledge",
+      "label": "设备平台",
+      "geometryKinds": [],
+      "sceneEffect": "evidence-only",
+      "sceneSupport": "ignore",
+      "handling": "Record the source semantic and approximate plan position. Do not extend living floor or create furniture or a dedicated 3D object."
+    },
+    {
+      "id": "planter",
+      "label": "固定花池／种植平台",
+      "geometryKinds": [],
+      "sceneEffect": "solid",
+      "sceneSupport": "unsupported",
+      "handling": "Require a drawn built-in planting boundary; loose plant symbols alone do not establish a structural planter. A visible built-in planter remains a scene-support gap until modeled."
+    },
+    {
+      "id": "railing",
+      "label": "栏杆／护栏",
+      "geometryKinds": [],
+      "sceneEffect": "hosted-asset",
+      "sceneSupport": "unsupported",
+      "handling": "Record observed guard evidence. A standalone railing remains a separate visible asset when required; it must not silently become a wall/window."
+    },
+    {
+      "id": "stair",
+      "label": "楼梯",
+      "geometryKinds": [],
+      "sceneEffect": "vertical-structure",
+      "sceneSupport": "unsupported",
+      "handling": "Record tread or flight evidence and only visible up or down direction. Never infer an unseen destination floor, rise or ceiling hole."
+    },
+    {
+      "id": "floor_void",
+      "label": "挑空／楼板洞口",
+      "geometryKinds": [],
+      "sceneEffect": "void",
+      "sceneSupport": "unsupported",
+      "handling": "Record an explicit visible or reachable void. Never close it with inferred walkable floor; floor subtraction remains unsupported until a dedicated deterministic contract exists."
+    }
   ]
 }
