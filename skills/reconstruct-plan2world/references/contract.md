@@ -88,7 +88,7 @@ normalization defaults after the skeleton is checked; zero thickness is invalid.
 - Source registration: existing `floorId`, confidence 0..1, at least two anchors
   with existing `wallId`, `endpoint` (`start`/`end`) and normalized `image` point.
 - Preserve evidence in `assumptions`; do not output native editor selection,
-  inferred room polygons, rendering meshes or provider-specific metadata in the draft.
+  inferred ordinary room polygons, rendering meshes or provider-specific metadata in the draft.
 
 Canonical application schema and conversion live in repository
 `6jingyong/plan2world`, `schemas/plan2world-draft-v1.schema.json` and
@@ -129,3 +129,31 @@ Do not copy shared curved wall points, create physical railings, cover a blank
 void, or duplicate an enclosed room. Omit uncertain limits and record the gap.
 The editor stores these surfaces in the existing native Room with an explicit
 boundary and outdoor category; wall-derived room detection stays independent.
+
+## Wall-backed floor openings
+
+Optional `floors[].floorOpenings` carries a deliberately narrow slab-void semantic
+for a positively recognized feature such as an enclosed shaft. It does not author
+a second room or boundary polygon. Each item requires a unique `id`, a `name`, and
+at least three unique `wallIds`; confidence 0..1 is optional:
+
+```json
+{
+  "id": "shaft-1",
+  "name": "Service shaft",
+  "wallIds": ["s1", "s2", "s3", "s4"],
+  "confidence": 0.9
+}
+```
+
+Every referenced wall must exist on the same floor. The unordered wall set must
+exactly match one closed wall-derived room after deterministic room detection.
+Conversion fails instead of guessing when the set is partial, does not close, or
+matches ambiguously. A successful conversion reuses that detected native Room,
+sets its authored id/name and `floorOpening: true`, and makes its usable area zero.
+Existing 2D/3D/stacked-floor code then omits its slab through native semantics.
+
+Do not infer a floor opening merely from tiny area, no visible door, location near
+a bathroom/kitchen, or a service-like label without enclosure evidence. Do not
+add walls around an atrium solely to satisfy this format. Arbitrary non-wall-backed
+floor holes, stairs and multi-floor vertical connections remain separate gaps.
