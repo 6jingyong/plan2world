@@ -104,7 +104,7 @@ export interface Plan2WorldDraft {
   furnitureVocabulary?: typeof PLAN2WORLD_FURNITURE_VOCABULARY;
   scale: DraftScale;
   assumptions?: string[];
-  /** Optional image-to-plan registration metadata. It is advisory and never required to import a draft. */
+  /** Optional image-to-plan registration metadata. When present it must be valid. */
   sourceRegistration?: DraftSourceRegistration;
   floors: DraftFloor[];
 }
@@ -301,37 +301,32 @@ function parseFloor(value: unknown, index: number): DraftFloor {
   };
 }
 
-/** Registration is optional advisory metadata. Ignore malformed registration rather than rejecting valid geometry. */
+/** Registration may be absent, but once supplied it is part of the draft contract and must be valid. */
 function parseSourceRegistration(value: unknown, floors: DraftFloor[]): DraftSourceRegistration | undefined {
   if (value === undefined) return undefined;
-  try {
-    const v = record(value, 'sourceRegistration');
-    const floorId = stringValue(v.floorId, 'sourceRegistration.floorId');
-    const floor = floors.find(item => item.id === floorId);
-    if (!floor) throw new Plan2WorldDraftError('sourceRegistration.floorId must refer to a draft floor');
-    const registrationConfidence = confidence(v.confidence, 'sourceRegistration.confidence');
-    if (registrationConfidence === undefined) throw new Plan2WorldDraftError('sourceRegistration.confidence is required');
-    if (!Array.isArray(v.anchors)) throw new Plan2WorldDraftError('sourceRegistration.anchors must be an array');
-    const walls = new Set(floor.walls.map(wall => wall.id));
-    const seen = new Set<string>();
-    const anchors: DraftSourceAnchor[] = [];
-    for (const [index, raw] of v.anchors.entries()) {
-      const path = `sourceRegistration.anchors[${index}]`;
-      const anchor = record(raw, path);
-      const wallId = stringValue(anchor.wallId, `${path}.wallId`);
-      if (!walls.has(wallId)) throw new Plan2WorldDraftError(`${path}.wallId must refer to a wall on the registration floor`);
-      const endpoint = enumValue(anchor.endpoint, ['start', 'end'] as const, 'start', `${path}.endpoint`);
-      const key = `${wallId}:${endpoint}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      anchors.push({ wallId, endpoint, image: normalizedPoint(anchor.image, `${path}.image`) });
-    }
-    if (anchors.length < 2) throw new Plan2WorldDraftError('sourceRegistration must contain at least two distinct anchors');
-    return { floorId, confidence: registrationConfidence, anchors: anchors.slice(0, 8) };
-  } catch (error) {
-    if (error instanceof Plan2WorldDraftError) return undefined;
-    throw error;
+  const v = record(value, 'sourceRegistration');
+  const floorId = stringValue(v.floorId, 'sourceRegistration.floorId');
+  const floor = floors.find(item => item.id === floorId);
+  if (!floor) throw new Plan2WorldDraftError('sourceRegistration.floorId must refer to a draft floor');
+  const registrationConfidence = confidence(v.confidence, 'sourceRegistration.confidence');
+  if (registrationConfidence === undefined) throw new Plan2WorldDraftError('sourceRegistration.confidence is required');
+  if (!Array.isArray(v.anchors)) throw new Plan2WorldDraftError('sourceRegistration.anchors must be an array');
+  const walls = new Set(floor.walls.map(wall => wall.id));
+  const seen = new Set<string>();
+  const anchors: DraftSourceAnchor[] = [];
+  for (const [index, raw] of v.anchors.entries()) {
+    const path = `sourceRegistration.anchors[${index}]`;
+    const anchor = record(raw, path);
+    const wallId = stringValue(anchor.wallId, `${path}.wallId`);
+    if (!walls.has(wallId)) throw new Plan2WorldDraftError(`${path}.wallId must refer to a wall on the registration floor`);
+    const endpoint = enumValue(anchor.endpoint, ['start', 'end'] as const, 'start', `${path}.endpoint`);
+    const key = `${wallId}:${endpoint}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    anchors.push({ wallId, endpoint, image: normalizedPoint(anchor.image, `${path}.image`) });
   }
+  if (anchors.length < 2) throw new Plan2WorldDraftError('sourceRegistration must contain at least two distinct anchors');
+  return { floorId, confidence: registrationConfidence, anchors: anchors.slice(0, 8) };
 }
 
 export function parsePlan2WorldDraft(input: unknown, options: { requireFurnitureVocabulary?: boolean } = {}): Plan2WorldDraft {
