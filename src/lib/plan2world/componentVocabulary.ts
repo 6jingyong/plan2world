@@ -1,7 +1,11 @@
 import vocabulary from '../../../skills/reconstruct-plan2world/references/component-vocabulary.json';
 
-export const PLAN2WORLD_COMPONENT_VOCABULARY = vocabulary.version;
-export const PLAN2WORLD_COMPONENT_REVIEW_SCHEMA = vocabulary.reviewSchema;
+export const PLAN2WORLD_COMPONENT_VOCABULARY = 'plan2world-components-v2' as const;
+export const PLAN2WORLD_COMPONENT_REVIEW_SCHEMA = 'plan2world-component-review-v2' as const;
+if (vocabulary.version !== PLAN2WORLD_COMPONENT_VOCABULARY || vocabulary.reviewSchema !== PLAN2WORLD_COMPONENT_REVIEW_SCHEMA) {
+  throw new Error('Plan2World component registry version mismatch');
+}
+
 export const PLAN2WORLD_COMPONENT_TYPES: readonly string[] = vocabulary.types.map(item => item.id);
 export type Plan2WorldSceneEffect = 'evidence-only' | 'boundary-only' | 'room-policy' | 'solid' | 'void' | 'vertical-structure' | 'hosted-asset';
 export type Plan2WorldSceneSupport = 'ignore' | 'existing-geometry' | 'unsupported';
