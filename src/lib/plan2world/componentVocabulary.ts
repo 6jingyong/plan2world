@@ -31,6 +31,14 @@ export const PLAN2WORLD_SOURCE_FIDELITY_GATE = [
   'An obvious or systematic mismatch is an A-layer failure: stop, preserve the failed candidate, fix the reusable reconstruction instructions and generate a fresh candidate from the original source; never fit registration to hide drift or continue downstream.',
 ].join(' ');
 
+export const PLAN2WORLD_ROOM_ENVELOPE_GATE = [
+  'Reconstruct the bare closed-room topology before furniture or room-use semantics.',
+  'Every enclosed space boundary is made from continuous logical host walls; doors and windows are intervals on those hosts and may cover an entire wall side.',
+  'Sweep every enclosure side completely as solid, window or door evidence. Do not silently treat an unclassified remainder as solid wall.',
+  'Recognize evidenced sliding-panel systems as sliding doors, including wide or full-side openings.',
+  'A balcony/terrace label is optional semantics only and must never create, close or alter geometry.',
+].join(' ');
+
 export const PLAN2WORLD_COMPONENT_CONTRACT = [
   `Emit root componentVocabulary="${PLAN2WORLD_COMPONENT_VOCABULARY}" whenever floor.components is non-empty.`,
   'Each recognized architectural component belongs in floor.components with id, fixed type, approximate cm position, optional confidence and geometryRefs to existing same-floor wall/door/window/floorArea IDs.',
@@ -38,4 +46,4 @@ export const PLAN2WORLD_COMPONENT_CONTRACT = [
   'The source-review sidecar records only source evidence for the same component IDs; it does not own type, floor, geometry references or scene behavior.',
 ].join(' ');
 
-export const PLAN2WORLD_COMPONENT_GUIDE = `${PLAN2WORLD_SOURCE_FIDELITY_GATE}\n${PLAN2WORLD_COMPONENT_CONTRACT}\n${vocabulary.types.map(item => `${item.id}: ${item.handling}`).join('\n')}`;
+export const PLAN2WORLD_COMPONENT_GUIDE = `${PLAN2WORLD_SOURCE_FIDELITY_GATE}\n${PLAN2WORLD_ROOM_ENVELOPE_GATE}\n${PLAN2WORLD_COMPONENT_CONTRACT}\n${vocabulary.types.map(item => `${item.id}: ${item.handling}`).join('\n')}`;

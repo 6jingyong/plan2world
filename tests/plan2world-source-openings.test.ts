@@ -9,6 +9,31 @@ function trace(): any {
   }]};
 }
 
+function glazedRoom(): any {
+  return {
+    cmPerPixel:1,
+    walls:[
+      {id:'w1',start:{x:0,y:0},end:{x:100,y:0}},
+      {id:'w2',start:{x:100,y:0},end:{x:100,y:100}},
+      {id:'w3',start:{x:100,y:100},end:{x:0,y:100}},
+      {id:'w4',start:{x:0,y:100},end:{x:0,y:0}},
+    ],
+    openings:[
+      {id:'n1',kind:'window',wallId:'w1',endpoints:[{x:0,y:0},{x:100,y:0}],evidence:'Full-height glazing across the complete side'},
+      {id:'n2',kind:'window',wallId:'w2',endpoints:[{x:100,y:0},{x:100,y:100}],evidence:'Full-height glazing across the complete side'},
+      {id:'n3',kind:'window',wallId:'w3',endpoints:[{x:100,y:100},{x:0,y:100}],evidence:'Full-height glazing across the complete side'},
+      {id:'d1',kind:'door',wallId:'w4',endpoints:[{x:0,y:100},{x:0,y:0}],evidence:'Multi-panel sliding access spans the complete room side',doorType:'sliding',typeEvidence:'Parallel track and sliding panels are visible'},
+    ],
+    enclosures:[{id:'space-1',boundary:[{wallId:'w1'},{wallId:'w2'},{wallId:'w3'},{wallId:'w4'}]}],
+    wallSurfaces:[
+      {wallId:'w1',segments:[{kind:'window',openingId:'n1',endpoints:[{x:0,y:0},{x:100,y:0}],evidence:'Complete glazed side'}]},
+      {wallId:'w2',segments:[{kind:'window',openingId:'n2',endpoints:[{x:100,y:0},{x:100,y:100}],evidence:'Complete glazed side'}]},
+      {wallId:'w3',segments:[{kind:'window',openingId:'n3',endpoints:[{x:100,y:100},{x:0,y:100}],evidence:'Complete glazed side'}]},
+      {wallId:'w4',segments:[{kind:'door',openingId:'d1',endpoints:[{x:0,y:100},{x:0,y:0}],evidence:'Complete sliding-door side'}]},
+    ],
+  };
+}
+
 describe('source opening intervals',()=>{
   it('keeps a double door as one total-width aperture and preserves inputs',()=>{
     const input=trace(),before=JSON.stringify(input),result=deriveSourceOpenings(input);
@@ -47,6 +72,25 @@ describe('source opening intervals',()=>{
     input.openings[0].endpoints=[{x:40,y:0},{x:60,y:0}];
     expect(()=>deriveSourceOpenings(input)).toThrow(/different wall segments.*one continuous host wall/);
     expect(input.walls).toHaveLength(2);
+  });
+  it('accepts a closed bare room whose sides are entirely windows or a sliding door',()=>{
+    const input=glazedRoom(),before=JSON.stringify(input),result=deriveSourceOpenings(input);
+    expect(result.roomEnvelope).toEqual({enclosureCount:1,coveredWallCount:4,enclosureIds:['space-1']});
+    expect(result.windows).toHaveLength(3);
+    expect(result.doors).toEqual([{id:'d1',wallId:'w4',position:.5,width:100,type:'sliding'}]);
+    expect(JSON.stringify(input)).toBe(before);
+  });
+  it('rejects an incomplete room-side classification instead of silently calling the remainder solid',()=>{
+    const input=glazedRoom();
+    input.wallSurfaces[0].segments[0].endpoints=[{x:0,y:0},{x:60,y:0}];
+    input.openings[0].endpoints=[{x:0,y:0},{x:60,y:0}];
+    expect(()=>deriveSourceOpenings(input)).toThrow(/unclassified boundary tail/);
+  });
+  it('rejects an enclosure loop that does not close',()=>{
+    const input=glazedRoom();input.walls[2].end={x:10,y:100};
+    input.openings[2].endpoints=[{x:100,y:100},{x:10,y:100}];
+    input.wallSurfaces[2].segments[0].endpoints=[{x:100,y:100},{x:10,y:100}];
+    expect(()=>deriveSourceOpenings(input)).toThrow(/enclosure is not closed/);
   });
   it.each(['no-evidence','no-leaf-evidence','no-endpoints','off-host','unknown-host','duplicate-id','thickness','heuristic-width','window-leaves'])('rejects %s rather than repairing source traces',failure=>{
     const input=trace(),opening=input.openings[0];

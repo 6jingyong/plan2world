@@ -1,251 +1,165 @@
 ---
 name: reconstruct-plan2world
-description: Reconstruct a floor-plan image into provider-neutral Plan2World draft JSON with connected walls, wall-attached doors/windows, versioned architectural components and semantic furniture blocks. Use for floor-plan-to-editable-home requests, architectural tracing, reconstruction review or correction. Preserve evidence and uncertainty; leave styling and deterministic scene policy to the program.
+description: Reconstruct a floor-plan image into provider-neutral Plan2World draft JSON with connected walls, closed room envelopes, wall-attached doors/windows, versioned architectural components and semantic furniture blocks. Preserve evidence and uncertainty; leave deterministic scene policy to the program.
 ---
 
 # Reconstruct Plan2World
 
-Read [references/contract.md](references/contract.md) and the fixed
-[references/furniture-vocabulary.json](references/furniture-vocabulary.json).
-Also read [references/component-review.md](references/component-review.md) and
-[references/component-vocabulary.json](references/component-vocabulary.json).
-Read [references/opening-trace.md](references/opening-trace.md) for opening
-evidence, single/double leaves and deterministic interval measurement.
-Read [references/balcony-policy.md](references/balcony-policy.md) when a balcony
-is present: default to a separate enclosed glazed room and disclose that policy.
+Read:
+- [references/contract.md](references/contract.md)
+- [references/furniture-vocabulary.json](references/furniture-vocabulary.json)
+- [references/component-vocabulary.json](references/component-vocabulary.json)
+- [references/component-review.md](references/component-review.md)
+- [references/opening-trace.md](references/opening-trace.md)
+
 Use the attached image as evidence. Produce `plan2world-draft-v1` with
 `presentation: "semantic-white-model"`,
-`furnitureVocabulary: "plan2world-furniture-v1"`, and when any architectural
-component is recognized, `componentVocabulary: "plan2world-components-v2"`.
-Require no particular model provider, API key, paid service or hosted editor.
+`furnitureVocabulary: "plan2world-furniture-v1"`, and when components are present,
+`componentVocabulary: "plan2world-components-v2"`.
 
-## 1. Establish one source coordinate system
+The reconstruction order is architectural first:
 
-Establish the original raster dimensions. Work on this exact raster; map crop
-coordinates back to it. Use its top-left origin, x rightward and y downward for
-all passes. Record a reliable scale anchor if visible; otherwise retain pixels
-until the final uniform conversion to cm. Keep the original raster unchanged.
+**source raster -> bare closed-room topology -> doors/windows -> A-layer gates -> furniture/fixtures -> uniform cm transform -> frozen draft**
 
-Use `walls`, `furniture`, `doors`, `windows` and `components` as the final draft
-layers. Intermediate outline, inventory and coverage ledgers are working traces,
-not additional scenes or interchange formats.
+Room-use labels and furniture never create geometry.
 
-## 2. Trace the outer wall outline first
+## 1. One source coordinate system
 
-Follow the actual outer wall centrelines around the dwelling before labelling
-furniture. Trace zero-width lines in original pixels. Preserve recesses, diagonal
-walls, curved walls and bay-window projections; never substitute a bounding box
-or convex hull. Distinguish physical walls/glazing hosts from text, dimension
-lines, open balcony edges and equipment ledges. Keep a real host wall continuous
-across door/window interruptions; attach those openings in stage 6.
+Use the unchanged original raster with top-left origin, x rightward, y downward.
+Map every crop back to this raster. Trace walls in source pixels first. Keep a
+reliable scale anchor if visible; otherwise remain in pixels until the final
+uniform cm conversion.
 
-Use this outline to establish architectural context. A bay projection, window
-ledge, wall pier or planter platform belongs to that context, not to the furniture
-inventory. Keep observed open edges distinct from physical walls. In stage 3,
-apply the explicit balcony enclosure policy to recognized balconies only. Do not
-infer walkable ground merely because the outline encloses it. Keep stable wall IDs
-for reuse when completing the interior network in stage 5.
+Printed dimensions and dimension-chain subdivisions are scale/distance evidence,
+not x/y coordinates. Never accumulate a dimension chain into wall positions.
 
-## 3. Inventory architectural components before furniture
+## 2. Reconstruct the bare architectural shell
 
-Make a dedicated pass using exact types from `component-vocabulary.json`. Inspect
-bays/ledges, wall piers, independent columns, shafts, balconies, equipment ledges,
-fixed planters/railings, stairs and explicit floor voids. Require positive source
-evidence; do not force every shape into a type. Record stable component IDs,
-approximate source positions and floor identity in the working inventory.
+Trace the complete outer and interior wall-centreline network before furniture.
+Use one zero-width logical wall per physical run. Preserve recesses, diagonals,
+T-junctions, curved walls and bay projections. Use native quadratic `curvePoint`
+for a smooth visible curve rather than many tiny facets.
 
-This pass assigns ownership before furniture recognition. Reuse real walls,
-windows and floorAreas for component geometry; never add a duplicate solid or
-furniture block. Complete same-floor `geometryRefs` after stage 6, convert the
-component centre with the same uniform source transform, then serialize the
-recognized feature in that floor's `components` array. The component JSON records
-source semantics only. Never emit `render`, `visible`, `sceneEffect`,
-`sceneSupport`, `requiresNativeSupport` or equivalent policy fields: the fixed
-registry deterministically decides scene behavior after parsing.
+A visible door/window interruption does not split its logical host wall. Reuse
+shared wall IDs once; do not duplicate a shared partition per room. Do not turn
+cabinet edges, furniture outlines, dimension lines or swing arcs into walls.
 
-For a recognized balcony, trace its actual perimeter, reuse the house-side boundary
-once, and plan continuous outer hosts for policy-derived glazing. Preserve native
-curves and observed solid piers. A label alone cannot establish missing bounds;
-record an incomplete enclosure instead of inventing them. Do not classify access
-passages, equipment ledges or voids as balconies to obtain a floor. A built-in
-cabinet can still be furniture when its own symbol establishes it. Do not erase
-source components to clear space for furniture detection.
+Identify every source-supported closed space as a closed wall loop regardless of
+its label or use. A room can have one, several or all sides almost entirely glazing
+or doors while the host walls remain continuous logical boundaries. Do not require
+or infer a `balcony` classification to create such a room.
 
-For stairs, separate visible up/down direction from an established target floor.
-Never infer unseen levels, rises, layer alignment or floor holes. Identify shafts,
-equipment ledges and voids before room closure/floor filling. Read the deterministic
-scene-policy and vertical-risk rules in `component-review.md`. Recognition does
-not imply that every type receives a dedicated 3D object: intentional no-op and
-existing-geometry behavior are registry-owned, while unsupported visible scene
-effects remain explicit gaps.
+Do not invent partitions merely to close furniture groups or room labels. Keep
+real open-plan areas, passages, exterior voids and uncertain boundaries open.
 
-## 4. Identify real objects using the fixed vocabulary
+## 3. Extract and classify the complete room boundaries
 
-For each candidate, first establish a separate furniture, appliance or sanitary
-fixture from a recognizable symbol or readable label. Then choose an exact ID
-from `furniture-vocabulary.json`. These are two separate checks: a permitted word
-such as `cabinet` does not establish that a cabinet exists. A rectangular ledge,
-window bay, wall, column, floor pattern or planting platform fails the object
-check. A built-in cabinet with a recognizable cabinet symbol remains eligible.
-Visible furniture on a balcony remains eligible even outside the outer wall line.
+Before furniture, sweep every wall used by a closed-space envelope from end to end
+and classify the visible boundary as `solid`, `window` or `door` intervals using
+[references/opening-trace.md](references/opening-trace.md).
 
-Record only `id`, `catalogId: "imported_object"`, the permitted `sourceCategory`
-and approximate source-pixel centre. Do not invent type names, translate IDs,
-or emit `unknown`, `other` or free-form placeholder types. If object presence or
-a supported type cannot be established, leave it out of `furniture` and record
-its source region/reason in `assumptions`. Keep vocabulary gaps for deliberate
-later review; never expand the list within a reconstruction to make it pass.
+Every door/window has two observed source-raster endpoints and an existing
+continuous `wallId`. Derive draft position/width with the helper; do not author a
+percentage or default width.
 
-Scan the whole plan, then scan spatial regions once for omissions and duplicates.
-Use overlapping crops when helpful and map them back to the original. Refine an
-existing inventory ID instead of adding the same object twice. Check kitchens,
-bathrooms, storage, balconies and edges. Make at most one targeted pass for
-specific unresolved regions; disclose what remains unresolved.
+Door operation is evidence-driven:
+- `single`: one hinged leaf;
+- `double`: two hinged leaves sharing one full aperture;
+- `sliding`: sliding-panel/track access, including very wide or full-side systems;
+- `opening`: supported leafless passage.
 
-During that regional scan, keep a small coverage ledger: original-pixel region
-bounds, object inventory IDs, and readable object-related labels/abbreviations
-with their source locations. Give each such label a matching object ID or an
-explicit exclusion reason (architecture, room-use label, unsupported type or
-uncertain evidence). A room name does not establish that its usual furniture
-exists. Keep scanning unlabeled symbols too; text coverage alone is not object
-coverage. Architectural classification must not silently discard real built-in
-storage. Reconcile the ledger with the inventory before the first complete output;
-do not add another full-image pass merely to fill this ledger.
+A multi-panel sliding system may occupy most or all of one room side. Do not call
+it a window merely because it is wide/glazed. Conversely, fixed glazing remains a
+window. Preserve solid piers between intervals.
 
-Mark recognized objects using an inventory/overlay while preserving the original.
-Furniture erasure is optional, not a required step. Never erase architectural
-evidence or verify wall traces against inpainted pixels. Omit dimensions and
-rotation: the program supplies editable placeholder cubes. Size, direction,
-precise placement and styles belong to later user editing/walkthrough. Evaluate
-object presence, permitted semantic type and broad location, not chair angles.
+For local verification, prepare `opening-trace.json` with `enclosures` and
+`wallSurfaces` as described in the reference. The deterministic helper must pass
+before the candidate is frozen. It checks host continuity, room-loop closure,
+complete wall-surface coverage and 1:1 opening ownership. Unclassified wall
+remainders are failures; they are not silently assumed solid.
 
-## 5. Complete all shared walls and check closure
+## 4. Optional architectural semantics
 
-Return to the original and reuse the outer trace. Add the interior wall network,
-one zero-width centreline per physical wall. Ignore thickness, height and styling.
-Do not trace both faces of a thick wall or duplicate shared walls per room. Keep
-cabinet edges, furniture symbols and door swing arcs separate from walls.
+Only after the bare geometry is established, make a semantic component pass using
+exact types from `component-vocabulary.json`. Components describe what the source
+contains; they do not create geometry or choose render behavior.
 
-Use native quadratic `curvePoint` for visible curves. It is a control point, not
-a point on the curve: at t=0.5, B=(start+2*control+end)/4. Split only where a
-junction or changed curvature requires it. Reuse coordinates at shared corners
-and T-junctions. Split/reuse outer wall IDs consistently where new junctions land.
+Never emit model-authored `render`, `visible`, `sceneEffect`, `sceneSupport` or
+`requiresNativeSupport`. The fixed registry owns those decisions.
 
-Follow each source-supported enclosed boundary before adding thickness or doors.
-Fix tracing/rounding gaps only when the source supports a connection. A real
-wall's visible opening does not break its logical boundary. Preserve open-plan
-living/dining areas, passages and exterior voids. Close recognized balconies as
-independent rooms under the declared policy, retaining a shared house-side host
-across evidenced access openings. Never add partitions to turn furniture groups
-or room labels into closed boxes. Keep obscured connections uncertain. Closure
-checks consistency; it does not replace source alignment review. Output shared
-`walls`, no authored `rooms` polygons.
+`balcony` is optional evidence-only semantics. A room must look exactly the same
+with or without that label. A sealed `shaft` may reference enclosure walls without
+requiring a hidden slab hole. Unsupported visible types such as `column`, `stair`
+or `floor_void` remain explicit gaps.
 
-## 6. Extract wall-hosted doors and windows
+Freeze `component-review.json` only as source evidence for component IDs. It cannot
+change application semantics.
 
-Sweep the completed walls once for openings, including sliding, concealed and
-shower access. First establish presence, then single/double/sliding operation from
-visible source evidence. Two hinged leaves share one full-width aperture; neither
-width alone nor two sliding tracks establish a double hinged door. Omit an
-unsupported opening; disclose uncertain operation instead of claiming a leaf count.
-The sole default enclosure exception is policy-derived balcony glazing: use traced
-outer boundary endpoints and explicitly identify its window/host IDs in assumptions
-and local evidence. Do not claim observed glazing where only a guard is visible.
+## 5. Furniture and fixtures come after the empty house
 
-Every door/window is a zero-thickness interval on an existing `wallId`. Keep the
-host continuous. Record original-raster jamb/glazing endpoints and evidence, then
-derive position and physical width with the existing helper in `opening-trace.md`.
-Never substitute host-length percentages or default widths for traced endpoints.
-Retain piers; never invent/widen doors for circulation. The converter cuts through
-the host's thickness later. Omit window height/sill/type so the white-model profile
-supplies editable floor-to-ceiling fixed glass; disclose this assumption.
+Now scan the complete source for real furniture, appliances and sanitary fixtures.
+First establish that a real object exists, then choose an exact ID from
+`furniture-vocabulary.json`. Do not force architecture into furniture categories.
 
-After the hosts/openings are stable, finalize every component's `geometryRefs` to
-existing same-floor geometry. Do not duplicate type/floor/geometry ownership in
-the review sidecar; that sidecar contains source evidence for the same IDs only.
+Record stable IDs, `catalogId: "imported_object"`, exact `sourceCategory`,
+approximate centre and optional confidence. Omit dimensions and rotation: the
+runtime supplies editable placeholders. Unsupported/uncertain objects stay out of
+`furniture` and are disclosed in `assumptions`.
 
-## 7. Convert units, register, freeze and verify
+Use a region/label coverage ledger to avoid omissions/duplicates. A room name does
+not prove that its usual furniture exists.
 
-Derive one uniform cm-per-pixel scale from a legible dimension with clear
-endpoints or an explicit user length. A printed page ratio alone cannot calibrate
-a raster without physical page size/DPI. Otherwise estimate from a visible ordinary
-doorway, lower confidence and explain the basis. Keep x rightward and y downward.
-Apply one translation and scale to walls, controls, opening widths, furniture
-centres and component positions.
+## 6. Convert once, register and freeze
 
-Printed dimensions and dimension-chain subdivisions are scale/distance constraints,
-not wall coordinates. Never accumulate chain values and replace visually traced
-wall x/y positions with those arithmetic coordinates. A dimension may validate a
-distance only when its extension endpoints visibly correspond to the same traced
-features.
+Derive one uniform cm-per-pixel transform from a trustworthy visible dimension or
+explicit user length. A printed drawing ratio alone is not enough without known
+page size/DPI or a usable scale bar. If no reliable length exists, estimate from a
+visible ordinary doorway and lower confidence.
 
-Assign wall thickness/height only now, from reliable source evidence or omitted
-editable defaults. Never export thickness 0 or move centrelines to make thickened
-faces meet. The contract defaults supply physical properties; they are not source
-measurements. Furniture stays type/position only.
+Apply the same transform to walls, curve controls, opening widths, furniture
+centres and component positions. Do not independently move walls to make dimension
+arithmetic close.
 
-Register 3–6 spread-out visible wall-centreline corners/junctions. Each anchor
-references an existing endpoint and its actual normalized raster location:
-image=(px/width,py/height). Use the same transform; do not fit anchors separately.
+Use 3–6 spread-out source-registration anchors when reliable. Each anchor references
+an existing wall endpoint and its actual normalized original-raster location. Do
+not fit registration separately from reconstruction.
 
-- Check IDs/references, finite cm values, optional positive dimensions and opening
-  positions in 0..1. Keep each opening wholly within its wall path. Check fixed
-  furniture/component vocabulary versions and exact type IDs. Components may only
-  reference existing same-floor wall/door/window/floorArea IDs. Their JSON may not
-  carry scene-policy flags.
-- Emit optional `floorAreas` only for source-visible open ground with a supported
-  perimeter, such as an exterior access passage. Reference existing shared wall
-  paths, including curves. Enclosed balconies use wall-derived rooms, never a
-  duplicate floorArea. Outside the balcony policy, do not turn railings into walls
-  or cover blank voids. Omit uncertain outlines and disclose the gap instead of
-  calling them walkable.
-- Before A can pass, reproject the final cm wall network onto the unchanged original
-  using the same uniform transform and inspect the whole-plan centreline overlay.
-  Do not refit registration independently to hide drift. An obvious/systematic
-  mismatch is an A-layer failure: preserve the frozen candidate, stop, fix the
-  reusable Skill/instructions, and generate a fresh candidate from the original.
-  Do not continue downstream.
-- In local verification, finish `component-review.json` as described in the
-  component reference and run its read-only checker. The sidecar contains only ID,
-  normalized source point and visible evidence for each draft component. The
-  checker derives missing mappings, intentional no-op scene types and unsupported
-  scene types from the draft plus fixed registry; the sidecar cannot change policy.
-- Before freezing, reconcile inventory IDs and label decisions against the
-  serialized furniture array so accepted objects are not lost during export. In
-  local verification include the working region/label ledger in `source-evidence.json`
-  and freeze it with the draft. In a one-JSON application response keep the ledger
-  internal and disclose unresolved labels/regions in existing `assumptions`.
-- In local verification freeze the original-pixel opening trace and derived
-  fragments too. Match final opening fields to those fragments, and inspect source
-  jambs/leaf evidence separately; a valid interval does not prove an opening exists.
-- Freeze the complete emitted JSON and component inventory before verification.
-  Preserve them even if checks fail. Never hand-edit a verification output to make
-  a picture or test pass.
-- With a Plan2World checkout, run its existing deterministic checker:
-  `NODE_ENV=production node tooling/inspect-plan2world-draft.mjs --draft draft.json --source source.jpg --width W --height H --require-furniture-vocabulary true`.
-- Use SVG only as an intermediate diagnostic for image-to-JSON reliability:
-  `node tooling/render-plan2world-svg.mjs --draft draft.json --output review`.
-  Add `--source source.jpg --width W --height H` for an overlay when source anchors
-  are accepted. The read-only tool does not infer rooms or repair geometry.
-- If a review fails, compare original → frozen JSON first, then frozen JSON → SVG.
-  Revise the responsible reusable Skill/extraction script or program. Regenerate a
-  separate output from the original for any retest. Hand-corrected candidates do
-  not demonstrate Skill improvement. Isolate later 3D/viewing/editing failures in
-  their own stages; never compensate there for incorrect extraction.
-- Deliver JSON and a short note separating contract validity, source alignment and
-  completeness. Report deterministic component scene-policy results, vocabulary
-  gaps, uncertain geometry, omitted objects, scale basis and checks performed.
-  Parsing alone does not establish accuracy.
-- For new verification, use the source and this Skill. Do not read old candidates
-  or reference annotations before completing the first pass. Never redistribute
-  source images without permission.
+Before A can pass:
+1. the complete opening/enclosure helper passes;
+2. component review passes when components exist;
+3. IDs/references and vocabulary versions are valid;
+4. the final cm wall network is reprojected onto the unchanged source using the
+   same transform and the whole-plan centreline overlay is visually checked.
 
-Stop at the requested draft/source review. Do not expand into collision, navigation,
-model styling or browser-matrix audits unless requested. Preserve unresolved issues
-instead of repeating full reconstructions until every warning disappears.
+Any obvious/systematic source mismatch is an **A-layer failure**. Freeze the failed
+candidate and evidence, stop immediately, fix the reusable Skill/instructions, and
+regenerate from the original source. Never hand-edit the candidate and never
+continue to contract/native/3D validation after an A failure.
 
-After each Skill revision, run at least one fresh source-to-JSON application before
-publishing the revision. Freeze that run, use source review plus the intermediate
-SVG/checkers, and report actual failures. Do not substitute unit tests or a manually
-corrected old candidate for this application. Do not claim duplex/stair support
-from tests that only contain single-floor source images.
+## 7. Contract reminders
+
+- `schemaVersion`: `plan2world-draft-v1`.
+- `units`: `cm`.
+- `presentation`: `semantic-white-model`.
+- walls: centreline `start/end`, optional quadratic `curvePoint`, optional kind/confidence;
+  omit physical dimensions unless actually established.
+- doors/windows: existing `wallId`, `position` 0..1, positive `width`; no independent thickness.
+- current white-model windows default to floor-to-ceiling fixed glass when height/sill are omitted; disclose this presentation assumption.
+- do not output authored room polygons. Native rooms are derived from wall geometry.
+- optional `floorAreas` are only for genuinely visible open ground with supported boundaries, not for closed rooms.
+- x rightward, y downward; IDs short and unique; shared junctions share coordinates.
+- preserve uncertainty rather than inventing geometry.
+
+With a Plan2World checkout, run:
+
+`node tooling/derive-plan2world-openings.mjs --trace opening-trace.json`
+
+`python skills/reconstruct-plan2world/scripts/check-component-review.py --review component-review.json --draft draft.json`
+
+`NODE_ENV=production node tooling/inspect-plan2world-draft.mjs --draft draft.json --source source.jpg --width W --height H --require-furniture-vocabulary true`
+
+`node tooling/render-plan2world-svg.mjs --draft draft.json --output review --source source.jpg --width W --height H`
+
+Freeze the original-pixel traces, source evidence and complete emitted JSON before
+verification. For a retest after any Skill change, start fresh from the original
+image and do not inspect old candidates first.
