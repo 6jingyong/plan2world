@@ -5,7 +5,7 @@ import { wallPathProfile, wallPointAt } from '$lib/utils/wallPath';
 export interface SourceWallGraphTrace {
   maxJunctionDistancePx?: number;
   walls: DraftWall[];
-  doorGaps?: { id: string; fromWallId: string; toWallId: string; from: DraftPoint; to: DraftPoint }[];
+  doorGaps?: { id: string; from: DraftPoint; to: DraftPoint }[];
   enclosures?: {
     id: string;
     boundary: { wallId: string; reverse?: boolean }[];
@@ -157,6 +157,39 @@ function addSplit(
   list.push({ position, point: junctionPoint });
 }
 
+function endpointCandidates(source: DraftPoint, walls: Map<string, DraftWall>, tolerance: number) {
+  return [...walls.values()].flatMap(wall => {
+    const startDistance = Math.hypot(source.x - wall.start.x, source.y - wall.start.y);
+    const endDistance = Math.hypot(source.x - wall.end.x, source.y - wall.end.y);
+    const distance = Math.min(startDistance, endDistance);
+    return distance <= tolerance ? [{ wall, distance }] : [];
+  }).sort((a, b) => a.distance - b.distance || a.wall.id.localeCompare(b.wall.id));
+}
+
+function resolveDoorGapHosts(
+  from: DraftPoint,
+  to: DraftPoint,
+  walls: Map<string, DraftWall>,
+  tolerance: number,
+) {
+  const fromCandidates = endpointCandidates(from, walls, tolerance);
+  const toCandidates = endpointCandidates(to, walls, tolerance);
+  const pairs = fromCandidates.flatMap(left => toCandidates
+    .filter(right => right.wall.id !== left.wall.id)
+    .map(right => ({
+      fromWall: left.wall,
+      toWall: right.wall,
+      maxResidual: Math.max(left.distance, right.distance),
+      totalResidual: left.distance + right.distance,
+    })));
+  pairs.sort((a, b) =>
+    a.maxResidual - b.maxResidual
+    || a.totalResidual - b.totalResidual
+    || a.fromWall.id.localeCompare(b.fromWall.id)
+    || a.toWall.id.localeCompare(b.toWall.id));
+  return pairs[0];
+}
+
 export function normalizeSourceWallGraph(input: unknown) {
   const trace = record(input);
   const tolerance = trace.maxJunctionDistancePx === undefined ? 3 : number(trace.maxJunctionDistancePx);
@@ -174,8 +207,10 @@ export function normalizeSourceWallGraph(input: unknown) {
     walls.set(id, wall);
   }
 
-  // Door symbols may interrupt visible wall strokes. Bridge only explicitly
-  // evidenced, endpoint-to-endpoint gaps; never infer closure from proximity.
+  // Door symbols may interrupt visible wall strokes. The model supplies only the
+  // evidenced gap endpoints; the program associates those points with two observed
+  // wall endpoints. Proximity alone never creates a bridge without a doorGap item.
+  const sourceWalls = new Map(walls);
   const doorGaps = trace.doorGaps === undefined ? [] : trace.doorGaps;
   if (!Array.isArray(doorGaps)) throw new Error('doorGaps must be an array');
   const gapIds = new Set<string>();
@@ -183,16 +218,15 @@ export function normalizeSourceWallGraph(input: unknown) {
     const gap = record(raw);
     const id = text(gap.id);
     if (walls.has(id) || gapIds.has(id)) throw new Error(`Duplicate door gap ID: ${id}`);
+    if (gap.fromWallId !== undefined || gap.toWallId !== undefined) {
+      throw new Error(`${id}: door gap host IDs are program-owned`);
+    }
     gapIds.add(id);
-    const fromWall = walls.get(text(gap.fromWallId));
-    const toWall = walls.get(text(gap.toWallId));
-    if (!fromWall || !toWall || fromWall.id === toWall.id) throw new Error(`${id}: invalid door gap hosts`);
     const from = point(gap.from);
     const to = point(gap.to);
-    const nearEndpoint = (p: DraftPoint, w: DraftWall) =>
-      Math.min(Math.hypot(p.x - w.start.x, p.y - w.start.y), Math.hypot(p.x - w.end.x, p.y - w.end.y)) <= tolerance;
-    if (!nearEndpoint(from, fromWall) || !nearEndpoint(to, toWall)) throw new Error(`${id}: door gap must connect observed wall endpoints`);
     if (Math.hypot(from.x - to.x, from.y - to.y) <= tolerance) throw new Error(`${id}: collapsed door gap`);
+    const hosts = resolveDoorGapHosts(from, to, sourceWalls, tolerance);
+    if (!hosts) throw new Error(`${id}: door gap endpoints do not resolve to two observed wall endpoints`);
     walls.set(id, { id, start: from, end: to });
   }
 
@@ -319,6 +353,6 @@ export function normalizeSourceWallGraph(input: unknown) {
     virtualSplitCount,
     snappedEndpointCount,
     maxJunctionDistancePx: tolerance,
-    limitation: 'Topology normalization only splits/snaps existing traced walls at supported intersections; it never creates a new wall across an unsupported gap.',
+    limitation: 'Topology normalization only splits/snaps traced walls and bridges explicitly evidenced door gaps; it never creates a wall across an unsupported gap.',
   };
 }
