@@ -5,6 +5,7 @@ import { wallPathProfile, wallPointAt } from '$lib/utils/wallPath';
 export interface SourceWallGraphTrace {
   maxJunctionDistancePx?: number;
   walls: DraftWall[];
+  doorGaps?: { id: string; fromWallId: string; toWallId: string; from: DraftPoint; to: DraftPoint }[];
   enclosures?: {
     id: string;
     boundary: { wallId: string; reverse?: boolean }[];
@@ -171,6 +172,28 @@ export function normalizeSourceWallGraph(input: unknown) {
     if (item.curvePoint !== undefined) wall.curvePoint = point(item.curvePoint);
     if (wallPathProfile(wall).length <= 1e-6) throw new Error(`${id}: degenerate wall`);
     walls.set(id, wall);
+  }
+
+  // Door symbols may interrupt visible wall strokes. Bridge only explicitly
+  // evidenced, endpoint-to-endpoint gaps; never infer closure from proximity.
+  const doorGaps = trace.doorGaps === undefined ? [] : trace.doorGaps;
+  if (!Array.isArray(doorGaps)) throw new Error('doorGaps must be an array');
+  const gapIds = new Set<string>();
+  for (const raw of doorGaps) {
+    const gap = record(raw);
+    const id = text(gap.id);
+    if (walls.has(id) || gapIds.has(id)) throw new Error(`Duplicate door gap ID: ${id}`);
+    gapIds.add(id);
+    const fromWall = walls.get(text(gap.fromWallId));
+    const toWall = walls.get(text(gap.toWallId));
+    if (!fromWall || !toWall || fromWall.id === toWall.id) throw new Error(`${id}: invalid door gap hosts`);
+    const from = point(gap.from);
+    const to = point(gap.to);
+    const nearEndpoint = (p: DraftPoint, w: DraftWall) =>
+      Math.min(Math.hypot(p.x - w.start.x, p.y - w.start.y), Math.hypot(p.x - w.end.x, p.y - w.end.y)) <= tolerance;
+    if (!nearEndpoint(from, fromWall) || !nearEndpoint(to, toWall)) throw new Error(`${id}: door gap must connect observed wall endpoints`);
+    if (Math.hypot(from.x - to.x, from.y - to.y) <= tolerance) throw new Error(`${id}: collapsed door gap`);
+    walls.set(id, { id, start: from, end: to });
   }
 
   const splits = new Map<string, { position: number; point: DraftPoint }[]>();
