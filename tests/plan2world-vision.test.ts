@@ -11,6 +11,7 @@ const draft = {
   schemaVersion: 'plan2world-draft-v1',
   presentation: 'semantic-white-model',
   furnitureVocabulary: 'plan2world-furniture-v1',
+  componentVocabulary: 'plan2world-components-v2',
   name: 'Vision apartment',
   units: 'cm',
   scale: { mode: 'measured', confidence: 0.95, basis: '360 cm printed dimension' },
@@ -26,6 +27,7 @@ const draft = {
     doors: [{ id: 'd1', wallId: 'w1', position: 0.5, width: 90 }],
     windows: [],
     furniture: [],
+    components: [{ id: 'c1', type: 'shaft', position: { x: 40, y: 40 }, geometryRefs: [{ kind: 'wall', id: 'w1' }] }],
   }],
 };
 
@@ -48,8 +50,10 @@ describe('Plan2World vision reconstruction', () => {
     expect(prompt).toContain('never use cumulative dimension-chain values as wall x/y coordinates');
     expect(prompt).toContain('reproject final cm wall geometry onto the unchanged source');
     expect(prompt).toContain('A-layer failure');
-    expect(prompt).toContain('completely sealed technical cavity');
-    expect(prompt).toContain('hidden BIM detail is intentionally out of scope');
+    expect(prompt).toContain('floor.components');
+    expect(prompt).toContain('componentVocabulary="plan2world-components-v2"');
+    expect(prompt).toContain('Do not emit render, visible, sceneEffect, sceneSupport or requiresNativeSupport flags');
+    expect(prompt).toContain('sealed cavity itself creates no extra 3D object');
   });
 
   it('sends the image through Responses JSON mode and validates the returned draft', async () => {
@@ -78,6 +82,7 @@ describe('Plan2World vision reconstruction', () => {
     expect(result.name).toBe('Vision apartment');
     expect(result.floors[0].walls).toHaveLength(4);
     expect(result.floors[0].doors?.[0].wallId).toBe('w1');
+    expect(result.floors[0].components?.[0]).toMatchObject({ id: 'c1', type: 'shaft' });
     expect(customFetch).toHaveBeenCalledTimes(1);
   });
 
@@ -98,16 +103,17 @@ describe('Plan2World vision reconstruction', () => {
     )).rejects.toThrow(/refused/i);
   });
 
-  it.each(['missing-version', 'invented-type'])('rejects a current AI response with %s', async failure => {
+  it.each(['missing-version', 'invented-type', 'missing-component-version'])('rejects a current AI response with %s', async failure => {
     const invalid: any = structuredClone(draft);
     if (failure === 'missing-version') delete invalid.furnitureVocabulary;
-    else invalid.floors[0].furniture = [{id:'f1',catalogId:'imported_object',sourceCategory:'bay_window',position:{x:100,y:100}}];
+    else if (failure === 'invented-type') invalid.floors[0].furniture = [{id:'f1',catalogId:'imported_object',sourceCategory:'bay_window',position:{x:100,y:100}}];
+    else delete invalid.componentVocabulary;
     const customFetch = vi.fn(async () => new Response(JSON.stringify({
       status: 'completed', output: [{type:'message',role:'assistant',status:'completed',
         content:[{type:'output_text',text:JSON.stringify(invalid)}]}],
     }), {status:200,headers:{'Content-Type':'application/json'}}));
     await expect(reconstructFloorPlanImage(
       {baseUrl:'https://example.test/v1',apiKey:'test',model:'vision-model'},image,{},customFetch as typeof fetch,
-    )).rejects.toThrow(failure === 'missing-version' ? 'requires furnitureVocabulary' : 'not in plan2world-furniture-v1');
+    )).rejects.toThrow(failure === 'missing-version' ? 'requires furnitureVocabulary' : failure === 'invented-type' ? 'not in plan2world-furniture-v1' : 'componentVocabulary');
   });
 });
