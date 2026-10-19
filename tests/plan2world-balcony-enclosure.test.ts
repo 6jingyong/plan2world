@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { draftToProject } from '$lib/plan2world/draft';
 import { deriveSourceOpenings } from '$lib/plan2world/sourceOpenings';
+import { buildBareHouse, SOURCE_WALL_TRACE_VERSION } from '$lib/plan2world/bareHouse';
 import { planOpening, planWallSpans } from '$lib/utils/planOpening';
 
 // Declared enclosure geometry, not an image recognizer or a converter inference.
@@ -15,7 +16,8 @@ function enclosedBalcony(curved: boolean) {
       ...(curved ? { curvePoint: { x: 650, y: 100 } } : {}) },
     { id: 'balcony-bottom', start: { x: 550, y: 300 }, end: { x: 400, y: 300 } },
   ];
-  const trace = { cmPerPixel: 1, walls, openings: walls.slice(4).map(wall => ({
+  const bareHouse = buildBareHouse({ schemaVersion: SOURCE_WALL_TRACE_VERSION, walls });
+  const trace = { cmPerPixel: 1, bareHouse, openings: walls.slice(4).map(wall => ({
     id: `glass-${wall.id}`, kind: 'window', wallId: wall.id,
     endpoints: [wall.start, wall.end],
     evidence: 'Default balcony enclosure policy on a traced source-open guard boundary.',
