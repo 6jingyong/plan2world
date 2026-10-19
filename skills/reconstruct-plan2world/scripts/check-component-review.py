@@ -18,7 +18,7 @@ def check(review, draft):
         raise ValueError('components must be an array')
     floors = {f['id']: f for f in draft['floors']}
     ids, unmapped, unmodeled, unresolved_vertical, evidence_only = set(), [], [], [], []
-    arrays = {'wall':'walls', 'door':'doors', 'window':'windows', 'floorArea':'floorAreas'}
+    arrays = {'wall':'walls', 'door':'doors', 'window':'windows', 'floorArea':'floorAreas', 'floorOpening':'floorOpenings'}
     for item in items:
         if not isinstance(item, dict):
             raise ValueError('Each component must be an object')
