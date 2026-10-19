@@ -144,8 +144,14 @@ for (const width of [1440, 390]) test(`existing real source reaches a corrected,
   await page.getByRole('button', { name: '2D', exact: true }).click();
   await expect(length).toHaveValue('650');
   await expect(page.getByRole('application')).toContainText('11 rooms');
-  expect(requests).toHaveLength(1);
-  const image = requests[0].body.input?.[0]?.content?.find((item: any) => item.type === 'input_image');
-  expect(createHash('sha256').update(Buffer.from(image.image_url.split(',')[1], 'base64')).digest('hex')).toBe(sourceHash);
+  expect(requests).toHaveLength(2);
+  for (const request of requests) {
+    const image = request.body.input?.[0]?.content?.find((item: any) => item.type === 'input_image');
+    expect(createHash('sha256').update(Buffer.from(image.image_url.split(',')[1], 'base64')).digest('hex')).toBe(sourceHash);
+  }
+  const tracePrompt = requests[0].body.input?.[0]?.content?.find((item: any) => item.type === 'input_text')?.text;
+  const annotationPrompt = requests[1].body.input?.[0]?.content?.find((item: any) => item.type === 'input_text')?.text;
+  expect(tracePrompt).toContain('source-wall-trace-v1');
+  expect(annotationPrompt).toContain('MANDATORY SECOND PASS');
   expect(errors).toEqual([]);
 });
