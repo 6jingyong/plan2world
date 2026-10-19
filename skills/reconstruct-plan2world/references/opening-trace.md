@@ -58,6 +58,15 @@ door types. Use these fragments for the first complete draft emission. It never
 writes a draft or repairs source geometry. Windows omit `doorType`/`typeEvidence`.
 The trace is local working evidence, not a new field in the application contract.
 
+**This helper is a mandatory A-layer freeze gate for every emitted door/window.**
+Run the complete trace before freezing the candidate. A nonzero error means A
+fails and reconstruction stops; do not serialize a manually repaired opening and
+do not continue to contract/native/3D checks. In particular, both observed source
+endpoints must lie on one continuous logical host wall. If they land on different
+wall segments, the helper reports the split host and does not join, extend or
+otherwise repair those walls. Fix the reusable tracing procedure, then regenerate
+a fresh candidate from the original raster.
+
 The helper reuses native wall projection and path distance. Project both observed
 endpoints, take their two distances along the host, set physical width to their
 difference times cm-per-pixel, and find the parameter at their distance midpoint.
@@ -66,6 +75,8 @@ native distance metric uses the existing 16 spans; the quadratic `curvePoint`
 remains the analytic control point. Translation does not affect width/position.
 The default maximum projection residual is 3 source pixels. Inspect reported
 residuals and association; do not raise tolerance just to hide an incorrect trace.
+If one jamb projects to the declared host while the other instead lands on another
+wall segment, treat that as a broken logical host, not as a tolerance problem.
 
 In local verification freeze `opening-trace.json` and the helper output with the
 complete draft and source evidence. Check the final opening IDs, type, width and

@@ -39,6 +39,27 @@ function point(value: unknown): DraftPoint {
   return { x: number(p.x), y: number(p.y) };
 }
 
+function nearestWallWithinTolerance(
+  source: DraftPoint,
+  walls: Map<string, DraftWall>,
+  preferredWallId: string,
+  tolerance: number,
+): string | undefined {
+  const preferred = walls.get(preferredWallId);
+  if (preferred) {
+    const projected = projectOntoWall(source, preferred);
+    if (projected && projected.distance <= tolerance) return preferredWallId;
+  }
+  let nearest: { id: string; distance: number } | undefined;
+  for (const [id, wall] of walls) {
+    if (id === preferredWallId) continue;
+    const projected = projectOntoWall(source, wall);
+    if (!projected || projected.distance > tolerance) continue;
+    if (!nearest || projected.distance < nearest.distance) nearest = { id, distance: projected.distance };
+  }
+  return nearest?.id;
+}
+
 /** Derive existing draft opening fields from observed source-pixel jambs.
  * Reuses the same projection and distance metric as editing/rendering. No source
  * image recognition, wall repair, width heuristics or input mutation occurs here.
@@ -73,11 +94,17 @@ export function deriveSourceOpenings(input: unknown) {
     }
     if (!Array.isArray(item.endpoints) || item.endpoints.length !== 2) throw new Error(`${id}: two observed endpoints required`);
     const endpoints = item.endpoints.map(point);
-    const projected = endpoints.map(p => {
-      const result = projectOntoWall(p, wall);
-      if (!result || result.distance > tolerance) throw new Error(`${id}: endpoint is too far from its host; recheck source association`);
-      return { ...result, source: p };
-    }).sort((a, b) => a.position - b.position);
+    const hostProjection = endpoints.map(p => projectOntoWall(p, wall));
+    if (hostProjection.some(result => !result || result.distance > tolerance)) {
+      const endpointWallIds = endpoints.map(p => nearestWallWithinTolerance(p, walls, wallId, tolerance));
+      if (endpointWallIds.every((candidate): candidate is string => candidate !== undefined)
+        && new Set(endpointWallIds).size > 1) {
+        throw new Error(`${id}: source endpoints fall on different wall segments (${endpointWallIds.join(', ')}); both endpoints must lie on one continuous host wall`);
+      }
+      throw new Error(`${id}: endpoint is too far from its host; recheck source association`);
+    }
+    const projected = hostProjection.map((result, index) => ({ ...result!, source: endpoints[index] }))
+      .sort((a, b) => a.position - b.position);
     const path = wallPathProfile(wall);
     const distances = projected.map(p => path.distanceAt(p.position));
     const widthPx = distances[1] - distances[0];

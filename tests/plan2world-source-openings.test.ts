@@ -37,6 +37,17 @@ describe('source opening intervals',()=>{
     expect(projected.curve!.start.x).toBeCloseTo(14.4,8);expect(projected.curve!.start.y).toBeCloseTo(211.2,8);
     expect(projected.curve!.end.x).toBeCloseTo(409.6,8);expect(projected.curve!.end.y).toBeCloseTo(460.8,8);
   });
+  it('rejects an opening split across wall segments instead of stitching a host',()=>{
+    const input=trace();
+    input.walls=[
+      {id:'w-left',start:{x:0,y:0},end:{x:45,y:0}},
+      {id:'w-right',start:{x:55,y:0},end:{x:100,y:0}},
+    ];
+    input.openings[0].wallId='w-left';
+    input.openings[0].endpoints=[{x:40,y:0},{x:60,y:0}];
+    expect(()=>deriveSourceOpenings(input)).toThrow(/different wall segments.*one continuous host wall/);
+    expect(input.walls).toHaveLength(2);
+  });
   it.each(['no-evidence','no-leaf-evidence','no-endpoints','off-host','unknown-host','duplicate-id','thickness','heuristic-width','window-leaves'])('rejects %s rather than repairing source traces',failure=>{
     const input=trace(),opening=input.openings[0];
     if(failure==='no-evidence')opening.evidence='';
