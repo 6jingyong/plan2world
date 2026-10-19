@@ -1,20 +1,20 @@
 # Opening derivation behavior
 
-Openings are source annotations on an already accepted `bare-house-v1`. They do not
-own wall geometry.
+Openings are visual annotations on an already accepted `bare-house-v1`. They do not
+own wall geometry, IDs or derived interval fields.
 
-The annotation pass supplies only:
+`source-annotation-v1` supplies only:
 
-- `id`;
 - `kind: door | window`;
 - two observed source-pixel endpoints;
 - source evidence;
-- optional evidence-backed door operation/confidence.
+- optional evidence-backed door operation and operation evidence.
 
-It must not supply `wallId`, `width`, `position` or thickness.
+It must not supply `id`, `wallId`, `width`, `position`, confidence or thickness.
 
 `deriveSourceOpenings` / `tooling/derive-plan2world-openings.mjs` owns:
 
+- deterministic opening IDs supplied by the assembler (`d1…`, `win1…`);
 - matching both endpoints to one normalized Bare House host within tolerance;
 - endpoint projection onto that host;
 - projection-distance tolerance;
@@ -24,10 +24,9 @@ It must not supply `wallId`, `width`, `position` or thickness.
 - warnings when both endpoints do not resolve to one host or door operation is unresolved.
 
 A manually prepared low-level opening trace may still include `wallId` as an optional
-program hint, but `source-annotation-v1` deliberately forbids it so the image model
-never owns normalized-ID association.
+program hint, but image-model `source-annotation-v1` deliberately forbids it.
 
-Door operation remains source evidence, not geometry math:
+Door operation remains visual evidence, not geometry math:
 
 - `single` — one hinged leaf;
 - `double` — two hinged leaves sharing one aperture;
@@ -38,6 +37,5 @@ Fixed glazing remains a window. Missing/uncertain opening extent or operation is
 review warning. Reopen the geometry gate only if later evidence proves the Bare House
 wall geometry itself is wrong or disconnected.
 
-The deterministic assembler calls the same opening derivation logic when converting
-`source-annotation-v1` into the final draft, so the Skill should normally call the
-assembler rather than recomputing or assigning opening fields itself.
+The deterministic assembler calls this derivation logic, so the Skill should never
+recompute, identify or assign opening fields itself.
