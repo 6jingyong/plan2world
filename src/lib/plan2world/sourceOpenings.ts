@@ -13,7 +13,8 @@ export interface SourceOpeningReview {
   openings: {
     id: string;
     kind: 'door' | 'window';
-    wallId: string;
+    /** Optional deterministic/manual hint. Image-model annotations should omit it. */
+    wallId?: string;
     endpoints: [DraftPoint, DraftPoint];
     evidence: string;
     doorType?: SourceDoorType;
@@ -44,27 +45,6 @@ function point(value: unknown): DraftPoint {
   return { x: number(p.x), y: number(p.y) };
 }
 
-function nearestWallWithinTolerance(
-  source: DraftPoint,
-  walls: Map<string, DraftWall>,
-  preferredWallId: string,
-  tolerance: number,
-): string | undefined {
-  const preferred = walls.get(preferredWallId);
-  if (preferred) {
-    const projected = projectOntoWall(source, preferred);
-    if (projected && projected.distance <= tolerance) return preferredWallId;
-  }
-  let nearest: { id: string; distance: number } | undefined;
-  for (const [id, wall] of walls) {
-    if (id === preferredWallId) continue;
-    const projected = projectOntoWall(source, wall);
-    if (!projected || projected.distance > tolerance) continue;
-    if (!nearest || projected.distance < nearest.distance) nearest = { id, distance: projected.distance };
-  }
-  return nearest?.id;
-}
-
 function readBareHouse(value: unknown): BareHouseV1 {
   const bareHouse = record(value);
   if (bareHouse.schemaVersion !== BARE_HOUSE_VERSION) {
@@ -74,9 +54,46 @@ function readBareHouse(value: unknown): BareHouseV1 {
   return bareHouse as unknown as BareHouseV1;
 }
 
+function resolveOpeningHost(
+  endpoints: DraftPoint[],
+  walls: Map<string, DraftWall>,
+  tolerance: number,
+  preferredWallId?: string,
+) {
+  const candidates = [...walls.entries()].flatMap(([id, wall]) => {
+    const projected = endpoints.map(source => projectOntoWall(source, wall));
+    if (projected.some(result => !result || result.distance > tolerance)) return [];
+    const distances = projected.map(result => result!.distance);
+    return [{
+      id,
+      wall,
+      projected: projected as NonNullable<ReturnType<typeof projectOntoWall>>[],
+      maxResidual: Math.max(...distances),
+      totalResidual: distances.reduce((sum, value) => sum + value, 0),
+      preferred: id === preferredWallId,
+    }];
+  });
+  candidates.sort((a, b) =>
+    Number(b.preferred) - Number(a.preferred)
+    || a.maxResidual - b.maxResidual
+    || a.totalResidual - b.totalResidual
+    || a.id.localeCompare(b.id));
+  return candidates[0];
+}
+
+function nearestWallForPoint(source: DraftPoint, walls: Map<string, DraftWall>, tolerance: number) {
+  return [...walls.entries()]
+    .flatMap(([id, wall]) => {
+      const projected = projectOntoWall(source, wall);
+      return projected && projected.distance <= tolerance ? [{ id, distance: projected.distance }] : [];
+    })
+    .sort((a, b) => a.distance - b.distance || a.id.localeCompare(b.id))[0];
+}
+
 /**
  * Attach source-observed openings to an already accepted bare house.
- * Individual opening mistakes are review warnings, not geometry failures.
+ * Host association and all interval math are deterministic. Individual opening
+ * mistakes are review warnings, not geometry failures.
  */
 export function deriveSourceOpenings(input: unknown) {
   const trace = record(input);
@@ -108,10 +125,6 @@ export function deriveSourceOpenings(input: unknown) {
       warningId = id;
       if (openingIds.has(id)) throw new Error('duplicate opening ID');
       openingIds.add(id);
-
-      const wallId = text(item.wallId);
-      const wall = walls.get(wallId);
-      if (!wall) throw new Error(`unknown bare-house host wall ${wallId}`);
       if (item.kind !== 'door' && item.kind !== 'window') throw new Error('expected door/window kind');
       text(item.evidence);
       if (['thickness', 'width', 'position'].some(key => item[key] !== undefined)) {
@@ -120,26 +133,28 @@ export function deriveSourceOpenings(input: unknown) {
       if (!Array.isArray(item.endpoints) || item.endpoints.length !== 2) throw new Error('two observed endpoints required');
 
       const endpoints = item.endpoints.map(point);
-      const hostProjection = endpoints.map(p => projectOntoWall(p, wall));
-      if (hostProjection.some(result => !result || result.distance > tolerance)) {
-        const endpointWallIds = endpoints.map(p => nearestWallWithinTolerance(p, walls, wallId, tolerance));
-        if (endpointWallIds.every((candidate): candidate is string => candidate !== undefined)
-          && new Set(endpointWallIds).size > 1) {
-          throw new Error(`source endpoints fall on different normalized wall segments (${endpointWallIds.join(', ')})`);
+      const preferredWallId = item.wallId === undefined ? undefined : text(item.wallId);
+      if (preferredWallId && !walls.has(preferredWallId)) throw new Error(`unknown bare-house host wall ${preferredWallId}`);
+      const host = resolveOpeningHost(endpoints, walls, tolerance, preferredWallId);
+      if (!host) {
+        const nearest = endpoints.map(source => nearestWallForPoint(source, walls, tolerance)?.id);
+        if (nearest.every((candidate): candidate is string => candidate !== undefined)
+          && new Set(nearest).size > 1) {
+          throw new Error(`source endpoints fall on different normalized wall segments (${nearest.join(', ')})`);
         }
-        throw new Error('endpoint is too far from its nominated host');
+        throw new Error('opening endpoints do not resolve to one bare-house host');
       }
 
-      const projected = hostProjection.map((result, endpointIndex) => ({ ...result!, source: endpoints[endpointIndex] }))
+      const projected = host.projected.map((result, endpointIndex) => ({ ...result, source: endpoints[endpointIndex] }))
         .sort((a, b) => a.position - b.position);
-      const path = wallPathProfile(wall);
+      const path = wallPathProfile(host.wall);
       const distances = projected.map(p => path.distanceAt(p.position));
       const widthPx = distances[1] - distances[0];
       if (widthPx <= 1e-6) throw new Error('opening endpoints must span a positive interval');
       const position = path.positionAt((distances[0] + distances[1]) / 2);
       const opening: Pick<DraftDoor, 'id' | 'wallId' | 'position' | 'width' | 'confidence'> = {
         id,
-        wallId,
+        wallId: host.id,
         position,
         width: widthPx * scale,
       };
@@ -173,10 +188,10 @@ export function deriveSourceOpenings(input: unknown) {
       sourceIntervals.push({
         id,
         kind: item.kind,
-        wallId,
+        wallId: host.id,
         evidence: item.evidence,
         endpoints: projected.map(p => p.source),
-        projectedEndpoints: projected.map(p => wallPointAt(wall, p.position)),
+        projectedEndpoints: projected.map(p => wallPointAt(host.wall, p.position)),
         endpointParameters: projected.map(p => p.position),
         projectionDistancesPx: projected.map(p => p.distance),
         widthPx,
