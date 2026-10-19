@@ -19,7 +19,6 @@ export interface SourceAnnotationV1 {
   openings?: {
     id: string;
     kind: 'door' | 'window';
-    wallId: string;
     endpoints: [DraftPoint, DraftPoint];
     evidence: string;
     doorType?: 'single' | 'double' | 'sliding' | 'opening';
@@ -95,7 +94,7 @@ export function parseSourceAnnotation(value: unknown): SourceAnnotationV1 {
   if (!Array.isArray(openings)) throw new Error('annotation.openings must be an array');
   const parsedOpenings = openings.map((raw, index) => {
     const item = record(raw, `annotation.openings[${index}]`);
-    exactKeys(item, ['id', 'kind', 'wallId', 'endpoints', 'evidence', 'doorType', 'typeEvidence', 'confidence'], `annotation.openings[${index}]`);
+    exactKeys(item, ['id', 'kind', 'endpoints', 'evidence', 'doorType', 'typeEvidence', 'confidence'], `annotation.openings[${index}]`);
     if (item.kind !== 'door' && item.kind !== 'window') throw new Error(`annotation.openings[${index}].kind must be door/window`);
     if (!Array.isArray(item.endpoints) || item.endpoints.length !== 2) throw new Error(`annotation.openings[${index}].endpoints requires two source points`);
     const doorType = item.doorType;
@@ -103,7 +102,6 @@ export function parseSourceAnnotation(value: unknown): SourceAnnotationV1 {
     return {
       id: text(item.id, `annotation.openings[${index}].id`),
       kind: item.kind,
-      wallId: text(item.wallId, `annotation.openings[${index}].wallId`),
       endpoints: [point(item.endpoints[0], `annotation.openings[${index}].endpoints[0]`), point(item.endpoints[1], `annotation.openings[${index}].endpoints[1]`)] as [DraftPoint, DraftPoint],
       evidence: text(item.evidence, `annotation.openings[${index}].evidence`),
       ...(doorType === undefined ? {} : { doorType }),
