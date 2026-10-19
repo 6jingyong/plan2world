@@ -59,6 +59,11 @@ normalization defaults after the skeleton is checked; zero thickness is invalid.
   Doors default to 210 cm single doors. Optional explicit window `height` and
   nonnegative `sillHeight` override white-model defaults; omitted values give
   sill 0 and height to the wall top. Use explicit heights only when requested.
+  Openings have no independent thickness: they mark intervals in continuous host
+  walls. Use explicit `type: single` or `double` when leaf evidence establishes it;
+  a double door's width is the full shared aperture. Supported sliding access uses
+  `type: sliding`; uncertain operation is omitted and disclosed as an assumption.
+  Read [opening-trace.md](opening-trace.md) for source evidence and endpoint maths.
 - Furniture under this presentation: require `id`, `catalogId: imported_object`,
   exact permitted `sourceCategory` and approximate centre `position`; confidence is
   optional. Omit dimensions and rotation during image extraction. The existing

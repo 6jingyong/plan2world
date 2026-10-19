@@ -9,6 +9,8 @@ Read [references/contract.md](references/contract.md) and the fixed
 [references/furniture-vocabulary.json](references/furniture-vocabulary.json).
 Also read [references/component-review.md](references/component-review.md) and
 [references/component-vocabulary.json](references/component-vocabulary.json).
+Read [references/opening-trace.md](references/opening-trace.md) for opening
+evidence, single/double leaves and deterministic interval measurement.
 Use the attached image as evidence. Produce `plan2world-draft-v1` with
 `presentation: "semantic-white-model"` and
 `furnitureVocabulary: "plan2world-furniture-v1"`. Require no particular model
@@ -122,14 +124,18 @@ alignment review. Output shared `walls`, no authored `rooms` polygons.
 ## 6. Extract wall-hosted doors and windows
 
 Sweep the completed walls once for openings, including sliding, concealed and
-shower access. A double track alone does not establish a fixed window: use panel
-marks, access context and adjacent wall evidence. Inaccessibility is a reason to
-recheck the source, not permission to invent or widen a door.
+shower access. First establish presence, then single/double/sliding operation from
+visible source evidence. Two hinged leaves share one full-width aperture; neither
+width alone nor two sliding tracks establish a double hinged door. Omit an
+unsupported opening; disclose uncertain operation instead of claiming a leaf count.
 
-Attach every opening to an existing `wallId`, preserving its source centre and
-width. Keep its host continuous; the deterministic converter creates the aperture.
-Use ordinary doors initially. Omit window height/sill/type so the white-model
-profile supplies editable floor-to-ceiling fixed glass; disclose this assumption.
+Every door/window is a zero-thickness interval on an existing `wallId`. Keep the
+host continuous. Record original-raster jamb/glazing endpoints and evidence, then
+derive position and physical width with the existing helper in `opening-trace.md`.
+Never substitute host-length percentages or default widths for traced endpoints.
+Retain piers; never invent/widen doors for circulation. The converter cuts through
+the host's thickness later. Omit window height/sill/type so the white-model profile
+supplies editable floor-to-ceiling fixed glass; disclose this assumption.
 
 ## 7. Convert units, register, freeze and verify
 
@@ -164,6 +170,9 @@ image=(px/width,py/height). Use the same transform; do not fit anchors separatel
   local verification include the working region/label ledger in `source-evidence.json`
   and freeze it with the draft. In a one-JSON application response keep the ledger
   internal and disclose unresolved labels/regions in existing `assumptions`.
+- In local verification freeze the original-pixel opening trace and derived
+  fragments too. Match final opening fields to those fragments, and inspect source
+  jambs/leaf evidence separately; a valid interval does not prove an opening exists.
 - Freeze the complete emitted JSON and component inventory before verification. Preserve them even if checks
   fail. Never hand-edit a verification output to make a picture or test pass.
 - With a Plan2World checkout, run its existing deterministic checker:

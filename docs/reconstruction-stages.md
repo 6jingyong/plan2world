@@ -11,7 +11,7 @@ example is not evidence that the Skill will reconstruct the next image correctly
 | 3. Architectural component inventory | Fixed component types, source locations/evidence, geometry ownership and vertical unknowns before furniture | Skill object classification; current Stair/Column/void conversion gaps must be disclosed |
 | 4. Object eligibility and fixed labels | Recognizable furniture/appliance/fixture first, exact permitted ID and approximate centre second; one regional omission/deduplication pass with region/label-to-ID or exclusion ledger | Skill distinguishes architectural features from real objects; parser rejects unlisted labels |
 | 5. All shared walls and closure | Reuse outer walls, add interior walls, join corners/T-junctions; preserve source-supported closed spaces and open circulation | Tracing/topology; geometry checks do not authorize invented partitions |
-| 6. Hosted openings | Door/window type, centre and width on a source-supported host | Skill opening recognition/association |
+| 6. Hosted openings | Positive evidence, single/double/sliding operation, two source endpoints defining a zero-thickness host interval | Skill opening recognition/association; native projection/path distance derives centre and width |
 | 7. Standard JSON | One uniform conversion to cm; separate furniture/walls/doors/windows arrays, valid IDs and dimensions | Serialization/contract validation; use the existing parser/checker |
 | 8. SVG source review | Original beside `plan.svg`, optionally `overlay.svg`; inspect walls/openings and furniture type/approximate position | Compare source → JSON first, then fixed JSON → SVG; fix the first incorrect stage |
 | 9. Native geometry / 3D conversion | A fixed, reviewed JSON creates the expected walls and apertures | Converter only when input JSON is already correct |
@@ -97,3 +97,10 @@ freezing. Reconcile readable object-related labels and accepted inventory IDs wi
 the final furniture array; room-use labels do not establish objects, and unlabeled
 symbols still require inspection. Ledger/reference consistency cannot prove that
 all source labels or objects were noticed. Review against the original separately.
+
+Use `tooling/derive-plan2world-openings.mjs` for observed source-pixel opening
+endpoints. It reuses native projection/path distances and emits fragments without
+writing a draft. Keep a double door as one total-width aperture. Freeze the working
+trace and derived fragments with local verification; valid maths does not prove
+door presence or leaf count. Openings carry no independent thickness, while their
+continuous host walls supply the thickness used later for apertures.
