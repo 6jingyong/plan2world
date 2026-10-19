@@ -46,7 +46,6 @@ export async function encodeFloorPlanImage(file: File): Promise<EncodedFloorPlan
   return { base64: dataUrl.slice(index + marker.length), dataUrl, mimeType: file.type };
 }
 
-
 export async function reconstructFloorPlanImage(
   config: OpenAIConfig,
   image: EncodedFloorPlanImage,
