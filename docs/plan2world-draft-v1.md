@@ -30,25 +30,23 @@ Estimated scale is allowed so that a rough 3D walkthrough can still be generated
 
 The provider-neutral Skill establishes one original-raster coordinate system,
 then traces the actual outer wall centrelines, preserving bays and recesses.
-Using that architectural context, it confirms real furniture/appliances/fixtures
-and chooses labels from the fixed vocabulary. It then completes the shared
-interior wall network, checks source-supported closure and open circulation,
-and extracts wall-hosted doors/windows. One final uniform transform converts all
-layers to cm. Outer walls are reused in the same network, not copied as a second
-outline. Furniture detection checks object presence before choosing a type;
-a permitted cabinet label does not make an architectural window ledge a cabinet.
-The existing furniture/walls/doors/windows arrays are the standard plan's layers.
-An inventory or overlay marks extracted objects; furniture erasure is optional,
-and architectural evidence must always be checked against the unchanged original.
-Adjacent spaces use the same physical wall ID. Closure is checked against the
-source; open-plan spaces, balconies and exterior voids do not acquire partitions
-to manufacture closed boxes.
+Using that architectural context, it recognizes architectural components before
+furniture, confirms real furniture/appliances/fixtures and chooses labels from the
+fixed vocabulary. It then completes the shared interior wall network, checks
+source-supported closure and open circulation, and extracts wall-hosted
+doors/windows. One final uniform transform converts all layers to cm. Outer walls
+are reused in the same network, not copied as a second outline. Furniture detection
+checks object presence before choosing a type; a permitted cabinet label does not
+make an architectural window ledge a cabinet.
 
-This changes the reconstruction procedure, not the interchange format. Final
-walls remain centrelines with positive dimensions or omitted editable defaults;
-doors/windows reference those walls. No intermediate skeleton schema or authored
-room polygons are required. The existing deterministic normalizer and renderer
-supply thickness, apertures and meshes from the same native geometry.
+This changes the reconstruction procedure, not the ordinary room representation.
+Final walls remain centrelines with positive dimensions or omitted editable
+defaults; doors/windows reference those walls. Plan2World still derives ordinary
+rooms deterministically. Optional `floorAreas` describe source-supported open ground;
+optional `floorOpenings` only mark a closed wall-derived room whose slab is absent.
+No intermediate skeleton schema or authored ordinary room polygons are required.
+The existing deterministic normalizer and renderer supply thickness, apertures and
+meshes from the same native geometry.
 
 ## Walls
 
@@ -103,7 +101,7 @@ Editor distances from A/B measure from the wall endpoint to the opening centre a
 
 ## Open ground outlines
 
-Optional `floor.floorAreas` describes source-visible ground that cannot be derived from an enclosed wall cycle, such as an open balcony, terrace or exterior access passage. Do not add walls to force a floor, infer a bounding rectangle, or duplicate an already detected room.
+Optional `floor.floorAreas` describes source-visible ground that cannot be derived from an enclosed wall cycle, such as an open balcony, terrace or exterior access passage. Current reconstruction normally treats recognized balconies/terraces as independent enclosed glazed rooms under the explicit product policy; `floorAreas` remains available for source-explicit open ground and historical/manual drafts. Do not add walls to force a floor, infer a bounding rectangle, or duplicate an already detected room.
 
 ```json
 {
@@ -123,6 +121,36 @@ Use wall references wherever ground borders a real wall, preserving edits withou
 Conversion retains each outline as a native `Room.boundary` with outdoor category and concrete finish. Shared floor analysis supplies the live area, 2D, slabs, 3D and walkthrough. It creates neither collision walls nor a ceiling. The room Properties panel edits free points/curves and wall references through existing history; there is no separate ground store. Native JSON and retained web project-package data preserve the boundary. Native companion rendering of this web extension is not qualified.
 
 Reversing or splitting a referenced wall updates its directed references. Deleting a referenced wall retains the outline for repair, reports a geometry error and hides the invalid floor until corrected. Self-crossing/zero-area edits behave the same way. Deleting the open area leaves its source walls intact.
+
+## Wall-backed floor openings
+
+Optional `floor.floorOpenings` carries the narrow case where source evidence shows
+that one closed wall-derived room is a slab void rather than walkable floor, such as
+a positively recognized enclosed service shaft. It does not define a second room or
+copy its polygon:
+
+```json
+{
+  "id": "shaft-1",
+  "name": "Service shaft",
+  "wallIds": ["s1", "s2", "s3", "s4"],
+  "confidence": 0.9
+}
+```
+
+Each item requires a unique `id`, non-empty `name`, at least three unique same-floor
+`wallIds`, and optional confidence in `[0,1]`. The unordered wall set must exactly
+match one closed wall-derived room after deterministic room detection. Conversion
+fails instead of guessing if it is a subset, does not close, or matches ambiguously.
+A successful conversion reuses that detected native `Room`, assigns the authored
+id/name, sets `floorOpening: true` and area 0. The existing floor, stacked-floor and
+3D paths already omit slabs for that native semantic.
+
+Do not infer `floorOpenings` from tiny area, absence of a visible door, proximity to
+a bathroom/kitchen, or a service-like label without positive shaft/void evidence.
+Do not add enclosure walls around a generic atrium solely to fit this contract.
+Arbitrary non-wall-backed floor holes, stair apertures and multi-floor vertical
+connections remain separate unsupported cases.
 
 ## Furniture
 
@@ -188,8 +216,8 @@ The conversion layer should:
 1. Validate schema and references.
 2. Assign defaults only where the draft omits editable architectural properties.
 3. Convert draft floors/walls/openings/furniture and optional open floor areas into the existing types in `src/lib/models/types.ts`, preserving `curvePoint` for quadratic walls.
-4. Initialize editor-only arrays such as rooms, stairs, columns, guides, measurements, annotations, text annotations, and groups.
-5. Run the existing room-detection path when possible rather than asking the vision model to reproduce editor-derived room state.
+4. Run existing room detection, then map optional `floorOpenings` only when their wall set matches exactly one detected wall-derived room; mark that native room `floorOpening: true` rather than creating duplicate geometry.
+5. Initialize editor-only arrays such as stairs, columns, guides, measurements, annotations, text annotations, and groups.
 6. Preserve scale metadata and assumptions somewhere reviewable by the user.
 
 The draft format should remain stable even if the editor's internal project model evolves.
@@ -197,9 +225,9 @@ The draft format should remain stable even if the editor's internal project mode
 ### Saved evidence and live Review
 
 Conversion retains optional native `Project.reconstruction` evidence, version `1`:
-`scale`, `assumptions`, and per-floor wall/door/window and optional open-floor IDs with original confidence
-(and wall kind). It contains no geometry, findings, provider configuration or credentials.
-The draft contract and schema version are unchanged. Historical IDs may refer to deleted
+`scale`, `assumptions`, and per-floor wall/door/window plus optional open-floor and
+floor-opening IDs with original confidence (and wall kind). It contains no geometry,
+findings, provider configuration or credentials. Historical IDs may refer to deleted
 objects; they do not recreate geometry or invalidate an otherwise editable project.
 
 For image imports, the single native `Floor.backgroundImage` retains the raster and
