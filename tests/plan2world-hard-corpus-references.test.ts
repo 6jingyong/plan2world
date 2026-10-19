@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import manifest from './fixtures/real-floorplans/hard-corpus/manifest.json';
-import beikeReference from './fixtures/real-floorplans/hard-corpus/large-irregular-beike-reference.json';
+import corpus from './fixtures/real-floorplans/reconstruction-corpus/manifest.json';
+import evaluation from './fixtures/real-floorplans/evaluation-references/manifest.json';
+import beikeReference from './fixtures/real-floorplans/evaluation-references/large-irregular-beike.json';
 import { parseSourceFloorPlanReference } from '$lib/plan2world/sourceReference';
 
-const v1SampleIds = [
+const sampleIds = [
   'decorated-yj215',
   'one-hyde-park',
   'curved-lianjia',
@@ -11,19 +12,29 @@ const v1SampleIds = [
   'large-irregular-beike',
 ] as const;
 
-describe('hard floor-plan corpus source references', () => {
-  it('keeps every v1 hard sample backed by a source-space reference', () => {
-    for (const id of v1SampleIds) {
-      const sample = manifest.samples.find(item => item.id === id);
-      expect(sample, `missing hard-corpus sample ${id}`).toBeDefined();
-      expect(sample?.referenceStatus, `${id} reference status`).not.toBe('pending');
-      expect(sample?.reference, `${id} reference path`).toMatch(/-reference\.json$/);
+describe('fresh reconstruction corpus isolation', () => {
+  it('keeps generation metadata blind to evaluation truth and old outputs', () => {
+    expect(corpus.schemaVersion).toBe('plan2world-reconstruction-corpus-v1');
+    expect(corpus.samples.map(sample => sample.id)).toEqual(sampleIds);
+
+    for (const sample of corpus.samples) {
+      expect(Object.keys(sample).sort()).toEqual(['failureMode', 'id', 'rasterRedistributed', 'source']);
+      expect(JSON.stringify(sample)).not.toMatch(/reference|draft|candidate|annotation|result|wallTrace/i);
+      expect(sample.source.sha256).toMatch(/^[0-9a-f]{64}$/);
+    }
+  });
+
+  it('keeps post-hoc references in a separate evaluation manifest', () => {
+    expect(evaluation.schemaVersion).toBe('plan2world-evaluation-references-v1');
+    expect(evaluation.references.map(item => item.id)).toEqual(sampleIds);
+    for (const item of evaluation.references) {
+      expect(item.status).not.toBe('pending');
+      expect(item.file).toBe(`${item.id}.json`);
     }
   });
 
   it('parses the large irregular Beike reference without guessing ambiguous semantics', () => {
     const parsed = parseSourceFloorPlanReference(beikeReference);
-
     expect(parsed.source).toEqual({
       width: 1536,
       height: 1146,

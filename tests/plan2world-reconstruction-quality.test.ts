@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import referenceJson from './fixtures/real-floorplans/wikimedia-two-bedroom.json';
-import historicalJson from './fixtures/real-floorplans/wikimedia-two-bedroom-gpt56-sol-historical.json';
 import { parsePlan2WorldDraft } from '$lib/plan2world/draft';
 import { scoreReconstructionAgainstReference } from '$lib/plan2world/reconstructionQuality';
 
@@ -13,7 +12,6 @@ const SOURCE = {
 describe('Plan2World reconstruction quality scorecard', () => {
   it('scores an identical registered reconstruction perfectly', () => {
     const report = scoreReconstructionAgainstReference(referenceJson, referenceJson, SOURCE);
-
     expect(report.walls.precision).toBe(1);
     expect(report.walls.recall).toBe(1);
     expect(report.walls.f1).toBe(1);
@@ -32,17 +30,17 @@ describe('Plan2World reconstruction quality scorecard', () => {
     wall!.end.y += 100;
 
     const report = scoreReconstructionAgainstReference(referenceJson, candidate, SOURCE);
-
     expect(report.walls.f1).toBeLessThan(1);
     expect(report.walls.referenceToCandidate.meanErrorPx).toBeGreaterThan(0);
     expect(report.walls.candidateToReference.meanErrorPx).toBeGreaterThan(0);
   });
 
-  it('keeps a historical model output inspectable instead of reducing it to wall counts', () => {
-    const report = scoreReconstructionAgainstReference(referenceJson, historicalJson, SOURCE);
+  it('reports missing openings without depending on a historical model snapshot', () => {
+    const candidate = parsePlan2WorldDraft(referenceJson);
+    candidate.floors[0].doors = candidate.floors[0].doors.slice(0, -1);
+    candidate.floors[0].windows = candidate.floors[0].windows.slice(0, -1);
 
-    expect(report.walls.referenceToCandidate.meanErrorPx).toBeGreaterThan(0);
-    expect(report.walls.candidateToReference.meanErrorPx).toBeGreaterThan(0);
+    const report = scoreReconstructionAgainstReference(referenceJson, candidate, SOURCE);
     expect(report.doors.referenceCount).toBe(10);
     expect(report.doors.candidateCount).toBe(9);
     expect(report.doors.recall).toBeLessThan(1);
@@ -54,7 +52,6 @@ describe('Plan2World reconstruction quality scorecard', () => {
   it('refuses bounds-fallback alignment when explicit source registration is missing', () => {
     const candidate = parsePlan2WorldDraft(referenceJson);
     delete candidate.sourceRegistration;
-
     expect(() => scoreReconstructionAgainstReference(referenceJson, candidate, SOURCE))
       .toThrow(/explicit source registration/i);
   });
