@@ -1,7 +1,6 @@
 import type { Door, FloorBoundaryPart, Window } from '$lib/models/types';
 import { readFloorBoundary, floorBoundaryProblem } from '$lib/utils/floorBoundary';
 import { PLAN2WORLD_FURNITURE_VOCABULARY, isPlan2WorldFurnitureType } from './furnitureVocabulary';
-import { PLAN2WORLD_COMPONENT_VOCABULARY, isPlan2WorldComponentType } from './componentVocabulary';
 
 export const PLAN2WORLD_DRAFT_VERSION = 'plan2world-draft-v1' as const;
 
@@ -82,25 +81,6 @@ export interface DraftFloorArea {
   confidence?: number;
 }
 
-export type DraftComponentGeometryKind = 'wall' | 'door' | 'window' | 'floorArea';
-export interface DraftComponentGeometryRef { kind: DraftComponentGeometryKind; id: string }
-export interface DraftComponentVertical {
-  direction?: 'up' | 'down';
-  toFloorId?: string;
-}
-export interface DraftComponent {
-  id: string;
-  /** Exact ID from the fixed component vocabulary. */
-  type: string;
-  /** Approximate component centre in the same plan-space centimetres as walls. */
-  position: DraftPoint;
-  /** References to geometry that already owns any scene-visible shape. */
-  geometryRefs?: DraftComponentGeometryRef[];
-  /** Stair-only source semantics. This never authorizes inferred floors or holes. */
-  vertical?: DraftComponentVertical;
-  confidence?: number;
-}
-
 export interface DraftFloor {
   id: string;
   name: string;
@@ -112,8 +92,6 @@ export interface DraftFloor {
   furniture?: DraftFurniture[];
   /** Ground outline for balconies/terraces; creates no physical partitions. */
   floorAreas?: DraftFloorArea[];
-  /** Source-recognized architecture. Scene behavior is deterministic from the fixed registry. */
-  components?: DraftComponent[];
 }
 
 export interface Plan2WorldDraft {
@@ -124,8 +102,6 @@ export interface Plan2WorldDraft {
   presentation?: 'semantic-white-model';
   /** Fixed extraction vocabulary; omitted only for historical drafts. */
   furnitureVocabulary?: typeof PLAN2WORLD_FURNITURE_VOCABULARY;
-  /** Required when any floor emits architectural components. */
-  componentVocabulary?: typeof PLAN2WORLD_COMPONENT_VOCABULARY;
   scale: DraftScale;
   assumptions?: string[];
   /** Optional image-to-plan registration metadata. It is advisory and never required to import a draft. */
@@ -272,53 +248,6 @@ function parseFurniture(value: unknown, path: string): DraftFurniture {
   };
 }
 
-function parseComponent(value: unknown, path: string): DraftComponent {
-  const v = record(value, path);
-  const allowed = new Set(['id', 'type', 'position', 'geometryRefs', 'vertical', 'confidence']);
-  for (const key of Object.keys(v)) {
-    if (!allowed.has(key)) throw new Plan2WorldDraftError(`${path}.${key} is not allowed; component scene policy is registry-owned`);
-  }
-  const type = stringValue(v.type, `${path}.type`);
-  if (!isPlan2WorldComponentType(type)) {
-    throw new Plan2WorldDraftError(`${path}.type ${type} is not in ${PLAN2WORLD_COMPONENT_VOCABULARY}`);
-  }
-  if (v.geometryRefs !== undefined && !Array.isArray(v.geometryRefs)) {
-    throw new Plan2WorldDraftError(`${path}.geometryRefs must be an array`);
-  }
-  const seen = new Set<string>();
-  const geometryRefs: DraftComponentGeometryRef[] = ((v.geometryRefs ?? []) as unknown[]).map((raw, index) => {
-    const refPath = `${path}.geometryRefs[${index}]`;
-    const ref = record(raw, refPath);
-    const refAllowed = new Set(['kind', 'id']);
-    for (const key of Object.keys(ref)) if (!refAllowed.has(key)) throw new Plan2WorldDraftError(`${refPath}.${key} is not allowed`);
-    const kind = enumValue(ref.kind, ['wall', 'door', 'window', 'floorArea'] as const, 'wall', `${refPath}.kind`);
-    const id = stringValue(ref.id, `${refPath}.id`);
-    const key = `${kind}:${id}`;
-    if (seen.has(key)) throw new Plan2WorldDraftError(`${path}.geometryRefs contains duplicate reference ${key}`);
-    seen.add(key);
-    return { kind, id };
-  });
-  let vertical: DraftComponentVertical | undefined;
-  if (v.vertical !== undefined) {
-    if (type !== 'stair') throw new Plan2WorldDraftError(`${path}.vertical is only valid for stair components`);
-    const raw = record(v.vertical, `${path}.vertical`);
-    const verticalAllowed = new Set(['direction', 'toFloorId']);
-    for (const key of Object.keys(raw)) if (!verticalAllowed.has(key)) throw new Plan2WorldDraftError(`${path}.vertical.${key} is not allowed`);
-    vertical = {
-      direction: raw.direction === undefined ? undefined : enumValue(raw.direction, ['up', 'down'] as const, 'up', `${path}.vertical.direction`),
-      toFloorId: raw.toFloorId === undefined ? undefined : stringValue(raw.toFloorId, `${path}.vertical.toFloorId`),
-    };
-  }
-  return {
-    id: stringValue(v.id, `${path}.id`),
-    type,
-    position: point(v.position, `${path}.position`),
-    geometryRefs,
-    vertical,
-    confidence: confidence(v.confidence, `${path}.confidence`),
-  };
-}
-
 function parseFloor(value: unknown, index: number): DraftFloor {
   const path = `floors[${index}]`;
   const v = record(value, path);
@@ -329,8 +258,7 @@ function parseFloor(value: unknown, index: number): DraftFloor {
   const doors = Array.isArray(v.doors) ? v.doors.map((item, i) => parseDoor(item, `${path}.doors[${i}]`)) : [];
   const windows = Array.isArray(v.windows) ? v.windows.map((item, i) => parseWindow(item, `${path}.windows[${i}]`)) : [];
   const furniture = Array.isArray(v.furniture) ? v.furniture.map((item, i) => parseFurniture(item, `${path}.furniture[${i}]`)) : [];
-  const components = Array.isArray(v.components) ? v.components.map((item, i) => parseComponent(item, `${path}.components[${i}]`)) : [];
-  if (v.components !== undefined && !Array.isArray(v.components)) throw new Plan2WorldDraftError(`${path}.components must be an array`);
+  if (v.components !== undefined) throw new Plan2WorldDraftError(`${path}.components is retired; 2D geometry must use walls, openings and floorAreas`);
   if (v.floorAreas !== undefined && !Array.isArray(v.floorAreas)) throw new Plan2WorldDraftError(`${path}.floorAreas must be an array`);
   const floorAreas: DraftFloorArea[] = ((v.floorAreas ?? []) as unknown[]).map((item, i) => {
     const areaPath = `${path}.floorAreas[${i}]`, area = record(item, areaPath);
@@ -347,10 +275,9 @@ function parseFloor(value: unknown, index: number): DraftFloor {
   uniqueIds(doors, `${path}.doors`);
   uniqueIds(windows, `${path}.windows`);
   uniqueIds(furniture, `${path}.furniture`);
-  uniqueIds(components, `${path}.components`);
-  uniqueIds([...walls, ...doors, ...windows, ...furniture, ...floorAreas, ...components], path);
+  uniqueIds([...walls, ...doors, ...windows, ...furniture, ...floorAreas], path);
 
-  const idsByKind: Record<DraftComponentGeometryKind, Set<string>> = {
+  const idsByKind: Record<'wall' | 'door' | 'window' | 'floorArea', Set<string>> = {
     wall: new Set(walls.map(item => item.id)),
     door: new Set(doors.map(item => item.id)),
     window: new Set(windows.map(item => item.id)),
@@ -361,14 +288,6 @@ function parseFloor(value: unknown, index: number): DraftFloor {
       throw new Plan2WorldDraftError(`${path}: opening ${opening.id} references unknown wall ${opening.wallId}`);
     }
   }
-  for (const component of components) {
-    for (const ref of component.geometryRefs ?? []) {
-      if (!idsByKind[ref.kind].has(ref.id)) {
-        throw new Plan2WorldDraftError(`${path}: component ${component.id} references unknown ${ref.kind} ${ref.id}`);
-      }
-    }
-  }
-
   return {
     id: stringValue(v.id, `${path}.id`),
     name: stringValue(v.name, `${path}.name`),
@@ -379,7 +298,6 @@ function parseFloor(value: unknown, index: number): DraftFloor {
     windows,
     furniture,
     floorAreas,
-    components,
   };
 }
 
@@ -434,29 +352,16 @@ export function parsePlan2WorldDraft(input: unknown, options: { requireFurniture
 
   const floors = v.floors.map((item, i) => parseFloor(item, i));
   uniqueIds(floors, 'floors');
-  const floorIds = new Set(floors.map(floor => floor.id));
-  for (const floor of floors) for (const component of floor.components ?? []) {
-    const target = component.vertical?.toFloorId;
-    if (target !== undefined && (!floorIds.has(target) || target === floor.id)) {
-      throw new Plan2WorldDraftError(`Component ${component.id}: vertical.toFloorId must refer to another supplied floor`);
-    }
-  }
-
   const presentation = v.presentation === undefined ? undefined
     : enumValue(v.presentation, ['semantic-white-model'] as const, 'semantic-white-model', 'presentation');
   const furnitureVocabulary = v.furnitureVocabulary === undefined ? undefined
     : enumValue(v.furnitureVocabulary, [PLAN2WORLD_FURNITURE_VOCABULARY] as const, PLAN2WORLD_FURNITURE_VOCABULARY, 'furnitureVocabulary');
-  const componentVocabulary = v.componentVocabulary === undefined ? undefined
-    : enumValue(v.componentVocabulary, [PLAN2WORLD_COMPONENT_VOCABULARY] as const, PLAN2WORLD_COMPONENT_VOCABULARY, 'componentVocabulary');
+  if (v.componentVocabulary !== undefined) throw new Plan2WorldDraftError('componentVocabulary is retired');
   if (options.requireFurnitureVocabulary && !furnitureVocabulary) {
     throw new Plan2WorldDraftError(`Current reconstruction requires furnitureVocabulary: ${PLAN2WORLD_FURNITURE_VOCABULARY}`);
   }
   if (furnitureVocabulary && !presentation) {
     throw new Plan2WorldDraftError('Fixed furniture vocabulary requires semantic-white-model presentation');
-  }
-  const hasComponents = floors.some(floor => (floor.components?.length ?? 0) > 0);
-  if (hasComponents && !componentVocabulary) {
-    throw new Plan2WorldDraftError(`Architectural components require componentVocabulary: ${PLAN2WORLD_COMPONENT_VOCABULARY}`);
   }
   if (presentation) {
     for (const floor of floors) for (const item of floor.furniture ?? []) {
@@ -481,7 +386,6 @@ export function parsePlan2WorldDraft(input: unknown, options: { requireFurniture
     units: 'cm',
     presentation,
     furnitureVocabulary,
-    componentVocabulary,
     scale: {
       mode,
       confidence: scaleConfidence,

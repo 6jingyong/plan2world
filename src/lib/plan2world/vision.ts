@@ -2,14 +2,13 @@ import type { OpenAIConfig } from '$lib/utils/openaiClient';
 import { generateOpenAIJsonFromImage } from '$lib/utils/openaiClient';
 import { parsePlan2WorldDraft, type Plan2WorldDraft } from './draft';
 import { buildBareHouse, type BareHouseV1 } from './bareHouse';
-import { PLAN2WORLD_COMPONENT_VOCABULARY } from './componentVocabulary';
 import { buildReconstructionInstructions, PLAN2WORLD_RECONSTRUCTION_INSTRUCTIONS_VERSION, type ReconstructionOptions } from './reconstructionInstructions';
 export { buildReconstructionInstructions as buildFloorPlanVisionPrompt } from './reconstructionInstructions';
 
 export const FLOOR_PLAN_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp'] as const;
 export type FloorPlanImageType = typeof FLOOR_PLAN_IMAGE_TYPES[number];
 export const MAX_FLOOR_PLAN_IMAGE_BYTES = 12 * 1024 * 1024;
-export const PLAN2WORLD_VISION_PROMPT_VERSION = `${PLAN2WORLD_RECONSTRUCTION_INSTRUCTIONS_VERSION}+${PLAN2WORLD_COMPONENT_VOCABULARY}`;
+export const PLAN2WORLD_VISION_PROMPT_VERSION = PLAN2WORLD_RECONSTRUCTION_INSTRUCTIONS_VERSION;
 
 export type FloorPlanVisionOptions = ReconstructionOptions;
 

@@ -34,7 +34,7 @@ Do not emit floor.components or componentVocabulary. Architectural semantics wit
 - Inspect printed dimensions and scale bars first, but printed dimensions and dimension-chain subdivisions are scale/distance evidence only.
 - Never use cumulative dimension-chain values as wall x/y coordinates.
 - A bare drawing ratio is NOT enough without physical page size/DPI or a usable scale bar.
-- Use one uniform cm-per-pixel transform for normalized walls, openings, furniture and components.
+- Use one uniform cm-per-pixel transform for normalized walls, openings, furniture 
 - Reproject final cm wall geometry onto the unchanged source with that same transform; a material/systematic wall mismatch is a hard A-wall failure.
 ${scaleHint ? `User scale hint: ${scaleHint}` : 'User scale hint: none.'}
 

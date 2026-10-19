@@ -1,6 +1,6 @@
 ---
 name: reconstruct-plan2world
-description: Reconstruct a floor-plan image into a bare architectural shell first, then annotate openings, optional semantics and lightweight furniture before emitting plan2world-draft-v1.
+description: Reconstruct a floor-plan image into a bare architectural shell first, then annotate openings, lightweight furniture before emitting plan2world-draft-v1.
 ---
 
 # Reconstruct Plan2World
@@ -9,13 +9,12 @@ Read:
 - [references/contract.md](references/contract.md)
 - [references/opening-trace.md](references/opening-trace.md)
 - [references/furniture-vocabulary.json](references/furniture-vocabulary.json)
-- [references/component-vocabulary.json](references/component-vocabulary.json)
 
 The pipeline is:
 
-**source raster -> source-wall-trace-v1 -> bare-house-v1 -> opening/component/furniture annotations -> plan2world-draft-v1**
+**source raster -> source-wall-trace-v1 -> bare-house-v1 -> opening/furniture annotations -> plan2world-draft-v1**
 
-Geometry comes first. Room-use labels, doors/windows, furniture and components never
+Geometry comes first. Room-use labels, doors/windows, furniture never
 create or close walls.
 
 ## 1. Trace source walls only
@@ -99,17 +98,9 @@ Door types when evidenced:
 Fixed glazing remains a window. A room may have entire sides of glazing or a
 full-side sliding door without any `balcony` label.
 
-## 4. Add optional semantics and furniture
+## 4. Add optional furniture
 
 After the empty house exists:
-
-### Components
-Use exact types from `component-vocabulary.json`. Components are source semantics,
-not geometry authority or render policy. Never emit model-authored `render`,
-`visible`, `sceneEffect`, `sceneSupport` or `requiresNativeSupport`.
-
-`balcony` is evidence-only. Adding/removing that label must not change walls,
-openings, floor, collision or room detection.
 
 ### Furniture
 Identify a real object first, then choose an exact ID from
@@ -125,7 +116,7 @@ usable scale bar. If no reliable length exists, estimate conservatively and lowe
 confidence.
 
 Apply the same transform to Bare House walls, opening widths, furniture centres and
-component positions. Never move walls independently to make dimension arithmetic
+furniture positions. Never move walls independently to make dimension arithmetic
 close.
 
 Use 3–6 spread-out source-registration anchors when reliable. Anchors reference
@@ -135,7 +126,6 @@ Emit:
 - `schemaVersion: "plan2world-draft-v1"`
 - `presentation: "semantic-white-model"`
 - `furnitureVocabulary: "plan2world-furniture-v1"`
-- `componentVocabulary: "plan2world-components-v2"` when components exist
 - `units: "cm"`
 
 Draft walls come from `bare-house-v1`. Do not author room polygons; native rooms are
@@ -160,8 +150,6 @@ Local tools:
 `node tooling/normalize-plan2world-wall-graph.mjs --trace wall-trace.json`
 
 `node tooling/derive-plan2world-openings.mjs --trace opening-trace.json`
-
-`python skills/reconstruct-plan2world/scripts/check-component-review.py --review component-review.json --draft draft.json`
 
 `NODE_ENV=production node tooling/inspect-plan2world-draft.mjs --draft draft.json --source source.jpg --width W --height H --require-furniture-vocabulary true`
 
