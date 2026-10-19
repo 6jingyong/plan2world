@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { buildFloorPlanVisionPrompt, reconstructFloorPlanImage, type EncodedFloorPlanImage } from '$lib/plan2world/vision';
+import { buildFloorPlanVisionPrompt, reconstructFloorPlanImage, PLAN2WORLD_VISION_PROMPT_VERSION, type EncodedFloorPlanImage } from '$lib/plan2world/vision';
 
 const image: EncodedFloorPlanImage = {
   base64: 'aGVsbG8=',
@@ -34,6 +34,7 @@ const draft = {
 describe('Plan2World vision reconstruction', () => {
   it('builds an evidence-first prompt and includes a real-length scale hint', () => {
     const prompt = buildFloorPlanVisionPrompt({ scaleHint: 'bottom wall is 360 cm' });
+    expect(PLAN2WORLD_VISION_PROMPT_VERSION).toContain('plan2world-components-v2');
     expect(prompt).toContain('printed dimensions, scale bars');
     expect(prompt).toContain('bottom wall is 360 cm');
     expect(prompt).toContain('centreline paths');
