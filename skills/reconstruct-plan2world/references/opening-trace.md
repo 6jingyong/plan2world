@@ -12,6 +12,12 @@ Neither a wide passage, room adjacency nor a need for access establishes a door.
 Record uncertain candidates by source region/reason in assumptions; do not emit
 an unsupported door to make circulation work.
 
+For recognized balconies only, `balcony-policy.md` permits explicitly assumed
+outer glazing on the traced perimeter. Use the same endpoint helper, but state
+"default balcony enclosure policy" and the observed boundary in `evidence`, and
+record affected IDs/region in draft assumptions and local source evidence. Full
+run endpoints define a full path interval; never claim assumed glass was observed.
+
 - `single`: one evidenced hinged leaf/arc.
 - `double`: two evidenced hinged leaves/arcs sharing one aperture. Use one door
   and the full outer-jamb-to-outer-jamb width, not one door per leaf or half width.
