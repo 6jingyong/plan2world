@@ -45,7 +45,7 @@ describe('deterministic reconstruction assembly', () => {
     expect(floor.walls[0].start).toEqual({ x: 0, y: 0 });
     expect(floor.walls[0].end).toEqual({ x: 200, y: 0 });
     expect(floor.doors?.[0].width).toBeCloseTo(60);
-    expect(floor.doors?.[0].position).toBeCloseTo(0.45);
+    expect(floor.doors?.[0].position).toBeCloseTo(0.55);
     expect(floor.furniture?.[0]).toMatchObject({
       id: 'sofa-1',
       catalogId: 'imported_object',
