@@ -8,6 +8,7 @@
   "properties": {
     "schemaVersion": { "const": "plan2world-draft-v1" },
     "presentation": { "enum": ["semantic-white-model"] },
+    "furnitureVocabulary": { "const": "plan2world-furniture-v1" },
     "name": { "type": "string", "minLength": 1 },
     "units": { "const": "cm" },
     "scale": {
@@ -65,9 +66,23 @@
           }
         }
       }
+    },
+    {
+      "if": { "required": ["furnitureVocabulary"] },
+      "then": {
+        "required": ["presentation"],
+        "properties": {
+          "floors": { "items": { "properties": {
+            "furniture": { "items": { "properties": {
+              "sourceCategory": { "$ref": "#/$defs/fixedFurnitureType" }
+            } } }
+          } } }
+        }
+      }
     }
   ],
   "$defs": {
+    "fixedFurnitureType": { "enum": ["bed", "sofa", "chair", "bench", "table", "dining_table", "coffee_table", "side_table", "desk", "nightstand", "cabinet", "wardrobe", "shelf", "tv_cabinet", "shoe_cabinet", "dressing_table", "piano", "television", "refrigerator", "washing_machine", "dryer", "dishwasher", "cooktop", "oven", "air_conditioner", "sink", "toilet", "bidet", "bathtub", "shower"] },
     "point": {
       "type": "object",
       "additionalProperties": false,

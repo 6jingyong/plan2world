@@ -8,6 +8,8 @@ export interface FloorPlanProviderRequest {
 
 const draft = {
   schemaVersion: 'plan2world-draft-v1',
+  presentation: 'semantic-white-model',
+  furnitureVocabulary: 'plan2world-furniture-v1',
   name: 'Mock image reconstruction',
   units: 'cm',
   scale: { mode: 'measured', confidence: 0.99, basis: 'Mock provider test dimensions' },

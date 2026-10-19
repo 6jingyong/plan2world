@@ -7,15 +7,16 @@ example is not evidence that the Skill will reconstruct the next image correctly
 | Step | Output / acceptance | Owner of a failure |
 | --- | --- | --- |
 | 1. Source coordinates and scale | Original dimensions, crop-to-source mapping, one scale basis | Extraction coordinate handling; scripts can calculate transforms |
-| 2. Furniture inventory | Stable IDs, semantic types and approximate source centres; whole-image pass then regional omission/deduplication pass | Skill coverage or object interpretation; dimensions, direction and fine placement belong to later user editing |
-| 3. Shared wall skeleton | One centreline per physical wall; preserve curves, recesses and voids | Skill tracing; do not promote cabinet/door-arc lines to walls |
-| 4. Source-supported closure | Shared corners/T-junctions; closed spaces where supported, open circulation retained | Tracing/topology; existing geometry checks flag gaps, not permission to invent partitions |
-| 5. Hosted openings | Door/window type, centre and width on a source-supported host | Skill opening recognition/association |
-| 6. Standard JSON | One uniform conversion to cm; separate furniture/walls/doors/windows arrays, valid IDs and dimensions | Serialization/contract validation; use the existing parser/checker |
-| 7. SVG source review | Original beside `plan.svg`, optionally `overlay.svg`; inspect walls/openings and furniture type/approximate position | Compare source → JSON first, then fixed JSON → SVG; fix the first incorrect stage |
-| 8. Native geometry / 3D conversion | A fixed, reviewed JSON creates the expected walls and apertures | Converter only when input JSON is already correct |
-| 9. Viewing and navigation | Correct camera, view switching, selection/picking and movement on fixed geometry | Viewer/input/collision implementation, after excluding incorrect input geometry |
-| 10. Furniture editing | User chooses style, size, direction and precise placement on the same native item | Editor commands/state binding; do not rebuild architecture to repair selection |
+| 2. Outer wall outline | Actual wall centrelines, including curves, recesses and bay projections; no bounding-box substitution | Skill tracing establishes architectural context before object recognition |
+| 3. Architectural component inventory | Fixed component types, source locations/evidence, geometry ownership and vertical unknowns before furniture | Skill object classification; current Stair/Column/void conversion gaps must be disclosed |
+| 4. Object eligibility and fixed labels | Recognizable furniture/appliance/fixture first, exact permitted ID and approximate centre second; one regional omission/deduplication pass with region/label-to-ID or exclusion ledger | Skill distinguishes architectural features from real objects; parser rejects unlisted labels |
+| 5. All shared walls and closure | Reuse outer walls, add interior walls, join corners/T-junctions; preserve source-supported closed spaces and open circulation | Tracing/topology; geometry checks do not authorize invented partitions |
+| 6. Hosted openings | Door/window type, centre and width on a source-supported host | Skill opening recognition/association |
+| 7. Standard JSON | One uniform conversion to cm; separate furniture/walls/doors/windows arrays, valid IDs and dimensions | Serialization/contract validation; use the existing parser/checker |
+| 8. SVG source review | Original beside `plan.svg`, optionally `overlay.svg`; inspect walls/openings and furniture type/approximate position | Compare source → JSON first, then fixed JSON → SVG; fix the first incorrect stage |
+| 9. Native geometry / 3D conversion | A fixed, reviewed JSON creates the expected walls and apertures | Converter only when input JSON is already correct |
+| 10. Viewing and navigation | Correct camera, view switching, selection/picking and movement on fixed geometry | Viewer/input/collision implementation, after excluding incorrect input geometry |
+| 11. Furniture editing | User chooses style, size, direction and precise placement on the same native item | Editor commands/state binding; do not rebuild architecture to repair selection |
 
 Test harness failures form a separate category. For example, the #47 walkthrough
 clock takeover race was fixed in the test, not in the geometry generator.
@@ -24,6 +25,7 @@ clock takeover race was fixed in the test, not in the geometry generator.
 
 | Observed pattern | Limited response | Evidence needed before expanding work |
 | --- | --- | --- |
+| Bay/ledge promoted into furniture | Trace outer walls first; confirm a real object before choosing a fixed label; omit/disclose unresolved objects instead of unknown furniture | Original region + unchanged JSON entry; a valid category alone cannot establish object presence |
 | Missed/duplicate furniture | Inventory plus one regional omission/deduplication pass (#49); SVG shows each ID and position | A source object missing or duplicated in JSON; first exclude SVG omission |
 | Kitchen sliding access called a fixed window; shower access omitted | Sweep each wall for openings and use panel/access evidence; review door/window SVG layers | A specific source span and the mismatched JSON entry; do not widen or invent access for navigation |
 | Different coordinates used for crops, geometry or anchors | One transform, numeric checks and source-registered SVG | A specific corresponding pixel/JSON point mismatch |
@@ -81,3 +83,17 @@ Do not publish overlays containing user source images without permission.
 Use three separate review conclusions: **contract valid**, **alignment reviewed**,
 and **layer completeness reviewed**. Stop here for a Skill verification task.
 Proceed to 3D/viewing/editing only when that stage is the subject of the task.
+
+Component verification uses the Skill's companion `component-review.json`: source
+evidence plus references to existing geometry, not a second scene graph. The
+read-only checker reports missing mappings, evidence-only features and unsupported
+native geometry separately. Bay/ledge recognition must precede furniture; a column,
+stair or floor void does not become supported merely because its label parses.
+One fresh source application is required after each Skill revision before publishing.
+Single-floor images do not validate duplex floor alignment, holes or stair traversal.
+
+Record the working object coverage ledger in local `source-evidence.json` before
+freezing. Reconcile readable object-related labels and accepted inventory IDs with
+the final furniture array; room-use labels do not establish objects, and unlabeled
+symbols still require inspection. Ledger/reference consistency cannot prove that
+all source labels or objects were noticed. Review against the original separately.

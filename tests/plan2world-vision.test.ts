@@ -9,6 +9,8 @@ const image: EncodedFloorPlanImage = {
 
 const draft = {
   schemaVersion: 'plan2world-draft-v1',
+  presentation: 'semantic-white-model',
+  furnitureVocabulary: 'plan2world-furniture-v1',
   name: 'Vision apartment',
   units: 'cm',
   scale: { mode: 'measured', confidence: 0.95, basis: '360 cm printed dimension' },
@@ -88,5 +90,18 @@ describe('Plan2World vision reconstruction', () => {
       {},
       customFetch as typeof fetch,
     )).rejects.toThrow(/refused/i);
+  });
+
+  it.each(['missing-version', 'invented-type'])('rejects a current AI response with %s', async failure => {
+    const invalid: any = structuredClone(draft);
+    if (failure === 'missing-version') delete invalid.furnitureVocabulary;
+    else invalid.floors[0].furniture = [{id:'f1',catalogId:'imported_object',sourceCategory:'bay_window',position:{x:100,y:100}}];
+    const customFetch = vi.fn(async () => new Response(JSON.stringify({
+      status: 'completed', output: [{type:'message',role:'assistant',status:'completed',
+        content:[{type:'output_text',text:JSON.stringify(invalid)}]}],
+    }), {status:200,headers:{'Content-Type':'application/json'}}));
+    await expect(reconstructFloorPlanImage(
+      {baseUrl:'https://example.test/v1',apiKey:'test',model:'vision-model'},image,{},customFetch as typeof fetch,
+    )).rejects.toThrow(failure === 'missing-version' ? 'requires furnitureVocabulary' : 'not in plan2world-furniture-v1');
   });
 });

@@ -9,7 +9,7 @@ The existing openPlan3D editor is the downstream engine. Do not replace working 
 ## Core pipeline
 
 1. Inspect a JPG/PNG floor plan.
-2. Infer source-supported walls, doors, windows and semantic furniture/fixture blocks. Use the provider-neutral `skills/reconstruct-plan2world` procedure.
+2. Trace outer wall centrelines, inventory architectural components using their fixed vocabulary, then identify real furniture from its fixed vocabulary in that context, complete the shared interior walls and source-supported closure, then extract hosted doors/windows. Use the provider-neutral `skills/reconstruct-plan2world` procedure.
 3. Emit `plan2world-draft-v1` JSON.
 4. Validate and normalize that JSON.
 5. Convert it into the existing `Project` model in `src/lib/models/types.ts`.
@@ -64,6 +64,10 @@ These are editable defaults, not claims about the source building. The opt-in `s
 
 When an SVG review looks wrong, preserve the JSON and determine whether the source-to-JSON extraction or JSON-to-SVG projection is incorrect. Repair the responsible reusable Skill/script or renderer and test that stage. Hand-correcting a candidate is not evidence of Skill improvement; do not compensate in 3D. Furniture extraction acceptance covers presence, semantic type and broad position, not direction, dimensions or fine alignment.
 
+Current reconstruction must declare `furnitureVocabulary: "plan2world-furniture-v1"` and use exact IDs from `skills/reconstruct-plan2world/references/furniture-vocabulary.json`. Confirm object presence before choosing its type; bay windows, ledges, wall piers and planter platforms do not become furniture. Omit unsupported/unconfirmed objects and disclose their region/reason in assumptions. Do not invent labels or use unknown/other furniture placeholders. Keep extraction semantics separate from user-selectable model/style catalogs. Historical drafts without a vocabulary version remain import-compatible.
+
+During reconstruction verification, freeze each complete emitted JSON before checking it and never hand-edit that output after a failure. Change the responsible reusable Skill/script or conversion/viewing program, then generate a separate new output for any retest. SVG is a temporary intermediate diagnostic for image-to-JSON reliability, not a product goal.
+
 ## Verification
 
 Before merging implementation changes, run the relevant subset and preferably all of:
@@ -89,3 +93,5 @@ The first useful release should support:
 - first-person walkthrough using the existing viewer.
 
 Avoid expanding into BIM, photorealistic rendering, structural analysis, or automatic interior design until this loop is reliable.
+
+Architectural component recognition precedes furniture. Use the Skill's fixed component vocabulary and review evidence, reference existing walls/windows/floorAreas once, and disclose missing native support for columns, stairs or floor voids. Do not treat equipment platforms/shafts/voids as usable floor or infer unseen floor connections. After every Skill revision, complete at least one fresh source application and frozen review before publishing; unit tests alone do not validate extraction.

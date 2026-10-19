@@ -5,162 +5,192 @@ description: Reconstruct a floor-plan image into provider-neutral Plan2World dra
 
 # Reconstruct Plan2World
 
-Read [references/contract.md](references/contract.md) before writing a draft. Use
-the attached image as evidence. Produce `plan2world-draft-v1` with
-`presentation: "semantic-white-model"`. Require no particular model provider,
-API key, paid service or hosted editor.
+Read [references/contract.md](references/contract.md) and the fixed
+[references/furniture-vocabulary.json](references/furniture-vocabulary.json).
+Also read [references/component-review.md](references/component-review.md) and
+[references/component-vocabulary.json](references/component-vocabulary.json).
+Use the attached image as evidence. Produce `plan2world-draft-v1` with
+`presentation: "semantic-white-model"` and
+`furnitureVocabulary: "plan2world-furniture-v1"`. Require no particular model
+provider, API key, paid service or hosted editor.
 
 ## 1. Establish one source coordinate system
 
 Establish the original raster dimensions. Work on this exact raster; map crop
 coordinates back to it. Use its top-left origin, x rightward and y downward for
-all extraction passes. Record a reliable scale anchor if visible; otherwise
-retain pixel coordinates until the final uniform conversion to cm.
+all passes. Record a reliable scale anchor if visible; otherwise retain pixels
+until the final uniform conversion to cm. Keep the original raster unchanged.
 
-The standard layered plan is the existing draft: separate `furniture`, `walls`,
-`doors` and `windows` arrays with stable IDs. Enclosed room outlines are derived
-from the shared walls. Do not introduce another interchange format or scene.
+Use the existing `walls`, `furniture`, `doors` and `windows` arrays as layers.
+The outline and inventory below are working traces, not another scene or contract.
 
-## 2. Extract furniture in bounded passes
+## 2. Trace the outer wall outline first
 
-First scan the whole plan for clearly visible furniture and fixtures. Record
-each item's stable ID, semantic type and approximate source-pixel centre. Include
-small fixtures and edge areas, not just prominent beds and sofas. Use `unknown`
-when the outline is visible but identity is unclear; do not invent hidden items.
+Follow the actual outer wall centrelines around the dwelling before labelling
+furniture. Trace zero-width lines in original pixels. Preserve recesses, diagonal
+walls, curved walls and bay-window projections; never substitute a bounding box
+or convex hull. Distinguish physical walls/glazing hosts from text, dimension
+lines, open balcony edges and equipment ledges. Keep a real host wall continuous
+across door/window interruptions; attach those openings in stage 6.
 
-Then scan spatial regions once for omissions, using overlapping crops where
-helpful. Compare with the existing inventory: refine an existing ID rather than
-adding the same object again in overlapping crops. Check kitchens, bathrooms,
-storage, balconies and the outer edges. Revisit only specific unresolved regions;
-stop after one targeted correction pass and disclose remaining uncertainty.
+Use this outline to establish architectural context. A bay projection, window
+ledge, wall pier or planter platform belongs to that context, not to the furniture
+inventory. Do not force open exterior edges to become walls. Do not infer walkable
+ground merely because the outline encloses it. Keep stable wall IDs for reuse
+when completing the interior network in stage 5.
 
-Use an overlay or inventory to mark identified objects while keeping the original
-raster unchanged and available. Erasing furniture is an optional experiment,
-not a required step. If used, preserve image dimensions/coordinates and keep the
-derived image separate. Never erase wall, door or window evidence with a furniture
-mask; verify architectural traces against the original, not filled-in pixels.
+## 3. Inventory architectural components before furniture
 
-Represent each supported item with `id`, `catalogId: "imported_object"`, a short
-`sourceCategory` and approximate centre `position`. Omit width/depth/height and
-rotation for image extraction. The program supplies editable placeholder cubes;
-size, direction, precise placement and concrete styles belong to the user's
-later editor/walkthrough stage. Check omissions, duplicates, wrong types and
-wrong broad regions; do not fail extraction on chair direction or fine alignment.
+Make a dedicated pass using exact types from `component-vocabulary.json`. Inspect
+bays/ledges, wall piers, independent columns, shafts, balconies, equipment ledges,
+fixed planters/railings, stairs and explicit floor voids. Require positive source
+evidence; do not force every shape into a type. Record normalized source location,
+evidence and floor identity in the working component inventory.
 
-## 3. Trace the wall skeleton without thickness
+This pass assigns ownership before furniture recognition. Reuse real walls,
+windows and floorAreas for component geometry; never add a duplicate solid or
+furniture block. Complete references to those native draft objects after stage 6.
+A built-in cabinet can still be furniture when its own symbol establishes it.
+Do not erase source components to clear space for furniture detection.
 
-Return to the original raster. Trace one zero-width centreline per real wall in source
-pixels. Ignore wall thickness, height, material and furniture styling at this
-stage. Do not trace both faces of a thick wall as two walls.
+For stairs, separate visible up/down direction from an established target floor.
+Never infer unseen levels, rises, layer alignment or floor holes. Identify shafts,
+equipment ledges and voids before room closure/floor filling. Read the vertical
+risk rules in `component-review.md`. Record unsupported geometry explicitly;
+recognition does not imply that the converter models a column, stair or floor void.
 
-Give each wall a stable ID. Adjacent spaces share the same wall, not independent
-room outlines. Preserve diagonal walls, recesses and voids. Use a quadratic
-`curvePoint` for a visible curve: the control is not a point on the curve;
-at t=0.5, B=(start+2*control+end)/4. Split only when curvature or a junction
-requires it, rather than producing many tiny straight facets.
+## 4. Identify real objects using the fixed vocabulary
 
-Distinguish walls/glazing from dimensions, text, furniture, cabinetry, door
-swing arcs and dashed balcony limits. Note visible door/window interruptions
-for later attachment; trace their real host wall continuously across them.
-Do not bridge an open circulation area that has no source-supported host wall.
+For each candidate, first establish a separate furniture, appliance or sanitary
+fixture from a recognizable symbol or readable label. Then choose an exact ID
+from `furniture-vocabulary.json`. These are two separate checks: a permitted word
+such as `cabinet` does not establish that a cabinet exists. A rectangular ledge,
+window bay, wall, column, floor pattern or planting platform fails the object
+check. A built-in cabinet with a recognizable cabinet symbol remains eligible.
+Visible furniture on a balcony remains eligible even outside the outer wall line.
 
-## 4. Check closed spaces and circulation
+Record only `id`, `catalogId: "imported_object"`, the permitted `sourceCategory`
+and approximate source-pixel centre. Do not invent type names, translate IDs,
+or emit `unknown`, `other` or free-form placeholder types. If object presence or
+a supported type cannot be established, leave it out of `furniture` and record
+its source region/reason in `assumptions`. Keep vocabulary gaps for deliberate
+later review; never expand the list within a reconstruction to make it pass.
 
-Review the skeleton before adding thickness or detailed openings. Walk the
-boundary of each source-supported enclosed space. Join corners/T-junctions at
-identical coordinates and check shared walls once. Fix tracing/rounding gaps
-where the source clearly shows a connection. A visible door/window gap in a
-real wall must not break its logical boundary; it becomes an opening in stage 3.
+Scan the whole plan, then scan spatial regions once for omissions and duplicates.
+Use overlapping crops when helpful and map them back to the original. Refine an
+existing inventory ID instead of adding the same object twice. Check kitchens,
+bathrooms, storage, balconies and edges. Make at most one targeted pass for
+specific unresolved regions; disclose what remains unresolved.
 
-Use closure as a consistency check against the source. Preserve open-plan
-living/dining areas as one connected space where no wall divides them. Keep
-passages, exterior voids and open balconies open. Never add a partition merely
-to make a room label, furniture group or guessed rectangle form a closed box.
-If a missing connection is obscured and cannot be supported, retain uncertainty
-and disclose it rather than silently adding a wall. A plausible closed layout
-still needs source alignment review.
+During that regional scan, keep a small coverage ledger: original-pixel region
+bounds, object inventory IDs, and readable object-related labels/abbreviations
+with their source locations. Give each such label a matching object ID or an
+explicit exclusion reason (architecture, room-use label, unsupported type or
+uncertain evidence). A room name does not establish that its usual furniture
+exists. Keep scanning unlabeled symbols too; text coverage alone is not object
+coverage. Architectural classification must not silently discard real built-in
+storage. Reconcile the ledger with the inventory before the first complete output;
+do not add another full-image pass merely to fill this ledger.
 
-The skeleton is a working trace, not a second scene or a new interchange format.
-Output shared `walls` in the final contract, not per-room polygons or duplicate
-walls. The product derives room topology from that one wall network.
+Mark recognized objects using an inventory/overlay while preserving the original.
+Furniture erasure is optional, not a required step. Never erase architectural
+evidence or verify wall traces against inpainted pixels. Omit dimensions and
+rotation: the program supplies editable placeholder cubes. Size, direction,
+precise placement and styles belong to later user editing/walkthrough. Evaluate
+object presence, permitted semantic type and broad location, not chair angles.
 
-## 5. Extract hosted doors/windows and convert units
+## 5. Complete all shared walls and check closure
+
+Return to the original and reuse the outer trace. Add the interior wall network,
+one zero-width centreline per physical wall. Ignore thickness, height and styling.
+Do not trace both faces of a thick wall or duplicate shared walls per room. Keep
+cabinet edges, furniture symbols and door swing arcs separate from walls.
+
+Use native quadratic `curvePoint` for visible curves. It is a control point, not
+a point on the curve: at t=0.5, B=(start+2*control+end)/4. Split only where a
+junction or changed curvature requires it. Reuse coordinates at shared corners
+and T-junctions. Split/reuse outer wall IDs consistently where new junctions land.
+
+Follow each source-supported enclosed boundary before adding thickness or doors.
+Fix tracing/rounding gaps only when the source supports a connection. A real
+wall's visible opening does not break its logical boundary. Preserve open-plan
+living/dining areas, passages, balconies and exterior voids. Never add partitions
+to turn furniture groups or room labels into closed boxes. Keep obscured
+connections uncertain. Closure checks consistency; it does not replace source
+alignment review. Output shared `walls`, no authored `rooms` polygons.
+
+## 6. Extract wall-hosted doors and windows
+
+Sweep the completed walls once for openings, including sliding, concealed and
+shower access. A double track alone does not establish a fixed window: use panel
+marks, access context and adjacent wall evidence. Inaccessibility is a reason to
+recheck the source, not permission to invent or widen a door.
+
+Attach every opening to an existing `wallId`, preserving its source centre and
+width. Keep its host continuous; the deterministic converter creates the aperture.
+Use ordinary doors initially. Omit window height/sill/type so the white-model
+profile supplies editable floor-to-ceiling fixed glass; disclose this assumption.
+
+## 7. Convert units, register, freeze and verify
 
 Derive one uniform cm-per-pixel scale from a legible dimension with clear
-endpoints, or an explicit user length. A printed page ratio alone cannot
-calibrate a raster without physical page size/DPI. Otherwise estimate from a
-clearly visible ordinary doorway, lower confidence, and explain the basis.
-Keep x rightward and y downward. Apply the same translation and scale to every
-wall, control point, opening width and furniture centre.
+endpoints or an explicit user length. A printed page ratio alone cannot calibrate
+a raster without physical page size/DPI. Otherwise estimate from a visible ordinary
+doorway, lower confidence and explain the basis. Keep x rightward and y downward.
+Apply one translation and scale to walls, controls, opening widths and object centres.
 
-Convert the reviewed skeleton to final wall centrelines in cm. Assign thickness
-and height only now, using source evidence when reliable or the contract's
-editable defaults. Omit uncertain optional values so normalization can apply
-those defaults. Never export thickness 0 to represent the working skeleton,
-or move its centrelines to force thickened wall faces to meet.
+Assign wall thickness/height only now, from reliable source evidence or omitted
+editable defaults. Never export thickness 0 or move centrelines to make thickened
+faces meet. The contract defaults supply physical properties; they are not source
+measurements. Furniture stays type/position only.
 
-Attach each door/window to its existing host `wallId`, preserving its source
-position and width. Keep the host wall continuous in the data; the deterministic
-renderer creates the aperture. Use ordinary doors initially. Omit window
-height/sill/type so the white-model profile supplies floor-to-ceiling fixed
-glass following wall height. Disclose these presentation assumptions.
+Register 3–6 spread-out visible wall-centreline corners/junctions. Each anchor
+references an existing endpoint and its actual normalized raster location:
+image=(px/width,py/height). Use the same transform; do not fit anchors separately.
 
-Sweep each wall once for missed openings, including sliding, concealed and
-shower access. A double-track mark is not automatically a fixed window: use its
-panel strokes, access context and adjacent wall evidence. An inaccessible space
-is a reason to recheck the source, not permission to invent or widen a door.
-
-Convert the furniture inventory using the same transform. Keep furniture and
-cabinet outlines separate from architecture throughout.
-
-## 6. Register, check and deliver
-
-Register 3–6 widely spread visible wall-centreline corners/junctions. Each
-anchor references an existing wall endpoint and its actual normalized raster
-location. For source (px,py), use image=(px/width,py/height). Use the same
-transform as stage 5; do not invent anchors or fit geometry independently.
-
-- Check every id/reference, finite cm value, positive dimension and 0..1 opening
-  position. Keep each opening wholly within its wall path. Use at least one
-  floor with walls. Output no `rooms`; the product derives room topology.
-- Check source alignment at spread-out locations, then inspect every wall,
-  opening and furniture type/approximate position against the raster. Mark ambiguous or omitted
-  features in `assumptions` and reduce their confidence.
-- For source-visible outdoor ground (balconies, terraces or exterior access
-  passages), emit optional `floorAreas` with an ordered
-  `boundary` as described in the contract. Shared sides reference existing wall
-  paths, including curves; free points/controls trace the open perimeter. These
-  create ground without solid walls or a ceiling. Do not duplicate an enclosed
-  room or infer a floor from a bounding rectangle. If limits remain uncertain,
-  omit the outline and disclose the missing ground; verify before calling it walkable.
-- When a Plan2World checkout is available, use its deterministic checker:
-  `NODE_ENV=production node tooling/inspect-plan2world-draft.mjs --draft draft.json --source source.jpg --width W --height H`.
-  Read its findings and fix invalid references, registration or impossible
-  openings. Keep a copy of the first pass when recording a verification run.
-- Review extraction before 3D with the read-only SVG tool:
+- Check IDs/references, finite cm values, optional positive dimensions and opening
+  positions in 0..1. Keep each opening wholly within its wall path. Check the fixed
+  vocabulary version and exact category IDs. The enum cannot check visual identity;
+  compare each object's presence/type/region with the original as well.
+- Emit optional `floorAreas` only for source-visible open ground with a supported
+  perimeter. Reference existing shared wall paths, including curves. Do not turn
+  railings into walls, duplicate enclosed rooms or cover blank voids. Omit uncertain
+  outlines and disclose the gap instead of calling them walkable.
+- In local verification, finish `component-review.json` as described in the component
+  reference and run its read-only checker. Report unmapped/unmodeled features
+  separately from valid references; include those gaps in draft assumptions.
+- Before freezing, reconcile inventory IDs and label decisions against the
+  serialized furniture array so accepted objects are not lost during export. In
+  local verification include the working region/label ledger in `source-evidence.json`
+  and freeze it with the draft. In a one-JSON application response keep the ledger
+  internal and disclose unresolved labels/regions in existing `assumptions`.
+- Freeze the complete emitted JSON and component inventory before verification. Preserve them even if checks
+  fail. Never hand-edit a verification output to make a picture or test pass.
+- With a Plan2World checkout, run its existing deterministic checker:
+  `NODE_ENV=production node tooling/inspect-plan2world-draft.mjs --draft draft.json --source source.jpg --width W --height H --require-furniture-vocabulary true`.
+- Use SVG only as an intermediate diagnostic for image-to-JSON reliability:
   `node tooling/render-plan2world-svg.mjs --draft draft.json --output review`.
-  Compare `plan.svg` with the original by furniture, walls, doors and windows.
-  Add `--source source.jpg --width W --height H` for `overlay.svg` only when
-  source anchors are accepted. The tool never fits bounds, infers rooms or
-  repairs geometry. It shows furniture position markers when dimensions are
-  omitted; marker radius is not a physical footprint.
-- If SVG looks wrong, freeze the JSON and compare the relevant entry with the
-  source first. If the entry is correct but SVG projects it incorrectly, fix and
-  test the SVG program with that fixed input. If the entry is incorrect, revise
-  the Skill or its extraction script and regenerate from the original source.
-  Manually patching a sample JSON is not evidence of a reusable Skill fix.
-  Isolate later 3D, viewing and editing faults in their own stages. Report
-  contract validity, source alignment and layer completeness separately.
-- Deliver the JSON and a short review note: scale basis, uncertain geometry,
-  omitted elements, and checks actually performed. Distinguish structural
-  validity from visual correctness; never call a draft accurate merely because
-  it parses or because existing tests pass.
-- For a new reconstruction verification, use the source image and this skill.
-  Do not read saved candidates or source-reference annotations before finishing
-  the first pass. Never redistribute a user's source raster without permission.
+  Add `--source source.jpg --width W --height H` for an overlay when source anchors
+  are accepted. The read-only tool does not infer rooms or repair geometry. Furniture
+  position markers do not assert a physical footprint. Do not polish SVG as a goal.
+- If a review fails, compare original → frozen JSON first, then frozen JSON → SVG.
+  Revise the responsible reusable Skill/extraction script or program. Regenerate a
+  separate output from the original for any retest. Hand-corrected candidates do
+  not demonstrate Skill improvement. Isolate later 3D/viewing/editing failures in
+  their own stages; never compensate there for incorrect extraction.
+- Deliver JSON and a short note separating contract validity, source alignment and
+  completeness. Report component mappings/native gaps, vocabulary gaps, uncertain geometry, omitted objects, scale
+  basis and checks actually performed. Parsing alone does not establish accuracy.
+- For new verification, use the source and this Skill. Do not read old candidates
+  or reference annotations before completing the first pass. Never redistribute
+  source images without permission.
 
-Stop when the requested draft and source-completeness review are delivered.
-Do not expand a reconstruction into exhaustive collision, navigation, model-style
-or browser-matrix audits unless the user requests that work. Structural checks
-cannot prove visual completeness; report remaining omissions instead of repeating
-full reconstructions until every warning disappears.
+Stop at the requested draft/source review. Do not expand into collision, navigation,
+model styling or browser-matrix audits unless requested. Preserve unresolved issues
+instead of repeating full reconstructions until every warning disappears.
+
+After each Skill revision, run at least one fresh source-to-JSON application before
+publishing the revision. Freeze that run, use source review plus the intermediate
+SVG/checkers, and report actual failures. Do not substitute unit tests or a manually
+corrected old candidate for this application. Do not claim duplex/stair support
+from tests that only contain single-floor source images.
