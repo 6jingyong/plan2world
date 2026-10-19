@@ -274,6 +274,10 @@ function parseFurniture(value: unknown, path: string): DraftFurniture {
 
 function parseComponent(value: unknown, path: string): DraftComponent {
   const v = record(value, path);
+  const allowed = new Set(['id', 'type', 'position', 'geometryRefs', 'vertical', 'confidence']);
+  for (const key of Object.keys(v)) {
+    if (!allowed.has(key)) throw new Plan2WorldDraftError(`${path}.${key} is not allowed; component scene policy is registry-owned`);
+  }
   const type = stringValue(v.type, `${path}.type`);
   if (!isPlan2WorldComponentType(type)) {
     throw new Plan2WorldDraftError(`${path}.type ${type} is not in ${PLAN2WORLD_COMPONENT_VOCABULARY}`);
@@ -285,6 +289,8 @@ function parseComponent(value: unknown, path: string): DraftComponent {
   const geometryRefs: DraftComponentGeometryRef[] = ((v.geometryRefs ?? []) as unknown[]).map((raw, index) => {
     const refPath = `${path}.geometryRefs[${index}]`;
     const ref = record(raw, refPath);
+    const refAllowed = new Set(['kind', 'id']);
+    for (const key of Object.keys(ref)) if (!refAllowed.has(key)) throw new Plan2WorldDraftError(`${refPath}.${key} is not allowed`);
     const kind = enumValue(ref.kind, ['wall', 'door', 'window', 'floorArea'] as const, 'wall', `${refPath}.kind`);
     const id = stringValue(ref.id, `${refPath}.id`);
     const key = `${kind}:${id}`;
@@ -296,6 +302,8 @@ function parseComponent(value: unknown, path: string): DraftComponent {
   if (v.vertical !== undefined) {
     if (type !== 'stair') throw new Plan2WorldDraftError(`${path}.vertical is only valid for stair components`);
     const raw = record(v.vertical, `${path}.vertical`);
+    const verticalAllowed = new Set(['direction', 'toFloorId']);
+    for (const key of Object.keys(raw)) if (!verticalAllowed.has(key)) throw new Plan2WorldDraftError(`${path}.vertical.${key} is not allowed`);
     vertical = {
       direction: raw.direction === undefined ? undefined : enumValue(raw.direction, ['up', 'down'] as const, 'up', `${path}.vertical.direction`),
       toFloorId: raw.toFloorId === undefined ? undefined : stringValue(raw.toFloorId, `${path}.vertical.toFloorId`),
