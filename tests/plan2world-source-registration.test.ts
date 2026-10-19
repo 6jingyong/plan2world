@@ -53,12 +53,10 @@ describe('Plan2World source registration', () => {
     });
   });
 
-  it('ignores malformed optional registration without rejecting valid geometry', () => {
+  it('rejects malformed source registration instead of silently discarding it', () => {
     const raw = rectangleDraft();
     raw.sourceRegistration.anchors[0].image.x = 1.5;
-    const parsed = parsePlan2WorldDraft(raw);
-    expect(parsed.floors[0].walls).toHaveLength(4);
-    expect(parsed.sourceRegistration).toBeUndefined();
+    expect(() => parsePlan2WorldDraft(raw)).toThrow(/between 0 and 1/i);
   });
 
   it('uses source anchors to remove screenshot margins instead of stretching the plan to the full raster', () => {
@@ -128,16 +126,17 @@ describe('Plan2World source registration', () => {
     )).toBeCloseTo(800, 8);
   });
 
-  it('falls back to deterministic wall-bounds fitting when three AI anchors are inconsistent', () => {
+  it('rejects inconsistent registration instead of hiding it with wall-bounds fitting', () => {
     const raw = rectangleDraft();
     raw.sourceRegistration.anchors = [
       { wallId: 'w1', endpoint: 'start', image: { x: 0.1, y: 0.125 } },
       { wallId: 'w1', endpoint: 'end', image: { x: 0.9, y: 0.125 } },
       { wallId: 'w3', endpoint: 'start', image: { x: 0.2, y: 0.2 } },
     ];
-    const project = draftToProjectWithSourceBackground(raw, source, new Date('2026-10-15T00:00:00Z'));
-    expect(project.floors[0].backgroundImage?.scale).toBeCloseTo(0.4, 8);
-    expect(project.floors[0].backgroundImage?.position).toEqual({ x: 200, y: 150 });
-    expect(project.floors[0].backgroundImage?.rotation).toBe(0);
+    expect(() => draftToProjectWithSourceBackground(
+      raw,
+      source,
+      new Date('2026-10-15T00:00:00Z'),
+    )).toThrow(/registration anchors are inconsistent/i);
   });
 });
