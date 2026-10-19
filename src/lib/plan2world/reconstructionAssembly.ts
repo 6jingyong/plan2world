@@ -35,6 +35,11 @@ export interface SourceAnnotationV1 {
   assumptions?: string[];
 }
 
+export interface ReconstructionAssemblyContext {
+  sourceWidthPx?: number;
+  sourceHeightPx?: number;
+}
+
 function record(value: unknown, path: string): Record<string, any> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${path} must be an object`);
   return value as Record<string, any>;
@@ -129,7 +134,63 @@ export function parseSourceAnnotation(value: unknown): SourceAnnotationV1 {
   return { schemaVersion: SOURCE_ANNOTATION_VERSION, scaleEvidence, openings: parsedOpenings, furniture: parsedFurniture, assumptions: parsedAssumptions };
 }
 
-export function assemblePlan2WorldDraft(bareHouse: BareHouseV1, annotationInput: unknown): Plan2WorldDraft {
+function deterministicSourceRegistration(bareHouse: BareHouseV1, context: ReconstructionAssemblyContext) {
+  const hasWidth = context.sourceWidthPx !== undefined;
+  const hasHeight = context.sourceHeightPx !== undefined;
+  if (!hasWidth && !hasHeight) return undefined;
+  if (!hasWidth || !hasHeight) throw new Error('source registration requires both sourceWidthPx and sourceHeightPx');
+  const width = positive(context.sourceWidthPx, 'sourceWidthPx');
+  const height = positive(context.sourceHeightPx, 'sourceHeightPx');
+
+  const candidates: { wallId: string; endpoint: 'start' | 'end'; point: DraftPoint }[] = [];
+  const seen = new Set<string>();
+  for (const wall of bareHouse.walls) {
+    for (const endpoint of ['start', 'end'] as const) {
+      const p = wall[endpoint];
+      if (p.x < 0 || p.x > width || p.y < 0 || p.y > height) continue;
+      const key = `${p.x.toFixed(6)},${p.y.toFixed(6)}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      candidates.push({ wallId: wall.id, endpoint, point: p });
+    }
+  }
+  if (candidates.length < 2) return undefined;
+
+  // Deterministic farthest-point sampling keeps anchors spread over the source.
+  candidates.sort((a, b) => (a.point.x + a.point.y) - (b.point.x + b.point.y) || a.point.x - b.point.x || a.point.y - b.point.y || a.wallId.localeCompare(b.wallId));
+  const selected = [candidates[0]];
+  while (selected.length < Math.min(6, candidates.length)) {
+    let best: typeof candidates[number] | undefined;
+    let bestDistance = -1;
+    for (const candidate of candidates) {
+      if (selected.includes(candidate)) continue;
+      const distance = Math.min(...selected.map(item => Math.hypot(candidate.point.x - item.point.x, candidate.point.y - item.point.y)));
+      if (distance > bestDistance + 1e-9) {
+        best = candidate;
+        bestDistance = distance;
+      }
+    }
+    if (!best || bestDistance <= 1e-9) break;
+    selected.push(best);
+  }
+  if (selected.length < 2) return undefined;
+
+  return {
+    floorId: 'floor-0',
+    confidence: 1,
+    anchors: selected.map(item => ({
+      wallId: item.wallId,
+      endpoint: item.endpoint,
+      image: { x: item.point.x / width, y: item.point.y / height },
+    })),
+  };
+}
+
+export function assemblePlan2WorldDraft(
+  bareHouse: BareHouseV1,
+  annotationInput: unknown,
+  context: ReconstructionAssemblyContext = {},
+): Plan2WorldDraft {
   const annotation = parseSourceAnnotation(annotationInput);
   const scalePixels = Math.hypot(
     annotation.scaleEvidence.endpoints[1].x - annotation.scaleEvidence.endpoints[0].x,
@@ -165,6 +226,7 @@ export function assemblePlan2WorldDraft(bareHouse: BareHouseV1, annotationInput:
     ...(annotation.assumptions ?? []),
     ...openingReview.warnings.map(item => `Opening ${item.id}: ${item.message}`),
   ];
+  const sourceRegistration = deterministicSourceRegistration(bareHouse, context);
 
   const draft = {
     schemaVersion: 'plan2world-draft-v1',
@@ -178,6 +240,7 @@ export function assemblePlan2WorldDraft(bareHouse: BareHouseV1, annotationInput:
       basis: annotation.scaleEvidence.basis,
     },
     ...(assumptions.length ? { assumptions } : {}),
+    ...(sourceRegistration ? { sourceRegistration } : {}),
     floors: [{
       id: 'floor-0',
       name: 'Ground Floor',
