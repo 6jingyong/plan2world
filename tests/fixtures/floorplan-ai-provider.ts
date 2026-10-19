@@ -29,6 +29,7 @@ const draft = {
 };
 
 export function createFloorPlanAIProvider(onRequest: (request: FloorPlanProviderRequest) => void = () => {}, responseDraft: object = draft) {
+  let callCount = 0;
   return createServer(async (request, response) => {
     const origin = request.headers.origin;
     if (origin && /^http:\/\/127\.0\.0\.1:\d+$/.test(origin)) response.setHeader('Access-Control-Allow-Origin', origin);
@@ -50,9 +51,13 @@ export function createFloorPlanAIProvider(onRequest: (request: FloorPlanProvider
       response.end(JSON.stringify({ error: 'Unknown test endpoint' }));
       return;
     }
+    const pass = callCount++ % 2;
+    const output = pass === 0
+      ? { schemaVersion: 'source-wall-trace-v1', walls: (responseDraft as any).floors[0].walls.map((wall: any) => ({ id: wall.id, start: wall.start, end: wall.end, ...(wall.curvePoint ? { curvePoint: wall.curvePoint } : {}) })), doorGaps: [] }
+      : responseDraft;
     response.writeHead(200, { 'Content-Type': 'application/json' });
     response.end(JSON.stringify({
-      output: [{ type: 'message', content: [{ type: 'output_text', text: JSON.stringify(responseDraft) }] }],
+      output: [{ type: 'message', content: [{ type: 'output_text', text: JSON.stringify(output) }] }],
     }));
   });
 }
