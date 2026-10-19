@@ -44,6 +44,27 @@ describe('source wall graph normalization', () => {
     expect(result.snappedEndpointCount).toBeGreaterThan(0);
   });
 
+  it('bridges an explicitly observed door gap without model-authored wall IDs', () => {
+    const result = normalizeSourceWallGraph({
+      walls: [
+        { id: 'left-run', start: { x: 0, y: 0 }, end: { x: 40, y: 0 } },
+        { id: 'right-run', start: { x: 60, y: 0 }, end: { x: 100, y: 0 } },
+      ],
+      doorGaps: [{ id: 'door-gap', from: { x: 40, y: 0 }, to: { x: 60, y: 0 } }],
+    });
+    expect(wallById(result, 'door-gap')).toMatchObject({ start: { x: 40, y: 0 }, end: { x: 60, y: 0 } });
+  });
+
+  it('rejects model-authored door-gap host IDs', () => {
+    expect(() => normalizeSourceWallGraph({
+      walls: [
+        { id: 'a', start: { x: 0, y: 0 }, end: { x: 40, y: 0 } },
+        { id: 'b', start: { x: 60, y: 0 }, end: { x: 100, y: 0 } },
+      ],
+      doorGaps: [{ id: 'gap', fromWallId: 'a', toWallId: 'b', from: { x: 40, y: 0 }, to: { x: 60, y: 0 } }],
+    })).toThrow(/host IDs are program-owned/);
+  });
+
   it('refuses to bridge a genuine unsupported gap', () => {
     const input = tRoom();
     input.walls[1].start.x = 110;
