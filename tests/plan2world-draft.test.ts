@@ -73,6 +73,15 @@ it('requires the fixed component vocabulary and same-floor references', () => {
   expect(() => parsePlan2WorldDraft(input)).toThrow(/unknown wall missing/);
 });
 
+it('rejects model-authored scene policy inside components', () => {
+  const input = rectangleDraft();
+  input.componentVocabulary = 'plan2world-components-v2';
+  input.floors[0].components = [{
+    id: 'c1', type: 'shaft', position: { x: 40, y: 40 }, geometryRefs: [{ kind: 'wall', id: 'w1' }], sceneEffect: 'void',
+  }];
+  expect(() => parsePlan2WorldDraft(input)).toThrow(/scene policy is registry-owned/);
+});
+
 it('rejects openings that reference a wall that does not exist', () => {
   const draft = rectangleDraft();
   draft.floors[0].doors[0].wallId = 'missing-wall';
