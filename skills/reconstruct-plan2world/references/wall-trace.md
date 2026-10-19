@@ -9,16 +9,11 @@ Output `source-wall-trace-v1`:
 {
   "schemaVersion":"source-wall-trace-v1",
   "walls":[
-    {"id":"w1","start":{"x":120,"y":80},"end":{"x":520,"y":80}}
+    {"id":"w1","start":{"x":120,"y":80},"end":{"x":300,"y":80}},
+    {"id":"w2","start":{"x":380,"y":80},"end":{"x":520,"y":80}}
   ],
   "doorGaps":[
-    {
-      "id":"gap1",
-      "fromWallId":"w1a",
-      "toWallId":"w1b",
-      "from":{"x":300,"y":80},
-      "to":{"x":380,"y":80}
-    }
+    {"id":"gap1","from":{"x":300,"y":80},"to":{"x":380,"y":80}}
   ]
 }
 ```
@@ -28,10 +23,12 @@ The model owns only visual tracing:
 - zero-width wall centrelines in original raster pixels;
 - optional `curvePoint` for one visible quadratic curve;
 - stable raw wall IDs;
-- `doorGaps` only when a visible door symbol interrupts one logical wall stroke.
+- `doorGaps` only when a visible door symbol interrupts one logical wall stroke;
+- for each gap, only the two observed source-pixel endpoints.
 
 The model must not:
 
+- choose `fromWallId` / `toWallId` for a door gap;
 - convert pixels to centimetres;
 - use printed dimension-chain numbers as wall coordinates;
 - split walls at T-junctions merely for topology;
@@ -41,7 +38,8 @@ The model must not:
 - add thickness, height, rendering or scene fields.
 
 A long raw wall may cross several later rooms. That is intentional: deterministic
-normalization owns intersections, splitting and small endpoint snapping.
+normalization owns intersections, splitting, small endpoint snapping and matching
+door-gap endpoints to the two observed wall segments they interrupt.
 
 After this pass, hand the JSON directly to:
 
