@@ -1,7 +1,8 @@
-import type { Door, Floor, FurnitureItem, Project, Wall, Window } from '$lib/models/types';
+import type { Door, Floor, FurnitureItem, Project, Room, Wall, Window } from '$lib/models/types';
 import { resolveRooms } from '$lib/utils/roomDetection';
 import {
   PLAN2WORLD_DRAFT_VERSION,
+  Plan2WorldDraftError,
   parsePlan2WorldDraft,
   type DraftFloor,
   type DraftWall,
@@ -20,6 +21,35 @@ const DEFAULTS = {
 function wallThickness(wall: DraftWall): number {
   if (wall.thickness !== undefined) return wall.thickness;
   return wall.kind === 'exterior' ? DEFAULTS.exteriorWallThickness : DEFAULTS.interiorWallThickness;
+}
+
+function wallSetKey(wallIds: readonly string[]): string {
+  return JSON.stringify([...wallIds].sort());
+}
+
+function applyFloorOpenings(draft: DraftFloor, rooms: Room[]): Map<string, Room> {
+  const replacements = new Map<string, Room>();
+  for (const opening of draft.floorOpenings ?? []) {
+    const target = wallSetKey(opening.wallIds);
+    const matches = rooms.filter(room => !room.boundary && wallSetKey(room.walls) === target);
+    if (matches.length !== 1) {
+      throw new Plan2WorldDraftError(
+        `Floor ${draft.id}: floor opening ${opening.id} must match exactly one enclosed wall-derived room; found ${matches.length}`,
+      );
+    }
+    const room = matches[0];
+    if (replacements.has(room.id)) {
+      throw new Plan2WorldDraftError(`Floor ${draft.id}: multiple floor openings target the same enclosed room`);
+    }
+    replacements.set(room.id, {
+      ...room,
+      id: opening.id,
+      name: opening.name,
+      floorOpening: true,
+      area: 0,
+    });
+  }
+  return replacements;
 }
 
 function toFloor(draft: DraftFloor, presentation: Plan2WorldDraft['presentation'] | undefined, roomIdSeed: string): Floor {
@@ -87,13 +117,22 @@ function toFloor(draft: DraftFloor, presentation: Plan2WorldDraft['presentation'
     groups: [],
   };
 
+  const resolvedRooms = resolveRooms(floor);
+  const floorOpeningRooms = applyFloorOpenings(draft, resolvedRooms);
+
   // resolveRooms intentionally uses wall-clock IDs for newly detected rooms in the
   // interactive editor. At this conversion boundary we replace only those transient
   // IDs so the same validated draft + conversion seed produces the same native artifact.
+  // Authored floor-opening IDs are already stable and must survive this normalization.
   let detectedRoomIndex = 0;
-  floor.rooms = resolveRooms(floor).map(room => room.boundary ? room : {
-    ...room,
-    id: `plan2world-room-${draft.id}-${++detectedRoomIndex}-${roomIdSeed}`,
+  floor.rooms = resolvedRooms.map(room => {
+    if (room.boundary) return room;
+    const opening = floorOpeningRooms.get(room.id);
+    if (opening) return opening;
+    return {
+      ...room,
+      id: `plan2world-room-${draft.id}-${++detectedRoomIndex}-${roomIdSeed}`,
+    };
   });
   return floor;
 }
@@ -121,6 +160,7 @@ export function validatedDraftToProject(draft: Plan2WorldDraft, now = new Date()
         doors: (floor.doors ?? []).map(({ id, confidence }) => ({ id, confidence })),
         windows: (floor.windows ?? []).map(({ id, confidence }) => ({ id, confidence })),
         ...(floor.floorAreas?.length ? { floorAreas: floor.floorAreas.map(({ id, confidence }) => ({ id, confidence })) } : {}),
+        ...(floor.floorOpenings?.length ? { floorOpenings: floor.floorOpenings.map(({ id, confidence }) => ({ id, confidence })) } : {}),
       })),
     },
     description: `Imported from ${PLAN2WORLD_DRAFT_VERSION}. ${scaleDescription}${assumptions}`,
