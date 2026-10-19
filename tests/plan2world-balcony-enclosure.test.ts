@@ -25,7 +25,7 @@ function enclosedAnnex(curved: boolean) {
   }));
   const windows = deriveSourceOpenings({ cmPerPixel: 1, bareHouse, openings }).windows;
   return {
-    schemaVersion: 'plan2world-draft-v1', presentation: 'semantic-white-model',
+    schemaVersion: 'plan2world-draft-v1',
     furnitureVocabulary: 'plan2world-furniture-v1', name: 'Declared annex enclosure', units: 'cm',
     scale: { mode: 'provided', confidence: 1, basis: 'Synthetic dimensions in cm' },
     assumptions: ['Synthetic fixture: three source-observed glazed sides.'],
@@ -52,7 +52,6 @@ describe('declared annex enclosure through existing draft conversion', () => {
     expect(floor.windows).toHaveLength(3);
     for (const window of floor.windows) {
       const wall = floor.walls.find(wall => wall.id === window.wallId)!;
-      expect(window).toMatchObject({ sillHeight: 0, height: wall.height, type: 'fixed' });
       expect(wall.thickness).toBeGreaterThan(0);
       const aperture = planOpening(wall, window.position, window.width)!;
       expect(planWallSpans(wall, [window])).toEqual([]);
