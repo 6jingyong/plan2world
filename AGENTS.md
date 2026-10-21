@@ -6,21 +6,95 @@ Plan2World turns a floor-plan raster into an editable browser home while reusing
 
 ## Canonical reconstruction
 
-**source raster → wall evidence → deterministic Bare House → semantic evidence → deterministic draft assembly → native application**
+**source raster → one architectural observation (functional zones/walls/openings/scale), freeze those observations → furniture semantics/positions → deterministic raster refinement + functional-zone logical closure + opening audit → freeze final architecture and furniture anchors → deterministic draft assembly → native application**
 
-- Wall evidence is `source-wall-trace-v1` in original image pixels.
+- The direct Skill records `source-architecture-v1` in original image pixels,
+  including concise visual evidence, decisions and uncertain/rejected candidates.
+- Wall evidence `source-wall-trace-v1` is projected from that observation by code.
 - The normalizer owns intersections, splitting, snapping and evidenced door-gap connectivity.
-- Semantic evidence is `source-annotation-v1`: scale evidence, openings and fixed-vocabulary furniture positions only.
+- Optional visible junction points remain source-pixel evidence without wall IDs.
+  Source-topology review reports near misses beyond conservative snapping; it
+  never extends walls. Indoor connectivity review uses native collisions inside
+  indoor regions, excluding furniture/exterior detours, and never adds entrances.
+- The architectural OBSERVATIONS are frozen before `source-furnishing-v1`;
+  the furniture observer cannot add/remove/reconsider openings or walls/scale.
+  Furniture positions reach the program BEFORE final closure. Programs select
+  bounded continuations of observed wall endpoints using furnished closed
+  regions and existing entrances, then freeze final geometry and those anchors.
+- Programs project accepted evidence into the existing `source-annotation-v1`
+  assembler contract. Browser, CLI and portable Skill share this order; the
+  architecture prompt includes functionalZones in the same observation. Direct Skill tests do not
+  establish external-model extraction quality.
+- The browser decodes original pixels; the Skill/CLI uses `prepare --source original.jpg`. Neutral-ink evidence is frozen for replay. Raster-supported continuations and bounded, unique window-junction refinement run before final architecture freeze; they add zero model calls and retain original observations and decision audits. Geometry-only callers without pixels are an explicit compatibility/ablation path.
+- Centerline correction is DISABLED in browser and CLI generation. Whole-image ridge/furniture-weight/fit diagnostics run only through the explicit read-only review command; their unapproved candidates never enter closure or assembly. Do not re-enable correction, project openings with candidate lines, or move junctions from a review. See `docs/raster-centerlines.md`. Independent relative geometry uses one divisor for both axes; native centimetre calibration remains uniform.
 - The assembler owns IDs, host matching, cm conversion, opening width/position, furniture catalog IDs, source registration and `plan2world-draft-v1`.
 - The existing application owns room derivation, editing, rendering, collision, walkthrough and persistence.
 
 Core rule: **LLM observes; programs calculate and assemble.**
 
+## Furnished-space enclosure prior
+
+User-defined default: a furnished indoor space is expected to have a fully
+closed logical architectural boundary. Door/window/passage host baselines count
+toward that boundary; a closed boundary does not mean a room without entrances.
+Extract furniture semantics/positions before final program closure. Furnishing
+is algorithm input, not an added visual wall-identification pass or a stronger
+wall prompt. Collect functionalZones in the architectural observation; do not add a third
+LLM call. Keep furniture semantics/position-only.
+
+The deterministic closure program may choose local connections already supported
+by observed wall continuations and nearby observed boundaries, using whether
+they create additional furnished regions with observed entrances. Record each
+source-to-normalized endpoint move and its before/after metrics. Never invent
+an unsupported wall, move furniture, or overwrite generated JSON/3D to make a
+case pass. Once final geometry and guiding anchors are frozen, later edits to
+either observation require a new stage. Original observations stay unchanged.
+
+Furniture anchors outside closed regions remain review findings when no safe
+candidate exists; incorrect anchor positions are also possible. An occupied
+enclosure that needs several jointly useful connections can remain unresolved
+by the current conservative single-connection algorithm.
+
+An open kitchen/living/dining arrangement can share one enclosing boundary;
+furniture objects or clusters do not each imply separate rooms. Outdoor/balcony furniture does not imply opaque surrounding walls. Every
+accepted balcony still requires a closed logical boundary, using glazing,
+railing or an explicit invisible air boundary where source-supported. A closed region
+can still merge several rooms incorrectly, so check source-supported internal
+partitions and junctions separately. Furniture containment is not a source-
+acceptance verdict.
+
+## Functional zones and traversable components
+
+The user's "通行区" here means a mutually reachable collection of spaces,
+not merely a circulation corridor. One traversable component may contain
+several independent functional zones. This is a containment/connectivity
+relationship, not a universal comparison of floor areas or region counts.
+
+A doorless walk-in closet can be an independent functional zone. Its logical
+boundary includes the entrance baseline, while that entrance remains passable.
+Use the existing `door.type: "opening"` for a source-supported leafless passage:
+it closes the logical host baseline for room derivation without adding a door
+leaf or blocking the aperture. A window remains a window, even when full-height.
+
+Furniture supports functional-zone inference but does not by itself establish
+a unique boundary, entrance position or entrance width. Record real wall
+evidence separately from any proposed logical entrance span. Such a span needs
+source-supported aperture/jamb/partition-end evidence; do not partition every
+furniture cluster, bridge exterior recesses, or invent physical walls. In a
+fully open arrangement without a supported threshold, keep the functional
+subdivision uncertain. The functional-zone program inserts uncovered explicit
+passage/railing/air spans, then tries bounded wall-end connections using native
+zone separation and furniture preservation. Balconies are independent logical
+enclosures even without furniture. Air boundaries are invisible native walls
+with collision; railings start at an editable 110cm, not an observed height.
+The legacy furniture-only closure is a compatibility path without zone evidence.
+
 ## Fix the earliest wrong artifact
 
-- wrong visible wall evidence → wall pass;
+- wrong visible wall/opening/scale evidence → architecture observation;
 - wrong split/snap/topology → normalizer;
-- wrong scale/opening/furniture evidence → annotation pass;
+- wrong furniture evidence → furniture observation;
+- changed architecture after furniture assembly → program integrity check;
 - wrong host match, units, IDs, registration or final draft → assembler/parser;
 - wrong room/2D/3D/collision/walkthrough → downstream application.
 
@@ -49,7 +123,10 @@ Use `schemas/plan2world-draft-v1.schema.json` and `docs/plan2world-draft-v1.md`.
 - current semantic reconstruction declares `furnitureVocabulary: "plan2world-furniture-v1"`;
 - fixed-vocabulary furniture uses `catalogId: "imported_object"` plus exact `sourceCategory` and source-supported position;
 - `imported_object` renders as an editable native block; no project-wide presentation flag is required;
-- ordinary missing window defaults remain 120 cm height, 90 cm sill and standard type;
+- initial reconstructed doors/windows extend from floor to host wall height,
+  with window sill 0; this editable product default is not image evidence;
+- furniture extraction owns semantics/position only; non-colliding selectable
+  markers, replacement and snapping are application responsibilities;
 - source-supported open ground may use `floorAreas`; never invent walls merely to force closure.
 
 ## Product invariants

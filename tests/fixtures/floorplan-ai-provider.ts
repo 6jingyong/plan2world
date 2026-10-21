@@ -108,6 +108,14 @@ function annotationForFixture(fixtureDraft: any, evidence: ReturnType<typeof evi
 export function createFloorPlanAIProvider(onRequest: (request: FloorPlanProviderRequest) => void = () => {}, fixtureDraft: object = defaultFixtureDraft, options: FloorPlanProviderFixtureOptions = {}) {
   let callCount = 0;
   const evidence = evidenceForFixture(fixtureDraft, options), annotation = annotationForFixture(fixtureDraft, evidence);
+  const decision = { decision: 'accept', evidence: 'Declared synthetic source evidence.', decisionBasis: 'Declared fixture geometry.' };
+  const architecture = { schemaVersion: 'source-architecture-v1', scaleEvidence: annotation.scaleEvidence,
+    ...(fixtureDraft === defaultFixtureDraft ? { functionalZones: [{ ...decision, label: 'Mock living area', category: 'living', environment: 'indoor',
+      position: { x: 200, y: 150 }, boundary: evidence.walls.map((wall: Wall) => ({ point: wall.start, kind: 'wall', evidence: 'Declared synthetic perimeter.' })) }] } : {}),
+    walls: evidence.walls.map(({ id: _id, ...wall }: Wall, index: number) => ({ ...wall, ...decision, label: `boundary ${index + 1}` })),
+    openings: annotation.openings.map((opening, index) => ({ ...opening, ...decision, label: `opening ${index + 1}` })),
+    assumptions: annotation.assumptions, doorGaps: [] };
+  const furnishing = { schemaVersion: 'source-furnishing-v1', furniture: annotation.furniture, assumptions: [] };
   return createServer(async (request, response) => {
     const origin = request.headers.origin;
     if (origin && /^http:\/\/127\.0\.0\.1:\d+$/.test(origin)) response.setHeader('Access-Control-Allow-Origin', origin);
@@ -117,9 +125,7 @@ export function createFloorPlanAIProvider(onRequest: (request: FloorPlanProvider
     let body: Record<string,any> = {}; try { body = chunks.length ? JSON.parse(Buffer.concat(chunks).toString()) : {}; } catch { response.writeHead(400); response.end(); return; }
     const path = request.url || ''; onRequest({ path, method: request.method || '', body });
     if (!path.endsWith('/responses') || request.method !== 'POST') { response.writeHead(404, {'Content-Type':'application/json'}); response.end(JSON.stringify({ error: 'Unknown test endpoint' })); return; }
-    const output = callCount++ % 2 === 0
-      ? { schemaVersion: 'source-wall-trace-v1', walls: evidence.walls.map(({ id: _id, ...wall }: Wall) => wall), doorGaps: [] }
-      : annotation;
+    const output = callCount++ % 2 === 0 ? architecture : furnishing;
     response.writeHead(200, {'Content-Type':'application/json'});
     response.end(JSON.stringify({ output: [{ type:'message', content:[{ type:'output_text', text:JSON.stringify(output) }] }] }));
   });

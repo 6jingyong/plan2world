@@ -140,7 +140,7 @@ export function detectRooms(walls: Wall[]): Room[] {
   return detectSplitRooms(splitWallsAtJunctions(walls));
 }
 
-function detectSplitRooms(splitEdges: Edge[]): Room[] {
+function detectSplitRooms(splitEdges: Edge[], facePolygons?: Map<string, Point[]>): Room[] {
   // Build adjacency: collect unique vertices & edges
   const vertices: Point[] = [];
   const edges: Edge[] = [];
@@ -186,7 +186,7 @@ function detectSplitRooms(splitEdges: Edge[]): Room[] {
   let roomCount = 0;
 
   // A cycle cannot visit more edges than exist in the graph.
-  const maxCycleSteps = edges.length + 1;
+  const maxCycleSteps = edges.length * 2 + 1;
 
   for (const e of edges) {
     const si = findOrAddVertex(e.start);
@@ -248,7 +248,18 @@ function detectSplitRooms(splitEdges: Edge[]): Room[] {
       // With this traversal (smallest CCW turn from the reverse-direction) in
       // screen coordinates, interior faces have positive signed area and the
       // outer (unbounded) face is negative — skip it so it isn't counted as a room.
-      const poly = cycle.slice(0, -1).map(i => vertices[i]);
+      // A face walk can visit an attached dead-end wall in both directions.
+      // Remove only those exact backtracks, retaining the actual closed face
+      // instead of later reconstructing it greedily from unordered wall IDs.
+      const ring: number[] = [];
+      for (const vertex of cycle) {
+        if (ring.length >= 2 && ring[ring.length - 2] === vertex) ring.pop();
+        else ring.push(vertex);
+      }
+      if (ring[0] === ring[ring.length - 1]) ring.pop();
+      while (ring.length > 2 && ring[1] === ring[ring.length - 1]) { ring.shift(); ring.pop(); }
+      if (ring.length < 3) continue;
+      const poly = ring.map(i => vertices[i]);
       const signedArea = shoelace(poly);
       if (signedArea <= 0) continue;
       const area = signedArea;
@@ -270,13 +281,15 @@ function detectSplitRooms(splitEdges: Edge[]): Room[] {
 
       roomCount++;
       polygons.push(poly);
-      rooms.push({
+      const room: Room = {
         id: `room-${roomCount}-${Date.now()}`,
         name: `Room ${roomCount}`,
         walls: uniqueWalls,
         floorTexture: 'hardwood',
         area: Math.round(area / 10000 * 100) / 100, // cm² to m²
-      });
+      };
+      rooms.push(room);
+      facePolygons?.set(room.id, poly.map(p => ({ ...p })));
     }
   }
 
@@ -299,7 +312,7 @@ export function resolveRooms(floor: Pick<Floor, 'walls' | 'rooms'>, previousRoom
  */
 export function resolveRoomGeometry(floor: Pick<Floor, 'walls' | 'rooms'>, previousRooms: Room[] = []) {
   const edges = splitWallsAtJunctions(floor.walls);
-  const detected = resolveSplitRooms(floor, previousRooms, edges).map(room => ({ room, polygon: polygonFromEdges(room, edges) }));
+  const detected = resolveSplitRooms(floor, previousRooms, edges);
   const explicit = (floor.rooms ?? []).filter(room => room.boundary !== undefined).map(room => ({
     room, polygon: floorBoundaryProblem(room.boundary!, floor.walls) ? [] : floorBoundaryPolygon(room.boundary!, floor.walls),
   }));
@@ -311,7 +324,7 @@ export function resolveRoomGeometry(floor: Pick<Floor, 'walls' | 'rooms'>, previ
   }));
 }
 
-function resolveSplitRooms(floor: Pick<Floor, 'walls' | 'rooms'>, previousRooms: Room[], splitEdges: Edge[]): Room[] {
+function resolveSplitRooms(floor: Pick<Floor, 'walls' | 'rooms'>, previousRooms: Room[], splitEdges: Edge[]): { room: Room; polygon: Point[] }[] {
   // Include coincident source aliases when matching saved boundaries. Adding a
   // duplicate wall must not discard a room's name or finish. Ambiguous matches
   // deliberately remain unmatched rather than picking arbitrary metadata.
@@ -334,12 +347,14 @@ function resolveSplitRooms(floor: Pick<Floor, 'walls' | 'rooms'>, previousRooms:
   };
   const saved = indexed((floor.rooms ?? []).filter(room => !room.boundary));
   const previous = indexed(previousRooms.filter(room => !room.boundary));
-  return (floor.walls.length < 2 ? [] : detectSplitRooms(splitEdges)).map(room => {
+  const polygons = new Map<string, Point[]>();
+  return (floor.walls.length < 2 ? [] : detectSplitRooms(splitEdges, polygons)).map(room => {
+    const polygon = polygons.get(room.id) ?? [];
     const metadata = saved.get(key(room));
-    if (metadata) return { ...room, ...metadata, walls: room.walls, area: metadata.floorOpening ? 0 : room.area };
+    if (metadata) return { room: { ...room, ...metadata, walls: room.walls, area: metadata.floorOpening ? 0 : room.area }, polygon };
     // Only the transient ID survives. Falling back to old metadata would undo
     // an intentional metadata removal (e.g. undoing a room rename).
-    return { ...room, id: previous.get(key(room))?.id ?? room.id };
+    return { room: { ...room, id: previous.get(key(room))?.id ?? room.id }, polygon };
   });
 }
 
@@ -365,58 +380,17 @@ export function getRoomPolygon(room: Room, walls: Wall[]): Point[] {
   const wallIds = new Set(room.walls);
   if (walls.filter(w => wallIds.has(w.id)).length < 2) return [];
 
-  return polygonFromEdges(room, splitWallsAtJunctions(walls));
-}
-
-function polygonFromEdges(room: Room, splitEdges: Edge[]): Point[] {
-  const wallIds = new Set(room.walls);
-  let edges = splitEdges.filter(e => (e.wallIds ?? [e.wallId]).some(id => wallIds.has(id)));
-
-  // Iteratively prune dangling sub-segments (parts of split walls that extend
-  // past the room and connect to nothing else on this room's boundary).
-  let pruned = true;
-  while (pruned && edges.length >= 3) {
-    pruned = false;
-    edges = edges.filter(e => {
-      const degStart = edges.filter(o => ptEq(o.start, e.start) || ptEq(o.end, e.start)).length;
-      const degEnd = edges.filter(o => ptEq(o.start, e.end) || ptEq(o.end, e.end)).length;
-      // Each count includes the edge itself; < 2 means the endpoint dangles
-      if (degStart < 2 || degEnd < 2) { pruned = true; return false; }
-      return true;
-    });
-  }
-  if (edges.length < 3) return [];
-
-  // Chain edges into ordered loops; return the largest closed one,
-  // falling back to the longest open chain if no loop closes.
-  const used = new Set<Edge>();
-  let best: Point[] = [];
-  let bestArea = 0;
-  let longestOpen: Point[] = [];
-
-  for (const startEdge of edges) {
-    if (used.has(startEdge)) continue;
-    const verts: Point[] = [startEdge.start];
-    used.add(startEdge);
-    let tip = startEdge.end;
-
-    while (!ptEq(tip, verts[0])) {
-      verts.push(tip);
-      const next = edges.find(e => !used.has(e) && (ptEq(e.start, tip) || ptEq(e.end, tip)));
-      if (!next) break;
-      used.add(next);
-      tip = ptEq(next.start, tip) ? next.end : next.start;
-    }
-
-    if (ptEq(tip, verts[0])) {
-      const area = Math.abs(shoelace(verts));
-      if (area > bestArea) { bestArea = area; best = verts; }
-    } else if (verts.length > longestOpen.length) {
-      longestOpen = verts;
-    }
-  }
-
-  return best.length >= 3 ? best : longestOpen;
+  const polygons = new Map<string, Point[]>(), edges = splitWallsAtJunctions(walls);
+  const aliases = (ids: string[]) => {
+    const result = new Set(ids);
+    let changed = true;
+    while (changed) { changed = false; for (const e of edges) if (e.wallIds?.some(id => result.has(id)))
+      for (const id of e.wallIds) if (!result.has(id)) { result.add(id); changed = true; } }
+    return JSON.stringify([...result].sort());
+  };
+  const key = aliases(room.walls);
+  const matches = detectSplitRooms(edges, polygons).filter(candidate => aliases(candidate.walls) === key);
+  return matches.length === 1 ? polygons.get(matches[0].id) ?? [] : [];
 }
 
 export function roomCentroid(polygon: Point[]): Point {

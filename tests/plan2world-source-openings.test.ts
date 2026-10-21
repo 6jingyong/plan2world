@@ -30,6 +30,27 @@ function trace(): any {
 }
 
 describe('source opening review', () => {
+  it('matches a unique straight window with bounded independent pixel rounding error', () => {
+    const input = trace(); input.openings = [{ id: 'n', kind: 'window', endpoints: [{ x: 40, y: 3.2 }, { x: 180, y: 2.8 }], evidence: 'Approximate glazing ends.' }];
+    const before = JSON.stringify(input), result = deriveSourceOpenings(input);
+    expect(result.windows).toHaveLength(1);
+    expect(result.sourceIntervals[0].hostResolution).toBe('bounded-pixel-projection');
+    expect(result.sourceIntervals[0].projectionDistancesPx).toEqual([3.2, 2.8]);
+    expect(JSON.stringify(input)).toBe(before);
+    expect(deriveSourceOpenings({ ...input, maxProjectionDistancePx: 3 }).windows).toHaveLength(0);
+  });
+
+  it('rejects ambiguous, excessive, oblique and beyond-host window projections', () => {
+    const input = trace(); input.openings = [{ id: 'n', kind: 'window', endpoints: [{ x: 40, y: 3.2 }, { x: 180, y: 3.2 }], evidence: 'Glazing.' }];
+    input.bareHouse.walls.push({ id: 'parallel', start: { x: 0, y: 6 }, end: { x: 400, y: 6 } });
+    expect(deriveSourceOpenings(input).warnings[0].message).toContain('ambiguous');
+    input.bareHouse.walls.pop();
+    for (const endpoints of [
+      [{ x: 40, y: 4.5 }, { x: 180, y: 4.5 }],
+      [{ x: 40, y: -3.2 }, { x: 42, y: 3.2 }],
+      [{ x: -2, y: 3.2 }, { x: 180, y: 3.2 }],
+    ]) { input.openings[0].endpoints = endpoints; expect(deriveSourceOpenings(input).windows).toHaveLength(0); }
+  });
   it('derives a supported opening from an accepted bare house', () => {
     const input = trace();
     const before = JSON.stringify(input);

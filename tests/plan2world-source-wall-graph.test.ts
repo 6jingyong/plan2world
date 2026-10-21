@@ -83,4 +83,40 @@ describe('source wall graph normalization', () => {
     expect(result.sourceWallMap.v).toEqual(['v~1', 'v~2']);
     expect(result.virtualSplitCount).toBe(2);
   });
+
+  it('uses one bounded junction for several traced endpoints within the snap tolerance', () => {
+    const walls = [
+      { id: 'left', start: { x: 0, y: 0 }, end: { x: 50, y: 0 } },
+      { id: 'right', start: { x: 52, y: 0 }, end: { x: 100, y: 0 } },
+      { id: 'up', start: { x: 50, y: -100 }, end: { x: 50, y: 0 } },
+      { id: 'down', start: { x: 52, y: 0 }, end: { x: 52, y: 100 } },
+    ];
+    const before = JSON.stringify(walls);
+    const normalize = (input: typeof walls) => normalizeSourceWallGraph({ walls: input }).walls
+      .sort((a, b) => a.id.localeCompare(b.id));
+    const result = normalize(walls);
+    const endpoints = result.map(wall => wall.id === 'left' || wall.id === 'up' ? wall.end : wall.start);
+    expect(new Set(endpoints.map(point => JSON.stringify(point))).size).toBe(1);
+    expect(normalize([...walls].reverse())).toEqual(result);
+    for (const wall of result) {
+      const source = walls.find(item => item.id === wall.id)!;
+      for (const endpoint of ['start', 'end'] as const) {
+        expect(Math.hypot(wall[endpoint].x - source[endpoint].x, wall[endpoint].y - source[endpoint].y)).toBeLessThanOrEqual(3);
+      }
+    }
+    expect(JSON.stringify(walls)).toBe(before);
+  });
+
+  it('does not chain nearby junctions across an unsupported gap or collapse a short source wall', () => {
+    const result = normalizeSourceWallGraph({ walls: [
+      { id: 'left', start: { x: 0, y: 0 }, end: { x: 50, y: 0 } },
+      { id: 'short', start: { x: 52, y: 0 }, end: { x: 54, y: 0 } },
+      { id: 'right', start: { x: 56, y: 0 }, end: { x: 100, y: 0 } },
+    ] });
+    const left = wallById(result, 'left'), right = wallById(result, 'right'), short = wallById(result, 'short');
+    expect(Math.hypot(short.end.x - short.start.x, short.end.y - short.start.y)).toBeGreaterThan(0);
+    expect(left.end).not.toEqual(right.start);
+    expect(left.end.x).toBeLessThanOrEqual(53);
+    expect(right.start.x).toBeGreaterThanOrEqual(53);
+  });
 });

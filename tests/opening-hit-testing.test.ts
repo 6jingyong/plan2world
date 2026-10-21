@@ -24,9 +24,10 @@ it.each([
   { ...wall, end: { x: 0, y: 600 } },
   { ...wall, end: { x: 400, y: 400 } },
   { ...wall, curvePoint: { x: 100, y: 250 } },
-])('uses the rendered tangent for rotated and curved walls', w => {
+])('uses the rendered aperture path for rotated and curved walls', w => {
   const center = wallPointAt(w, 0.5), t = wallTangentAt(w, 0.5);
-  expect(findDoorAt({ x: center.x + t.x * 140, y: center.y + t.y * 140 }, [door], [w], 2)).toBe(door);
+  const inside = w.curvePoint ? wallPointAt(w, .65) : { x: center.x + t.x * 140, y: center.y + t.y * 140 };
+  expect(findDoorAt(inside, [door], [w], 2)).toBe(door);
   expect(findDoorAt({ x: center.x - t.y * 50, y: center.y + t.x * 50 }, [door], [w], 2)).toBeNull();
 });
 

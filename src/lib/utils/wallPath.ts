@@ -3,6 +3,16 @@ import { getWallStartHeight, getWallEndHeight, type Wall, type Point } from '$li
 // Draft review needs the same path metric before physical wall heights exist.
 type WallPathInput = Pick<Wall, 'start' | 'end' | 'curvePoint'> & Partial<Pick<Wall, 'height' | 'startHeight' | 'endHeight'>>;
 
+/** Exact subpath of the observed quadratic, including reverse traversal. */
+export function wallSubpath(wall: WallPathInput, from: number, to: number): Pick<Wall, 'start' | 'end' | 'curvePoint'> {
+  const start = wallPointAt(wall, from), end = wallPointAt(wall, to);
+  if (!wall.curvePoint) return { start, end };
+  if (from === 0 && to === 1 || from === 1 && to === 0) return { start, end, curvePoint: { ...wall.curvePoint } };
+  const dx = (1 - from) * (wall.curvePoint.x - wall.start.x) + from * (wall.end.x - wall.curvePoint.x);
+  const dy = (1 - from) * (wall.curvePoint.y - wall.start.y) + from * (wall.end.y - wall.curvePoint.y);
+  return { start, end, curvePoint: { x: start.x + (to - from) * dx, y: start.y + (to - from) * dy } };
+}
+
 export function wallPointAt(w: WallPathInput, t: number): Point {
   if (w.curvePoint) {
     const mt = 1 - t;

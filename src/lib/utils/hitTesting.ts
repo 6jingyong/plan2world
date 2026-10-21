@@ -12,6 +12,7 @@ import { getRoomPolygon, roomLabelPosition } from '$lib/utils/roomDetection';
 import { wallPointAt, wallTangentAt } from '$lib/utils/wallPath';
 import type { HandleType } from '$lib/utils/canvasInteraction';
 import { projectOntoWall } from './wallProjection';
+import { openingPath } from './openingPath';
 
 export function pointInPolygon(p: Point, poly: Point[]): boolean {
   let inside = false;
@@ -147,6 +148,20 @@ export function findStairAt(p: Point, stairs: Stair[] | undefined): Stair | null
 /** Match the wall-aligned gap drawn by the opening renderer, with a 5px pick margin. */
 function hitsOpening(p: Point, opening: Door | Win, wall: Wall, zoom: number): boolean {
   if (!Number.isFinite(zoom) || zoom <= 0 || !Number.isFinite(opening.width) || opening.width <= 0) return false;
+  if (wall.curvePoint) {
+    const path = openingPath(wall, opening); if (!path) return false;
+    const margin = 5 / zoom, reach = Math.max(wall.thickness, 4 / zoom) / 2 + margin;
+    // Select the rendered curved aperture, not its former tangent rectangle.
+    return path.profile.spans.some(span => {
+      const from = Math.max(path.left, span.from), to = Math.min(path.right, span.to);
+      if (to <= from) return false;
+      const a = path.point(from), b = path.point(to), dx = b.x - a.x, dy = b.y - a.y, length = Math.hypot(dx, dy);
+      if (length <= 0) return false;
+      const x = p.x - a.x, y = p.y - a.y;
+      const along = (x * dx + y * dy) / length, across = (dx * y - dy * x) / length;
+      return along >= -margin && along <= length + margin && Math.abs(across) <= reach;
+    });
+  }
   const center = wallPointAt(wall, opening.position);
   const tangent = wallTangentAt(wall, opening.position);
   if (Math.hypot(tangent.x, tangent.y) < 0.5) return false;

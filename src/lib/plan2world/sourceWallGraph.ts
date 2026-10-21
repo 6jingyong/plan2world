@@ -149,12 +149,49 @@ function addSplit(
 ) {
   const path = wallPathProfile(wall);
   const distance = path.distanceAt(position);
-  const existing = list.find(item => Math.abs(path.distanceAt(item.position) - distance) <= tolerance);
+  // The two endpoints of a short observed wall are distinct evidence. Prefer an
+  // exact parameter match before considering nearby split points.
+  const existing = list.find(item => Math.abs(item.position - position) <= 1e-9)
+    ?? list.find(item => Math.abs(path.distanceAt(item.position) - distance) <= tolerance);
   if (existing) {
     if (position <= 1e-9 || position >= 1 - 1e-9) existing.point = junctionPoint;
     return;
   }
   list.push({ position, point: junctionPoint });
+}
+
+type SplitPoint = { position: number; point: DraftPoint };
+
+/** Pairwise projections may give one multi-wall junction several nearby points.
+ * Reconcile them together, without chaining a series of small gaps into a large
+ * move, collapsing a source wall, or moving any source sample past tolerance.
+ */
+function reconcileJunctionPoints(splits: Map<string, SplitPoint[]>, walls: Map<string, DraftWall>, tolerance: number) {
+  const entries = [...splits].flatMap(([wallId, points]) => points.map(split => ({
+    wallId, split, source: wallPointAt(walls.get(wallId)!, split.position),
+  }))).sort((a, b) => a.split.point.x - b.split.point.x || a.split.point.y - b.split.point.y
+    || a.wallId.localeCompare(b.wallId) || a.split.position - b.split.position);
+  type Entry = typeof entries[number];
+  const clusters: Entry[][] = [];
+  const distance = (a: DraftPoint, b: DraftPoint) => Math.hypot(a.x - b.x, a.y - b.y);
+  function representative(members: Entry[]) {
+    return members.map(entry => entry.split.point)
+      .filter(point => members.every(entry => distance(point, entry.source) <= tolerance + 1e-9))
+      .sort((a, b) => a.x - b.x || a.y - b.y)[0];
+  }
+  for (const entry of entries) {
+    const cluster = clusters.find(members =>
+      members.every(member => member.wallId !== entry.wallId
+        && distance(member.split.point, entry.split.point) <= tolerance + 1e-9)
+      && representative([...members, entry]) !== undefined);
+    if (cluster) cluster.push(entry);
+    else clusters.push([entry]);
+  }
+  for (const members of clusters) {
+    if (members.length < 2) continue;
+    const point = representative(members)!;
+    for (const entry of members) entry.split.point = { ...point };
+  }
 }
 
 function endpointCandidates(source: DraftPoint, walls: Map<string, DraftWall>, tolerance: number) {
@@ -240,15 +277,19 @@ export function normalizeSourceWallGraph(input: unknown) {
 
   const junctions: Junction[] = [];
   const wallList = [...walls.values()];
-  for (let i = 0; i < wallList.length; i += 1) {
-    for (let j = i + 1; j < wallList.length; j += 1) {
-      const junction = wallJunction(wallList[i], wallList[j], tolerance);
+  // Stable pair order also makes equal-residual projection choices reproducible
+  // when callers provide the same identified walls in a different array order.
+  const pairWalls = [...wallList].sort((a, b) => a.id.localeCompare(b.id));
+  for (let i = 0; i < pairWalls.length; i += 1) {
+    for (let j = i + 1; j < pairWalls.length; j += 1) {
+      const junction = wallJunction(pairWalls[i], pairWalls[j], tolerance);
       if (!junction) continue;
       junctions.push(junction);
-      addSplit(splits.get(junction.aId)!, junction.aPosition, junction.point, wallList[i], tolerance);
-      addSplit(splits.get(junction.bId)!, junction.bPosition, junction.point, wallList[j], tolerance);
+      addSplit(splits.get(junction.aId)!, junction.aPosition, junction.point, pairWalls[i], tolerance);
+      addSplit(splits.get(junction.bId)!, junction.bPosition, junction.point, pairWalls[j], tolerance);
     }
   }
+  reconcileJunctionPoints(splits, walls, tolerance);
 
   const normalizedWalls: DraftWall[] = [];
   const sourceWallMap: Record<string, string[]> = {};
@@ -262,7 +303,8 @@ export function normalizeSourceWallGraph(input: unknown) {
     const deduped: { position: number; point: DraftPoint }[] = [];
     for (const item of points) {
       const last = deduped[deduped.length - 1];
-      if (last && Math.abs(path.distanceAt(last.position) - path.distanceAt(item.position)) <= tolerance) {
+      const distinctSourceEndpoints = last?.position === 0 && item.position === 1;
+      if (last && !distinctSourceEndpoints && Math.abs(path.distanceAt(last.position) - path.distanceAt(item.position)) <= tolerance) {
         if (item.position <= 1e-9 || item.position >= 1 - 1e-9) last.point = item.point;
         continue;
       }
@@ -345,11 +387,14 @@ export function normalizeSourceWallGraph(input: unknown) {
     walls: normalizedWalls,
     enclosures: normalizedEnclosures,
     sourceWallMap,
-    junctions: junctions.map(junction => ({
-      walls: [junction.aId, junction.bId],
-      point: junction.point,
-      residualPx: junction.residualPx,
-    })),
+    junctions: junctions.map(junction => {
+      const a = splits.get(junction.aId)!.find(item => Math.abs(item.position - junction.aPosition) <= 1e-9)
+        ?? splits.get(junction.aId)!.find(item => Math.hypot(item.point.x - junction.point.x, item.point.y - junction.point.y) <= tolerance);
+      const b = splits.get(junction.bId)!.find(item => Math.abs(item.position - junction.bPosition) <= 1e-9)
+        ?? splits.get(junction.bId)!.find(item => Math.hypot(item.point.x - junction.point.x, item.point.y - junction.point.y) <= tolerance);
+      const shared = a && b && Math.hypot(a.point.x - b.point.x, a.point.y - b.point.y) <= 1e-9;
+      return { walls: [junction.aId, junction.bId], point: shared ? a.point : junction.point, residualPx: junction.residualPx };
+    }),
     virtualSplitCount,
     snappedEndpointCount,
     maxJunctionDistancePx: tolerance,

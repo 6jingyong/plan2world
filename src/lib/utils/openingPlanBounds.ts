@@ -1,5 +1,6 @@
 import type { Wall, Door, Window as PlanWindow } from '$lib/models/types';
-import { wallPointAt, wallTangentAt } from './canvasRenderer';
+import { wallPointAt, wallTangentAt } from './wallPath';
+import { openingPath } from './openingPath';
 
 /** Conservative symbol envelope, including screen-sized strokes and decorations. */
 export function openingPlanBounds(wall: Wall, opening: Door | PlanWindow, kind: 'door' | 'window', zoom = 1) {
@@ -22,8 +23,16 @@ export function openingPlanBounds(wall: Wall, opening: Door | PlanWindow, kind: 
     const type = opening.type;
     reach = Math.max(reach,type === 'bay' ? gap*3 : type === 'casement' ? gap*2.5 : type === 'sliding' ? gap*1.5+3*pixel : gap);
   }
-  const p = wallPointAt(wall,opening.position), tangent = wallTangentAt(wall,opening.position);
-  const points = [[minU,-reach],[minU,reach],[maxU,-reach],[maxU,reach]].map(([u,v]) => ({x:p.x+tangent.x*u-tangent.y*v,y:p.y+tangent.y*u+tangent.x*v}));
+  const path = wall.curvePoint ? openingPath(wall, opening) : null;
+  const p = path && kind === 'door' ? path.chord.center : wallPointAt(wall,opening.position);
+  const tangent = path && kind === 'door' ? path.chord.tangent : wallTangentAt(wall,opening.position);
+  const points = path && kind === 'window' ? [] : [[minU,-reach],[minU,reach],[maxU,-reach],[maxU,reach]].map(([u,v]) => ({x:p.x+tangent.x*u-tangent.y*v,y:p.y+tangent.y*u+tangent.x*v}));
+  if (path) {
+    // Include every native curve facet. Normal offsets cannot escape this
+    // conservative envelope, even when a long window bends far off its chord.
+    const padding = kind === 'window' ? reach : thickness / 2 + 2 * pixel;
+    for (const d of path.knots) { const q = path.point(d); points.push({ x: q.x - padding, y: q.y - padding }, { x: q.x + padding, y: q.y + padding }); }
+  }
   const margin = 6*pixel;
   return {minX:Math.min(...points.map(p=>p.x))-margin,maxX:Math.max(...points.map(p=>p.x))+margin,
     minY:Math.min(...points.map(p=>p.y))-margin,maxY:Math.max(...points.map(p=>p.y))+margin};

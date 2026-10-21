@@ -1,4 +1,5 @@
 export const en = {
+  'viewerNav.editOpeningHint': 'Click a door or window to adjust its height.',
   "settings.title": "Settings",
   "settings.close": "Close settings",
   "settings.tabProject": "Project",

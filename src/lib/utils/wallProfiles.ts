@@ -1,4 +1,5 @@
 import { wallPathProfile, wallPointAt, wallTangentAt } from './wallPath';
+import { openingPathInterval } from './openingPath';
 export { wallPathProfile, wallPathSpans } from './wallPath';
 import { getWallStartHeight, getWallEndHeight, type Wall, type Door, type Window, type Point } from '$lib/models/types';
 
@@ -52,7 +53,8 @@ function segmentsAroundOpenings(length: number, start: number, end: number, open
 
 export function pathOpening(path: ReturnType<typeof wallPathProfile>, center: number, width: number, bottom: number, height: number): WallOpening | null {
   if (![path.length, center, width, bottom, height].every(Number.isFinite) || path.length <= 0 || width <= 0 || height <= 0) return null;
-  const left = Math.max(0, center - width / 2), right = Math.min(path.length, center + width / 2);
+  const interval = openingPathInterval(path.length, center, width); if (!interval) return null;
+  const { left, right } = interval;
   const top = Math.min(bottom + height, path.sample(left).height, path.sample(right).height);
   bottom = Math.max(0, bottom);
   return right > left && top > bottom ? { left, right, bottom, top } : null;

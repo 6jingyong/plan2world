@@ -63,7 +63,7 @@ export function renderPlan2WorldDraftSvg(input: unknown, options: DraftSvgOption
   const walls = floor.walls.map(wall => {
     const path = wallPathProfile(wall);
     label(wall.id,point(path.sample(path.length/2).point));
-    return `<path data-element-id="${escape(wall.id)}" d="${wallPath(wall)}"/>`;
+    return `<path data-element-id="${escape(wall.id)}" d="${wallPath(wall)}"${wall.boundaryType === 'air' ? ' stroke="#9678b4" stroke-dasharray="5 4"' : wall.boundaryType === 'railing' ? ' stroke="#15957d"' : ''}/>`;
   });
   const furnitureShapes = furniture.map(({item,points}) => {
     label(item.id,point(item.position),`${item.id} ${item.sourceCategory ?? item.catalogId}`);

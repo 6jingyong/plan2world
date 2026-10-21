@@ -1,4 +1,5 @@
 export const pt = {
+  'viewerNav.editOpeningHint': 'Clique numa porta ou janela para ajustar a altura.',
   "settings.title": "Configurações",
   "settings.close": "Fechar configurações",
   "settings.tabProject": "Projeto",

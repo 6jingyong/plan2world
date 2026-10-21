@@ -20,8 +20,8 @@ function draft() {
   };
 }
 
-it('uses ordinary window defaults unless the draft explicitly provides different values', () => {
-  expect(draftToProject(draft()).floors[0].windows[0]).toMatchObject({ height: 120, sillHeight: 90, type: 'standard' });
+it('uses full host height unless the draft explicitly provides different opening values', () => {
+  expect(draftToProject(draft()).floors[0].windows[0]).toMatchObject({ height: 300, sillHeight: 0, type: 'standard' });
   const source = draft();
   Object.assign(source.floors[0].windows[0], { height: 300, sillHeight: 0, type: 'fixed' });
   expect(draftToProject(source).floors[0].windows[0]).toMatchObject({ height: 300, sillHeight: 0, type: 'fixed' });
@@ -81,10 +81,10 @@ it('renders the imported-object footprint as a full block with saved rotation an
 
 it('keeps second-pass instructions evidence-only instead of embedding an application draft', () => {
   const instructions = buildReconstructionInstructions();
-  expect(instructions).toContain('"schemaVersion":"source-annotation-v1"');
+  expect(instructions).toContain('"schemaVersion":"source-furnishing-v1"');
   expect(instructions).toContain('Do NOT emit IDs or numeric confidence values');
   expect(instructions).toContain('Do NOT choose or emit a wallId');
-  expect(instructions).not.toContain('presentation');
+  expect(instructions).not.toContain('"presentation"');
   expect(instructions).not.toContain('"furnitureVocabulary"');
   expect(instructions).not.toContain('"floors"');
 });

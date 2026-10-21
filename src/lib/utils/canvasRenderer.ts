@@ -1,4 +1,5 @@
 import { wallLength, wallPointAt, wallTangentAt, wallPathProfile } from './wallPath';
+import { openingPath } from './openingPath';
 import { getEntourageImage } from './entourageImages';
 import { roomHoles, traceRoomRings } from './roomNesting';
 import { stairLocalBounds } from './stairPlanGeometry';
@@ -116,6 +117,13 @@ export function drawWall(
   const { ctx, zoom, width, height } = cs;
   const s = wts(cs, w.start.x, w.start.y);
   const e = wts(cs, w.end.x, w.end.y);
+  if (w.boundaryType === 'air') {
+    ctx.save(); ctx.strokeStyle = selected ? '#3b82f6' : '#9b8bb8'; ctx.lineWidth = selected ? 2 : 1;
+    ctx.setLineDash([5, 4]); ctx.beginPath(); ctx.moveTo(s.x, s.y);
+    if (w.curvePoint) { const c = wts(cs, w.curvePoint.x, w.curvePoint.y); ctx.quadraticCurveTo(c.x, c.y, e.x, e.y); }
+    else ctx.lineTo(e.x, e.y);
+    ctx.stroke(); ctx.restore(); return;
+  }
   const thickness = wallThicknessScreen(w, zoom);
 
   if (w.curvePoint) {
@@ -378,6 +386,34 @@ export function drawWall(
 // ── Door drawing ─────────────────────────────────────────────────────
 
 export function drawDoorOnWall(cs: CanvasState, wall: Wall, door: Door): void {
+  if (!wall.curvePoint) return drawStraightDoorOnWall(cs, wall, door);
+  const path = openingPath(wall, door); if (!path) return;
+  const { ctx } = cs, halfThickness = wallThicknessScreen(wall, cs.zoom) / 2;
+  const drawOffset = (offset: number, reverse = false) => {
+    for (const [i, d] of (reverse ? [...path.knots].reverse() : path.knots).entries()) {
+      const p = path.point(d, offset / cs.zoom), s = wts(cs, p.x, p.y);
+      if (!reverse && i === 0) ctx.moveTo(s.x, s.y); else ctx.lineTo(s.x, s.y);
+    }
+  };
+  ctx.fillStyle = '#fafafa'; ctx.beginPath(); drawOffset(halfThickness + 1); drawOffset(-halfThickness - 1, true); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = '#444'; ctx.lineWidth = 1.5;
+  for (const d of [path.left, path.right]) {
+    const a = path.point(d, (halfThickness + 2) / cs.zoom), b = path.point(d, -(halfThickness + 2) / cs.zoom);
+    const s = wts(cs, a.x, a.y), e = wts(cs, b.x, b.y);
+    ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(e.x, e.y); ctx.stroke();
+  }
+  if (door.type === 'opening') {
+    ctx.strokeStyle = '#999'; ctx.lineWidth = 1; ctx.setLineDash([5, 4]);
+    for (const offset of [-halfThickness, halfThickness]) { ctx.beginPath(); drawOffset(offset); ctx.stroke(); }
+    ctx.setLineDash([]); return;
+  }
+  // Door leaves remain rigid, spanning the two curved-path jambs, as in 3D.
+  if (path.chord.width > 0) drawStraightDoorOnWall(cs,
+    { ...wall, start: path.chord.start, end: path.chord.end, curvePoint: undefined },
+    { ...door, width: path.chord.width, position: .5 }, false);
+}
+
+function drawStraightDoorOnWall(cs: CanvasState, wall: Wall, door: Door, drawGap = true): void {
   const { ctx, zoom } = cs;
   const t = door.position;
   const wpt = wallPointAt(wall, t);
@@ -393,31 +429,34 @@ export function drawDoorOnWall(cs: CanvasState, wall: Wall, door: Door): void {
   const swingDir = door.swingDirection === 'left' ? 1 : -1;
   const sideFlip = (door.flipSide ?? false) ? -1 : 1;
 
-  // Clear wall area for door gap
-  ctx.fillStyle = '#fafafa';
-  const gux = ux * halfDoor;
-  const guy = uy * halfDoor;
-  const gnx = nx * (thickness / 2 + 1);
-  const gny = ny * (thickness / 2 + 1);
-  ctx.beginPath();
-  ctx.moveTo(s.x - gux + gnx, s.y - guy + gny);
-  ctx.lineTo(s.x + gux + gnx, s.y + guy + gny);
-  ctx.lineTo(s.x + gux - gnx, s.y + guy - gny);
-  ctx.lineTo(s.x - gux - gnx, s.y - guy - gny);
-  ctx.closePath();
-  ctx.fill();
-
-  // Door jamb ticks
-  const jamb = thickness / 2 + 2;
-  ctx.strokeStyle = '#444';
-  ctx.lineWidth = 1.5;
-  for (const sign of [-1, 1]) {
-    const jx = s.x + ux * halfDoor * sign;
-    const jy = s.y + uy * halfDoor * sign;
+  // Curved hosts already cleared their path and drew jambs at its true ends.
+  if (drawGap) {
+    // Clear wall area for door gap
+    ctx.fillStyle = '#fafafa';
+    const gux = ux * halfDoor;
+    const guy = uy * halfDoor;
+    const gnx = nx * (thickness / 2 + 1);
+    const gny = ny * (thickness / 2 + 1);
     ctx.beginPath();
-    ctx.moveTo(jx + nx * jamb, jy + ny * jamb);
-    ctx.lineTo(jx - nx * jamb, jy - ny * jamb);
-    ctx.stroke();
+    ctx.moveTo(s.x - gux + gnx, s.y - guy + gny);
+    ctx.lineTo(s.x + gux + gnx, s.y + guy + gny);
+    ctx.lineTo(s.x + gux - gnx, s.y + guy - gny);
+    ctx.lineTo(s.x - gux - gnx, s.y - guy - gny);
+    ctx.closePath();
+    ctx.fill();
+
+    // Door jamb ticks
+    const jamb = thickness / 2 + 2;
+    ctx.strokeStyle = '#444';
+    ctx.lineWidth = 1.5;
+    for (const sign of [-1, 1]) {
+      const jx = s.x + ux * halfDoor * sign;
+      const jy = s.y + uy * halfDoor * sign;
+      ctx.beginPath();
+      ctx.moveTo(jx + nx * jamb, jy + ny * jamb);
+      ctx.lineTo(jx - nx * jamb, jy - ny * jamb);
+      ctx.stroke();
+    }
   }
 
   const doorType = door.type || 'single';
@@ -600,6 +639,41 @@ export function drawDoorOnWall(cs: CanvasState, wall: Wall, door: Door): void {
 // ── Window drawing ───────────────────────────────────────────────────
 
 export function drawWindowOnWall(cs: CanvasState, wall: Wall, win: Win): void {
+  if (!wall.curvePoint) return drawStraightWindowOnWall(cs, wall, win);
+  const path = openingPath(wall, win); if (!path) return;
+  // Reuse every saved window symbol in local (path distance, normal offset)
+  // coordinates. Subdivide its lines at native facets before mapping to screen.
+  let pen: Point | undefined, first: Point | undefined;
+  const mapped = (p: Point) => {
+    const q = path.point(path.center + p.x / cs.zoom, p.y / cs.zoom);
+    return wts(cs, q.x, q.y);
+  };
+  const lineTo = (x: number, y: number) => {
+    const next = { x, y };
+    if (pen && next.x !== pen.x) {
+      const a = pen, cuts = path.profile.spans.map(s => (s.to - path.center) * cs.zoom)
+        .filter(u => u > Math.min(a.x, x) && u < Math.max(a.x, x));
+      if (x < a.x) cuts.reverse();
+      for (const u of cuts) { const q = mapped({ x: u, y: a.y + (y - a.y) * (u - a.x) / (x - a.x) }); cs.ctx.lineTo(q.x, q.y); }
+    }
+    const q = mapped(next); cs.ctx.lineTo(q.x, q.y); pen = next;
+  };
+  const methods: Record<string, (...args: any[]) => void> = {
+    beginPath() { pen = first = undefined; cs.ctx.beginPath(); },
+    moveTo(x: number, y: number) { pen = first = { x, y }; const p = mapped(pen); cs.ctx.moveTo(p.x, p.y); },
+    lineTo,
+    closePath() { if (first) lineTo(first.x, first.y); cs.ctx.closePath(); },
+  };
+  const ctx = new Proxy(cs.ctx, {
+    get(target, key) { if (typeof key === 'string' && methods[key]) return methods[key]; const value = Reflect.get(target, key, target); return typeof value === 'function' ? value.bind(target) : value; },
+    set(target, key, value) { return Reflect.set(target, key, value, target); },
+  });
+  drawStraightWindowOnWall({ ...cs, ctx, width: 0, height: 0, camX: 0, camY: 0 },
+    { ...wall, start: { x: -path.center, y: 0 }, end: { x: path.profile.length - path.center, y: 0 }, curvePoint: undefined },
+    { ...win, position: path.center / path.profile.length, width: path.width });
+}
+
+function drawStraightWindowOnWall(cs: CanvasState, wall: Wall, win: Win): void {
   const { ctx, zoom } = cs;
   const t = win.position;
   const wpt = wallPointAt(wall, t);

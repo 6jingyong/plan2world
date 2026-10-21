@@ -1,9 +1,13 @@
 # Opening derivation behavior
 
+This is a low-level program contract. Image observations use
+`architecture-pass.md`; furniture uses `furnishing-pass.md`. This document does
+not request another model pass for openings.
+
 Openings are visual annotations on an already accepted `bare-house-v1`. They do not
 own wall geometry, IDs or derived interval fields.
 
-`source-annotation-v1` supplies only:
+The program-projected `source-annotation-v1` supplies:
 
 - `kind: door | window`;
 - two observed source-pixel endpoints;
@@ -24,7 +28,7 @@ It must not supply `id`, `wallId`, `width`, `position`, confidence or thickness.
 - warnings when both endpoints do not resolve to one host or door operation is unresolved.
 
 A manually prepared low-level opening trace may still include `wallId` as an optional
-program hint, but image-model `source-annotation-v1` deliberately forbids it.
+program hint, but architectural image observations deliberately forbid it.
 
 Door operation remains visual evidence, not geometry math:
 
@@ -33,9 +37,15 @@ Door operation remains visual evidence, not geometry math:
 - `sliding` — sliding-panel/track access;
 - `opening` — evidenced leafless passage.
 
-Fixed glazing remains a window. Missing/uncertain opening extent or operation is a
-review warning. Reopen the geometry gate only if later evidence proves the Bare House
-wall geometry itself is wrong or disconnected.
+Fixed glazing remains a window. Unresolved operation is a review warning and does
+not remove a source-supported aperture. An accepted opening without a resolved
+host fails the architecture gate before furnishing; the low-level warning alone
+does not authorize continuing normal assembly. Keep uncertain candidates in the
+audit without inventing their geometry.
+
+Initial accepted doors/windows extend from floor to host wall height, with window
+sill 0. The assembler applies this editable product default independently of
+image evidence. The extraction model must not estimate opening heights.
 
 The deterministic assembler calls this derivation logic, so the Skill should never
 recompute, identify or assign opening fields itself.

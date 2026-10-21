@@ -7,6 +7,8 @@ const doorTypes = ['single', 'double', 'sliding', 'opening'] as const;
 type SourceDoorType = typeof doorTypes[number];
 
 export interface SourceOpeningReview {
+  /** Program-owned functional-zone path; source observations never set this. */
+  allowWindowHostChains?: boolean;
   cmPerPixel: number;
   maxProjectionDistancePx?: number;
   bareHouse: BareHouseV1;
@@ -54,16 +56,30 @@ function readBareHouse(value: unknown): BareHouseV1 {
   return bareHouse as unknown as BareHouseV1;
 }
 
-function resolveOpeningHost(
+export function resolveOpeningHost(
   endpoints: DraftPoint[],
   walls: Map<string, DraftWall>,
   tolerance: number,
   preferredWallId?: string,
+  kind?: 'door' | 'window',
 ) {
+  // Source points and wall strokes are independently located on a pixel grid.
+  // Two half-pixel diagonal rounding errors contribute at most sqrt(2) px.
+  // This allowance is NOT wall snapping, an extension or permission to choose
+  // between nearby parallel hosts. Only straight, direction-consistent windows
+  // can use it, and explicit caller tolerances remain authoritative.
+  const allowance = kind === 'window' ? Math.SQRT2 : 0;
   const candidates = [...walls.entries()].flatMap(([id, wall]) => {
     const projected = endpoints.map(source => projectOntoWall(source, wall));
-    if (projected.some(result => !result || result.distance > tolerance)) return [];
+    if (projected.some(result => !result || result.distance > tolerance + allowance)) return [];
     const distances = projected.map(result => result!.distance);
+    const relaxed = Math.max(...distances) > tolerance;
+    if (relaxed) {
+      const dx = wall.end.x - wall.start.x, dy = wall.end.y - wall.start.y;
+      const ex = endpoints[1].x - endpoints[0].x, ey = endpoints[1].y - endpoints[0].y;
+      if (wall.curvePoint || Math.abs(dx * ex + dy * ey) / Math.hypot(dx, dy) / Math.hypot(ex, ey) < Math.cos(Math.PI / 18)
+        || projected.some(p => !p || p.position <= 0 || p.position >= 1)) return [];
+    }
     return [{
       id,
       wall,
@@ -71,6 +87,7 @@ function resolveOpeningHost(
       maxResidual: Math.max(...distances),
       totalResidual: distances.reduce((sum, value) => sum + value, 0),
       preferred: id === preferredWallId,
+      resolution: relaxed ? 'bounded-pixel-projection' : 'within-projection-tolerance',
     }];
   });
   candidates.sort((a, b) =>
@@ -78,7 +95,12 @@ function resolveOpeningHost(
     || a.maxResidual - b.maxResidual
     || a.totalResidual - b.totalResidual
     || a.id.localeCompare(b.id));
-  return candidates[0];
+  const best = candidates[0];
+  if (kind === 'window' && best && !best.preferred && candidates.some(other => other !== best
+    && Math.abs(other.maxResidual - best.maxResidual) <= Math.SQRT2)) {
+    throw new Error('ambiguous window host: multiple nearby wall segments; no automatic association');
+  }
+  return best;
 }
 
 function nearestWallForPoint(source: DraftPoint, walls: Map<string, DraftWall>, tolerance: number) {
@@ -90,12 +112,46 @@ function nearestWallForPoint(source: DraftPoint, walls: Map<string, DraftWall>, 
     .sort((a, b) => a.distance - b.distance || a.id.localeCompare(b.id))[0];
 }
 
+/** A window can span a junction introduced by functional subdivision. Retain
+ * its entire observed interval across ONE uniquely identified original host.
+ * This does not join unrelated walls, bridge gaps, relocate jambs or split doors. */
+function continuousWindowChain(endpoints: DraftPoint[], house: BareHouseV1, tolerance: number) {
+  const byId = new Map(house.walls.map(w => [w.id, w]));
+  const candidates = Object.entries(house.sourceWallMap).flatMap(([sourceWallId, ids]) => {
+    if (ids.length < 2) return [];
+    const walls = ids.map(id => byId.get(id)!);
+    if (walls.some(w => !w || w.curvePoint)) return [];
+    if (walls.some((w, i) => i > 0 && Math.hypot(w.start.x - walls[i - 1].end.x, w.start.y - walls[i - 1].end.y) > 1e-6)) return [];
+    const line = { start: walls[0].start, end: walls.at(-1)!.end };
+    const length = Math.hypot(line.end.x - line.start.x, line.end.y - line.start.y);
+    const dx = (line.end.x - line.start.x) / length, dy = (line.end.y - line.start.y) / length;
+    const along = (p: DraftPoint) => (p.x - line.start.x) * dx + (p.y - line.start.y) * dy;
+    const across = (p: DraftPoint) => Math.abs((p.x - line.start.x) * dy - (p.y - line.start.y) * dx);
+    const ex = endpoints[1].x - endpoints[0].x, ey = endpoints[1].y - endpoints[0].y;
+    if (Math.abs(ex * dx + ey * dy) / Math.hypot(ex, ey) < Math.cos(Math.PI / 18)) return [];
+    if (endpoints.some(p => across(p) > tolerance + Math.SQRT2 || along(p) < 0 || along(p) > length)) return [];
+    if (walls.some(w => [w.start, w.end].some(p => across(p) > tolerance))) return [];
+    const [low, high] = endpoints.map(along).sort((a, b) => a - b);
+    const parts = walls.flatMap(wall => {
+      const a = along(wall.start), b = along(wall.end), from = Math.max(low, a), to = Math.min(high, b);
+      if (b <= a || to - from <= 1e-6) return [];
+      return [{ wallId: wall.id, endpoints: [wallPointAt(wall, (from - a) / (b - a)), wallPointAt(wall, (to - a) / (b - a))] as [DraftPoint, DraftPoint] }];
+    });
+    return parts.length > 1 ? [{ sourceWallId, parts }] : [];
+  });
+  if (candidates.length > 1) throw new Error('ambiguous continuous window host chain');
+  return candidates[0];
+}
+
 /**
  * Attach source-observed openings to an already accepted bare house.
  * Host association and all interval math are deterministic. Individual opening
  * mistakes are review warnings, not geometry failures.
  */
-export function deriveSourceOpenings(input: unknown) {
+export function deriveSourceOpenings(input: unknown): {
+  doors: DraftDoor[]; windows: DraftWindow[]; sourceIntervals: any[]; unresolvedDoorTypes: string[];
+  warnings: OpeningReviewWarning[]; reviewStatus: string; maxProjectionDistancePx: number; limitation: string;
+} {
   const trace = record(input);
   const bareHouse = readBareHouse(trace.bareHouse);
   const scale = number(trace.cmPerPixel);
@@ -135,8 +191,27 @@ export function deriveSourceOpenings(input: unknown) {
       const endpoints = item.endpoints.map(point);
       const preferredWallId = item.wallId === undefined ? undefined : text(item.wallId);
       if (preferredWallId && !walls.has(preferredWallId)) throw new Error(`unknown bare-house host wall ${preferredWallId}`);
-      const host = resolveOpeningHost(endpoints, walls, tolerance, preferredWallId);
+      const host = resolveOpeningHost(endpoints, walls, tolerance, preferredWallId,
+        trace.maxProjectionDistancePx === undefined ? item.kind : undefined);
       if (!host) {
+        const chain = item.kind === 'window' && trace.allowWindowHostChains === true && !preferredWallId
+          ? continuousWindowChain(endpoints, bareHouse, tolerance) : undefined;
+        if (chain) {
+          const fragments = deriveSourceOpenings({ cmPerPixel: scale, maxProjectionDistancePx: tolerance, bareHouse,
+            openings: chain.parts.map((part, i) => ({ ...item, ...part, id: i === 0 ? id : `${id}~${i + 1}` })) });
+          if (fragments.windows.length !== chain.parts.length) throw new Error('continuous window chain failed native fragment association');
+          windows.push(...fragments.windows);
+          const intervals = fragments.sourceIntervals;
+          const projectedEndpoints = [intervals[0].projectedEndpoints[0], intervals.at(-1)!.projectedEndpoints[1]];
+          const orderedEndpoints = Math.hypot(endpoints[0].x - projectedEndpoints[0].x, endpoints[0].y - projectedEndpoints[0].y)
+            <= Math.hypot(endpoints[1].x - projectedEndpoints[0].x, endpoints[1].y - projectedEndpoints[0].y) ? endpoints : [...endpoints].reverse();
+          sourceIntervals.push({ id, kind: 'window', wallId: intervals[0].wallId, sourceWallId: chain.sourceWallId,
+            outputIds: fragments.windows.map(w => w.id), wallIds: intervals.map(p => p.wallId), evidence: item.evidence, endpoints: orderedEndpoints,
+            projectedEndpoints,
+            projectionDistancesPx: orderedEndpoints.map((p, i) => Math.hypot(p.x - projectedEndpoints[i].x, p.y - projectedEndpoints[i].y)),
+            hostResolution: 'continuous-source-baseline-chain', widthPx: intervals.reduce((s, p) => s + p.widthPx, 0), segments: intervals });
+          continue;
+        }
         const nearest = endpoints.map(source => nearestWallForPoint(source, walls, tolerance)?.id);
         if (nearest.every((candidate): candidate is string => candidate !== undefined)
           && new Set(nearest).size > 1) {
@@ -194,6 +269,7 @@ export function deriveSourceOpenings(input: unknown) {
         projectedEndpoints: projected.map(p => wallPointAt(host.wall, p.position)),
         endpointParameters: projected.map(p => p.position),
         projectionDistancesPx: projected.map(p => p.distance),
+        hostResolution: host.resolution,
         widthPx,
         typeEvidence: item.typeEvidence,
       });

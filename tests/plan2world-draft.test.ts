@@ -37,8 +37,8 @@ it('converts a simple draft into the existing editable project model', () => {
   expect(floor.walls).toHaveLength(4);
   expect(floor.walls[0].height).toBe(280);
   expect(floor.walls[0].thickness).toBe(20);
-  expect(floor.doors[0]).toMatchObject({ width: 90, height: 210, type: 'single' });
-  expect(floor.windows[0]).toMatchObject({ width: 120, height: 120, sillHeight: 90, type: 'standard' });
+  expect(floor.doors[0]).toMatchObject({ width: 90, height: 280, type: 'single' });
+  expect(floor.windows[0]).toMatchObject({ width: 120, height: 280, sillHeight: 0, type: 'standard' });
   expect(floor.rooms).toHaveLength(1);
   expect(floor.rooms[0].area).toBe(12);
 });
@@ -66,4 +66,21 @@ it('rejects duplicate wall ids before conversion', () => {
   draft.floors[0].walls[1].id = 'w1';
 
   expect(() => parsePlan2WorldDraft(draft)).toThrow(/duplicate id w1/);
+});
+
+
+it('uses each host wall height for missing opening dimensions while preserving explicit user overrides', () => {
+  const input: any = rectangleDraft();
+  input.floors[0].walls[0].height = 360;
+  input.floors[0].walls[3].height = 310;
+  const before = JSON.stringify(input), floor = draftToProject(input).floors[0];
+  expect(floor.doors[0].height).toBe(310);
+  expect(floor.windows[0]).toMatchObject({ height: 360, sillHeight: 0 });
+  expect(JSON.stringify(input)).toBe(before);
+  input.floors[0].doors[0].height = 205;
+  input.floors[0].windows[0].height = 145;
+  input.floors[0].windows[0].sillHeight = 80;
+  const edited = draftToProject(input).floors[0];
+  expect(edited.doors[0].height).toBe(205);
+  expect(edited.windows[0]).toMatchObject({ height: 145, sillHeight: 80 });
 });

@@ -1,5 +1,8 @@
 # Source annotation pass
 
+Legacy two-pass reference. The canonical direct Skill uses `architecture-pass.md`
+then `furnishing-pass.md`; furniture observation has no authority over openings.
+
 Run this only after `bare-house-v1` has been accepted. The model sees the unchanged
 source image plus Bare House geometry for context, but it does not own IDs, hosts,
 confidence policy, scale math or final Plan2World geometry.
@@ -65,6 +68,18 @@ The model must not invent a numeric confidence for itself.
 Opening endpoints and furniture positions stay in original source pixels. Programs
 assign IDs, match each opening to one Bare House host, derive interval geometry,
 convert coordinates and construct the final draft.
+
+For openings, read the two aperture ends on the original raster. Do not substitute
+an adjacent sill, cabinet edge or parallel balcony perimeter merely because it
+would match the Bare House more easily. Recheck narrow projections and thin
+glazed thresholds against their visible jambs.
+
+If an observed aperture has no corresponding architectural host path in the Bare
+House, retain its source evidence and disclose the missing wall evidence in
+`assumptions`. Do not move the aperture, invent a host ID, or modify the Bare House.
+The run is not source-accepted merely because assembly succeeds: investigate any
+rejected opening. A wall-pass omission requires a fresh run from the original
+raster; a host-association bug requires a program fix.
 
 Hand the unchanged annotation JSON to:
 

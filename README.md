@@ -8,9 +8,11 @@ Plan2World is an MIT-licensed project built on [openPlan3D](https://github.com/l
 
 ```text
 floor-plan JPG / PNG / WebP
-  → source-wall-trace-v1
-  → deterministic Bare House
-  → source-annotation-v1
+  → source-architecture-v1 (functional zones + walls + openings + scale evidence)
+  → freeze raw architectural observations
+  → source-furnishing-v1 (furniture semantics / positions only)
+  → raster refinement / functional-zone logical closure / opening audit
+  → freeze final architecture and guiding furniture anchors
   → deterministic plan2world-draft-v1 assembly
   → Review / native Project
   → 2D edit ⇄ 1.20 m cut ⇄ 3D ⇄ first-person walkthrough
@@ -18,11 +20,36 @@ floor-plan JPG / PNG / WebP
 
 The model observes source evidence. Programs own topology, calculations, IDs, host matching, conversion, room analysis, collision and rendering.
 
+The direct Skill / CLI and browser provider use the same sequence. Browser prompts
+load the portable architecture and furnishing references directly. Every accepted
+opening must have a source-supported host baseline; unresolved hosts block normal
+assembly. Furniture anchors reach the program before final closure. Direct Skill
+runs do not certify external-model quality.
+
+Initial reconstructed doors/windows extend from floor to host wall height, with
+window sill 0. These are editable starting values, not measurements inferred from
+the raster. Furniture extraction remains semantics and position only.
+
+Functional zones and architecture are observed together, followed by the
+furniture-only observation. The program verifies independent native regions,
+inserts source-supported leafless thresholds and balcony air/railing boundaries,
+and evaluates bounded connections of observed wall endpoints. See
+[functional zones](docs/functional-zones.md) and
+[furniture-guided closure](docs/furniture-guided-closure.md).
+
+Original-pixel raster evidence supports conservative refinement. Background
+sampling uses accepted architectural bounds and an interior grid to avoid photo
+frames; ambiguous backgrounds disable raster assistance. Sampling never crops
+coordinates or authorizes walls. Centerline correction remains disabled; see
+[raster background](docs/raster-background.md) and
+[centerline policy](docs/raster-centerlines.md).
+
 ## Current reconstruction scope
 
 - straight and quadratic wall centrelines;
 - hosted doors/windows derived from source-space endpoints;
 - deterministic scale conversion and source registration;
+- source-pixel near-miss review and approximate native indoor connectivity diagnostics;
 - fixed-vocabulary imported furniture blocks;
 - optional source-supported `floorAreas`;
 - declared balcony enclosure policy;

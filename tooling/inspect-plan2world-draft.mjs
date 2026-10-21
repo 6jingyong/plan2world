@@ -26,11 +26,12 @@ const server = await createServer({ root, configFile: false, logLevel: 'error',
   resolve: { alias: { '$lib': resolve(root, 'src/lib') } }, optimizeDeps: { noDiscovery: true, include: [] },
   server: { middlewareMode: true, watch: null, ws: false }, appType: 'custom' });
 try {
-  const [{ parsePlan2WorldDraft, draftToProject }, { summarizePlan2WorldDraft }, { sourceBackgroundForRegistration }, { buildReconstructionTrace }] = await Promise.all([
+  const [{ parsePlan2WorldDraft, draftToProject }, { summarizePlan2WorldDraft }, { sourceBackgroundForRegistration }, { buildReconstructionTrace }, { reviewIndoorConnectivity }] = await Promise.all([
     server.ssrLoadModule('/src/lib/plan2world/draft.ts'),
     server.ssrLoadModule('/src/lib/plan2world/review.ts'),
     server.ssrLoadModule('/src/lib/plan2world/sourceBackground.ts'),
     server.ssrLoadModule('/src/lib/plan2world/reconstructionTrace.ts'),
+    server.ssrLoadModule('/src/lib/plan2world/indoorConnectivityReview.ts'),
   ]);
   const draft = parsePlan2WorldDraft(JSON.parse(await readFile(resolve(options.draft), 'utf8')), {
     requireFurnitureVocabulary: options['require-furniture-vocabulary'] === 'true',
@@ -39,16 +40,20 @@ try {
   const mimeType = bytes[0] === 0x89 ? 'image/png' : bytes[0] === 0xff ? 'image/jpeg' : 'image/webp';
   const source = { width: Number(options.width), height: Number(options.height), dataUrl: `data:${mimeType};base64,${bytes.toString('base64')}` };
   const summary = summarizePlan2WorldDraft(draft), project = draftToProject(draft);
+  const indoorConnectivity = project.floors.map(floor => reviewIndoorConnectivity(floor));
   const registrationAccepted = !!(draft.sourceRegistration && sourceBackgroundForRegistration(draft, source, draft.sourceRegistration));
   const report = { source: { width: source.width, height: source.height, sha256: createHash('sha256').update(bytes).digest('hex') },
     presentation: draft.presentation ?? 'legacy', furnitureVocabulary: draft.furnitureVocabulary ?? 'legacy', ...summary, registrationAccepted,
     nativeRooms: project.floors.reduce((n, floor) => n + floor.rooms.length, 0),
     furnitureCount: project.floors.reduce((n, floor) => n + floor.furniture.length, 0),
+    indoorConnectivity: indoorConnectivity.map(floor => ({ floorId: floor.floorId, status: floor.status,
+      regionCount: floor.rooms.length, reachedRegions: floor.rooms.filter(room => room.reachableGridNodes > 0).length,
+      regionsNeedingReview: floor.rooms.filter(room => room.findings.length).map(room => ({ roomId: room.roomId, findings: room.findings })) })),
     limitation: 'Structural checks and registration consistency do not certify source-image accuracy.' };
   if (options.output) {
     const output = resolve(options.output); await mkdir(output, { recursive: true });
-    for (const [name, value] of [['inspection.json', report], ['project.json', project], ['trace.json', buildReconstructionTrace(draft, source)]]) {
-      await writeFile(resolve(output, name), JSON.stringify(value, null, 2) + '\n');
+    for (const [name, value] of [['inspection.json', report], ['project.json', project], ['trace.json', buildReconstructionTrace(draft, source)], ['indoor-connectivity.json', indoorConnectivity]]) {
+      await writeFile(resolve(output, name), JSON.stringify(value, null, 2) + '\n', { flag: 'wx', mode: 0o444 });
     }
   }
   console.log(JSON.stringify(report, null, 2));

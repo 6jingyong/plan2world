@@ -80,6 +80,7 @@
 
   // 3D Edit mode — enables click-to-select
   let editMode = $state(false);
+  let preserveWalkthroughOnUnlock = false;
   // Wall transparency toggle
   let wallsTransparent = $state(false);
   // Multi-floor stacking
@@ -624,31 +625,6 @@
   const WALL_THICKNESS = 15;
   const BASEBOARD_HEIGHT = 8;
 
-  // Create a canvas-based floor texture
-  function createFloorTexture(): THREE.CanvasTexture {
-    const size = 256;
-    const c = document.createElement('canvas');
-    c.width = size; c.height = size;
-    const cx = c.getContext('2d')!;
-    // Hardwood pattern
-    cx.fillStyle = '#c4a882';
-    cx.fillRect(0, 0, size, size);
-    for (let y = 0; y < size; y += 32) {
-      for (let x = 0; x < size; x += 64) {
-        const offset = (y / 32) % 2 === 0 ? 0 : 32;
-        cx.fillStyle = y % 64 < 32 ? '#b89b72' : '#d4b892';
-        cx.fillRect(x + offset, y, 62, 30);
-        cx.strokeStyle = '#a08060';
-        cx.lineWidth = 0.5;
-        cx.strokeRect(x + offset, y, 62, 30);
-      }
-    }
-    const tex = ownTexture(new THREE.CanvasTexture(c));
-    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-    tex.repeat.set(10, 10);
-    return tex;
-  }
-
   function exitWalkthroughMode() {
     walkthroughMode = false;
     controls.enabled = true;
@@ -814,17 +790,29 @@
       pointerDownPos = { x: e.clientX, y: e.clientY };
     });
     renderer.domElement.addEventListener('pointerup', (e) => {
-      // Only select in edit mode, and only if mouse didn't move much (not a drag/orbit)
-      if (!editMode) return;
+      // Walkthrough can select an opening for the same native property editor.
+      if (!editMode && !walkthroughMode) return;
       const dx = e.clientX - pointerDownPos.x;
       const dy = e.clientY - pointerDownPos.y;
       if (Math.hypot(dx, dy) > 5) return;
-      if (walkthroughMode) return;
-
       const rect = renderer.domElement.getBoundingClientRect();
-      mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-      mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      const locked = walkthroughMode && document.pointerLockElement === renderer.domElement;
+      mouse.x = locked ? 0 : ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = locked ? 0 : -((e.clientY - rect.top) / rect.height) * 2 + 1;
       raycaster.setFromCamera(mouse, camera);
+
+      if (walkthroughMode) {
+        const id = sceneElementAt(raycaster, wallGroup);
+        if (currentFloor?.doors.some(door => door.id === id) || currentFloor?.windows.some(window => window.id === id)) {
+          walkthroughMotion.reset();
+          if (locked) {
+            preserveWalkthroughOnUnlock = true;
+            document.exitPointerLock();
+          }
+          selectSingleElement(id);
+        }
+        return;
+      }
 
       // Camera placement mode: first click = position, second click = look-at target
       if (cameraPlacementMode) {
@@ -941,6 +929,7 @@
 
     // ESC key to exit walkthrough mode
     pointerControls.addEventListener('unlock', () => {
+      if (preserveWalkthroughOnUnlock) { preserveWalkthroughOnUnlock = false; return; }
       if (walkthroughMode) {
         exitWalkthroughMode();
       }
@@ -975,16 +964,9 @@
     rimLight.position.set(-200, 600, 1000);
     scene.add(rimLight);
 
-    // Textured floor
-    const floorTex = createFloorTexture();
-    const floorGeo = new THREE.PlaneGeometry(4000, 4000);
-    const floorMat = new THREE.MeshStandardMaterial({ map: floorTex, side: THREE.DoubleSide, roughness: 0.8, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
-    const floorMesh = new THREE.Mesh(floorGeo, floorMat);
-    floorMesh.rotation.x = -Math.PI / 2;
-    floorMesh.position.y = 0.5;
-    floorMesh.receiveShadow = true;
-    scene.add(floorMesh);
-
+    // Interior surfaces are built from native room/floor-area footprints below.
+    // The environment ground is separate; an origin-centred floor would cover
+    // recesses, holes and outdoor ground and change when a plan is translated.
     wallGroup = new THREE.Group();
     scene.add(wallGroup);
   }
@@ -1209,6 +1191,7 @@
     const baseboardMat = new THREE.MeshStandardMaterial({ color: 0xe8e0d4, roughness: 0.7 });
 
     for (const wall of floor.walls) {
+      if (wall.boundaryType === 'air') continue;
       // Resolve per-side materials: interior and exterior can have independent color/texture
       const DEFAULT_2D_COLORS = ['#cccccc', '#888888', '#444444', '#404040'];
       const wLen = Math.hypot(wall.end.x - wall.start.x, wall.end.y - wall.start.y);
@@ -1727,6 +1710,7 @@
     const defaultExteriorMat = transparentMat(0xd4cfc9, 0.85);
 
     for (const sourceWall of floor.walls) {
+      if (sourceWall.boundaryType === 'air') continue;
       for (const span of wallProfileSpans(sourceWall, floor.doors.filter(d => d.wallId === sourceWall.id), floor.windows.filter(w => w.wallId === sourceWall.id))) {
         const wall = { ...sourceWall, ...span };
         const dx = wall.end.x - wall.start.x;
@@ -2433,6 +2417,7 @@
     <!-- Controls Panel -->
     <div class="absolute top-4 left-4 z-10 bg-black/70 text-white text-xs rounded-lg backdrop-blur-sm p-3 space-y-2 min-w-[180px]">
       <div class="font-semibold text-white/90 mb-1">{$t('viewerNav.walkControls')}</div>
+      <p class="max-w-56 text-white/80">{$t('viewerNav.editOpeningHint')}</p>
       {#if walkthroughMouseUnavailable}
         <p role="status" class="max-w-56 text-amber-200">{$t('viewerNav.mouseUnavailable')}</p>
       {/if}

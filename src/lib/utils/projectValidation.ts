@@ -97,7 +97,12 @@ export function readProject(value: unknown): Project {
       number(wall.height, `${path}.height`, 0);
       if (wall.curvePoint !== undefined) point(wall.curvePoint, `${path}.curvePoint`);
       strings(wall, ['color', 'texture', 'interiorColor', 'interiorTexture', 'exteriorColor', 'exteriorTexture'], path);
+      if (wall.boundaryType !== undefined && !['solid', 'railing', 'air'].includes(wall.boundaryType)) fail(`${path}.boundaryType`, 'must be solid, railing or air');
     }, false);
+    if (floor.functionalZones !== undefined) elements('functionalZones', (zone, path) => {
+      text(zone.label, `${path}.label`, true); text(zone.category, `${path}.category`, true); point(zone.position, `${path}.position`);
+      if (!['indoor', 'balcony', 'outdoor'].includes(zone.environment)) fail(`${path}.environment`, 'must be indoor, balcony or outdoor');
+    });
     const walls = new Set<string>(floor.walls.map((wall: any) => wall.id));
     for (const kind of ['doors', 'windows']) elements(kind, (opening, path) => {
       text(opening.wallId, `${path}.wallId`, true);

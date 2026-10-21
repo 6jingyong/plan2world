@@ -21,6 +21,8 @@ export interface ProjectPackageState {
 }
 
 export interface Wall {
+  /** Logical air boundaries are invisible but retain native collision/closure. */
+  boundaryType?: 'solid' | 'railing' | 'air';
   details?: ItemDetails;
   id: string;
   start: Point;
@@ -230,7 +232,13 @@ export interface CustomEntourageDef {
   aspect: number; // height / width
 }
 
+export interface FunctionalZoneLabel {
+  id: string; label: string; category: string; environment: 'indoor' | 'balcony' | 'outdoor'; position: Point;
+}
+
 export interface Floor {
+  /** Source semantics attached by a seed; native walls still own all geometry. */
+  functionalZones?: FunctionalZoneLabel[];
   id: string;
   name: string;
   level: number;

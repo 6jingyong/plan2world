@@ -38,4 +38,14 @@ describe('bare-house reconstruction contract', () => {
     const input = trace(); delete input.schemaVersion;
     expect(() => buildBareHouse(input)).toThrow(/source-wall-trace-v1/);
   });
+
+  it('rejects overlapping shared-boundary evidence before annotation instead of deleting generated walls', () => {
+    const input = { schemaVersion: SOURCE_WALL_TRACE_VERSION, walls: [
+      { start: { x: 0, y: 0 }, end: { x: 100, y: 0 } },
+      { start: { x: 150, y: 0 }, end: { x: 80, y: 0 } },
+    ] };
+    const before = JSON.stringify(input);
+    expect(() => buildBareHouse(input)).toThrow(/Overlapping normalized wall geometry/);
+    expect(JSON.stringify(input)).toBe(before);
+  });
 });

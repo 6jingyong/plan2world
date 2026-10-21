@@ -1,4 +1,4 @@
 interface:
   display_name: "Plan2World Reconstruction"
-  short_description: "Read floor plans into editable rooms and semantic blocks"
-  default_prompt: "Use $reconstruct-plan2world to turn this floor-plan image into an editable architectural draft with semantic furniture blocks."
+  short_description: "Observe functional zones and constrain logical closure"
+  default_prompt: "Use $reconstruct-plan2world to observe functionalZones, walls and openings together, freeze observations, then collect furniture semantics/positions. Programs constrain closure with zone seeds and source-supported thresholds. Balconies require closed logical boundaries using walls, windows, railings or invisible air boundaries. Keep passages traversable and initial doors/windows full-height. Never hand-repair generated JSON or 3D."

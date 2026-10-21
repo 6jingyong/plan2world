@@ -52,7 +52,7 @@ describe('fixed reconstruction furniture vocabulary', () => {
     const instructions=buildReconstructionInstructions();
     const line=instructions.split('\n').find(line=>line.startsWith('- Allowed sourceCategory IDs'))!;
     expect(line.slice(line.indexOf(': ')+2,-1).split(', ')).toEqual(PLAN2WORLD_FURNITURE_TYPES);
-    expect(instructions).toContain('"schemaVersion":"source-annotation-v1"');
+    expect(instructions).toContain('"schemaVersion":"source-furnishing-v1"');
     expect(instructions).toContain('Report only exact sourceCategory and approximate source-pixel centre.');
     expect(instructions).toContain('catalogId, furniture size or rotation');
     expect(instructions).not.toContain('"furnitureVocabulary"');

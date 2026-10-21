@@ -13,7 +13,7 @@
 
 Walls are zero-width centrelines. Straight walls use `start`/`end`; a visibly curved wall may add one quadratic `curvePoint`. Optional wall thickness/height are physical overrides; otherwise the native converter supplies editable defaults.
 
-Doors and windows reference an existing wall by `wallId`, with `position` in `[0,1]` and positive `width`. Optional opening properties are explicit source/product choices. Missing windows use the ordinary editor defaults (120 cm height, 90 cm sill, standard type); no global presentation mode changes them.
+Doors and windows reference an existing wall by `wallId`, with `position` in `[0,1]` and positive `width`. Optional opening properties are explicit source/product choices. Initial reconstructed doors/windows default from floor to host wall height (280 cm when unspecified), with window sill 0 and standard window type. The assembler records these editable product defaults; they are not source measurements. Explicit saved opening heights and sills are preserved. No global presentation mode is required.
 
 Optional `floorAreas` describe source-supported open ground such as a terrace edge that cannot be derived from a closed wall cycle. They must not be used to invent closure walls or duplicate detected rooms.
 

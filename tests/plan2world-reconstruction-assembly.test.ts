@@ -82,3 +82,14 @@ describe('deterministic reconstruction assembly', () => {
     expect(() => assemblePlan2WorldDraft(bareHouse(), input)).toThrow(/not in plan2world-furniture-v1/);
   });
 });
+
+
+it('writes full-height initial apertures as program defaults, without source height estimates', () => {
+  const input = annotations();
+  input.openings.push({ kind: 'window', endpoints: [{ x: 40, y: 20 }, { x: 80, y: 20 }], evidence: 'Visible glazing frames' });
+  const before = JSON.stringify(input), draft = assemblePlan2WorldDraft(bareHouse(), input);
+  expect(draft.floors[0].doors![0].height).toBe(280);
+  expect(draft.floors[0].windows![0]).toMatchObject({ height: 280, sillHeight: 0 });
+  expect(draft.assumptions?.join(' ')).toContain('editable product defaults are not image measurements');
+  expect(JSON.stringify(input)).toBe(before);
+});

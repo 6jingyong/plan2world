@@ -2,6 +2,7 @@ import type { BareHouseV1 } from './bareHouse';
 import { parsePlan2WorldDraft, type DraftPoint, type DraftScaleMode, type Plan2WorldDraft } from './draft';
 import { PLAN2WORLD_FURNITURE_VOCABULARY, isPlan2WorldFurnitureType } from './furnitureVocabulary';
 import { deriveSourceOpenings } from './sourceOpenings';
+import { initialOpeningHeight } from './openingDefaults';
 
 export const SOURCE_ANNOTATION_VERSION = 'source-annotation-v1' as const;
 export type SourceScaleEvidenceKind = 'measured_dimension' | 'scale_bar' | 'provided_length' | 'estimated_reference';
@@ -30,6 +31,7 @@ export interface SourceAnnotationV1 {
 export interface ReconstructionAssemblyContext {
   sourceWidthPx?: number;
   sourceHeightPx?: number;
+  functionalZoneLabels?: { label: string; category: string; environment: 'indoor' | 'balcony' | 'outdoor'; position: DraftPoint }[];
 }
 
 const SCALE_POLICY: Record<SourceScaleEvidenceKind, { mode: DraftScaleMode; confidence: number }> = {
@@ -154,6 +156,11 @@ function deterministicSourceRegistration(bareHouse: BareHouseV1, context: Recons
 }
 
 export function assemblePlan2WorldDraft(bareHouse: BareHouseV1, annotationInput: unknown, context: ReconstructionAssemblyContext = {}): Plan2WorldDraft {
+  return assemblePlan2WorldDraftWithReview(bareHouse, annotationInput, context).draft;
+}
+
+/** Keep each opening's deterministic outcome inspectable by staged workflows. */
+export function assemblePlan2WorldDraftWithReview(bareHouse: BareHouseV1, annotationInput: unknown, context: ReconstructionAssemblyContext = {}) {
   const annotation = parseSourceAnnotation(annotationInput);
   const scalePolicy = SCALE_POLICY[annotation.scaleEvidence.kind];
   const scalePixels = Math.hypot(
@@ -165,25 +172,35 @@ export function assemblePlan2WorldDraft(bareHouse: BareHouseV1, annotationInput:
   if (!points.length) throw new Error('bareHouse has no walls');
   const origin = { x: Math.min(...points.map(item => item.x)), y: Math.min(...points.map(item => item.y)) };
   const convert = (item: DraftPoint): DraftPoint => ({ x: (item.x - origin.x) * cmPerPixel, y: (item.y - origin.y) * cmPerPixel });
-  const walls = bareHouse.walls.map(wall => ({ id: wall.id, start: convert(wall.start), end: convert(wall.end), ...(wall.curvePoint ? { curvePoint: convert(wall.curvePoint) } : {}) }));
+  const walls = bareHouse.walls.map(wall => ({ id: wall.id, start: convert(wall.start), end: convert(wall.end),
+    ...(wall.boundaryType ? { boundaryType: wall.boundaryType } : {}),
+    // Editable product default, not a measured source height.
+    ...(wall.boundaryType === 'railing' ? { height: 110 } : {}),
+    ...(wall.curvePoint ? { curvePoint: convert(wall.curvePoint) } : {}) }));
 
   let doorIndex = 0, windowIndex = 0;
   const openingEvidence = (annotation.openings ?? []).map(item => ({ id: item.kind === 'door' ? `d${++doorIndex}` : `win${++windowIndex}`, ...item }));
-  const openingReview = deriveSourceOpenings({ cmPerPixel, bareHouse, openings: openingEvidence });
-  const assumptions = [...(annotation.assumptions ?? []), ...openingReview.warnings.map(item => `Opening ${item.id}: ${item.message}`)];
+  const openingReview = deriveSourceOpenings({ cmPerPixel, bareHouse, openings: openingEvidence,
+    allowWindowHostChains: context.functionalZoneLabels !== undefined });
+  const assumptions = [...(annotation.assumptions ?? []), ...openingReview.warnings.map(item => `Opening ${item.id}: ${item.message}`),
+    'Initial doors/windows extend from floor to host wall height, with window sill 0. These editable product defaults are not image measurements.'];
+  const wallById = new Map(walls.map(wall => [wall.id, wall]));
   const sourceRegistration = deterministicSourceRegistration(bareHouse, context);
 
-  return parsePlan2WorldDraft({
+  const draft = parsePlan2WorldDraft({
     schemaVersion: 'plan2world-draft-v1', furnitureVocabulary: PLAN2WORLD_FURNITURE_VOCABULARY,
     name: 'AI floor-plan reconstruction', units: 'cm',
     scale: { mode: scalePolicy.mode, confidence: scalePolicy.confidence, basis: annotation.scaleEvidence.evidence },
     ...(assumptions.length ? { assumptions } : {}), ...(sourceRegistration ? { sourceRegistration } : {}),
     floors: [{
       id: 'floor-0', name: 'Ground Floor', level: 0, walls,
-      doors: openingReview.doors, windows: openingReview.windows,
+      ...(context.functionalZoneLabels === undefined ? {} : { functionalZones: context.functionalZoneLabels.map((zone, i) => ({ ...zone, id: `zone${i + 1}`, position: convert(zone.position) })) }),
+      doors: openingReview.doors.map(door => ({ ...door, height: initialOpeningHeight(wallById.get(door.wallId)) })),
+      windows: openingReview.windows.map(window => ({ ...window, height: initialOpeningHeight(wallById.get(window.wallId)), sillHeight: 0 })),
       furniture: (annotation.furniture ?? []).map((item, index) => ({
         id: `f${index + 1}`, catalogId: 'imported_object', sourceCategory: item.sourceCategory, position: convert(item.position),
       })),
     }],
   }, { requireFurnitureVocabulary: true });
+  return { draft, openingReview };
 }

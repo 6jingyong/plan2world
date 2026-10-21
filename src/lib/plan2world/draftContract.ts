@@ -1,4 +1,4 @@
-import type { Door, FloorBoundaryPart, Window } from '$lib/models/types';
+import type { Door, FloorBoundaryPart, Window, FunctionalZoneLabel } from '$lib/models/types';
 import { readFloorBoundary, floorBoundaryProblem } from '$lib/utils/floorBoundary';
 import { PLAN2WORLD_FURNITURE_VOCABULARY, isPlan2WorldFurnitureType } from './furnitureVocabulary';
 
@@ -26,6 +26,7 @@ export interface DraftSourceRegistration {
 }
 
 export interface DraftWall {
+  boundaryType?: 'solid' | 'railing' | 'air';
   id: string;
   start: DraftPoint;
   end: DraftPoint;
@@ -79,6 +80,7 @@ export interface DraftFloorArea {
 }
 
 export interface DraftFloor {
+  functionalZones?: FunctionalZoneLabel[];
   id: string;
   name: string;
   level: number;
@@ -170,6 +172,7 @@ function uniqueIds(items: { id: string }[], path: string): void {
 function parseWall(value: unknown, path: string): DraftWall {
   const item = record(value, path);
   return {
+    ...(item.boundaryType === undefined ? {} : { boundaryType: enumValue(item.boundaryType, ['solid', 'railing', 'air'] as const, 'solid', `${path}.boundaryType`) }),
     id: stringValue(item.id, `${path}.id`),
     start: point(item.start, `${path}.start`),
     end: point(item.end, `${path}.end`),
@@ -221,6 +224,13 @@ function parseFurniture(value: unknown, path: string): DraftFurniture {
 
 function parseFloor(value: unknown, index: number): DraftFloor {
   const path = `floors[${index}]`, item = record(value, path);
+  if (item.functionalZones !== undefined && !Array.isArray(item.functionalZones)) throw new Plan2WorldDraftError(`${path}.functionalZones must be an array`);
+  const functionalZones = item.functionalZones === undefined ? undefined : (item.functionalZones as unknown[]).map((raw, i) => {
+    const z = record(raw, `${path}.functionalZones[${i}]`);
+    return { id: stringValue(z.id, path), label: stringValue(z.label, path), category: stringValue(z.category, path),
+      environment: enumValue(z.environment, ['indoor', 'balcony', 'outdoor'] as const, 'indoor', path), position: point(z.position, path) };
+  });
+  if (functionalZones) uniqueIds(functionalZones, `${path}.functionalZones`);
   if (!Number.isInteger(item.level)) throw new Plan2WorldDraftError(`${path}.level must be an integer`);
   if (!Array.isArray(item.walls) || item.walls.length === 0) throw new Plan2WorldDraftError(`${path}.walls must contain at least one wall`);
 
@@ -251,6 +261,7 @@ function parseFloor(value: unknown, index: number): DraftFloor {
     id: stringValue(item.id, `${path}.id`), name: stringValue(item.name, `${path}.name`), level: item.level as number,
     elevation: item.elevation === undefined ? undefined : finite(item.elevation, `${path}.elevation`),
     walls, doors, windows, furniture, floorAreas,
+    ...(functionalZones === undefined ? {} : { functionalZones }),
   };
 }
 

@@ -1,0 +1,763 @@
+{
+  "schemaVersion": "floorplan-condition-catalog-v1",
+  "method": "manual-original-raster-observation",
+  "purpose": "source conditions and exceptions; no geometry ground truth",
+  "coordinateConvention": "original image pixels; x0,y0,x1,y1 boxes locate explanation only",
+  "absentConditionMeaning": "not assessed or not confirmed; never proof of absence",
+  "algorithmUse": "none; not a solver input",
+  "conditions": [
+    {
+      "id": "colored-marketing",
+      "axis": "表示",
+      "label": "彩色营销图",
+      "implication": "家具纹理、地板色和阴影不能直接作为墙线。"
+    },
+    {
+      "id": "light-linework",
+      "axis": "表示",
+      "label": "浅底细线图",
+      "implication": "玻璃框、门扇、柜体和建筑线需结合上下文区分。"
+    },
+    {
+      "id": "dark-white-linework",
+      "axis": "表示",
+      "label": "黑底白线图",
+      "implication": "线条极性与浅底图相反，细线/双框不等于不存在墙。"
+    },
+    {
+      "id": "pale-frames",
+      "axis": "表示",
+      "label": "浅色或双线门窗框",
+      "implication": "黑色墙体检测不能覆盖所有建筑边界。"
+    },
+    {
+      "id": "diagonal-boundaries",
+      "axis": "几何",
+      "label": "斜向边界",
+      "implication": "允许局部斜线，不统一正交化。"
+    },
+    {
+      "id": "curved-boundaries",
+      "axis": "几何",
+      "label": "弧形建筑边界",
+      "implication": "弧线与圆形家具要按语义区分。"
+    },
+    {
+      "id": "deep-concavity",
+      "axis": "几何",
+      "label": "深凹外轮廓",
+      "implication": "凹口不等于应填补的室内缺面；也不自动等于封闭庭院。"
+    },
+    {
+      "id": "freestanding-partition",
+      "axis": "拓扑",
+      "label": "自由端隔断",
+      "implication": "墙端悬空可能合法；近接提示不等于补墙依据。"
+    },
+    {
+      "id": "open-plan",
+      "axis": "拓扑",
+      "label": "开放功能区",
+      "implication": "多个功能名称可共享一个闭合面。"
+    },
+    {
+      "id": "outdoor-furnishing",
+      "axis": "使用",
+      "label": "室外家具或植物",
+      "implication": "室外家具不要求实体墙围合；阳台等功能区仍须以窗/栏杆/空气边界等建立闭合逻辑轮廓。"
+    },
+    {
+      "id": "empty-labeled-room",
+      "axis": "使用",
+      "label": "有房名但未画家具",
+      "implication": "没有家具不等于室外，也不强迫虚构家具。"
+    },
+    {
+      "id": "dense-service-spaces",
+      "axis": "拓扑",
+      "label": "密集厨卫衣帽服务区",
+      "implication": "小矩形可能是柜、井、设备或房间；须区别。"
+    },
+    {
+      "id": "multiple-aperture-types",
+      "axis": "通行",
+      "label": "多种门/通口表达",
+      "implication": "单门、双门、移门、通口分别观察；落地窗仍为窗。"
+    },
+    {
+      "id": "concealed-door",
+      "axis": "通行",
+      "label": "暗门标注",
+      "implication": "标签是线索，不能在无空间位置依据时自动补门。"
+    },
+    {
+      "id": "continuous-glazing",
+      "axis": "边界",
+      "label": "连续玻璃边界",
+      "implication": "门窗须有同一逻辑宿主基线；中间窗框/立柱并非每段都是独立墙。"
+    },
+    {
+      "id": "possible-railing",
+      "axis": "边界",
+      "label": "阳台栏杆等高度不明构件",
+      "implication": "平面图可能只确定边界位置，不能确定通高墙。"
+    },
+    {
+      "id": "multiple-access",
+      "axis": "范围",
+      "label": "多个出入口",
+      "implication": "不将室内连通性全部绑定单个门。"
+    },
+    {
+      "id": "external-circulation",
+      "axis": "范围",
+      "label": "范围外交通空间",
+      "implication": "外部楼梯/电梯/逃生通道不默认属于户内墙网。"
+    },
+    {
+      "id": "inset-diagrams",
+      "axis": "范围",
+      "label": "独立附图",
+      "implication": "总平面/楼座索引等必须与主体户型分开。"
+    },
+    {
+      "id": "dimension-chains",
+      "axis": "尺度",
+      "label": "可见尺寸链",
+      "implication": "需要清楚数值及对应端点，像素缩放不能沿用印刷比例。"
+    },
+    {
+      "id": "area-labels",
+      "axis": "尺度",
+      "label": "面积文字",
+      "implication": "可做弱一致性复核，不能替代边长与几何真值。"
+    },
+    {
+      "id": "printed-scale-warning",
+      "axis": "尺度",
+      "label": "印刷比例/非按比例提示",
+      "implication": "图纸印刷比例不能直接换算当前 JPEG 的厘米/像素。"
+    },
+    {
+      "id": "no-confirmed-length",
+      "axis": "尺度",
+      "label": "尚无核验真实参考长度",
+      "implication": "保留相对比例；绝对尺寸待明确的参考长度。"
+    },
+    {
+      "id": "watermark-occlusion",
+      "axis": "质量",
+      "label": "水印遮挡",
+      "implication": "遮挡与真实断墙分开归因，不用先验强制闭合。"
+    },
+    {
+      "id": "fine-low-resolution-detail",
+      "axis": "质量",
+      "label": "细节像素不足",
+      "implication": "数值清晰度/门框/柜体边缘需逐项评估，不能笼统认定全图无效。"
+    }
+  ],
+  "cases": [
+    {
+      "id": "case-01",
+      "title": "彩色正交住宅：阳台家具与开放客餐区",
+      "source": {
+        "file": "1-1000028462.jpg",
+        "width": 1280,
+        "height": 855,
+        "sha256": "de827282bce49c497eb5568efcd1283932346f1025ca770afa982f6adbc26013"
+      },
+      "conditionIds": [
+        "colored-marketing",
+        "pale-frames",
+        "open-plan",
+        "outdoor-furnishing",
+        "dense-service-spaces",
+        "multiple-aperture-types",
+        "continuous-glazing",
+        "possible-railing",
+        "dimension-chains",
+        "no-confirmed-length",
+        "watermark-occlusion",
+        "fine-low-resolution-detail"
+      ],
+      "evidence": [
+        {
+          "conditions": [
+            "outdoor-furnishing",
+            "possible-railing"
+          ],
+          "box": [
+            110,
+            665,
+            397,
+            762
+          ],
+          "certainty": "observed",
+          "note": "左下阳台画有桌椅/绿植，说明家具存在不必对应独立室内房间；栏杆高度未确定。"
+        },
+        {
+          "conditions": [
+            "open-plan"
+          ],
+          "box": [
+            543,
+            264,
+            923,
+            668
+          ],
+          "certainty": "observed",
+          "note": "客餐厅与书房功能在大空间相邻，不能按家具簇强制划分房间。"
+        },
+        {
+          "conditions": [
+            "pale-frames",
+            "dense-service-spaces",
+            "multiple-aperture-types"
+          ],
+          "box": [
+            198,
+            279,
+            654,
+            429
+          ],
+          "certainty": "observed",
+          "note": "上排厨卫/衣帽等边界较密集，门洞与浅色窗框需要区分柜体细线。"
+        },
+        {
+          "conditions": [
+            "dimension-chains"
+          ],
+          "box": [
+            121,
+            81,
+            1120,
+            126
+          ],
+          "certainty": "observed",
+          "note": "外围尺寸链可见，尚未独立核验端点和数值对应。"
+        },
+        {
+          "conditions": [
+            "watermark-occlusion"
+          ],
+          "box": [
+            1001,
+            779,
+            1277,
+            850
+          ],
+          "certainty": "observed",
+          "note": "右下水印/标注区，需与实际主体图线分开。"
+        }
+      ],
+      "limitations": [
+        "不从黑线粗细推断承重或真实墙厚。",
+        "图题中楼层范围并不意味着图中有多层平面。"
+      ],
+      "geometryGroundTruth": "not-established"
+    },
+    {
+      "id": "case-02",
+      "title": "浅底豪宅线图：斜边、服务区与范围外附图",
+      "source": {
+        "file": "2-1000028463.jpg",
+        "width": 905,
+        "height": 1280,
+        "sha256": "6e53f9e31a17fc944ce3bd8a3d427cf1832c23d773617cde9b1d28823338bafe"
+      },
+      "conditionIds": [
+        "light-linework",
+        "pale-frames",
+        "diagonal-boundaries",
+        "curved-boundaries",
+        "open-plan",
+        "dense-service-spaces",
+        "multiple-aperture-types",
+        "continuous-glazing",
+        "possible-railing",
+        "multiple-access",
+        "external-circulation",
+        "inset-diagrams",
+        "area-labels",
+        "printed-scale-warning",
+        "no-confirmed-length",
+        "fine-low-resolution-detail",
+        "freestanding-partition"
+      ],
+      "evidence": [
+        {
+          "conditions": [
+            "diagonal-boundaries",
+            "continuous-glazing",
+            "pale-frames"
+          ],
+          "box": [
+            214,
+            49,
+            700,
+            556
+          ],
+          "certainty": "observed",
+          "note": "斜向外立面有重复玻璃框和深色立柱，玻璃边界与构件层次并列。"
+        },
+        {
+          "conditions": [
+            "curved-boundaries"
+          ],
+          "box": [
+            438,
+            549,
+            502,
+            669
+          ],
+          "certainty": "observed",
+          "note": "门厅东侧可见局部弯曲边界，不能由全图斜线/正交分类抹平。"
+        },
+        {
+          "conditions": [
+            "dense-service-spaces",
+            "multiple-aperture-types"
+          ],
+          "box": [
+            304,
+            690,
+            617,
+            1008
+          ],
+          "certainty": "observed",
+          "note": "下半部厨卫/衣帽/柜体等小结构密集，需要辨别房间、柜体和管井。"
+        },
+        {
+          "conditions": [
+            "multiple-access",
+            "external-circulation"
+          ],
+          "box": [
+            84,
+            493,
+            315,
+            771
+          ],
+          "certainty": "observed",
+          "note": "左侧住户通道与外部电梯/楼梯；范围外交通设施不是户内缺墙。"
+        },
+        {
+          "conditions": [
+            "multiple-access",
+            "external-circulation"
+          ],
+          "box": [
+            630,
+            449,
+            818,
+            740
+          ],
+          "certainty": "observed",
+          "note": "右侧服务通道及外部楼梯/电梯，也不是待并入户内的房间。"
+        },
+        {
+          "conditions": [
+            "inset-diagrams"
+          ],
+          "box": [
+            618,
+            983,
+            895,
+            1206
+          ],
+          "certainty": "observed",
+          "note": "右下楼座索引及总平面与主体户型分离。"
+        },
+        {
+          "conditions": [
+            "area-labels",
+            "printed-scale-warning"
+          ],
+          "box": [
+            21,
+            987,
+            285,
+            1151
+          ],
+          "certainty": "observed",
+          "note": "面积/层高及 Not to Scale、印刷比例信息不构成当前 JPEG 的可直接换算比例尺。"
+        },
+        {
+          "conditions": [
+            "open-plan"
+          ],
+          "box": [
+            285,
+            87,
+            635,
+            265
+          ],
+          "certainty": "observed",
+          "note": "主会客厅大范围连续；仅凭家具包含关系不能验证下方内部隔断。"
+        },
+        {
+          "conditions": [
+            "freestanding-partition",
+            "open-plan"
+          ],
+          "box": [
+            417,
+            292,
+            494,
+            392
+          ],
+          "certainty": "observed",
+          "note": "中央走廊两侧的短隔断有自由端/开放通口，近接和同面无扇通口不能直接推断为漏墙。"
+        }
+      ],
+      "limitations": [
+        "文字、图例和门扇细节像素有限。",
+        "上/下阳台边界的构造高度不确定。",
+        "整体源图几何准确率及房间功能划分尚无独立真值。"
+      ],
+      "geometryGroundTruth": "not-established"
+    },
+    {
+      "id": "case-03",
+      "title": "弧形住宅：曲线、独立隔断与弧形阳台",
+      "source": {
+        "file": "3-1000028464.jpg",
+        "width": 1280,
+        "height": 960,
+        "sha256": "98164db4ef1665ad970d259e040ba4229debb23c1910a25644580f3cda4be437"
+      },
+      "conditionIds": [
+        "colored-marketing",
+        "pale-frames",
+        "diagonal-boundaries",
+        "curved-boundaries",
+        "freestanding-partition",
+        "open-plan",
+        "outdoor-furnishing",
+        "dense-service-spaces",
+        "multiple-aperture-types",
+        "continuous-glazing",
+        "possible-railing",
+        "dimension-chains",
+        "area-labels",
+        "no-confirmed-length",
+        "watermark-occlusion"
+      ],
+      "evidence": [
+        {
+          "conditions": [
+            "curved-boundaries",
+            "continuous-glazing",
+            "possible-railing"
+          ],
+          "box": [
+            622,
+            61,
+            1055,
+            535
+          ],
+          "certainty": "observed",
+          "note": "外侧虚线/栏杆与内侧弧形玻璃边界并列；不合并为同一堵通高墙。"
+        },
+        {
+          "conditions": [
+            "freestanding-partition",
+            "curved-boundaries"
+          ],
+          "box": [
+            580,
+            298,
+            704,
+            443
+          ],
+          "certainty": "observed",
+          "note": "客厅弧形隔断有自由端，不应强接到外墙。"
+        },
+        {
+          "conditions": [
+            "open-plan"
+          ],
+          "box": [
+            550,
+            151,
+            941,
+            530
+          ],
+          "certainty": "observed",
+          "note": "大客厅只画少量家具，家具密度不能决定空间面积或补墙。"
+        },
+        {
+          "conditions": [
+            "outdoor-furnishing"
+          ],
+          "box": [
+            279,
+            170,
+            494,
+            291
+          ],
+          "certainty": "observed",
+          "note": "阳台 A 的绿植及外部范围是家具/植物闭合先验的例外。"
+        },
+        {
+          "conditions": [
+            "dimension-chains",
+            "area-labels"
+          ],
+          "box": [
+            678,
+            533,
+            859,
+            876
+          ],
+          "certainty": "observed",
+          "note": "卧室/衣帽间等面积文字可见，需先确认对应边界再做一致性复核。"
+        },
+        {
+          "conditions": [
+            "watermark-occlusion"
+          ],
+          "box": [
+            474,
+            438,
+            844,
+            521
+          ],
+          "certainty": "observed",
+          "note": "水印跨过客厅/隔断和开口区域，遮挡不能被解释为已确定的墙。"
+        }
+      ],
+      "limitations": [
+        "圆形外轮廓不是统一半径圆的证据，不能强拟合整栋轮廓。",
+        "虚线只确认其画法，构件类别及高度仍需证据。"
+      ],
+      "geometryGroundTruth": "not-established"
+    },
+    {
+      "id": "case-04",
+      "title": "黑底白线示意：暗门、无尺寸与圆形家具",
+      "source": {
+        "file": "4-1000028465.jpg",
+        "width": 999,
+        "height": 1280,
+        "sha256": "d0020abc9e3261e4e6e59c0ce89efe6614ac549c913818a284bd00e61d6de5b3"
+      },
+      "conditionIds": [
+        "dark-white-linework",
+        "pale-frames",
+        "empty-labeled-room",
+        "dense-service-spaces",
+        "multiple-aperture-types",
+        "concealed-door",
+        "multiple-access",
+        "external-circulation",
+        "no-confirmed-length",
+        "watermark-occlusion",
+        "fine-low-resolution-detail"
+      ],
+      "evidence": [
+        {
+          "conditions": [
+            "dark-white-linework",
+            "empty-labeled-room",
+            "multiple-access"
+          ],
+          "box": [
+            161,
+            133,
+            849,
+            554
+          ],
+          "certainty": "observed",
+          "note": "顶部两间有房名、各有进门符号，但没有画出桌椅，不能按房名补家具。"
+        },
+        {
+          "conditions": [
+            "concealed-door",
+            "multiple-aperture-types",
+            "dense-service-spaces"
+          ],
+          "box": [
+            180,
+            540,
+            816,
+            832
+          ],
+          "certainty": "observed",
+          "note": "衣柜暗门/移门等标注与框线并存，门扇、柜体和墙线需区别。"
+        },
+        {
+          "conditions": [
+            "dark-white-linework"
+          ],
+          "box": [
+            364,
+            641,
+            673,
+            999
+          ],
+          "certainty": "observed",
+          "note": "圆形双人水床及下侧家具是物件轮廓，不构成弧形建筑墙的证据。"
+        },
+        {
+          "conditions": [
+            "external-circulation"
+          ],
+          "box": [
+            160,
+            992,
+            850,
+            1182
+          ],
+          "certainty": "observed",
+          "note": "下方消防逃生通道延伸于本单元之外，图的范围不等于整栋闭合轮廓。"
+        },
+        {
+          "conditions": [
+            "watermark-occlusion"
+          ],
+          "box": [
+            780,
+            1201,
+            997,
+            1279
+          ],
+          "certainty": "observed",
+          "note": "右下来源水印与主体线图分离。"
+        }
+      ],
+      "limitations": [
+        "未见可核验数字尺寸链，仅能先保持相对比例。",
+        "示意画法不能据此判断结构安全性或建筑用途合规。",
+        "未确认弧形建筑边界，圆形家具不作为其证据。"
+      ],
+      "geometryGroundTruth": "not-established"
+    },
+    {
+      "id": "case-05",
+      "title": "深凹彩色户型：外部空白、水印与大空房",
+      "source": {
+        "file": "5-1000028466.jpg",
+        "width": 1280,
+        "height": 955,
+        "sha256": "8e5e1e24b837995d49e6d74c34913a8e0481531b71a84d914f7557a485e32eba"
+      },
+      "conditionIds": [
+        "colored-marketing",
+        "pale-frames",
+        "deep-concavity",
+        "open-plan",
+        "empty-labeled-room",
+        "dense-service-spaces",
+        "multiple-aperture-types",
+        "continuous-glazing",
+        "possible-railing",
+        "dimension-chains",
+        "area-labels",
+        "no-confirmed-length",
+        "watermark-occlusion",
+        "fine-low-resolution-detail"
+      ],
+      "evidence": [
+        {
+          "conditions": [
+            "deep-concavity"
+          ],
+          "box": [
+            564,
+            45,
+            731,
+            428
+          ],
+          "certainty": "observed",
+          "note": "上部两翼间的白色凹口通向外部，不能自动补地板/墙。"
+        },
+        {
+          "conditions": [
+            "deep-concavity"
+          ],
+          "box": [
+            340,
+            552,
+            470,
+            896
+          ],
+          "certainty": "observed",
+          "note": "下部左翼与主区之间的深白凹口仍通向外部，并非已确定的封闭庭院。"
+        },
+        {
+          "conditions": [
+            "empty-labeled-room",
+            "area-labels"
+          ],
+          "box": [
+            878,
+            351,
+            1097,
+            679
+          ],
+          "certainty": "observed",
+          "note": "右侧大面积有房名但没有画家具；空白仍可为室内。"
+        },
+        {
+          "conditions": [
+            "open-plan"
+          ],
+          "box": [
+            304,
+            218,
+            738,
+            825
+          ],
+          "certainty": "observed",
+          "note": "客餐功能与通道连续，不能用家具簇直接划房间。"
+        },
+        {
+          "conditions": [
+            "watermark-occlusion"
+          ],
+          "box": [
+            474,
+            439,
+            870,
+            532
+          ],
+          "certainty": "observed",
+          "note": "蓝色水印覆盖中央狭窄连接区和墙线交汇，保留局部不确定性。"
+        },
+        {
+          "conditions": [
+            "multiple-aperture-types"
+          ],
+          "box": [
+            847,
+            488,
+            898,
+            547
+          ],
+          "certainty": "observed",
+          "note": "右侧大房间入口有双扇门表达，不能误作窗。"
+        },
+        {
+          "conditions": [
+            "dimension-chains"
+          ],
+          "box": [
+            165,
+            8,
+            1112,
+            44
+          ],
+          "certainty": "observed",
+          "note": "顶部长尺寸链细小，尚未核验所有数值。"
+        }
+      ],
+      "limitations": [
+        "凹口与庭院洞须依据闭合关系区分。",
+        "部分房名字体模糊，不作精确功能和家具数量真值。"
+      ],
+      "geometryGroundTruth": "not-established"
+    }
+  ]
+}

@@ -62,9 +62,11 @@ test('image upload reaches the provider, pauses for review, then opens the edita
   }
   const tracePrompt = requests[0].body.input?.[0]?.content?.find((item: any) => item.type === 'input_text')?.text;
   const annotationPrompt = requests[1].body.input?.[0]?.content?.find((item: any) => item.type === 'input_text')?.text;
-  expect(tracePrompt).toContain('source-wall-trace-v1');
-  expect(annotationPrompt).toContain('source-annotation-v1');
-  expect(annotationPrompt).toContain('BARE_HOUSE_JSON:');
+  expect(tracePrompt).toContain('source-architecture-v1');
+  expect(tracePrompt).toContain('functionalZones');
+  expect(annotationPrompt).toContain('source-furnishing-v1');
+  expect(annotationPrompt).toContain('FROZEN_ARCHITECTURE_JSON:');
+  expect(JSON.parse(annotationPrompt.split('FROZEN_ARCHITECTURE_JSON:\n')[1]).functionalZones).toHaveLength(1);
   expect(annotationPrompt).not.toContain('Return ONLY one plan2world-draft-v1');
 
   await page.getByRole('button', { name: 'Open editable home', exact: true }).click();

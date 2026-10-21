@@ -1,4 +1,4 @@
-import type { DraftPoint } from './draft';
+import type { DraftPoint, DraftWall } from './draft';
 import { normalizeSourceWallGraph } from './sourceWallGraph';
 
 export const SOURCE_WALL_TRACE_VERSION = 'source-wall-trace-v1' as const;
@@ -11,14 +11,14 @@ export interface BareHouseBoundaryRef {
 
 export interface SourceWallTraceV1 {
   schemaVersion: typeof SOURCE_WALL_TRACE_VERSION;
-  walls: { start: DraftPoint; end: DraftPoint; curvePoint?: DraftPoint }[];
+  walls: { start: DraftPoint; end: DraftPoint; curvePoint?: DraftPoint; boundaryType?: DraftWall['boundaryType'] }[];
   doorGaps?: { from: DraftPoint; to: DraftPoint }[];
 }
 
 export interface BareHouseV1 {
   schemaVersion: typeof BARE_HOUSE_VERSION;
   sourceSchemaVersion: typeof SOURCE_WALL_TRACE_VERSION;
-  walls: { id: string; start: DraftPoint; end: DraftPoint; curvePoint?: DraftPoint }[];
+  walls: { id: string; start: DraftPoint; end: DraftPoint; curvePoint?: DraftPoint; boundaryType?: DraftWall['boundaryType'] }[];
   enclosures: { id: string; boundary: BareHouseBoundaryRef[] }[];
   sourceWallMap: Record<string, string[]>;
   junctions: { walls: string[]; point: DraftPoint; residualPx: number }[];
@@ -57,9 +57,11 @@ export function buildBareHouse(input: unknown): BareHouseV1 {
   if (!Array.isArray(trace.walls) || trace.walls.length === 0) throw new Error('trace.walls must be a non-empty array');
   const walls = trace.walls.map((raw: unknown, index: number) => {
     const item = record(raw, `trace.walls[${index}]`);
-    exactKeys(item, ['start', 'end', 'curvePoint'], `trace.walls[${index}]`);
+    exactKeys(item, ['start', 'end', 'curvePoint', 'boundaryType'], `trace.walls[${index}]`);
+    if (item.boundaryType !== undefined && !['solid', 'railing', 'air'].includes(item.boundaryType)) throw new Error('Unsupported boundary type');
     return {
       id: `w${index + 1}`,
+      ...(item.boundaryType === undefined ? {} : { boundaryType: item.boundaryType }),
       start: point(item.start, `trace.walls[${index}].start`),
       end: point(item.end, `trace.walls[${index}].end`),
       ...(item.curvePoint === undefined ? {} : { curvePoint: point(item.curvePoint, `trace.walls[${index}].curvePoint`) }),
@@ -79,5 +81,31 @@ export function buildBareHouse(input: unknown): BareHouseV1 {
   });
 
   const normalized = normalizeSourceWallGraph({ walls, doorGaps });
+  // Two observations of a shared boundary can become identical segments after
+  // splitting. Reject that evidence before a second model pass or native room
+  // conversion; do not silently discard a wall or repair the generated output.
+  const geometryIds = new Map<string, string>();
+  const pointKey = (point: DraftPoint) => `${Math.round(point.x * 1e6)},${Math.round(point.y * 1e6)}`;
+  for (const wall of normalized.walls) {
+    const ends = [pointKey(wall.start), pointKey(wall.end)].sort();
+    const key = JSON.stringify([ends, wall.curvePoint ? pointKey(wall.curvePoint) : null]);
+    const previous = geometryIds.get(key);
+    if (previous) throw new Error(`Duplicate normalized wall geometry: ${previous} and ${wall.id}. Review overlapping source-wall evidence before annotation.`);
+    geometryIds.set(key, wall.id);
+  }
+  // Collinear source runs can overlap only partly when no third wall splits the
+  // remaining interval. Exact-segment equality alone does not catch that case.
+  const straight = normalized.walls.filter(wall => !wall.curvePoint);
+  for (let i = 0; i < straight.length; i++) for (let j = i + 1; j < straight.length; j++) {
+    const a = straight[i], b = straight[j];
+    const dx = a.end.x - a.start.x, dy = a.end.y - a.start.y;
+    const length = Math.hypot(dx, dy);
+    if (length <= 1e-6) continue;
+    const offsets = [b.start, b.end].map(point => ({ x: point.x - a.start.x, y: point.y - a.start.y }));
+    if (offsets.some(point => Math.abs(dx * point.y - dy * point.x) / length > 1e-6)) continue;
+    const positions = offsets.map(point => (dx * point.x + dy * point.y) / length);
+    const overlap = Math.min(length, Math.max(...positions)) - Math.max(0, Math.min(...positions));
+    if (overlap > 1e-6) throw new Error(`Overlapping normalized wall geometry: ${a.id} and ${b.id}. Review shared source-wall evidence before annotation.`);
+  }
   return { schemaVersion: BARE_HOUSE_VERSION, sourceSchemaVersion: SOURCE_WALL_TRACE_VERSION, ...normalized };
 }

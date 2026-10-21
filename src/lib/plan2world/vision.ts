@@ -1,11 +1,11 @@
 import type { OpenAIConfig } from '$lib/utils/openaiClient';
 import { generateOpenAIJsonFromImage } from '$lib/utils/openaiClient';
 import type { Plan2WorldDraft } from './draft';
-import { buildBareHouse, type BareHouseV1 } from './bareHouse';
-import { assemblePlan2WorldDraft } from './reconstructionAssembly';
+import { parseSourceArchitecture, prepareArchitectureStage, assembleFrozenArchitecture, assertArchitectureHostsResolved } from './architecture';
 import { decodeSourceFloorPlanImage } from './sourceBackground';
-import { buildReconstructionInstructions, PLAN2WORLD_RECONSTRUCTION_INSTRUCTIONS_VERSION, type ReconstructionOptions } from './reconstructionInstructions';
-export { buildReconstructionInstructions as buildFloorPlanVisionPrompt } from './reconstructionInstructions';
+import type { SourceRasterPixels } from './rasterWallContinuation';
+import { buildArchitectureInstructions, buildReconstructionInstructions, PLAN2WORLD_RECONSTRUCTION_INSTRUCTIONS_VERSION, type ReconstructionOptions } from './reconstructionInstructions';
+export { buildArchitectureInstructions as buildFloorPlanVisionPrompt } from './reconstructionInstructions';
 
 export const FLOOR_PLAN_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp'] as const;
 export type FloorPlanImageType = typeof FLOOR_PLAN_IMAGE_TYPES[number];
@@ -43,35 +43,24 @@ export async function encodeFloorPlanImage(file: File): Promise<EncodedFloorPlan
   return { base64: dataUrl.slice(index + marker.length), dataUrl, mimeType: file.type };
 }
 
-/** First model pass: source-pixel wall and explicit wall-gap observations only. */
-export async function traceFloorPlanWalls(
-  config: OpenAIConfig,
-  image: EncodedFloorPlanImage,
-  customFetch: typeof fetch = fetch,
-  signal?: AbortSignal,
-): Promise<BareHouseV1> {
-  const trace = await generateOpenAIJsonFromImage(config, image.base64, image.mimeType,
-    `Return only JSON: {"schemaVersion":"source-wall-trace-v1","walls":[],"doorGaps":[]}.
-Trace visible wall centreline paths in ORIGINAL image pixels, not dimension-chain coordinates.
-Each wall contains only start,end and optional curvePoint. Do NOT emit wall IDs, thickness, kind or confidence.
-If a visible door symbol interrupts one logical wall stroke, doorGaps may contain only {from,to} source-pixel endpoints.
-Do NOT emit gap IDs or choose wall host IDs; deterministic code assigns and associates all IDs.
-Never trace door swing arcs as walls or infer an unsupported missing boundary.
-Do not classify rooms, furnishings, components or windows. Do not invent enclosures.`, customFetch, signal);
-  return buildBareHouse(trace);
-}
-
-async function sourceSizeForAssembly(image: EncodedFloorPlanImage, options: FloorPlanVisionOptions) {
-  if (options.sourceWidthPx !== undefined || options.sourceHeightPx !== undefined) {
-    return { sourceWidthPx: options.sourceWidthPx, sourceHeightPx: options.sourceHeightPx };
-  }
-  if (typeof Image === 'undefined') return {};
-  try {
+async function sourceForAssembly(image: EncodedFloorPlanImage, options: FloorPlanVisionOptions) {
+  if (typeof Image !== 'undefined' && typeof document !== 'undefined') {
     const source = await decodeSourceFloorPlanImage(image.dataUrl);
-    return { sourceWidthPx: source.width, sourceHeightPx: source.height };
-  } catch {
-    return {};
+    if (source.width * source.height > 24_000_000) throw new Error('Source raster exceeds the deterministic pixel budget.');
+    if (options.sourceWidthPx !== undefined && options.sourceWidthPx !== source.width
+      || options.sourceHeightPx !== undefined && options.sourceHeightPx !== source.height) throw new Error('Source dimensions disagree with original raster.');
+    const element = new Image(); element.src = image.dataUrl; await element.decode();
+    const canvas = document.createElement('canvas'); canvas.width = source.width; canvas.height = source.height;
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    if (!context) throw new Error('Cannot read source pixels for deterministic reconstruction.');
+    context.drawImage(element, 0, 0);
+    const raster: SourceRasterPixels = { width: source.width, height: source.height, data: context.getImageData(0, 0, source.width, source.height).data };
+    return { context: { sourceWidthPx: source.width, sourceHeightPx: source.height }, raster };
   }
+  if (options.sourceWidthPx !== undefined || options.sourceHeightPx !== undefined) {
+    return { context: { sourceWidthPx: options.sourceWidthPx, sourceHeightPx: options.sourceHeightPx } };
+  }
+  return { context: {} };
 }
 
 export async function reconstructFloorPlanImage(
@@ -81,15 +70,19 @@ export async function reconstructFloorPlanImage(
   customFetch: typeof fetch = fetch,
   signal?: AbortSignal,
 ): Promise<Plan2WorldDraft> {
-  const bareHouse = await traceFloorPlanWalls(config, image, customFetch, signal);
   const { sourceWidthPx: _sourceWidthPx, sourceHeightPx: _sourceHeightPx, ...instructionOptions } = options;
-  const annotations = await generateOpenAIJsonFromImage(
+  const architecture = parseSourceArchitecture(await generateOpenAIJsonFromImage(config, image.base64, image.mimeType,
+    buildArchitectureInstructions(instructionOptions), customFetch, signal));
+  const furnishing = await generateOpenAIJsonFromImage(
     config,
     image.base64,
     image.mimeType,
-    `${buildReconstructionInstructions(instructionOptions)}\n\nBARE_HOUSE_JSON:\n${JSON.stringify(bareHouse)}`,
+    `${buildReconstructionInstructions()}\n\nFROZEN_ARCHITECTURE_JSON:\n${JSON.stringify(architecture)}`,
     customFetch,
     signal,
   );
-  return assemblePlan2WorldDraft(bareHouse, annotations, await sourceSizeForAssembly(image, options));
+  const source = await sourceForAssembly(image, options);
+  const stage = prepareArchitectureStage(architecture, source.context, furnishing, source.raster);
+  assertArchitectureHostsResolved(stage);
+  return assembleFrozenArchitecture(stage, furnishing).draft;
 }
