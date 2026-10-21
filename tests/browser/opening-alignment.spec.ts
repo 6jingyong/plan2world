@@ -30,8 +30,18 @@ for(const curved of [false,true]) for(const width of [1440,390]) test(`opening-o
  await page.mouse.click(x,y);
  await page.getByRole('button',{name:'Align Left',exact:true}).click();
  const moved=await exported();expect(moved.windows[0].position).toBeLessThan(before.windows[0].position);
- function left(opening:any,door:boolean){const t=opening.position,dy=curved?320*(1-2*t):0,len=Math.hypot(600,dy);return -100+600*t-600/len*opening.width/2-Math.abs(dy/len)*(door?50:12)-6;}
- expect(left(moved.doors[0],true)).toBeCloseTo(left(moved.windows[0],false),5);
+ if(curved){
+  // Independent smooth-quadratic reference: integrate the arc length around
+  // t=.25, use the door's chord/swing envelope, and solve for the window's
+  // left path endpoint minus its 12cm envelope. This gives t=.256575155.
+  // Allow <0.3cm for the viewer's 16 curve facets. A tangent-only window
+  // envelope (the old behavior) misses this target by roughly 9cm.
+  expect(moved.doors[0].position).toBe(before.doors[0].position);
+  expect(moved.windows[0].position).toBeCloseTo(.256575155,3);
+ }else{
+  const left=(opening:any)=>-100+600*opening.position-opening.width/2-6;
+  expect(left(moved.doors[0])).toBeCloseTo(left(moved.windows[0]),5);
+ }
  expect({...moved,doors:before.doors,windows:before.windows}).toEqual(before);
  for(const key of ['doors','windows'])expect({...moved[key][0],position:before[key][0].position}).toEqual(before[key][0]);
  await page.getByRole('button',{name:'Align Left',exact:true}).click();expect(await exported()).toEqual(moved);

@@ -48,10 +48,14 @@ for (const width of [1440, 390]) for (const kind of ['door', 'window'] as const)
     const canvas = page.getByRole('region', { name: '3D floor plan viewer' }).locator('canvas').first();
     await expect(canvas).toHaveAttribute('data-rendered', 'true');
     await expect(page.getByRole('button', { name: 'Got it', exact: true })).toBeHidden({ timeout: 15_000 });
-    await page.getByRole('button', { name: 'Enter Walkthrough Mode', exact: true }).click();
-    await expect(page.getByText('Click a door or window to adjust its height.', { exact: true })).toBeVisible();
+    // Position the real pointer before simulating lock. Unlike a native lock,
+    // the test shim cannot suppress mousemove deltas when Playwright moves
+    // from the toolbar to the canvas; Firefox would turn the camera away.
     const bounds = (await canvas.boundingBox())!;
-    await page.mouse.click(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+    await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+    await page.getByRole('button', { name: 'Enter Walkthrough Mode', exact: true }).press('Enter');
+    await expect(page.getByText('Click a door or window to adjust its height.', { exact: true })).toBeVisible();
+    await page.mouse.down(); await page.mouse.up();
     const panel = page.locator('[data-plan-properties]');
     await expect(panel).toBeVisible();
     const height = panel.getByRole('spinbutton', { name: 'Height (cm)', exact: true });
