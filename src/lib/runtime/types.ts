@@ -44,6 +44,24 @@ export interface RuntimeWallEntity extends RuntimeEntityBase {
   visible: boolean;
 }
 
+export type RuntimeDoorInteraction =
+  | { kind: 'none' }
+  | {
+      kind: 'swing';
+      pivot: RuntimeVec3;
+      axis: RuntimeVec3;
+      openAngleRadians: number;
+    }
+  | {
+      kind: 'slide';
+      axis: RuntimeVec3;
+      travel: number;
+    }
+  | {
+      kind: 'unsupported';
+      sourceMotion: 'fold' | 'overhead';
+    };
+
 export interface RuntimeDoorEntity extends RuntimeEntityBase {
   kind: 'door';
   hostWallId: string;
@@ -54,12 +72,7 @@ export interface RuntimeDoorEntity extends RuntimeEntityBase {
   swingDirection: 'left' | 'right';
   flipSide: boolean;
   closedPose: { center: RuntimeVec3; yawClockwiseRadians: number };
-  interaction: {
-    enabled: boolean;
-    motion: 'none' | 'swing' | 'slide' | 'fold' | 'overhead';
-    hingePosition?: RuntimeVec3;
-    opensTowardWallNormal: 1 | -1;
-  };
+  interaction: RuntimeDoorInteraction;
 }
 
 export interface RuntimeWindowEntity extends RuntimeEntityBase {
