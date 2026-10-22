@@ -20,6 +20,7 @@ func interact(_actor: Node = null) -> void:
 	_opened = not _opened
 	var target := _open_yaw if _opened else _closed_yaw
 	var tween := create_tween()
+	tween.set_process_mode(Tween.TWEEN_PROCESS_PHYSICS)
 	tween.set_trans(Tween.TRANS_SINE)
 	tween.set_ease(Tween.EASE_IN_OUT)
 	tween.tween_property(self, "rotation:y", target, _duration)
