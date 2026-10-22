@@ -47,7 +47,7 @@
       "id":"door-1","floorId":"floor-0","kind":"door","hostWallId":"wall-bottom","pathPosition":0.5,
       "width":0.9,"height":2.1,"doorType":"single","swingDirection":"left","flipSide":false,
       "closedPose":{"center":[2.5,1.05,4.0],"yawClockwiseRadians":0},
-      "interaction":{"enabled":true,"motion":"swing","hingePosition":[2.95,1.05,4.0],"opensTowardWallNormal":1}
+      "interaction":{"kind":"swing","pivot":[2.95,0.0,4.0],"axis":[0,1,0],"openAngleRadians":1.5707963267948966}
     },
     {
       "id":"window-1","floorId":"floor-0","kind":"window","hostWallId":"wall-top","pathPosition":0.5,

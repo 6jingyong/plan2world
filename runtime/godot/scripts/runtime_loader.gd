@@ -153,19 +153,23 @@ func _material_for_owner(owner: Dictionary) -> Material:
 		_: return _wall_material
 
 func _build_door(entity: Dictionary, collider: Dictionary, root: Node3D) -> void:
-	if not bool(entity.get("interaction", {}).get("enabled", false)):
+	var interaction: Dictionary = entity.get("interaction", {})
+	var motion := str(interaction.get("kind", "none"))
+	if motion == "none":
 		return
 	if collider.is_empty():
 		return
-	var interaction: Dictionary = entity.get("interaction", {})
-	var motion := str(interaction.get("motion", "none"))
 	if motion != "swing":
-		# The first spike intentionally proves one interaction primitive. Other door
-		# motions remain closed blockers until their adapter is added.
+		# This spike only animates explicit swing semantics. Slide and unsupported
+		# motions remain closed blockers until their adapter behavior is implemented.
 		_build_static_box(collider, {"kind": "door", "visible": true}, root)
 		return
 
-	var hinge := _vec3(interaction.get("hingePosition", []))
+	var hinge := _vec3(interaction.get("pivot", []))
+	var axis := _vec3(interaction.get("axis", []))
+	if axis.distance_to(Vector3.UP) > 0.001:
+		_build_static_box(collider, {"kind": "door", "visible": true}, root)
+		return
 	var closed_pose: Dictionary = entity.get("closedPose", {})
 	var center := _vec3(closed_pose.get("center", []))
 	var runtime_yaw := float(closed_pose.get("yawClockwiseRadians", 0.0))
@@ -195,9 +199,7 @@ func _build_door(entity: Dictionary, collider: Dictionary, root: Node3D) -> void
 	mesh.position = local_center
 	pivot.add_child(mesh)
 
-	var hinge_sign := 1.0 if str(entity.get("swingDirection", "left")) == "left" else -1.0
-	var normal_sign := float(interaction.get("opensTowardWallNormal", 1))
-	pivot.configure(hinge_sign * normal_sign * deg_to_rad(95.0))
+	pivot.configure(float(interaction.get("openAngleRadians", 0.0)))
 
 func _build_window_marker(entity: Dictionary, root: Node3D) -> void:
 	var mesh := MeshInstance3D.new()
