@@ -34,9 +34,8 @@ export interface ArchitectureMeshDiagnostic {
 }
 
 /**
- * In-memory, engine-neutral presentation geometry. This is deliberately separate
- * from plan2world-runtime-v1: runtime JSON keeps semantics/collision/interaction,
- * while a later packaging step can serialize these primitives to GLB.
+ * Engine-neutral presentation geometry. Runtime JSON keeps semantics, collision
+ * and interaction; a later packaging step can serialize this geometry to GLB.
  */
 export interface ArchitectureMesh {
   units: 'metres';
@@ -80,8 +79,7 @@ function near(a: number, b: number) {
 }
 
 function wallHeightAt(wall: RuntimeWallEntity, frame: WallFrame, x: number) {
-  const t = frame.length > EPSILON ? x / frame.length : 0;
-  return wall.startHeight + (wall.endHeight - wall.startHeight) * t;
+  return wall.startHeight + (wall.endHeight - wall.startHeight) * x / frame.length;
 }
 
 function localPoint(wall: RuntimeWallEntity, frame: WallFrame, x: number, y: number, z: number): RuntimeVec3 {
@@ -130,18 +128,13 @@ function mergeVerticalIntervals(openings: OpeningRect[]) {
 }
 
 function solidSpans(topA: number, topB: number, openings: OpeningRect[]): SolidSpan[] {
-  const intervals = mergeVerticalIntervals(openings);
   const spans: SolidSpan[] = [];
   let cursor = 0;
-
-  for (const [start, end] of intervals) {
+  for (const [start, end] of mergeVerticalIntervals(openings)) {
     if (start > cursor + EPSILON) spans.push({ bottom: cursor, topA: start, topB: start });
     cursor = Math.max(cursor, end);
   }
-
-  if (cursor < topA - EPSILON || cursor < topB - EPSILON) {
-    spans.push({ bottom: cursor, topA, topB });
-  }
+  if (cursor < topA - EPSILON || cursor < topB - EPSILON) spans.push({ bottom: cursor, topA, topB });
   return spans;
 }
 
@@ -220,7 +213,6 @@ function collectOpenings(
       }
     }
   }
-
   return openings;
 }
 
@@ -276,15 +268,17 @@ function compileStraightWall(
   const cuts = uniqueSorted([0, length, ...openings.flatMap(opening => [opening.x0, opening.x1])]);
   const frontNormal = localNormal(frame, 0, 0, 1);
   const backNormal = localNormal(frame, 0, 0, -1);
-  const upNormal = localNormal(frame, 0, 1, 0);
+  const flatUpNormal = localNormal(frame, 0, 1, 0);
   const downNormal = localNormal(frame, 0, -1, 0);
+  const slope = (wall.endHeight - wall.startHeight) / length;
+  const topNormalScale = 1 / Math.hypot(slope, 1);
+  const topNormal = localNormal(frame, -slope * topNormalScale, topNormalScale, 0);
 
   for (let index = 0; index < cuts.length - 1; index += 1) {
     const x0 = cuts[index], x1 = cuts[index + 1];
     if (x1 - x0 <= EPSILON) continue;
     const top0 = wallHeightAt(wall, frame, x0), top1 = wallHeightAt(wall, frame, x1);
-    const active = openingsAtStrip(openings, x0, x1);
-    const spans = solidSpans(top0, top1, active);
+    const spans = solidSpans(top0, top1, openingsAtStrip(openings, x0, x1));
 
     for (const span of spans) {
       if (Math.max(span.topA, span.topB) <= span.bottom + EPSILON) continue;
@@ -308,21 +302,19 @@ function compileStraightWall(
       );
     }
 
-    const topSpan = spans.find(span => near(span.topA, top0) && near(span.topB, top1));
-    if (topSpan) {
+    if (spans.some(span => near(span.topA, top0) && near(span.topB, top1))) {
       addQuad(builder,
         [
           localPoint(wall, frame, x0, top0, -half),
           localPoint(wall, frame, x0, top0, half),
           localPoint(wall, frame, x1, top1, half),
           localPoint(wall, frame, x1, top1, -half),
-        ], upNormal,
+        ], topNormal,
         [[x0, 0], [x0, wall.thickness], [x1, wall.thickness], [x1, 0]],
       );
     }
 
-    const bottomSpan = spans.find(span => near(span.bottom, 0));
-    if (bottomSpan) {
+    if (spans.some(span => near(span.bottom, 0))) {
       addQuad(builder,
         [
           localPoint(wall, frame, x0, 0, -half),
@@ -337,9 +329,8 @@ function compileStraightWall(
 
   for (const [x, normalX] of [[0, -1], [length, 1]] as const) {
     const top = wallHeightAt(wall, frame, x);
-    const spans = solidSpans(top, top, openingsAtX(openings, x));
     const normal = localNormal(frame, normalX, 0, 0);
-    for (const span of spans) {
+    for (const span of solidSpans(top, top, openingsAtX(openings, x))) {
       if (normalX < 0) {
         addQuad(builder,
           [
@@ -365,16 +356,15 @@ function compileStraightWall(
   }
 
   for (const opening of openings) {
-    const jambTop = opening.y1;
     if (opening.x0 > EPSILON) {
       addQuad(builder,
         [
           localPoint(wall, frame, opening.x0, opening.y0, half),
           localPoint(wall, frame, opening.x0, opening.y0, -half),
-          localPoint(wall, frame, opening.x0, jambTop, -half),
-          localPoint(wall, frame, opening.x0, jambTop, half),
+          localPoint(wall, frame, opening.x0, opening.y1, -half),
+          localPoint(wall, frame, opening.x0, opening.y1, half),
         ], localNormal(frame, 1, 0, 0),
-        [[0, opening.y0], [wall.thickness, opening.y0], [wall.thickness, jambTop], [0, jambTop]],
+        [[0, opening.y0], [wall.thickness, opening.y0], [wall.thickness, opening.y1], [0, opening.y1]],
       );
     }
     if (opening.x1 < length - EPSILON) {
@@ -382,10 +372,10 @@ function compileStraightWall(
         [
           localPoint(wall, frame, opening.x1, opening.y0, -half),
           localPoint(wall, frame, opening.x1, opening.y0, half),
-          localPoint(wall, frame, opening.x1, jambTop, half),
-          localPoint(wall, frame, opening.x1, jambTop, -half),
+          localPoint(wall, frame, opening.x1, opening.y1, half),
+          localPoint(wall, frame, opening.x1, opening.y1, -half),
         ], localNormal(frame, -1, 0, 0),
-        [[0, opening.y0], [wall.thickness, opening.y0], [wall.thickness, jambTop], [0, jambTop]],
+        [[0, opening.y0], [wall.thickness, opening.y0], [wall.thickness, opening.y1], [0, opening.y1]],
       );
     }
     if (opening.y0 > EPSILON) {
@@ -395,7 +385,7 @@ function compileStraightWall(
           localPoint(wall, frame, opening.x0, opening.y0, half),
           localPoint(wall, frame, opening.x1, opening.y0, half),
           localPoint(wall, frame, opening.x1, opening.y0, -half),
-        ], upNormal,
+        ], flatUpNormal,
         [[opening.x0, 0], [opening.x0, wall.thickness], [opening.x1, wall.thickness], [opening.x1, 0]],
       );
     }
