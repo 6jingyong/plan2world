@@ -26,6 +26,15 @@ The editable Plan2World `Project` remains authoritative; this viewer only consum
 
 The default scene is `demo/runtime-scene.json`, so the Godot spike can be tested without the web app or any AI service.
 
+## Compile a real Plan2World project
+
+1. Run the `runtime-v2` web app with `npm run dev`.
+2. Open `/runtime-export` in the browser.
+3. Upload a native Plan2World JSON export.
+4. Download the generated `*.runtime.json` file.
+
+This developer-only page calls the same deterministic `compileRuntimeScene()` function covered by unit tests. It does not invoke an AI or network service.
+
 ## Load an external runtime scene
 
 From a terminal, pass the compiled runtime JSON after Godot's `--` separator:
