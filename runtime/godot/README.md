@@ -1,8 +1,8 @@
 # Plan2World Godot runtime spike
 
-This directory is a deliberately small consumer of `plan2world-runtime-v1`.
+This directory is a deliberately small consumer of `plan2world-runtime-v1` plus its sibling `architecture.glb` presentation artifact.
 It is **not** a second authoring model and must never become the source of truth for a house.
-The editable Plan2World `Project` remains authoritative; this viewer only consumes compiled runtime snapshots.
+The editable Plan2World `Project` remains authoritative; this viewer only consumes compiled runtime artifacts.
 
 ## Target
 
@@ -24,7 +24,7 @@ The editable Plan2World `Project` remains authoritative; this viewer only consum
    - `E`: interact with a swing door
    - `Esc`: release/capture mouse
 
-The default scene is `demo/runtime-scene.json`, so the Godot spike can be tested without the web app or any AI service.
+The default scene is `demo/runtime-scene.json`, so the Godot spike can still be tested without the web app, AI service, or external GLB. When no architecture GLB is present the runtime falls back to its old proxy visuals.
 
 ## Compile an existing native Plan2World project
 
@@ -37,16 +37,26 @@ npm ci
 npm run runtime:export -- "C:\path\house.project.json" "C:\path\house.runtime.json"
 ```
 
-The output path is optional. Without it, `house.project.json` becomes `house.project.runtime.json` in the same directory.
+The CLI now emits two sibling artifacts from the same deterministic compilation path:
 
-The CLI reads the native file through the existing `readProject()` path and compiles it through the same deterministic `compileRuntimeScene()` used by the app and unit tests. It contains no second conversion implementation and invokes no AI or network service.
+```text
+house.runtime.json        # semantics, collision, interaction
+house.architecture.glb    # presentation geometry
+```
 
-A browser helper remains available as an alternative:
+The runtime output path is optional. Without it, `house.project.json` becomes `house.project.runtime.json`, with `house.project.architecture.glb` beside it. A third argument can explicitly choose the GLB path.
 
-1. Run `npm run dev`.
-2. Open `/runtime-export`.
-3. Upload the same native Plan2World JSON export.
-4. Download the generated `*.runtime.json` file.
+The CLI reads the native file through `readProject()` and then uses one shared `compileRuntimeArtifacts()` boundary:
+
+```text
+native Project
+  -> compileRuntimeScene()
+  -> plan2world-runtime-v1
+  -> compileArchitectureMesh()
+  -> architecture.glb
+```
+
+No AI or network service is invoked, and there is no browser-only converter anymore.
 
 ## Load an external runtime scene
 
@@ -56,47 +66,60 @@ From a terminal, pass the compiled runtime JSON after Godot's `--` separator:
 Godot_v4.7.2-stable_win64.exe --path runtime/godot -- --scene "C:\path\house.runtime.json"
 ```
 
-`--scene=<path>` is also accepted.
+Godot automatically looks for `house.architecture.glb` beside `house.runtime.json`. You can override that path explicitly:
+
+```powershell
+Godot_v4.7.2-stable_win64.exe --path runtime/godot -- --scene "C:\path\house.runtime.json" --architecture "C:\path\custom.architecture.glb"
+```
+
+Both `--scene=<path>` and `--architecture=<path>` are accepted.
 
 The shortest no-AI validation path is therefore:
 
 ```text
 existing native Project JSON
   -> npm run runtime:export
-  -> plan2world-runtime-v1 JSON
+  -> runtime JSON + architecture GLB
   -> Godot --scene
 ```
 
-## What the spike proves
+## Runtime boundary
+
+Godot consumes the two artifacts for different jobs:
+
+- `architecture.glb`: walls plus room floor/ceiling presentation geometry
+- `plan2world-runtime-v1`: player spawn/profile, collision, doors, windows, furniture and interaction semantics
+
+When the GLB loads successfully, the runtime loader stops drawing duplicate wall boxes and room-floor debug meshes. Collision remains generated from runtime JSON, while door leaves, window markers, furniture and columns remain semantic/runtime proxies until their own asset pipeline exists.
 
 The adapter intentionally delegates engine work to Godot:
 
 - player body: `CharacterBody3D`
-- wall/furniture collision: `StaticBody3D` + primitive `CollisionShape3D`
+- collision: runtime-v1 primitives -> Godot `CollisionShape3D`
+- architecture display: runtime-loaded glTF 2.0 binary via `GLTFDocument`/`GLTFState`
 - interactive swing door: `AnimatableBody3D`
 - sliding along walls and collision response: `move_and_slide()`
 - mouse look and three movement speeds live only in the runtime backend
 
-No Plan2World wall topology or room detection is recomputed here. The runtime compiler has already resolved those semantics.
+No Plan2World wall topology or room detection is recomputed here. The runtime compiler and architecture mesher have already resolved those semantics.
 
 ## Deliberate limitations
 
-This is a runtime architecture spike, not a rendering-quality milestone.
+This is still an architecture/runtime milestone, not a rendering-quality milestone.
 
 - only `kind: "swing"` doors are interactive; slide and unsupported motions remain closed blockers
 - double/french swing doors are represented as one leaf for now
-- wall visuals are debug proxies derived from primitive colliders; windows are translucent markers and are not visually cut through those proxies yet
-- room floor polygons are rendered without subtracting polygon holes
+- curved walls are still reported by the architecture mesher as unsupported
+- wall junction/miter cleanup is not implemented yet
+- door/window leaves and panes remain Godot proxy geometry; GLB currently owns the surrounding architectural openings
 - stairs are not yet physical
 - player motion is planar and holds the current floor elevation; gravity/floor-body traversal is deferred
-- furniture uses collider-sized proxy boxes; GLB asset resolution is deferred
+- furniture uses collider-sized proxy boxes; furniture GLB asset resolution is deferred
 - materials and lighting are intentionally basic
-
-These constraints keep the experiment focused on the question that motivated `runtime-v2`: can a mature engine replace Plan2World's hand-written walkthrough/physics infrastructure without contaminating the core data model?
 
 ## Adapter boundary
 
-The only supported input is `plan2world-runtime-v1`.
-Do not import native `Project`, `plan2world-draft-v1`, LLM observations, Three.js nodes, or Godot scene data across this boundary.
+The authoring source of truth is still the native Plan2World `Project`.
+Godot must not import native `Project`, `plan2world-draft-v1`, LLM observations, Three.js nodes, or Godot scene data back into the core model.
 
-Future backends (Unity/Unreal/Web) should consume the same runtime contract rather than translating from this Godot project.
+Future backends (Unity/Unreal/Web) should consume the same runtime JSON + presentation geometry boundary rather than translating from this Godot project.
