@@ -4,836 +4,186 @@
   "title": "plan2world-runtime-v1",
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "schema",
-    "version",
-    "units",
-    "coordinates",
-    "source",
-    "playerProfile",
-    "floors",
-    "entities",
-    "colliders"
-  ],
+  "required": ["schema", "version", "units", "coordinates", "source", "playerProfile", "floors", "entities", "colliders"],
   "properties": {
-    "schema": {
-      "const": "plan2world-runtime-v1"
-    },
-    "version": {
-      "const": 1
-    },
-    "units": {
-      "const": "metres"
-    },
+    "schema": { "const": "plan2world-runtime-v1" },
+    "version": { "const": 1 },
+    "units": { "const": "metres" },
     "coordinates": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "handedness",
-        "up",
-        "planX",
-        "planY",
-        "yaw"
-      ],
+      "type": "object", "additionalProperties": false, "required": ["handedness", "up", "planX", "planY", "yaw"],
       "properties": {
-        "handedness": {
-          "const": "right"
-        },
-        "up": {
-          "const": "+Y"
-        },
-        "planX": {
-          "const": "+X"
-        },
-        "planY": {
-          "const": "+Z"
-        },
-        "yaw": {
-          "const": "clockwise-from-+X"
-        }
+        "handedness": { "const": "right" }, "up": { "const": "+Y" },
+        "planX": { "const": "+X" }, "planY": { "const": "+Z" },
+        "yaw": { "const": "clockwise-from-+X" }
       }
     },
     "source": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "projectId",
-        "projectName"
-      ],
-      "properties": {
-        "projectId": {
-          "$ref": "#/$defs/id"
-        },
-        "projectName": {
-          "type": "string"
-        }
-      }
+      "type": "object", "additionalProperties": false, "required": ["projectId", "projectName"],
+      "properties": { "projectId": { "$ref": "#/$defs/id" }, "projectName": { "type": "string" } }
     },
-    "playerProfile": {
-      "$ref": "#/$defs/playerProfile"
-    },
-    "floors": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/floor"
-      }
-    },
-    "entities": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/entity"
-      }
-    },
-    "colliders": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/collider"
-      }
-    }
+    "playerProfile": { "$ref": "#/$defs/playerProfile" },
+    "floors": { "type": "array", "items": { "$ref": "#/$defs/floor" } },
+    "entities": { "type": "array", "items": { "$ref": "#/$defs/entity" } },
+    "colliders": { "type": "array", "items": { "$ref": "#/$defs/collider" } }
   },
   "$defs": {
-    "id": {
-      "type": "string",
-      "minLength": 1
-    },
-    "positive": {
-      "type": "number",
-      "exclusiveMinimum": 0
-    },
-    "nonnegative": {
-      "type": "number",
-      "minimum": 0
-    },
-    "vec2": {
-      "type": "array",
-      "prefixItems": [
-        {
-          "type": "number"
-        },
-        {
-          "type": "number"
-        }
-      ],
-      "minItems": 2,
-      "maxItems": 2
-    },
-    "vec3": {
-      "type": "array",
-      "prefixItems": [
-        {
-          "type": "number"
-        },
-        {
-          "type": "number"
-        },
-        {
-          "type": "number"
-        }
-      ],
-      "minItems": 3,
-      "maxItems": 3
+    "id": { "type": "string", "minLength": 1 },
+    "positive": { "type": "number", "exclusiveMinimum": 0 },
+    "nonnegative": { "type": "number", "minimum": 0 },
+    "vec2": { "type": "array", "prefixItems": [{ "type": "number" }, { "type": "number" }], "minItems": 2, "maxItems": 2 },
+    "vec3": { "type": "array", "prefixItems": [{ "type": "number" }, { "type": "number" }, { "type": "number" }], "minItems": 3, "maxItems": 3 },
+    "positiveVec3": {
+      "type": "array", "prefixItems": [{ "$ref": "#/$defs/positive" }, { "$ref": "#/$defs/positive" }, { "$ref": "#/$defs/positive" }],
+      "minItems": 3, "maxItems": 3
     },
     "playerProfile": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "eyeHeight",
-        "radius",
-        "speeds"
-      ],
+      "type": "object", "additionalProperties": false, "required": ["eyeHeight", "radius", "speeds"],
       "properties": {
-        "eyeHeight": {
-          "$ref": "#/$defs/positive"
-        },
-        "radius": {
-          "$ref": "#/$defs/positive"
-        },
+        "eyeHeight": { "$ref": "#/$defs/positive" }, "radius": { "$ref": "#/$defs/positive" },
         "speeds": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "slow",
-            "walk",
-            "fast"
-          ],
+          "type": "object", "additionalProperties": false, "required": ["slow", "walk", "fast"],
           "properties": {
-            "slow": {
-              "$ref": "#/$defs/nonnegative"
-            },
-            "walk": {
-              "$ref": "#/$defs/nonnegative"
-            },
-            "fast": {
-              "$ref": "#/$defs/nonnegative"
-            }
+            "slow": { "$ref": "#/$defs/nonnegative" },
+            "walk": { "$ref": "#/$defs/nonnegative" },
+            "fast": { "$ref": "#/$defs/nonnegative" }
           }
         }
       }
     },
     "floor": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "id",
-        "name",
-        "level",
-        "elevation",
-        "walkthroughStart",
-        "rooms"
-      ],
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "name", "level", "elevation", "walkthroughStart", "rooms"],
       "properties": {
-        "id": {
-          "$ref": "#/$defs/id"
-        },
-        "name": {
-          "type": "string"
-        },
-        "level": {
-          "type": "integer"
-        },
-        "elevation": {
-          "type": "number"
-        },
-        "walkthroughStart": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/vec3"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "rooms": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/room"
-          }
-        }
+        "id": { "$ref": "#/$defs/id" }, "name": { "type": "string" }, "level": { "type": "integer" }, "elevation": { "type": "number" },
+        "walkthroughStart": { "anyOf": [{ "$ref": "#/$defs/vec3" }, { "type": "null" }] },
+        "rooms": { "type": "array", "items": { "$ref": "#/$defs/room" } }
       }
     },
     "room": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "id",
-        "name",
-        "roomType",
-        "polygon",
-        "holes",
-        "slabThickness",
-        "ceilingHeight"
-      ],
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "name", "roomType", "polygon", "holes", "slabThickness", "ceilingHeight"],
       "properties": {
-        "id": {
-          "$ref": "#/$defs/id"
-        },
-        "name": {
-          "type": "string"
-        },
-        "roomType": {
-          "enum": [
-            "indoor",
-            "outdoor",
-            "garage",
-            "utility"
-          ]
-        },
-        "polygon": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/vec2"
-          },
-          "minItems": 3
-        },
-        "holes": {
-          "type": "array",
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/$defs/vec2"
-            },
-            "minItems": 3
-          }
-        },
-        "slabThickness": {
-          "$ref": "#/$defs/positive"
-        },
-        "ceilingHeight": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/nonnegative"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        }
+        "id": { "$ref": "#/$defs/id" }, "name": { "type": "string" },
+        "roomType": { "enum": ["indoor", "outdoor", "garage", "utility"] },
+        "polygon": { "type": "array", "items": { "$ref": "#/$defs/vec2" }, "minItems": 3 },
+        "holes": { "type": "array", "items": { "type": "array", "items": { "$ref": "#/$defs/vec2" }, "minItems": 3 } },
+        "slabThickness": { "$ref": "#/$defs/positive" },
+        "ceilingHeight": { "anyOf": [{ "$ref": "#/$defs/nonnegative" }, { "type": "null" }] }
       }
     },
     "wallPath": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "start",
-        "end"
-      ],
-      "properties": {
-        "start": {
-          "$ref": "#/$defs/vec2"
-        },
-        "end": {
-          "$ref": "#/$defs/vec2"
-        },
-        "control": {
-          "$ref": "#/$defs/vec2"
-        }
-      }
+      "type": "object", "additionalProperties": false, "required": ["start", "end"],
+      "properties": { "start": { "$ref": "#/$defs/vec2" }, "end": { "$ref": "#/$defs/vec2" }, "control": { "$ref": "#/$defs/vec2" } }
     },
     "closedPose": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "center",
-        "yawClockwiseRadians"
-      ],
-      "properties": {
-        "center": {
-          "$ref": "#/$defs/vec3"
-        },
-        "yawClockwiseRadians": {
-          "type": "number"
-        }
-      }
+      "type": "object", "additionalProperties": false, "required": ["center", "yawClockwiseRadians"],
+      "properties": { "center": { "$ref": "#/$defs/vec3" }, "yawClockwiseRadians": { "type": "number" } }
     },
     "doorInteraction": {
       "oneOf": [
+        { "type": "object", "additionalProperties": false, "required": ["kind"], "properties": { "kind": { "const": "none" } } },
         {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "kind"
-          ],
+          "type": "object", "additionalProperties": false, "required": ["kind", "pivot", "axis", "openAngleRadians"],
           "properties": {
-            "kind": {
-              "const": "none"
-            }
+            "kind": { "const": "swing" }, "pivot": { "$ref": "#/$defs/vec3" }, "axis": { "$ref": "#/$defs/vec3" },
+            "openAngleRadians": { "type": "number" }
           }
         },
         {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "kind",
-            "pivot",
-            "axis",
-            "openAngleRadians"
-          ],
-          "properties": {
-            "kind": {
-              "const": "swing"
-            },
-            "pivot": {
-              "$ref": "#/$defs/vec3"
-            },
-            "axis": {
-              "$ref": "#/$defs/vec3"
-            },
-            "openAngleRadians": {
-              "type": "number"
-            }
-          }
+          "type": "object", "additionalProperties": false, "required": ["kind", "axis", "travel"],
+          "properties": { "kind": { "const": "slide" }, "axis": { "$ref": "#/$defs/vec3" }, "travel": { "$ref": "#/$defs/positive" } }
         },
         {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "kind",
-            "axis",
-            "travel"
-          ],
-          "properties": {
-            "kind": {
-              "const": "slide"
-            },
-            "axis": {
-              "$ref": "#/$defs/vec3"
-            },
-            "travel": {
-              "$ref": "#/$defs/positive"
-            }
-          }
-        },
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "kind",
-            "sourceMotion"
-          ],
-          "properties": {
-            "kind": {
-              "const": "unsupported"
-            },
-            "sourceMotion": {
-              "enum": [
-                "fold",
-                "overhead"
-              ]
-            }
-          }
+          "type": "object", "additionalProperties": false, "required": ["kind", "sourceMotion"],
+          "properties": { "kind": { "const": "unsupported" }, "sourceMotion": { "enum": ["fold", "overhead"] } }
         }
       ]
     },
     "wallEntity": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "id",
-        "floorId",
-        "kind",
-        "path",
-        "thickness",
-        "startHeight",
-        "endHeight",
-        "boundaryType",
-        "visible"
-      ],
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "floorId", "kind", "path", "thickness", "startHeight", "endHeight", "boundaryType", "visible"],
       "properties": {
-        "id": {
-          "$ref": "#/$defs/id"
-        },
-        "floorId": {
-          "$ref": "#/$defs/id"
-        },
-        "kind": {
-          "const": "wall"
-        },
-        "path": {
-          "$ref": "#/$defs/wallPath"
-        },
-        "thickness": {
-          "$ref": "#/$defs/positive"
-        },
-        "startHeight": {
-          "$ref": "#/$defs/nonnegative"
-        },
-        "endHeight": {
-          "$ref": "#/$defs/nonnegative"
-        },
-        "boundaryType": {
-          "enum": [
-            "solid",
-            "railing",
-            "air"
-          ]
-        },
-        "visible": {
-          "type": "boolean"
-        }
+        "id": { "$ref": "#/$defs/id" }, "floorId": { "$ref": "#/$defs/id" }, "kind": { "const": "wall" },
+        "path": { "$ref": "#/$defs/wallPath" }, "thickness": { "$ref": "#/$defs/positive" },
+        "startHeight": { "$ref": "#/$defs/nonnegative" }, "endHeight": { "$ref": "#/$defs/nonnegative" },
+        "boundaryType": { "enum": ["solid", "railing", "air"] }, "visible": { "type": "boolean" }
       }
     },
     "doorEntity": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "id",
-        "floorId",
-        "kind",
-        "hostWallId",
-        "pathPosition",
-        "width",
-        "height",
-        "doorType",
-        "swingDirection",
-        "flipSide",
-        "closedPose",
-        "interaction"
-      ],
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "floorId", "kind", "hostWallId", "pathPosition", "width", "height", "doorType", "swingDirection", "flipSide", "closedPose", "interaction"],
       "properties": {
-        "id": {
-          "$ref": "#/$defs/id"
-        },
-        "floorId": {
-          "$ref": "#/$defs/id"
-        },
-        "kind": {
-          "const": "door"
-        },
-        "hostWallId": {
-          "$ref": "#/$defs/id"
-        },
-        "pathPosition": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 1
-        },
-        "width": {
-          "$ref": "#/$defs/positive"
-        },
-        "height": {
-          "$ref": "#/$defs/positive"
-        },
-        "doorType": {
-          "enum": [
-            "single",
-            "double",
-            "sliding",
-            "french",
-            "pocket",
-            "bifold",
-            "opening",
-            "garage"
-          ]
-        },
-        "swingDirection": {
-          "enum": [
-            "left",
-            "right"
-          ]
-        },
-        "flipSide": {
-          "type": "boolean"
-        },
-        "closedPose": {
-          "$ref": "#/$defs/closedPose"
-        },
-        "interaction": {
-          "$ref": "#/$defs/doorInteraction"
-        }
+        "id": { "$ref": "#/$defs/id" }, "floorId": { "$ref": "#/$defs/id" }, "kind": { "const": "door" },
+        "hostWallId": { "$ref": "#/$defs/id" }, "pathPosition": { "type": "number", "minimum": 0, "maximum": 1 },
+        "width": { "$ref": "#/$defs/positive" }, "height": { "$ref": "#/$defs/positive" },
+        "doorType": { "enum": ["single", "double", "sliding", "french", "pocket", "bifold", "opening", "garage"] },
+        "swingDirection": { "enum": ["left", "right"] }, "flipSide": { "type": "boolean" },
+        "closedPose": { "$ref": "#/$defs/closedPose" }, "interaction": { "$ref": "#/$defs/doorInteraction" }
       }
     },
     "windowEntity": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "id",
-        "floorId",
-        "kind",
-        "hostWallId",
-        "pathPosition",
-        "width",
-        "height",
-        "sillHeight",
-        "windowType",
-        "center",
-        "yawClockwiseRadians"
-      ],
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "floorId", "kind", "hostWallId", "pathPosition", "width", "height", "sillHeight", "windowType", "center", "yawClockwiseRadians"],
       "properties": {
-        "id": {
-          "$ref": "#/$defs/id"
-        },
-        "floorId": {
-          "$ref": "#/$defs/id"
-        },
-        "kind": {
-          "const": "window"
-        },
-        "hostWallId": {
-          "$ref": "#/$defs/id"
-        },
-        "pathPosition": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 1
-        },
-        "width": {
-          "$ref": "#/$defs/positive"
-        },
-        "height": {
-          "$ref": "#/$defs/positive"
-        },
-        "sillHeight": {
-          "$ref": "#/$defs/nonnegative"
-        },
-        "windowType": {
-          "enum": [
-            "standard",
-            "fixed",
-            "casement",
-            "sliding",
-            "bay"
-          ]
-        },
-        "center": {
-          "$ref": "#/$defs/vec3"
-        },
-        "yawClockwiseRadians": {
-          "type": "number"
-        }
+        "id": { "$ref": "#/$defs/id" }, "floorId": { "$ref": "#/$defs/id" }, "kind": { "const": "window" },
+        "hostWallId": { "$ref": "#/$defs/id" }, "pathPosition": { "type": "number", "minimum": 0, "maximum": 1 },
+        "width": { "$ref": "#/$defs/positive" }, "height": { "$ref": "#/$defs/positive" }, "sillHeight": { "$ref": "#/$defs/nonnegative" },
+        "windowType": { "enum": ["standard", "fixed", "casement", "sliding", "bay"] },
+        "center": { "$ref": "#/$defs/vec3" }, "yawClockwiseRadians": { "type": "number" }
       }
     },
     "furnitureEntity": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "id",
-        "floorId",
-        "kind",
-        "catalogId",
-        "assetRef",
-        "position",
-        "yawClockwiseRadians",
-        "size"
-      ],
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "floorId", "kind", "catalogId", "assetRef", "position", "yawClockwiseRadians", "size"],
       "properties": {
-        "id": {
-          "$ref": "#/$defs/id"
-        },
-        "floorId": {
-          "$ref": "#/$defs/id"
-        },
-        "kind": {
-          "const": "furniture"
-        },
-        "catalogId": {
-          "$ref": "#/$defs/id"
-        },
-        "sourceCategory": {
-          "type": "string"
-        },
-        "assetRef": {
-          "type": "string",
-          "minLength": 1
-        },
-        "position": {
-          "$ref": "#/$defs/vec3"
-        },
-        "yawClockwiseRadians": {
-          "type": "number"
-        },
-        "size": {
-          "$ref": "#/$defs/positiveVec3"
-        }
+        "id": { "$ref": "#/$defs/id" }, "floorId": { "$ref": "#/$defs/id" }, "kind": { "const": "furniture" },
+        "catalogId": { "$ref": "#/$defs/id" }, "sourceCategory": { "type": "string" }, "assetRef": { "type": "string", "minLength": 1 },
+        "position": { "$ref": "#/$defs/vec3" }, "yawClockwiseRadians": { "type": "number" }, "size": { "$ref": "#/$defs/positiveVec3" }
       }
     },
     "columnEntity": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "id",
-        "floorId",
-        "kind",
-        "shape",
-        "position",
-        "yawClockwiseRadians",
-        "diameter",
-        "height"
-      ],
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "floorId", "kind", "shape", "position", "yawClockwiseRadians", "diameter", "height"],
       "properties": {
-        "id": {
-          "$ref": "#/$defs/id"
-        },
-        "floorId": {
-          "$ref": "#/$defs/id"
-        },
-        "kind": {
-          "const": "column"
-        },
-        "shape": {
-          "enum": [
-            "round",
-            "square"
-          ]
-        },
-        "position": {
-          "$ref": "#/$defs/vec3"
-        },
-        "yawClockwiseRadians": {
-          "type": "number"
-        },
-        "diameter": {
-          "$ref": "#/$defs/positive"
-        },
-        "height": {
-          "$ref": "#/$defs/positive"
-        }
+        "id": { "$ref": "#/$defs/id" }, "floorId": { "$ref": "#/$defs/id" }, "kind": { "const": "column" },
+        "shape": { "enum": ["round", "square"] }, "position": { "$ref": "#/$defs/vec3" }, "yawClockwiseRadians": { "type": "number" },
+        "diameter": { "$ref": "#/$defs/positive" }, "height": { "$ref": "#/$defs/positive" }
       }
     },
     "stairEntity": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "id",
-        "floorId",
-        "kind",
-        "position",
-        "yawClockwiseRadians",
-        "width",
-        "depth",
-        "riserCount",
-        "direction",
-        "stairType"
-      ],
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "floorId", "kind", "position", "yawClockwiseRadians", "width", "depth", "riserCount", "direction", "stairType"],
       "properties": {
-        "id": {
-          "$ref": "#/$defs/id"
-        },
-        "floorId": {
-          "$ref": "#/$defs/id"
-        },
-        "kind": {
-          "const": "stair"
-        },
-        "position": {
-          "$ref": "#/$defs/vec3"
-        },
-        "yawClockwiseRadians": {
-          "type": "number"
-        },
-        "width": {
-          "$ref": "#/$defs/positive"
-        },
-        "depth": {
-          "$ref": "#/$defs/positive"
-        },
-        "riserCount": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "direction": {
-          "enum": [
-            "up",
-            "down"
-          ]
-        },
-        "stairType": {
-          "enum": [
-            "straight",
-            "l-shaped",
-            "u-shaped",
-            "spiral"
-          ]
-        }
+        "id": { "$ref": "#/$defs/id" }, "floorId": { "$ref": "#/$defs/id" }, "kind": { "const": "stair" },
+        "position": { "$ref": "#/$defs/vec3" }, "yawClockwiseRadians": { "type": "number" },
+        "width": { "$ref": "#/$defs/positive" }, "depth": { "$ref": "#/$defs/positive" }, "riserCount": { "type": "integer", "minimum": 1 },
+        "direction": { "enum": ["up", "down"] }, "stairType": { "enum": ["straight", "l-shaped", "u-shaped", "spiral"] }
       }
     },
     "entity": {
       "oneOf": [
-        {
-          "$ref": "#/$defs/wallEntity"
-        },
-        {
-          "$ref": "#/$defs/doorEntity"
-        },
-        {
-          "$ref": "#/$defs/windowEntity"
-        },
-        {
-          "$ref": "#/$defs/furnitureEntity"
-        },
-        {
-          "$ref": "#/$defs/columnEntity"
-        },
-        {
-          "$ref": "#/$defs/stairEntity"
-        }
+        { "$ref": "#/$defs/wallEntity" }, { "$ref": "#/$defs/doorEntity" }, { "$ref": "#/$defs/windowEntity" },
+        { "$ref": "#/$defs/furnitureEntity" }, { "$ref": "#/$defs/columnEntity" }, { "$ref": "#/$defs/stairEntity" }
       ]
     },
     "boxCollider": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "id",
-        "ownerId",
-        "floorId",
-        "dynamic",
-        "kind",
-        "center",
-        "size",
-        "yawClockwiseRadians"
-      ],
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "ownerId", "floorId", "dynamic", "kind", "center", "size", "yawClockwiseRadians"],
       "properties": {
-        "id": {
-          "$ref": "#/$defs/id"
-        },
-        "ownerId": {
-          "$ref": "#/$defs/id"
-        },
-        "floorId": {
-          "$ref": "#/$defs/id"
-        },
-        "dynamic": {
-          "type": "boolean"
-        },
-        "kind": {
-          "const": "box"
-        },
-        "center": {
-          "$ref": "#/$defs/vec3"
-        },
-        "size": {
-          "$ref": "#/$defs/positiveVec3"
-        },
-        "yawClockwiseRadians": {
-          "type": "number"
-        }
+        "id": { "$ref": "#/$defs/id" }, "ownerId": { "$ref": "#/$defs/id" }, "floorId": { "$ref": "#/$defs/id" },
+        "dynamic": { "type": "boolean" }, "kind": { "const": "box" }, "center": { "$ref": "#/$defs/vec3" },
+        "size": { "$ref": "#/$defs/positiveVec3" }, "yawClockwiseRadians": { "type": "number" }
       }
     },
     "cylinderCollider": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "id",
-        "ownerId",
-        "floorId",
-        "dynamic",
-        "kind",
-        "center",
-        "radius",
-        "height"
-      ],
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "ownerId", "floorId", "dynamic", "kind", "center", "radius", "height"],
       "properties": {
-        "id": {
-          "$ref": "#/$defs/id"
-        },
-        "ownerId": {
-          "$ref": "#/$defs/id"
-        },
-        "floorId": {
-          "$ref": "#/$defs/id"
-        },
-        "dynamic": {
-          "type": "boolean"
-        },
-        "kind": {
-          "const": "cylinder"
-        },
-        "center": {
-          "$ref": "#/$defs/vec3"
-        },
-        "radius": {
-          "$ref": "#/$defs/positive"
-        },
-        "height": {
-          "$ref": "#/$defs/positive"
-        }
+        "id": { "$ref": "#/$defs/id" }, "ownerId": { "$ref": "#/$defs/id" }, "floorId": { "$ref": "#/$defs/id" },
+        "dynamic": { "type": "boolean" }, "kind": { "const": "cylinder" }, "center": { "$ref": "#/$defs/vec3" },
+        "radius": { "$ref": "#/$defs/positive" }, "height": { "$ref": "#/$defs/positive" }
       }
     },
-    "collider": {
-      "oneOf": [
-        {
-          "$ref": "#/$defs/boxCollider"
-        },
-        {
-          "$ref": "#/$defs/cylinderCollider"
-        }
-      ]
-    },
-    "positiveVec3": {
-      "type": "array",
-      "prefixItems": [
-        {
-          "$ref": "#/$defs/positive"
-        },
-        {
-          "$ref": "#/$defs/positive"
-        },
-        {
-          "$ref": "#/$defs/positive"
-        }
-      ],
-      "minItems": 3,
-      "maxItems": 3
-    }
+    "collider": { "oneOf": [{ "$ref": "#/$defs/boxCollider" }, { "$ref": "#/$defs/cylinderCollider" }] }
   }
 }
