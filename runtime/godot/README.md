@@ -26,24 +26,46 @@ The editable Plan2World `Project` remains authoritative; this viewer only consum
 
 The default scene is `demo/runtime-scene.json`, so the Godot spike can be tested without the web app or any AI service.
 
-## Compile a real Plan2World project
+## Compile an existing native Plan2World project
 
-1. Run the `runtime-v2` web app with `npm run dev`.
-2. Open `/runtime-export` in the browser.
-3. Upload a native Plan2World JSON export.
+If you already have a saved native Project JSON, there is no need to reopen the editor, import the source image, or configure an LLM.
+
+From the repository root:
+
+```powershell
+npm ci
+npm run runtime:export -- "C:\path\house.project.json" "C:\path\house.runtime.json"
+```
+
+The output path is optional. Without it, `house.project.json` becomes `house.project.runtime.json` in the same directory.
+
+The CLI reads the native file through the existing `readProject()` path and compiles it through the same deterministic `compileRuntimeScene()` used by the app and unit tests. It contains no second conversion implementation and invokes no AI or network service.
+
+A browser helper remains available as an alternative:
+
+1. Run `npm run dev`.
+2. Open `/runtime-export`.
+3. Upload the same native Plan2World JSON export.
 4. Download the generated `*.runtime.json` file.
-
-This developer-only page calls the same deterministic `compileRuntimeScene()` function covered by unit tests. It does not invoke an AI or network service.
 
 ## Load an external runtime scene
 
 From a terminal, pass the compiled runtime JSON after Godot's `--` separator:
 
 ```powershell
-Godot_v4.7.2-stable_win64.exe --path runtime/godot -- --scene "C:\path\to\scene.json"
+Godot_v4.7.2-stable_win64.exe --path runtime/godot -- --scene "C:\path\house.runtime.json"
 ```
 
 `--scene=<path>` is also accepted.
+
+The shortest no-AI validation path is therefore:
+
+```text
+existing native Project JSON
+  -> npm run runtime:export
+  -> plan2world-runtime-v1 JSON
+  -> Godot --scene
+```
 
 ## What the spike proves
 
@@ -61,7 +83,7 @@ No Plan2World wall topology or room detection is recomputed here. The runtime co
 
 This is a runtime architecture spike, not a rendering-quality milestone.
 
-- only `motion: "swing"` doors are interactive; slide/fold/overhead doors remain closed blockers
+- only `kind: "swing"` doors are interactive; slide and unsupported motions remain closed blockers
 - double/french swing doors are represented as one leaf for now
 - wall visuals are debug proxies derived from primitive colliders; windows are translucent markers and are not visually cut through those proxies yet
 - room floor polygons are rendered without subtracting polygon holes
