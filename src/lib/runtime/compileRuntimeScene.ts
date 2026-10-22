@@ -10,6 +10,7 @@ import type {
   RuntimeBoxCollider,
   RuntimeCollider,
   RuntimeDoorEntity,
+  RuntimeDoorInteraction,
   RuntimeEntity,
   RuntimeFloor,
   RuntimeVec2,
@@ -32,12 +33,34 @@ const yawForWall = (wall: Pick<Wall, 'start' | 'end' | 'curvePoint'>, position: 
   return Math.atan2(tangent.y, tangent.x);
 };
 
-function doorMotion(door: Door): RuntimeDoorEntity['interaction']['motion'] {
-  if (door.type === 'opening') return 'none';
-  if (door.type === 'sliding' || door.type === 'pocket') return 'slide';
-  if (door.type === 'bifold') return 'fold';
-  if (door.type === 'garage') return 'overhead';
-  return 'swing';
+function compileDoorInteraction(door: Door, tangent: Point, hingePoint: Point, elevationCm: number): RuntimeDoorInteraction {
+  switch (door.type) {
+    case 'opening':
+      return { kind: 'none' };
+    case 'sliding':
+    case 'pocket': {
+      const travelSign = door.swingDirection === 'left' ? 1 : -1;
+      return {
+        kind: 'slide',
+        axis: [tangent.x * travelSign, 0, tangent.y * travelSign],
+        travel: m(door.width),
+      };
+    }
+    case 'bifold':
+      return { kind: 'unsupported', sourceMotion: 'fold' };
+    case 'garage':
+      return { kind: 'unsupported', sourceMotion: 'overhead' };
+    default: {
+      const hingeSign = door.swingDirection === 'left' ? 1 : -1;
+      const sideSign = door.flipSide ? -1 : 1;
+      return {
+        kind: 'swing',
+        pivot: point3(hingePoint, elevationCm),
+        axis: [0, 1, 0],
+        openAngleRadians: hingeSign * sideSign * Math.PI / 2,
+      };
+    }
+  }
 }
 
 function compileWallColliders(floor: Floor, elevationCm: number, wall: Wall): RuntimeBoxCollider[] {
@@ -85,12 +108,6 @@ function compileDoor(floor: Floor, elevationCm: number, door: Door, wall: Wall):
     x: centerPoint.x + tangent.x * hingeSign * door.width / 2,
     y: centerPoint.y + tangent.y * hingeSign * door.width / 2,
   };
-  const interaction = {
-    enabled: door.type !== 'opening',
-    motion: doorMotion(door),
-    ...(door.type === 'opening' ? {} : { hingePosition: point3(hingePoint, elevationCm + door.height / 2) }),
-    opensTowardWallNormal: (door.flipSide ? -1 : 1) as 1 | -1,
-  };
   const entity: RuntimeDoorEntity = {
     id: door.id,
     floorId: floor.id,
@@ -103,7 +120,7 @@ function compileDoor(floor: Floor, elevationCm: number, door: Door, wall: Wall):
     swingDirection: door.swingDirection,
     flipSide: door.flipSide,
     closedPose: { center: point3(centerPoint, elevationCm + door.height / 2), yawClockwiseRadians: yaw },
-    interaction,
+    interaction: compileDoorInteraction(door, tangent, hingePoint, elevationCm),
   };
   if (door.type === 'opening') return { entity };
   return {
@@ -201,7 +218,7 @@ function compileFloor(floor: Floor, elevationCm: number): { floor: RuntimeFloor;
     });
   }
 
-  const rooms = analysis.geometry.map(({ room, polygon }, index) => ({
+  const rooms = analysis.geometry.map(({ room, polygon }) => ({
     id: room.id,
     name: room.name,
     roomType: room.roomType ?? 'indoor',
@@ -212,8 +229,7 @@ function compileFloor(floor: Floor, elevationCm: number): { floor: RuntimeFloor;
       const height = roomCeilingHeight(room.walls, floor.walls);
       return height === undefined ? null : m(height);
     })(),
-    _index: index,
-  })).map(({ _index, ...room }) => room);
+  }));
 
   return {
     floor: {
