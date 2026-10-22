@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Floor, Project } from '$lib/models/types';
 import { compileRuntimeScene } from '$lib/runtime/compileRuntimeScene';
+import type { Plan2WorldRuntimeSceneV1 } from '$lib/runtime/types';
 
 function floorFixture(): Floor {
   return {
@@ -24,6 +25,29 @@ function projectFixture(floor = floorFixture()): Project {
   return { id: 'project-1', name: 'Runtime test', floors: [floor], activeFloorId: floor.id, createdAt: new Date(0), updatedAt: new Date(0) };
 }
 
+function expectStableReferences(scene: Plan2WorldRuntimeSceneV1) {
+  const floorIds = new Set(scene.floors.map(floor => floor.id));
+  expect(floorIds.size).toBe(scene.floors.length);
+
+  const entities = new Map(scene.entities.map(entity => [entity.id, entity]));
+  expect(entities.size).toBe(scene.entities.length);
+  for (const entity of scene.entities) {
+    expect(floorIds.has(entity.floorId)).toBe(true);
+    if (entity.kind === 'door') {
+      const host = entities.get(entity.hostWallId);
+      expect(host?.kind).toBe('wall');
+      expect(host?.floorId).toBe(entity.floorId);
+    }
+  }
+
+  const colliderIds = new Set(scene.colliders.map(collider => collider.id));
+  expect(colliderIds.size).toBe(scene.colliders.length);
+  for (const collider of scene.colliders) {
+    expect(floorIds.has(collider.floorId)).toBe(true);
+    expect(entities.get(collider.ownerId)?.floorId).toBe(collider.floorId);
+  }
+}
+
 describe('plan2world runtime compiler', () => {
   it('compiles native centimetres and room analysis into engine-neutral metres', () => {
     const scene = compileRuntimeScene(projectFixture());
@@ -36,6 +60,7 @@ describe('plan2world runtime compiler', () => {
     expect(scene.floors[0].rooms[0].polygon.length).toBeGreaterThanOrEqual(4);
     expect(scene.floors[0].rooms[0].slabThickness).toBeCloseTo(0.08);
     expect(scene.floors[0].rooms[0].ceilingHeight).toBeCloseTo(2.8);
+    expectStableReferences(scene);
   });
 
   it('keeps architecture semantic while compiling interaction and primitive collision', () => {
@@ -47,9 +72,13 @@ describe('plan2world runtime compiler', () => {
     const door = scene.entities.find(entity => entity.id === 'd1');
     expect(door?.kind).toBe('door');
     if (door?.kind === 'door') {
-      expect(door.interaction).toMatchObject({ enabled: true, motion: 'swing', opensTowardWallNormal: 1 });
       expect(door.closedPose.center).toEqual([2, 1.25, 0]);
-      expect(door.interaction.hingePosition).toEqual([2.5, 1.25, 0]);
+      expect(door.interaction.kind).toBe('swing');
+      if (door.interaction.kind === 'swing') {
+        expect(door.interaction.pivot).toEqual([2.5, 0.2, 0]);
+        expect(door.interaction.axis).toEqual([0, 1, 0]);
+        expect(door.interaction.openAngleRadians).toBeCloseTo(Math.PI / 2);
+      }
     }
     expect(scene.colliders.find(collider => collider.ownerId === 'd1')).toMatchObject({ kind: 'box', dynamic: true });
 
@@ -67,6 +96,37 @@ describe('plan2world runtime compiler', () => {
       expect(sofa.yawClockwiseRadians).toBeCloseTo(Math.PI / 2);
     }
     expect(scene.colliders.find(collider => collider.ownerId === 'c1')).toMatchObject({ kind: 'cylinder', dynamic: false });
+  });
+
+  it('uses type-specific door motion data instead of fake hinge fields', () => {
+    const floor = floorFixture();
+    floor.doors = [
+      { id: 'slide', wallId: 'w1', position: 0.25, width: 80, height: 210, type: 'sliding', swingDirection: 'left', flipSide: false },
+      { id: 'fold', wallId: 'w2', position: 0.5, width: 80, height: 210, type: 'bifold', swingDirection: 'right', flipSide: false },
+      { id: 'garage', wallId: 'w3', position: 0.5, width: 160, height: 220, type: 'garage', swingDirection: 'left', flipSide: false },
+      { id: 'opening', wallId: 'w4', position: 0.5, width: 90, height: 210, type: 'opening', swingDirection: 'left', flipSide: false },
+    ];
+    const scene = compileRuntimeScene(projectFixture(floor));
+    const doors = new Map(scene.entities.filter(entity => entity.kind === 'door').map(entity => [entity.id, entity]));
+
+    const slide = doors.get('slide');
+    expect(slide?.kind).toBe('door');
+    if (slide?.kind === 'door') {
+      expect(slide.interaction).toEqual({ kind: 'slide', axis: [1, 0, 0], travel: 0.8 });
+    }
+
+    const fold = doors.get('fold');
+    expect(fold?.kind).toBe('door');
+    if (fold?.kind === 'door') expect(fold.interaction).toEqual({ kind: 'unsupported', sourceMotion: 'fold' });
+
+    const garage = doors.get('garage');
+    expect(garage?.kind).toBe('door');
+    if (garage?.kind === 'door') expect(garage.interaction).toEqual({ kind: 'unsupported', sourceMotion: 'overhead' });
+
+    const opening = doors.get('opening');
+    expect(opening?.kind).toBe('door');
+    if (opening?.kind === 'door') expect(opening.interaction).toEqual({ kind: 'none' });
+    expect(scene.colliders.some(collider => collider.ownerId === 'opening')).toBe(false);
   });
 
   it('preserves exact quadratic wall evidence while faceting only runtime collision', () => {
@@ -92,7 +152,7 @@ describe('plan2world runtime compiler', () => {
     const wall = scene.entities.find(entity => entity.id === 'w1');
     expect(wall?.kind === 'wall' && wall.visible).toBe(false);
     const door = scene.entities.find(entity => entity.id === 'd1');
-    expect(door?.kind === 'door' && door.interaction).toMatchObject({ enabled: false, motion: 'none' });
+    expect(door?.kind === 'door' && door.interaction).toEqual({ kind: 'none' });
     expect(scene.colliders.some(collider => collider.ownerId === 'd1')).toBe(false);
   });
 });
