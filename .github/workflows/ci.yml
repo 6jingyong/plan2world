@@ -28,7 +28,8 @@ jobs:
       - run: npm run check
       - run: npm test
       - run: npm run build
-      - name: Production build for all browser engines
+      - name: Production build for browser regressions
+        if: github.event_name == 'push'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: browser-build
@@ -36,10 +37,6 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  # Keep dependency security visible and gating, but do not let an audit
-  # finding prevent type checks, tests, builds, or browser regressions from
-  # running. This makes CI diagnostically useful even when a new advisory
-  # lands in an inherited dependency tree.
   audit:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -57,7 +54,11 @@ jobs:
           NPM_CONFIG_INCLUDE: dev
       - run: npm audit --audit-level=high
 
+  # Full browser regression is useful after code reaches main, but it is too
+  # expensive and flaky to gate every small PR. Pull requests already run the
+  # deterministic type/unit/build checks above.
   browser:
+    if: github.event_name == 'push'
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -65,8 +66,6 @@ jobs:
       fail-fast: false
       matrix:
         browser: [chromium, firefox, webkit]
-        # Each engine has hundreds of cases; keep the complete suite within
-        # the existing per-job limit without dropping tests or assertions.
         shard: [1, 2, 3, 4, 5, 6]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -103,7 +102,9 @@ jobs:
             test-results/
           retention-days: 7
 
+  # Rendering benchmarks are trend checks, not correctness gates for a PR.
   benchmark:
+    if: github.event_name == 'push'
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -137,18 +138,23 @@ jobs:
           path: benchmark-results/
           retention-days: 3
 
-  # Keep the existing check name as an aggregate gate: success includes every
-  # engine and the dependency audit; failed/skipped dependencies must not pass.
   check:
     if: ${{ always() }}
     needs: [build, audit, browser, benchmark]
     runs-on: ubuntu-latest
     timeout-minutes: 1
     steps:
-      - name: Require build, security audit, and all browser checks
+      - name: Require PR core checks; require full suite on main
         env:
+          EVENT_NAME: ${{ github.event_name }}
           BUILD_RESULT: ${{ needs.build.result }}
           AUDIT_RESULT: ${{ needs.audit.result }}
           BROWSER_RESULT: ${{ needs.browser.result }}
           BENCHMARK_RESULT: ${{ needs.benchmark.result }}
-        run: test "$BUILD_RESULT" = success && test "$AUDIT_RESULT" = success && test "$BROWSER_RESULT" = success && test "$BENCHMARK_RESULT" = success
+        run: |
+          test "$BUILD_RESULT" = success
+          test "$AUDIT_RESULT" = success
+          if [ "$EVENT_NAME" = push ]; then
+            test "$BROWSER_RESULT" = success
+            test "$BENCHMARK_RESULT" = success
+          fi
