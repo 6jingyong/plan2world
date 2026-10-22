@@ -6,12 +6,13 @@ import type {
   RuntimeWallEntity,
   RuntimeWindowEntity,
 } from './types';
+import { compileRoomSurfaceMesh } from './roomSurfaceMesher';
 
 const EPSILON = 1e-9;
 
 export interface ArchitectureMeshPrimitive {
   id: string;
-  kind: 'wall';
+  kind: 'wall' | 'floor' | 'ceiling';
   ownerId: string;
   floorId: string;
   positions: RuntimeVec3[];
@@ -25,7 +26,8 @@ export type ArchitectureMeshDiagnosticCode =
   | 'unsupported-wall-boundary'
   | 'degenerate-wall'
   | 'invalid-opening'
-  | 'overlapping-openings';
+  | 'overlapping-openings'
+  | 'invalid-room-surface';
 
 export interface ArchitectureMeshDiagnostic {
   code: ArchitectureMeshDiagnosticCode;
@@ -426,6 +428,14 @@ export function compileArchitectureMesh(scene: Plan2WorldRuntimeSceneV1): Archit
     }
     const primitive = compileStraightWall(scene, entity, floorElevation, diagnostics);
     if (primitive) primitives.push(primitive);
+  }
+
+  for (const floor of scene.floors) {
+    for (const room of floor.rooms) {
+      const result = compileRoomSurfaceMesh(room, floor.id, floor.elevation);
+      primitives.push(...result.primitives);
+      diagnostics.push(...result.diagnostics);
+    }
   }
 
   return { units: 'metres', coordinates: scene.coordinates, primitives, diagnostics };
