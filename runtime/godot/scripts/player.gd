@@ -58,21 +58,21 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_ESCAPE:
 			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED else Input.MOUSE_MODE_CAPTURED
-		elif event.keycode == KEY_E:
+		elif event.physical_keycode == KEY_E:
 			interact()
 
 func _physics_process(_delta: float) -> void:
 	var input_2d := Vector2.ZERO
-	if Input.is_key_pressed(KEY_A): input_2d.x -= 1.0
-	if Input.is_key_pressed(KEY_D): input_2d.x += 1.0
-	if Input.is_key_pressed(KEY_W): input_2d.y -= 1.0
-	if Input.is_key_pressed(KEY_S): input_2d.y += 1.0
+	if Input.is_physical_key_pressed(KEY_A): input_2d.x -= 1.0
+	if Input.is_physical_key_pressed(KEY_D): input_2d.x += 1.0
+	if Input.is_physical_key_pressed(KEY_W): input_2d.y -= 1.0
+	if Input.is_physical_key_pressed(KEY_S): input_2d.y += 1.0
 	if input_2d.length_squared() > 1.0:
 		input_2d = input_2d.normalized()
 	var speed := walk_speed
-	if Input.is_key_pressed(KEY_CTRL):
+	if Input.is_physical_key_pressed(KEY_CTRL):
 		speed = slow_speed
-	elif Input.is_key_pressed(KEY_SHIFT):
+	elif Input.is_physical_key_pressed(KEY_SHIFT):
 		speed = fast_speed
 	var local_motion := Vector3(input_2d.x, 0.0, input_2d.y)
 	var world_motion := global_transform.basis * local_motion
