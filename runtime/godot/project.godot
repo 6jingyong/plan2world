@@ -1,9 +1,9 @@
-; Plan2World engine-neutral runtime spike
-; Tested target: Godot 4.7.x desktop, Forward+ renderer.
+; Plan2World engine-neutral runtime adapter
+; Tested target: Godot 4.7.2 desktop, Forward+ renderer.
 config_version=5
 
 [application]
-config/name="Plan2World Runtime Spike"
+config/name="Plan2World Runtime"
 run/main_scene="res://main.tscn"
 
 [display]

@@ -10,8 +10,8 @@
     "yaw": "clockwise-from-+X"
   },
   "source": {
-    "projectId": "godot-spike-demo",
-    "projectName": "Godot Runtime Spike Demo"
+    "projectId": "godot-runtime-demo",
+    "projectName": "Godot Runtime Demo"
   },
   "playerProfile": {
     "eyeHeight": 1.6,
@@ -50,6 +50,12 @@
       "interaction":{"kind":"swing","pivot":[2.95,0.0,4.0],"axis":[0,1,0],"openAngleRadians":1.5707963267948966}
     },
     {
+      "id":"door-slide","floorId":"floor-0","kind":"door","hostWallId":"wall-left","pathPosition":0.5,
+      "width":0.9,"height":2.1,"doorType":"sliding","swingDirection":"left","flipSide":false,
+      "closedPose":{"center":[0.0,1.05,2.0],"yawClockwiseRadians":1.5707963267948966},
+      "interaction":{"kind":"slide","axis":[0,0,1],"travel":0.9}
+    },
+    {
       "id":"window-1","floorId":"floor-0","kind":"window","hostWallId":"wall-top","pathPosition":0.5,
       "width":1.6,"height":1.2,"sillHeight":0.8,"windowType":"fixed","center":[2.5,1.4,0.0],"yawClockwiseRadians":0
     },
@@ -59,12 +65,15 @@
     }
   ],
   "colliders": [
+    {"id":"floor:room-0","ownerId":"room-0","floorId":"floor-0","dynamic":false,"kind":"triangle-mesh","vertices":[[0,0,0],[5,0,0],[5,0,4],[0,0,4]],"indices":[0,2,1,0,3,2]},
     {"id":"wall:top","ownerId":"wall-top","floorId":"floor-0","dynamic":false,"kind":"box","center":[2.5,1.4,0.0],"size":[5.0,2.8,0.15],"yawClockwiseRadians":0},
     {"id":"wall:right","ownerId":"wall-right","floorId":"floor-0","dynamic":false,"kind":"box","center":[5.0,1.4,2.0],"size":[4.0,2.8,0.15],"yawClockwiseRadians":1.5707963268},
     {"id":"wall:bottom:left","ownerId":"wall-bottom","floorId":"floor-0","dynamic":false,"kind":"box","center":[1.025,1.4,4.0],"size":[2.05,2.8,0.15],"yawClockwiseRadians":0},
     {"id":"wall:bottom:right","ownerId":"wall-bottom","floorId":"floor-0","dynamic":false,"kind":"box","center":[3.975,1.4,4.0],"size":[2.05,2.8,0.15],"yawClockwiseRadians":0},
-    {"id":"wall:left","ownerId":"wall-left","floorId":"floor-0","dynamic":false,"kind":"box","center":[0.0,1.4,2.0],"size":[4.0,2.8,0.15],"yawClockwiseRadians":1.5707963268},
+    {"id":"wall:left:top","ownerId":"wall-left","floorId":"floor-0","dynamic":false,"kind":"box","center":[0.0,1.4,0.775],"size":[1.55,2.8,0.15],"yawClockwiseRadians":1.5707963268},
+    {"id":"wall:left:bottom","ownerId":"wall-left","floorId":"floor-0","dynamic":false,"kind":"box","center":[0.0,1.4,3.225],"size":[1.55,2.8,0.15],"yawClockwiseRadians":1.5707963268},
     {"id":"door:door-1:leaf","ownerId":"door-1","floorId":"floor-0","dynamic":true,"kind":"box","center":[2.5,1.05,4.0],"size":[0.9,2.1,0.04],"yawClockwiseRadians":0},
+    {"id":"door:door-slide:leaf","ownerId":"door-slide","floorId":"floor-0","dynamic":true,"kind":"box","center":[0.0,1.05,2.0],"size":[0.9,2.1,0.04],"yawClockwiseRadians":1.5707963267948966},
     {"id":"furniture:sofa-1","ownerId":"sofa-1","floorId":"floor-0","dynamic":false,"kind":"box","center":[2.5,0.4,2.1],"size":[2.0,0.8,0.9],"yawClockwiseRadians":0}
   ]
 }

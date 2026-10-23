@@ -135,7 +135,7 @@ Use `schemas/plan2world-draft-v1.schema.json` and `docs/plan2world-draft-v1.md`.
 ## Runtime invariants
 
 - The native `Project` is authoring truth. `plan2world-runtime-v1` and `architecture.glb` are deterministic derived artifacts; a Godot `.tscn` is never canonical.
-- Runtime JSON owns engine-neutral semantics, colliders, interaction contracts and player profile. `architecture.glb` owns architectural presentation geometry. Do not put mesh vertices into runtime JSON or infer runtime collision from GLB.
+- Runtime JSON owns engine-neutral semantics, colliders, interaction contracts and player profile. It may contain explicit collision geometry such as triangulated walkable room floors, but never presentation-mesh data. `architecture.glb` owns architectural presentation geometry. Never infer runtime collision from GLB.
 - The Godot runtime loader owns scene semantics, collision bodies and interaction nodes only. Presentation proxies are an isolated fallback adapter and must not leak back into loader logic.
 - Missing presentation GLB may use proxy visuals for compatibility, but proxy geometry must not become a second source of architectural truth.
 - Sliding or unsupported door motion must remain explicit. Never fake a sliding/bifold/garage door as a hinged door to make a demo look functional.
@@ -161,4 +161,4 @@ npm run check
 npm run build
 ```
 
-For browser UI/3D changes, run the relevant Playwright regression. For Godot adapter changes, repo CI validates the shared compiler/artifact side but does not prove GDScript execution; run the Godot runtime manually when a Godot executable is available. After any reconstruction-Skill change, also perform at least one fresh run from an original raster; unit tests alone do not establish image-extraction quality.
+For browser UI/3D changes, run the relevant Playwright regression. Core CI also downloads the pinned Godot 4.7.2 build, verifies its checksum, parses/imports the Godot project and boots the built-in runtime demo headlessly; Godot adapter changes must pass that gate. After any reconstruction-Skill change, also perform at least one fresh run from an original raster; unit tests alone do not establish image-extraction quality.

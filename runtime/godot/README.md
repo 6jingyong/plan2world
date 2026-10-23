@@ -10,6 +10,8 @@ The editable Plan2World `Project` remains authoritative; this runtime only consu
 - Desktop Forward+ renderer
 - Windows is the first manual test target
 
+Core CI uses the pinned official Godot 4.7.2 Linux build, verifies its SHA-256 checksum, imports/parses this project headlessly, and boots the built-in runtime demo. A runtime/GDScript change is not considered merge-ready if that gate fails.
+
 ## Run the built-in demo
 
 1. Install Godot 4.7.2.
@@ -21,10 +23,10 @@ The editable Plan2World `Project` remains authoritative; this runtime only consu
    - default: normal walk
    - `Shift`: fast walk
    - mouse: look
-   - `E`: interact with a swing door
+   - `E`: interact with a swing or sliding door
    - `Esc`: release/capture mouse
 
-The default scene is `demo/runtime-scene.json`, so the runtime can still be tested without the web app, AI service, or external GLB. When no architecture GLB is present, `runtime_proxy_renderer.gd` supplies compatibility visuals only; those meshes are not canonical presentation data.
+The default scene is `demo/runtime-scene.json`, so the runtime can still be tested without the web app, AI service, or external GLB. The demo includes a runtime triangle-mesh floor plus both swing and slide door motion. When no architecture GLB is present, `runtime_proxy_renderer.gd` supplies compatibility visuals only; those meshes are not canonical presentation data.
 
 ## Compile an existing native Plan2World project
 
@@ -90,9 +92,9 @@ Godot consumes the two artifacts for different jobs:
 - `architecture.glb`: architectural presentation geometry;
 - `plan2world-runtime-v1`: player spawn/profile, collision, doors, windows, furniture and interaction semantics.
 
-Collision is always generated from runtime JSON, never inferred from GLB. When the GLB loads successfully, compatibility wall boxes and room-floor meshes are suppressed. Door leaves, window markers, furniture and columns remain semantic/runtime proxies until their own presentation asset pipeline exists.
+Collision is always generated from runtime JSON, never inferred from GLB. Room polygons are deterministically triangulated by the runtime compiler into `triangle-mesh` floor colliders with canonical +Y winding; Godot consumes them as `ConcavePolygonShape3D`. Wall/furniture/column collision stays on the existing runtime primitives. When the GLB loads successfully, compatibility wall boxes and room-floor presentation meshes are suppressed, but physics remains entirely runtime-JSON driven.
 
-The architecture GLB compiler now owns straight and quadratic wall tessellation, physical-width openings on curved paths, and compatible endpoint-network miters. Godot only imports the finished mesh; it does not reconstruct wall curves or junctions.
+The architecture GLB compiler owns straight and quadratic wall tessellation, physical-width openings on curved paths, and compatible endpoint-network miters. Godot only imports the finished mesh; it does not reconstruct wall curves or junctions.
 
 The scripts are intentionally split by responsibility:
 
@@ -106,11 +108,10 @@ This split is deliberate: future removal of proxy presentation must not require 
 
 The adapter delegates engine work to Godot:
 
-- player body: `CharacterBody3D`;
-- collision: runtime-v1 primitives -> Godot `CollisionShape3D`;
+- player body: grounded `CharacterBody3D` with project gravity, floor snapping and `move_and_slide()`;
+- collision: runtime-v1 boxes/cylinders/triangle meshes -> Godot `CollisionShape3D`;
 - architecture display: runtime-loaded glTF 2.0 binary via `GLTFDocument`/`GLTFState`;
-- interactive swing door: `AnimatableBody3D`;
-- movement/collision response: `move_and_slide()`;
+- interactive swing and slide doors: `AnimatableBody3D` driven by explicit runtime motion data;
 - mouse look and movement speeds live only in the runtime backend.
 
 No Plan2World wall topology, room detection, geometry repair, or AI reconstruction is recomputed here. The runtime compiler and architecture mesher have already resolved those semantics.
@@ -119,12 +120,11 @@ No Plan2World wall topology, room detection, geometry repair, or AI reconstructi
 
 This is still an architecture/runtime milestone, not a rendering-quality milestone.
 
-- only `kind: "swing"` doors are interactive; slide and unsupported motions remain closed blockers;
+- `kind: "swing"` and `kind: "slide"` doors are interactive; fold and overhead source motions remain closed blockers;
 - double/french swing doors are represented as one leaf for now;
 - wall junctions with incompatible endpoint heights or pathological/unbounded offset intersections retain closed caps and emit a compiler diagnostic;
 - door/window leaves and panes remain Godot proxy geometry; GLB currently owns the surrounding architectural openings;
-- stairs are not yet physical;
-- player motion is planar and holds the current floor elevation; gravity/floor-body traversal is deferred;
+- room floors are physical and gravity is active, but stairs are still semantic/nonphysical, so continuous vertical traversal between floors is deferred;
 - furniture uses collider-sized proxy boxes; furniture GLB asset resolution is deferred;
 - materials and lighting are intentionally basic.
 

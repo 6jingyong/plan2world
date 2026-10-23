@@ -30,6 +30,7 @@ function expectStableReferences(scene: Plan2WorldRuntimeSceneV1) {
   expect(floorIds.size).toBe(scene.floors.length);
 
   const entities = new Map(scene.entities.map(entity => [entity.id, entity]));
+  const roomFloorIds = new Map(scene.floors.flatMap(floor => floor.rooms.map(room => [room.id, floor.id] as const)));
   expect(entities.size).toBe(scene.entities.length);
   for (const entity of scene.entities) {
     expect(floorIds.has(entity.floorId)).toBe(true);
@@ -44,7 +45,8 @@ function expectStableReferences(scene: Plan2WorldRuntimeSceneV1) {
   expect(colliderIds.size).toBe(scene.colliders.length);
   for (const collider of scene.colliders) {
     expect(floorIds.has(collider.floorId)).toBe(true);
-    expect(entities.get(collider.ownerId)?.floorId).toBe(collider.floorId);
+    const ownerFloorId = entities.get(collider.ownerId)?.floorId ?? roomFloorIds.get(collider.ownerId);
+    expect(ownerFloorId).toBe(collider.floorId);
   }
 }
 
@@ -61,6 +63,30 @@ describe('plan2world runtime compiler', () => {
     expect(scene.floors[0].rooms[0].slabThickness).toBeCloseTo(0.08);
     expect(scene.floors[0].rooms[0].ceilingHeight).toBeCloseTo(2.8);
     expectStableReferences(scene);
+  });
+
+  it('emits room floor triangle collision with canonical upward winding', () => {
+    const scene = compileRuntimeScene(projectFixture());
+    const room = scene.floors[0].rooms[0];
+    const collider = scene.colliders.find(candidate => candidate.ownerId === room.id && candidate.kind === 'triangle-mesh');
+    expect(collider?.kind).toBe('triangle-mesh');
+    if (collider?.kind !== 'triangle-mesh') return;
+
+    expect(collider.dynamic).toBe(false);
+    expect(collider.vertices.length).toBeGreaterThanOrEqual(3);
+    expect(collider.vertices.every(vertex => Math.abs(vertex[1] - 0.2) < 1e-9)).toBe(true);
+    expect(collider.indices.length % 3).toBe(0);
+    expect(collider.indices.every(index => index >= 0 && index < collider.vertices.length)).toBe(true);
+
+    for (let index = 0; index < collider.indices.length; index += 3) {
+      const a = collider.vertices[collider.indices[index]];
+      const b = collider.vertices[collider.indices[index + 1]];
+      const c = collider.vertices[collider.indices[index + 2]];
+      const ab = [b[0] - a[0], b[2] - a[2]];
+      const ac = [c[0] - a[0], c[2] - a[2]];
+      const normalY = ab[1] * ac[0] - ab[0] * ac[1];
+      expect(normalY).toBeGreaterThan(0);
+    }
   });
 
   it('keeps architecture semantic while compiling interaction and primitive collision', () => {
@@ -113,6 +139,7 @@ describe('plan2world runtime compiler', () => {
     expect(slide?.kind).toBe('door');
     if (slide?.kind === 'door') {
       expect(slide.interaction).toEqual({ kind: 'slide', axis: [1, 0, 0], travel: 0.8 });
+      expect(scene.colliders.find(collider => collider.ownerId === 'slide')).toMatchObject({ kind: 'box', dynamic: true });
     }
 
     const fold = doors.get('fold');
