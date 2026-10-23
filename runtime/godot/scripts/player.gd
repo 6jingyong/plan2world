@@ -8,7 +8,7 @@ var walk_speed := 1.2
 var fast_speed := 2.4
 var mouse_sensitivity := 0.0022
 var _pitch := 0.0
-var _locked_y := 0.0
+var _gravity := float(ProjectSettings.get_setting("physics/3d/default_gravity", 9.8))
 var _camera: Camera3D
 var _interaction_ray: RayCast3D
 
@@ -20,7 +20,8 @@ func configure(profile: Dictionary, spawn: Vector3) -> void:
 	walk_speed = float(speeds.get("walk", 1.2))
 	fast_speed = float(speeds.get("fast", 2.4))
 	position = spawn
-	_locked_y = spawn.y
+	up_direction = Vector3.UP
+	floor_snap_length = max(0.05, radius * 0.5)
 	_build_body()
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
@@ -61,7 +62,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.physical_keycode == KEY_E:
 			interact()
 
-func _physics_process(_delta: float) -> void:
+func _physics_process(delta: float) -> void:
 	var input_2d := Vector2.ZERO
 	if Input.is_physical_key_pressed(KEY_A): input_2d.x -= 1.0
 	if Input.is_physical_key_pressed(KEY_D): input_2d.x += 1.0
@@ -78,9 +79,12 @@ func _physics_process(_delta: float) -> void:
 	var world_motion := global_transform.basis * local_motion
 	velocity.x = world_motion.x * speed
 	velocity.z = world_motion.z * speed
-	velocity.y = 0.0
+	if is_on_floor():
+		if velocity.y < 0.0:
+			velocity.y = 0.0
+	else:
+		velocity.y -= _gravity * delta
 	move_and_slide()
-	global_position.y = _locked_y
 
 func interact() -> void:
 	if not _interaction_ray:
