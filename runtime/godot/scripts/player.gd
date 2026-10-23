@@ -63,17 +63,11 @@ func _unhandled_input(event: InputEvent) -> void:
 			interact()
 
 func _physics_process(delta: float) -> void:
-	var input_2d := Vector2.ZERO
-	if Input.is_physical_key_pressed(KEY_A): input_2d.x -= 1.0
-	if Input.is_physical_key_pressed(KEY_D): input_2d.x += 1.0
-	if Input.is_physical_key_pressed(KEY_W): input_2d.y -= 1.0
-	if Input.is_physical_key_pressed(KEY_S): input_2d.y += 1.0
-	if input_2d.length_squared() > 1.0:
-		input_2d = input_2d.normalized()
+	var input_2d := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	var speed := walk_speed
-	if Input.is_physical_key_pressed(KEY_CTRL):
+	if Input.is_action_pressed("move_slow"):
 		speed = slow_speed
-	elif Input.is_physical_key_pressed(KEY_SHIFT):
+	elif Input.is_action_pressed("move_fast"):
 		speed = fast_speed
 	var local_motion := Vector3(input_2d.x, 0.0, input_2d.y)
 	var world_motion := global_transform.basis * local_motion

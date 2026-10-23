@@ -105,12 +105,15 @@ func _build_static_triangle_mesh(collider: Dictionary, root: Node3D) -> StaticBo
 		return null
 
 	var faces := PackedVector3Array()
-	for raw_index in indices:
-		var index := int(raw_index)
-		if index < 0 or index >= vertices.size():
-			push_warning("Ignoring triangle-mesh collider with out-of-range index: %s" % str(collider.get("id", "triangle-mesh")))
-			return null
-		faces.append(_vec3(vertices[index]))
+	# Runtime triangles use right-handed CCW normals. Godot's front faces use
+	# clockwise winding; convert once at the engine boundary, including physics.
+	for triangle in range(0, indices.size(), 3):
+		for offset in [0, 2, 1]:
+			var index := int(indices[triangle + offset])
+			if index < 0 or index >= vertices.size():
+				push_warning("Ignoring triangle-mesh collider with out-of-range index: %s" % str(collider.get("id", "triangle-mesh")))
+				return null
+			faces.append(_vec3(vertices[index]))
 
 	var body := StaticBody3D.new()
 	body.name = "Collider_%s" % str(collider.get("id", "triangle-mesh")).validate_node_name()

@@ -112,11 +112,13 @@ func _triangle_mesh(collider: Dictionary) -> ArrayMesh:
 		return null
 	var surface := SurfaceTool.new()
 	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
-	for raw_index in indices:
-		var index := int(raw_index)
-		if index < 0 or index >= vertices.size():
-			return null
-		surface.add_vertex(_vec3(vertices[index]))
+	# The same CCW -> Godot clockwise conversion as runtime physics.
+	for triangle in range(0, indices.size(), 3):
+		for offset in [0, 2, 1]:
+			var index := int(indices[triangle + offset])
+			if index < 0 or index >= vertices.size():
+				return null
+			surface.add_vertex(_vec3(vertices[index]))
 	surface.generate_normals()
 	return surface.commit()
 

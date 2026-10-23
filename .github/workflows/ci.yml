@@ -94,6 +94,11 @@ jobs:
         run: |
           node tooling/runtime-asset-fixture.mjs /tmp/runtime-assets
           "$GODOT_BIN" --headless --path runtime/godot --script res://tests/runtime_assets_test.gd -- --scene /tmp/runtime-assets/assets.runtime.json
+      - name: Walk exported native floors, doors and straight stairs
+        run: |
+          node tooling/runtime-walkthrough-fixture.mjs /tmp/runtime-walkthrough
+          "$GODOT_BIN" --headless --fixed-fps 60 --path runtime/godot --script res://tests/runtime_walkthrough_test.gd -- --scene /tmp/runtime-walkthrough/walkthrough.runtime.json
+
 
 
   # Full browser regression is useful after code reaches main, but it is too
