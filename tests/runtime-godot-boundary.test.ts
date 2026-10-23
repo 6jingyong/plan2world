@@ -59,6 +59,19 @@ describe('Godot runtime adapter boundaries', () => {
     expect(player).not.toContain('global_position.y =');
   });
 
+  it('keeps the built-in demo on the compiled runtime physics contract', () => {
+    const demo = JSON.parse(read('runtime/godot/demo/runtime-scene.json')) as {
+      colliders: { kind?: string }[];
+      entities: { kind?: string; interaction?: { kind?: string } }[];
+    };
+    expect(demo.colliders.some(collider => collider.kind === 'triangle-mesh')).toBe(true);
+    const motions = demo.entities
+      .filter(entity => entity.kind === 'door')
+      .map(entity => entity.interaction?.kind);
+    expect(motions).toContain('swing');
+    expect(motions).toContain('slide');
+  });
+
   it('keeps main as an explicit composition root', () => {
     const main = read('runtime/godot/scripts/main.gd');
 
