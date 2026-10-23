@@ -26,7 +26,7 @@ Core CI uses the pinned official Godot 4.7.2 Linux build, verifies its SHA-256 c
    - `E`: interact with a swing or sliding door
    - `Esc`: release/capture mouse
 
-The default scene is `demo/runtime-scene.json`, so the runtime can still be tested without the web app, AI service, or external GLB. The demo includes a runtime triangle-mesh floor plus both swing and slide door motion. When no architecture GLB is present, `runtime_proxy_renderer.gd` supplies compatibility visuals only; those meshes are not canonical presentation data.
+The default scene is `demo/runtime-scene.json`, so the runtime can still be tested without the web app, AI service, or external GLB. The demo includes grounded room floors, swing/slide doors and a compiler-owned straight-stair ramp to an upper landing. When no architecture GLB is present, `runtime_proxy_renderer.gd` supplies compatibility visuals only; those meshes are not canonical presentation data.
 
 ## Compile an existing native Plan2World project
 
@@ -76,25 +76,18 @@ Godot_v4.7.2-stable_win64.exe --path runtime/godot -- --scene "C:\path\house.run
 
 Both `--scene=<path>` and `--architecture=<path>` are accepted.
 
-The shortest no-AI validation path is therefore:
-
-```text
-existing native Project JSON
-  -> npm run runtime:export
-  -> runtime JSON + architecture GLB
-  -> Godot --scene
-```
-
 ## Runtime boundary
 
 Godot consumes the two artifacts for different jobs:
 
 - `architecture.glb`: architectural presentation geometry;
-- `plan2world-runtime-v1`: player spawn/profile, collision, doors, windows, furniture and interaction semantics.
+- `plan2world-runtime-v1`: player spawn/profile, collision, doors, windows, furniture and interaction/traversal semantics.
 
-Collision is always generated from runtime JSON, never inferred from GLB. Room polygons are deterministically triangulated by the runtime compiler into `triangle-mesh` floor colliders with canonical +Y winding; Godot consumes them as `ConcavePolygonShape3D`. Wall/furniture/column collision stays on the existing runtime primitives. When the GLB loads successfully, compatibility wall boxes and room-floor presentation meshes are suppressed, but physics remains entirely runtime-JSON driven.
+Collision is always generated from runtime JSON, never inferred from GLB. Room polygons are deterministically triangulated by the runtime compiler into `triangle-mesh` floor colliders with canonical +Y winding. Native `floorOpening` regions remain holes and are not emitted as replacement floor surfaces. Supported straight stairs are also compiled into explicit upward-wound triangle ramps between adjacent authored floor elevations. Godot consumes all of those as `ConcavePolygonShape3D` rather than deriving them from presentation geometry.
 
-The architecture GLB compiler owns straight and quadratic wall tessellation, physical-width openings on curved paths, and compatible endpoint-network miters. Godot only imports the finished mesh; it does not reconstruct wall curves or junctions.
+The fallback renderer now reuses those same runtime triangle meshes for room-floor and stair-ramp compatibility visuals. It no longer re-triangulates room polygons in Godot, so fallback rendering cannot accidentally ignore a compiler-owned floor hole.
+
+The architecture GLB compiler owns straight and quadratic wall tessellation, physical-width openings on curved paths, and compatible endpoint-network miters. Godot only imports the finished architectural mesh; it does not reconstruct wall curves or junctions.
 
 The scripts are intentionally split by responsibility:
 
@@ -104,17 +97,16 @@ The scripts are intentionally split by responsibility:
 - `player.gd` / `door.gd`: engine-side runtime behavior;
 - `main.gd`: thin orchestration, spawn and demo shell.
 
-This split is deliberate: future removal of proxy presentation must not require rewriting semantic loading or collision.
-
 The adapter delegates engine work to Godot:
 
 - player body: grounded `CharacterBody3D` with project gravity, floor snapping and `move_and_slide()`;
 - collision: runtime-v1 boxes/cylinders/triangle meshes -> Godot `CollisionShape3D`;
 - architecture display: runtime-loaded glTF 2.0 binary via `GLTFDocument`/`GLTFState`;
 - interactive swing and slide doors: `AnimatableBody3D` driven by explicit runtime motion data;
+- straight-stair traversal: ordinary grounded movement over compiler-owned ramp collision;
 - mouse look and movement speeds live only in the runtime backend.
 
-No Plan2World wall topology, room detection, geometry repair, or AI reconstruction is recomputed here. The runtime compiler and architecture mesher have already resolved those semantics.
+No Plan2World wall topology, room detection, floor-hole inference, stair-target resolution, geometry repair, or AI reconstruction is recomputed here.
 
 ## Deliberate limitations
 
@@ -122,9 +114,11 @@ This is still an architecture/runtime milestone, not a rendering-quality milesto
 
 - `kind: "swing"` and `kind: "slide"` doors are interactive; fold and overhead source motions remain closed blockers;
 - double/french swing doors are represented as one leaf for now;
+- straight stairs can connect adjacent authored floors physically; L-shaped, U-shaped and spiral stairs remain explicit unsupported traversal rather than being approximated;
+- a multi-floor stairwell still needs the native project to contain the corresponding `floorOpening` aperture; the runtime compiler will preserve it but will not invent one;
+- stair artwork is still compatibility proxy presentation; `architecture.glb` does not yet own dedicated stair meshes;
 - wall junctions with incompatible endpoint heights or pathological/unbounded offset intersections retain closed caps and emit a compiler diagnostic;
 - door/window leaves and panes remain Godot proxy geometry; GLB currently owns the surrounding architectural openings;
-- room floors are physical and gravity is active, but stairs are still semantic/nonphysical, so continuous vertical traversal between floors is deferred;
 - furniture uses collider-sized proxy boxes; furniture GLB asset resolution is deferred;
 - materials and lighting are intentionally basic.
 

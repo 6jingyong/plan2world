@@ -99,6 +99,25 @@
         }
       ]
     },
+    "stairTraversal": {
+      "oneOf": [
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["kind", "targetFloorId", "startElevation", "endElevation"],
+          "properties": {
+            "kind": { "const": "ramp" }, "targetFloorId": { "$ref": "#/$defs/id" },
+            "startElevation": { "type": "number" }, "endElevation": { "type": "number" }
+          }
+        },
+        {
+          "type": "object", "additionalProperties": false, "required": ["kind", "reason"],
+          "properties": {
+            "kind": { "const": "unsupported" },
+            "reason": { "enum": ["missing-target-floor", "invalid-target-elevation", "invalid-geometry", "non-straight"] }
+          }
+        }
+      ]
+    },
     "wallEntity": {
       "type": "object", "additionalProperties": false,
       "required": ["id", "floorId", "kind", "path", "thickness", "startHeight", "endHeight", "boundaryType", "visible"],
@@ -152,12 +171,13 @@
     },
     "stairEntity": {
       "type": "object", "additionalProperties": false,
-      "required": ["id", "floorId", "kind", "position", "yawClockwiseRadians", "width", "depth", "riserCount", "direction", "stairType"],
+      "required": ["id", "floorId", "kind", "position", "yawClockwiseRadians", "width", "depth", "riserCount", "direction", "stairType", "traversal"],
       "properties": {
         "id": { "$ref": "#/$defs/id" }, "floorId": { "$ref": "#/$defs/id" }, "kind": { "const": "stair" },
         "position": { "$ref": "#/$defs/vec3" }, "yawClockwiseRadians": { "type": "number" },
         "width": { "$ref": "#/$defs/positive" }, "depth": { "$ref": "#/$defs/positive" }, "riserCount": { "type": "integer", "minimum": 1 },
-        "direction": { "enum": ["up", "down"] }, "stairType": { "enum": ["straight", "l-shaped", "u-shaped", "spiral"] }
+        "direction": { "enum": ["up", "down"] }, "stairType": { "enum": ["straight", "l-shaped", "u-shaped", "spiral"] },
+        "traversal": { "$ref": "#/$defs/stairTraversal" }
       }
     },
     "entity": {
@@ -184,6 +204,20 @@
         "radius": { "$ref": "#/$defs/positive" }, "height": { "$ref": "#/$defs/positive" }
       }
     },
-    "collider": { "oneOf": [{ "$ref": "#/$defs/boxCollider" }, { "$ref": "#/$defs/cylinderCollider" }] }
+    "triangleMeshCollider": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "ownerId", "floorId", "dynamic", "kind", "vertices", "indices"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" }, "ownerId": { "$ref": "#/$defs/id" }, "floorId": { "$ref": "#/$defs/id" },
+        "dynamic": { "const": false }, "kind": { "const": "triangle-mesh" },
+        "vertices": { "type": "array", "items": { "$ref": "#/$defs/vec3" }, "minItems": 3 },
+        "indices": { "type": "array", "items": { "type": "integer", "minimum": 0 }, "minItems": 3 }
+      }
+    },
+    "collider": {
+      "oneOf": [
+        { "$ref": "#/$defs/boxCollider" }, { "$ref": "#/$defs/cylinderCollider" }, { "$ref": "#/$defs/triangleMeshCollider" }
+      ]
+    }
   }
 }
