@@ -16,40 +16,86 @@ func _init() -> void:
 	_floor_material = _material(Color("bab2a6"), 0.94)
 	_window_material = _material(Color(0.36, 0.72, 0.92, 0.38), 0.18, true)
 
-func add_box(body: Node3D, size: Vector3, owner: Dictionary, architecture_presentation_loaded: bool) -> void:
-	if not bool(owner.get("visible", true)):
-		return
-	if architecture_presentation_loaded and str(owner.get("kind", "")) == "wall":
-		return
+func render(
+	data: Dictionary,
+	root: Node3D,
+	build_result: Dictionary,
+	architecture_presentation_loaded: bool,
+) -> Dictionary:
+	var entities_by_id := {}
+	for raw_entity in data.get("entities", []):
+		if typeof(raw_entity) == TYPE_DICTIONARY:
+			entities_by_id[str(raw_entity.get("id", ""))] = raw_entity
+
+	var floor_surface_count := 0
+	if not architecture_presentation_loaded:
+		floor_surface_count = _add_room_surfaces(data, root)
+
+	var collider_nodes: Dictionary = build_result.get("collider_nodes", {})
+	var collider_proxy_count := 0
+	for raw_collider in data.get("colliders", []):
+		if typeof(raw_collider) != TYPE_DICTIONARY:
+			continue
+		var collider: Dictionary = raw_collider
+		var node = collider_nodes.get(str(collider.get("id", "")), null)
+		if node == null or not (node is Node3D):
+			continue
+		var owner: Dictionary = entities_by_id.get(str(collider.get("ownerId", "")), {})
+		if not bool(owner.get("visible", true)):
+			continue
+		if architecture_presentation_loaded and str(owner.get("kind", "")) == "wall":
+			continue
+		if _add_collider_proxy(node as Node3D, owner):
+			collider_proxy_count += 1
+
+	var window_marker_count := 0
+	for raw_entity in data.get("entities", []):
+		if typeof(raw_entity) != TYPE_DICTIONARY:
+			continue
+		var entity: Dictionary = raw_entity
+		if str(entity.get("kind", "")) != "window" or not bool(entity.get("visible", true)):
+			continue
+		_add_window_marker(entity, root)
+		window_marker_count += 1
+
+	return {
+		"architecture_presentation_loaded": architecture_presentation_loaded,
+		"floor_surface_count": floor_surface_count,
+		"collider_proxy_count": collider_proxy_count,
+		"window_marker_count": window_marker_count,
+	}
+
+func _add_collider_proxy(body: Node3D, owner: Dictionary) -> bool:
+	var collision_shape := _direct_collision_shape(body)
+	if collision_shape == null or collision_shape.shape == null:
+		return false
 	var mesh := MeshInstance3D.new()
-	var box := BoxMesh.new()
-	box.size = size
-	mesh.mesh = box
+	var shape_resource := collision_shape.shape
+	if shape_resource is BoxShape3D:
+		var box := BoxMesh.new()
+		box.size = (shape_resource as BoxShape3D).size
+		mesh.mesh = box
+	elif shape_resource is CylinderShape3D:
+		var cylinder_shape := shape_resource as CylinderShape3D
+		var cylinder := CylinderMesh.new()
+		cylinder.top_radius = cylinder_shape.radius
+		cylinder.bottom_radius = cylinder_shape.radius
+		cylinder.height = cylinder_shape.height
+		mesh.mesh = cylinder
+	else:
+		return false
+	mesh.transform = collision_shape.transform
 	mesh.material_override = _material_for_owner(owner)
 	body.add_child(mesh)
+	return true
 
-func add_cylinder(body: Node3D, radius: float, height: float, owner: Dictionary) -> void:
-	if not bool(owner.get("visible", true)):
-		return
-	var mesh := MeshInstance3D.new()
-	var cylinder := CylinderMesh.new()
-	cylinder.top_radius = radius
-	cylinder.bottom_radius = radius
-	cylinder.height = height
-	mesh.mesh = cylinder
-	mesh.material_override = _material_for_owner(owner)
-	body.add_child(mesh)
+func _direct_collision_shape(body: Node3D) -> CollisionShape3D:
+	for child in body.get_children():
+		if child is CollisionShape3D:
+			return child as CollisionShape3D
+	return null
 
-func add_door_leaf(parent: Node3D, size: Vector3, local_center: Vector3) -> void:
-	var mesh := MeshInstance3D.new()
-	var box := BoxMesh.new()
-	box.size = size
-	mesh.mesh = box
-	mesh.material_override = _door_material
-	mesh.position = local_center
-	parent.add_child(mesh)
-
-func add_window_marker(entity: Dictionary, root: Node3D) -> void:
+func _add_window_marker(entity: Dictionary, root: Node3D) -> void:
 	var mesh := MeshInstance3D.new()
 	mesh.name = "Window_%s" % str(entity.get("id", "window")).validate_node_name()
 	var box := BoxMesh.new()
@@ -64,7 +110,8 @@ func add_window_marker(entity: Dictionary, root: Node3D) -> void:
 	mesh.rotation.y = _yaw(entity.get("yawClockwiseRadians", 0.0))
 	root.add_child(mesh)
 
-func add_room_surfaces(data: Dictionary, root: Node3D) -> void:
+func _add_room_surfaces(data: Dictionary, root: Node3D) -> int:
+	var count := 0
 	for raw_floor in data.get("floors", []):
 		if typeof(raw_floor) != TYPE_DICTIONARY:
 			continue
@@ -94,6 +141,8 @@ func add_room_surfaces(data: Dictionary, root: Node3D) -> void:
 			room_mesh.mesh = surface.commit()
 			room_mesh.material_override = _floor_material
 			root.add_child(room_mesh)
+			count += 1
+	return count
 
 func _material_for_owner(owner: Dictionary) -> Material:
 	match str(owner.get("kind", "")):
