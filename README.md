@@ -56,7 +56,9 @@ house.runtime.json        # plan2world-runtime-v1 semantics, collision, interact
 house.architecture.glb    # deterministic architectural presentation mesh
 ```
 
-The Godot adapter consumes those artifacts separately: runtime JSON owns behavior/collision, while GLB owns architectural presentation. Godot does not derive collision from GLB. The browser remains the authoring/review surface; future Unity/Unreal/Web runtimes should consume the same compiled boundary rather than translating from Godot.
+Runtime JSON now carries explicit engine-neutral floor collision triangles as well as wall/furniture/column primitives and door interaction contracts. Godot consumes those colliders directly for grounded gravity/floor-snapped `CharacterBody3D` motion; it never derives physics from GLB. Swing and sliding/pocket doors use their explicit runtime motion semantics, while unsupported fold/overhead motion remains a closed blocker rather than being approximated as a hinge.
+
+The Godot adapter consumes the two artifacts separately: runtime JSON owns behavior/collision, while GLB owns architectural presentation. The browser remains the authoring/review surface; future Unity/Unreal/Web runtimes should consume the same compiled boundary rather than translating from Godot.
 
 See [`runtime/godot/README.md`](runtime/godot/README.md) for the current runtime adapter and manual launch path.
 
@@ -87,7 +89,7 @@ npm ci
 npm run dev
 ```
 
-Core checks:
+Core CI runs the TypeScript/catalog/unit/build/audit gates plus a pinned Godot 4.7.2 headless project parse and built-in runtime-demo boot. Local code checks are:
 
 ```bash
 npm test
