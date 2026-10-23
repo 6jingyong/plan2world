@@ -36,6 +36,24 @@
           "ceilingHeight": 2.8
         }
       ]
+    },
+    {
+      "id": "floor-1",
+      "name": "Upper Landing",
+      "level": 1,
+      "elevation": 3,
+      "walkthroughStart": null,
+      "rooms": [
+        {
+          "id": "room-upper",
+          "name": "Landing",
+          "roomType": "indoor",
+          "polygon": [[3.4,0.4],[4.6,0.4],[4.6,1.6],[3.4,1.6]],
+          "holes": [],
+          "slabThickness": 0.05,
+          "ceilingHeight": null
+        }
+      ]
     }
   ],
   "entities": [
@@ -62,10 +80,17 @@
     {
       "id":"sofa-1","floorId":"floor-0","kind":"furniture","catalogId":"sofa","sourceCategory":"sofa",
       "assetRef":"catalog:sofa","position":[2.5,0.4,2.1],"yawClockwiseRadians":0,"size":[2.0,0.8,0.9]
+    },
+    {
+      "id":"stair-1","floorId":"floor-0","kind":"stair","position":[4.0,0.0,2.0],"yawClockwiseRadians":0,
+      "width":1.0,"depth":3.0,"riserCount":15,"direction":"up","stairType":"straight",
+      "traversal":{"kind":"ramp","targetFloorId":"floor-1","startElevation":0,"endElevation":3}
     }
   ],
   "colliders": [
     {"id":"floor:room-0","ownerId":"room-0","floorId":"floor-0","dynamic":false,"kind":"triangle-mesh","vertices":[[0,0,0],[5,0,0],[5,0,4],[0,0,4]],"indices":[0,2,1,0,3,2]},
+    {"id":"floor:room-upper","ownerId":"room-upper","floorId":"floor-1","dynamic":false,"kind":"triangle-mesh","vertices":[[3.4,3,0.4],[4.6,3,0.4],[4.6,3,1.6],[3.4,3,1.6]],"indices":[0,2,1,0,3,2]},
+    {"id":"stair:stair-1:ramp","ownerId":"stair-1","floorId":"floor-0","dynamic":false,"kind":"triangle-mesh","vertices":[[3.5,0,3.5],[4.5,0,3.5],[4.5,3,0.5],[3.5,3,0.5]],"indices":[0,1,2,0,2,3]},
     {"id":"wall:top","ownerId":"wall-top","floorId":"floor-0","dynamic":false,"kind":"box","center":[2.5,1.4,0.0],"size":[5.0,2.8,0.15],"yawClockwiseRadians":0},
     {"id":"wall:right","ownerId":"wall-right","floorId":"floor-0","dynamic":false,"kind":"box","center":[5.0,1.4,2.0],"size":[4.0,2.8,0.15],"yawClockwiseRadians":1.5707963268},
     {"id":"wall:bottom:left","ownerId":"wall-bottom","floorId":"floor-0","dynamic":false,"kind":"box","center":[1.025,1.4,4.0],"size":[2.05,2.8,0.15],"yawClockwiseRadians":0},
