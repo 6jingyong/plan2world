@@ -16,6 +16,10 @@ export async function runtimeAssetProject() {
     id: `door-${i}`, wallId: `w${i%4}`, position: i < 4 ? 0.25 : 0.75, width: 90, height: 210,
     type, swingDirection: i%2 ? 'right' : 'left', flipSide: i%2 === 1,
   }));
+  doors.push(...['double', 'french'].map((type, i) => ({
+    id: type, wallId: `w${i}`, position: 0.5, width: 140, height: 210,
+    type, swingDirection: 'left', flipSide: i === 1,
+  })));
   const furniture = [
     { id: 'catalog-sofa', catalogId: 'sofa' },
     { id: 'catalog-chair', catalogId: 'chair' },

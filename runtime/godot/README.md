@@ -26,7 +26,7 @@ Core CI uses the pinned official Godot 4.7.2 Linux build, verifies its SHA-256 c
    - `E`: interact with a swing or sliding door
    - `Esc`: release/capture mouse
 
-The default scene is `demo/runtime-scene.json`, so the runtime can still be tested without the web app, AI service, or external GLB. The demo includes grounded room floors, swing/slide doors and a compiler-owned straight-stair ramp to an upper landing. When no architecture GLB is present, `runtime_proxy_renderer.gd` supplies compatibility visuals only; those meshes are not canonical presentation data.
+The default scene is `demo/runtime-scene.json`, so the runtime can still be tested without the web app, AI service, or external GLB. The demo includes grounded room floors, single/double/french swing and slide doors, native railing/air boundaries and a compiler-owned straight-stair ramp to an upper landing. When no architecture GLB is present, `runtime_proxy_renderer.gd` supplies compatibility visuals only; those meshes are not canonical presentation data.
 
 ## Compile an existing native Plan2World project
 
@@ -90,7 +90,7 @@ Godot consumes the artifacts for different jobs:
 
 Collision is always generated from runtime JSON, never inferred from GLB. Room polygons are deterministically triangulated by the runtime compiler into `triangle-mesh` floor colliders with canonical +Y winding. Native `floorOpening` regions remain holes and are not emitted as replacement floor surfaces. Supported straight stairs are also compiled into explicit upward-wound triangle ramps between adjacent authored floor elevations. Godot converts their canonical CCW winding to its clockwise face convention and consumes them as `ConcavePolygonShape3D` rather than deriving them from presentation geometry.
 
-The architecture presentation compiler owns straight and quadratic wall tessellation, physical-width openings on curved paths, compatible endpoint-network miters, room slabs/ceilings, static window panes, square/round columns and step presentation for traversable straight stairs. The GLB writer also assigns a small deterministic material palette. Godot only imports the finished static scene; it does not reconstruct any of that geometry.
+The architecture presentation compiler owns straight and quadratic solid/railing boundary tessellation, physical-width openings on curved paths, compatible endpoint-network miters, room slabs/ceilings, static window panes, square/round columns and step presentation for traversable straight stairs. The GLB writer also assigns a small deterministic material palette. Godot only imports the finished static scene; it does not reconstruct any of that geometry.
 
 When GLB is loaded successfully, compatibility wall/floor/window/column/stair presentation is suppressed. Furniture and door asset instances also suppress their own proxies independently. Furniture is visible even when its native height excludes it from collision. If GLB is absent, the fallback renderer reuses runtime colliders and compiler-owned triangle meshes where possible; it does not re-triangulate room polygons or infer stair geometry from authoring data.
 
@@ -108,7 +108,7 @@ The adapter delegates engine work to Godot:
 - player body: grounded `CharacterBody3D` with project gravity, floor snapping and `move_and_slide()`;
 - collision: runtime-v1 boxes/cylinders/triangle meshes -> Godot `CollisionShape3D`;
 - static architecture display: runtime-loaded glTF 2.0 binary via `GLTFDocument`/`GLTFState`;
-- interactive swing and slide doors: `AnimatableBody3D` driven by explicit runtime motion data;
+- interactive swing and slide doors: one `door.gd` controller per native door, with one `AnimatableBody3D` per explicit moving leaf; ray targets delegate to that controller;
 - straight-stair traversal: ordinary grounded movement over compiler-owned ramp collision;
 - mouse look and movement speeds live only in the runtime backend.
 
@@ -119,7 +119,7 @@ No Plan2World wall topology, room detection, floor-hole inference, stair-target 
 This is still an architecture/runtime milestone, not a rendering-quality milestone.
 
 - `kind: "swing"` and `kind: "slide"` doors are interactive; fold and overhead source motions remain closed blockers;
-- double/french swing doors are represented as one leaf for now;
+- single/double/french swing doors consume explicit per-leaf pivots, poses and colliders; both paired leaves share one interaction state;
 - straight stairs can connect adjacent authored floors physically and now have shared step presentation; L-shaped, U-shaped and spiral stairs remain explicit unsupported traversal/presentation rather than being approximated;
 - a multi-floor stairwell still needs the native project to contain the corresponding `floorOpening` aperture; the runtime compiler will preserve it but will not invent one;
 - wall junctions with incompatible endpoint heights or pathological/unbounded offset intersections retain closed caps and emit a compiler diagnostic;
@@ -141,7 +141,7 @@ The Godot CI job exports `tooling/runtime-asset-fixture.mjs` through the real CL
 then runs `tests/runtime_assets_test.gd` in the pinned engine. It checks actual
 imported vertices against emitted effective dimensions/centers, native mirrors,
 nonzero floor elevation, catalog and textured custom models, no-collider low
-furniture, swing/slide/pocket physics attachment and motion, unsupported blockers,
+furniture, single/paired swing and slide/pocket physics attachment and motion, unsupported blockers,
 leafless openings, missing-file handling and duplicate-proxy suppression.
 
 ```sh
@@ -163,7 +163,8 @@ Godot_v4.7.2-stable_linux.x86_64 --headless --fixed-fps 60 --path runtime/godot 
 This starts from native Project JSON, runs the real exporter and loads both the
 architecture GLB and dynamic model package. It drives the actual player through
 Godot input actions and physics frames: floor contact at nonzero elevation, wall,
-furniture and round-column collision, ray-based swing/slide interaction, the
+furniture and round-column collision, ray-based single/paired swing and slide
+interaction through either paired leaf, railing and invisible air blockers, the
 native stairwell aperture, ascent to an upper landing and descent to the lower
 floor. `--fixed-fps 60` accelerates deterministic simulation without bypassing
 `CharacterBody3D`, gravity, raycasts or `move_and_slide()`.
@@ -172,5 +173,11 @@ Physical keys are bound through Godot's `move_*` input actions. The runtime comp
 owns default interior spawn selection. Scenes without a compiled point display
 an explicit missing-spawn status instead of the engine inventing a location.
 
-Re-export older derived snapshots that relied on engine-side automatic spawn; the
-native Project format and saved spawn field are unchanged.
+Re-export older derived snapshots that relied on engine-side automatic spawn or
+implicit single-leaf door motion. The artifact gate rejects missing leaf contracts.
+The native Project format and saved spawn field are unchanged.
+
+The bundled JSON is generated from the same native fixture. Regenerate it with
+`node tooling/runtime-demo.mjs`; do not hand-edit it. A unit test verifies exact
+compiler reproduction. It intentionally omits GLBs to exercise missing-artifact
+compatibility; the export gates above test the complete presentation package.

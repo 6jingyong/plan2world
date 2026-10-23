@@ -1,4 +1,4 @@
-import type { Door, Floor, Point, Project, Wall } from '$lib/models/types';
+import type { Floor, Point, Project, Wall } from '$lib/models/types';
 import { getWallEndHeight, getWallStartHeight } from '$lib/models/types';
 import { floorInteriorPoint } from '$lib/utils/floorInteriorPoint';
 import { analyzeFloor } from '$lib/utils/floorAnalysis';
@@ -8,12 +8,12 @@ import { roomCeilingHeight, wallProfileSpans } from '$lib/utils/wallProfiles';
 import { wallPointAt, wallTangentAt } from '$lib/utils/wallPath';
 import { triangulatePolygonWithHoles } from './polygonTriangulation';
 import { compileRuntimeStair, type RuntimeStairTarget } from './stairTraversal';
+import { compileRuntimeDoor } from './doorCompilation';
 import type {
   Plan2WorldRuntimeSceneV1,
   RuntimeBoxCollider,
   RuntimeCollider,
-  RuntimeDoorEntity,
-  RuntimeDoorInteraction,
+  RuntimeWallEntity,
   RuntimeEntity,
   RuntimeFloor,
   RuntimeRoomSurface,
@@ -23,7 +23,6 @@ import type {
 } from './types';
 
 const METRES_PER_CM = 0.01;
-const DOOR_LEAF_THICKNESS_CM = 4;
 const DEFAULT_PLAYER = {
   eyeHeight: 1.6,
   radius: 0.28,
@@ -37,36 +36,6 @@ const yawForWall = (wall: Pick<Wall, 'start' | 'end' | 'curvePoint'>, position: 
   const tangent = wallTangentAt(wall, position);
   return Math.atan2(tangent.y, tangent.x);
 };
-
-function compileDoorInteraction(door: Door, tangent: Point, hingePoint: Point, elevationCm: number): RuntimeDoorInteraction {
-  switch (door.type) {
-    case 'opening':
-      return { kind: 'none' };
-    case 'sliding':
-    case 'pocket': {
-      const travelSign = door.swingDirection === 'left' ? 1 : -1;
-      return {
-        kind: 'slide',
-        axis: [tangent.x * travelSign, 0, tangent.y * travelSign],
-        travel: m(door.width),
-      };
-    }
-    case 'bifold':
-      return { kind: 'unsupported', sourceMotion: 'fold' };
-    case 'garage':
-      return { kind: 'unsupported', sourceMotion: 'overhead' };
-    default: {
-      const hingeSign = door.swingDirection === 'left' ? 1 : -1;
-      const sideSign = door.flipSide ? -1 : 1;
-      return {
-        kind: 'swing',
-        pivot: point3(hingePoint, elevationCm),
-        axis: [0, 1, 0],
-        openAngleRadians: hingeSign * sideSign * Math.PI / 2,
-      };
-    }
-  }
-}
 
 function compileWallColliders(floor: Floor, elevationCm: number, wall: Wall): RuntimeBoxCollider[] {
   const doors = floor.doors.filter(door => door.wallId === wall.id);
@@ -99,45 +68,6 @@ function compileWallColliders(floor: Floor, elevationCm: number, wall: Wall): Ru
       }];
     });
   });
-}
-
-function compileDoor(floor: Floor, elevationCm: number, door: Door, wall: Wall): {
-  entity: RuntimeDoorEntity;
-  collider?: RuntimeBoxCollider;
-} {
-  const centerPoint = wallPointAt(wall, door.position);
-  const tangent = wallTangentAt(wall, door.position);
-  const yaw = Math.atan2(tangent.y, tangent.x);
-  const hingeSign = door.swingDirection === 'left' ? 1 : -1;
-  const hingePoint = {
-    x: centerPoint.x + tangent.x * hingeSign * door.width / 2,
-    y: centerPoint.y + tangent.y * hingeSign * door.width / 2,
-  };
-  const entity: RuntimeDoorEntity = {
-    id: door.id,
-    floorId: floor.id,
-    kind: 'door',
-    hostWallId: wall.id,
-    pathPosition: door.position,
-    width: m(door.width),
-    height: m(door.height),
-    doorType: door.type,
-    swingDirection: door.swingDirection,
-    flipSide: door.flipSide,
-    closedPose: { center: point3(centerPoint, elevationCm + door.height / 2), yawClockwiseRadians: yaw },
-    ...(door.type !== 'opening' ? { assetRef: 'builtin:door-leaf-v1', leafThickness: m(DOOR_LEAF_THICKNESS_CM) } : {}),
-    interaction: compileDoorInteraction(door, tangent, hingePoint, elevationCm),
-  };
-  if (door.type === 'opening') return { entity };
-  return {
-    entity,
-    collider: {
-      id: `door:${door.id}:leaf`, ownerId: door.id, floorId: floor.id, dynamic: true, kind: 'box',
-      center: entity.closedPose.center,
-      size: [m(door.width), m(door.height), m(DOOR_LEAF_THICKNESS_CM)],
-      yawClockwiseRadians: yaw,
-    },
-  };
 }
 
 function compileRoomFloorCollider(room: RuntimeRoomSurface, floorId: string, elevation: number): RuntimeTriangleMeshCollider | null {
@@ -176,8 +106,9 @@ function compileFloor(
   const entities: RuntimeEntity[] = [];
   const colliders: RuntimeCollider[] = [];
 
+  const walls = new Map<string, RuntimeWallEntity>();
   for (const wall of floor.walls) {
-    entities.push({
+    const entity: RuntimeWallEntity = {
       id: wall.id, floorId: floor.id, kind: 'wall',
       path: { start: point2(wall.start), end: point2(wall.end), ...(wall.curvePoint ? { control: point2(wall.curvePoint) } : {}) },
       thickness: m(wall.thickness),
@@ -185,21 +116,22 @@ function compileFloor(
       endHeight: m(getWallEndHeight(wall)),
       boundaryType: wall.boundaryType ?? 'solid',
       visible: wall.boundaryType !== 'air',
-    });
+    };
+    walls.set(wall.id, entity);
+    entities.push(entity);
     colliders.push(...compileWallColliders(floor, elevationCm, wall));
   }
 
-  const walls = new Map(floor.walls.map(wall => [wall.id, wall]));
   for (const door of floor.doors) {
     const wall = walls.get(door.wallId);
     if (!wall) continue;
-    const result = compileDoor(floor, elevationCm, door, wall);
+    const result = compileRuntimeDoor(floor.id, m(elevationCm), door, wall);
     entities.push(result.entity);
-    if (result.collider) colliders.push(result.collider);
+    colliders.push(...result.colliders);
   }
 
   for (const win of floor.windows) {
-    const wall = walls.get(win.wallId);
+    const wall = floor.walls.find(wall => wall.id === win.wallId);
     if (!wall) continue;
     const centerPoint = wallPointAt(wall, win.position);
     entities.push({

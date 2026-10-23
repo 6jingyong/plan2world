@@ -47,7 +47,49 @@ func load_runtime(path: String) -> Dictionary:
 	if data.get("schema", "") != "plan2world-runtime-v1" or int(data.get("version", 0)) != 1:
 		push_error("Unsupported Plan2World runtime schema in %s" % path)
 		return {}
+	if not has_door_leaf_contract(data):
+		push_error("Runtime door leaf contract is missing or unsupported; re-export the native Project: %s" % path)
+		return {}
 	return data
+
+# The experimental v1 door contract now requires explicit parts. Do not guess
+# a single leaf from older artifacts or silently drop their door collision.
+func has_door_leaf_contract(data: Dictionary) -> bool:
+	var colliders := {}
+	for collider in data.get("colliders", []):
+		colliders[str(collider.get("id", ""))] = collider
+	var leaf_ids := {}
+	for entity in data.get("entities", []):
+		if entity.get("kind", "") != "door":
+			continue
+		var interaction: Dictionary = entity.get("interaction", {})
+		var kind := str(interaction.get("kind", ""))
+		if kind == "none":
+			continue
+		if kind not in ["swing", "slide", "unsupported"]:
+			return false
+		var leaves = interaction.get("leaves")
+		if typeof(leaves) != TYPE_ARRAY or leaves.is_empty():
+			return false
+		for leaf in leaves:
+			if typeof(leaf) != TYPE_DICTIONARY:
+				return false
+			for field in ["id", "colliderId", "assetRef", "size", "closedPose"]:
+				if not leaf.has(field):
+					return false
+			var id := str(leaf["id"])
+			if id.is_empty() or leaf_ids.has(id):
+				return false
+			leaf_ids[id] = true
+			var collider: Dictionary = colliders.get(str(leaf["colliderId"]), {})
+			if collider.get("ownerId") != entity["id"] or collider.get("kind") != "box" or not collider.get("dynamic", false):
+				return false
+			var axis = leaf.get("axis", [])
+			if kind == "swing" and (typeof(axis) != TYPE_ARRAY or axis.size() != 3 or Vector3(axis[0], axis[1], axis[2]) != Vector3.UP or not leaf.has("pivot") or not leaf.has("openAngleRadians")):
+				return false
+			if kind == "slide" and (not leaf.has("axis") or not leaf.has("travel")):
+				return false
+	return true
 
 func load_architecture(path: String) -> Node:
 	var scene := _load_glb(path)

@@ -15,7 +15,7 @@ func build(data: Dictionary, root: Node3D) -> Dictionary:
 			continue
 		var collider: Dictionary = raw_collider
 		if bool(collider.get("dynamic", false)):
-			dynamic_colliders[str(collider.get("ownerId", ""))] = collider
+			dynamic_colliders[str(collider.get("id", ""))] = collider
 			continue
 		var node := _build_static_collider(collider, root)
 		if node != null:
@@ -23,6 +23,7 @@ func build(data: Dictionary, root: Node3D) -> Dictionary:
 			static_count += 1
 
 	var entity_nodes := {}
+	var leaf_nodes := {}
 	var door_count := 0
 	for raw_entity in data.get("entities", []):
 		if typeof(raw_entity) != TYPE_DICTIONARY:
@@ -30,11 +31,9 @@ func build(data: Dictionary, root: Node3D) -> Dictionary:
 		var entity: Dictionary = raw_entity
 		if str(entity.get("kind", "")) != "door":
 			continue
-		var collider: Dictionary = dynamic_colliders.get(str(entity.get("id", "")), {})
-		var node := _build_door(entity, collider, root)
-		if node != null and not collider.is_empty():
-			collider_nodes[str(collider.get("id", ""))] = node
-			entity_nodes[str(entity.get("id", ""))] = node
+		var node := _build_door(entity, dynamic_colliders, collider_nodes, leaf_nodes, root)
+		if node != null:
+			entity_nodes[str(entity["id"])] = node
 		door_count += 1
 
 	return {
@@ -45,6 +44,7 @@ func build(data: Dictionary, root: Node3D) -> Dictionary:
 		},
 		"collider_nodes": collider_nodes,
 		"entity_nodes": entity_nodes,
+		"leaf_nodes": leaf_nodes,
 	}
 
 func _vec3(value) -> Vector3:
@@ -127,69 +127,41 @@ func _build_static_triangle_mesh(collider: Dictionary, root: Node3D) -> StaticBo
 	body.add_child(collision_shape)
 	return body
 
-func _build_door(entity: Dictionary, collider: Dictionary, root: Node3D) -> Node3D:
-	var interaction: Dictionary = entity.get("interaction", {})
-	var motion := str(interaction.get("kind", "none"))
-	if motion == "none" or collider.is_empty():
+func _build_door(entity: Dictionary, colliders: Dictionary, collider_nodes: Dictionary, leaf_nodes: Dictionary, root: Node3D) -> Node3D:
+	var interaction: Dictionary = entity["interaction"]
+	var motion := str(interaction["kind"])
+	if motion == "none":
 		return null
-	match motion:
-		"swing": return _build_swing_door(entity, collider, interaction, root)
-		"slide": return _build_slide_door(entity, collider, interaction, root)
-		_:
-			# Unsupported source motion stays an explicit closed blocker. Never fake
-			# fold/overhead semantics as a swing merely to make the adapter animate.
-			return _build_static_box(collider, root)
-
-func _build_swing_door(entity: Dictionary, collider: Dictionary, interaction: Dictionary, root: Node3D) -> Node3D:
-	var hinge := _vec3(interaction.get("pivot", []))
-	var axis := _vec3(interaction.get("axis", []))
-	if axis.distance_to(Vector3.UP) > 0.001:
-		return _build_static_box(collider, root)
-
-	var closed_pose: Dictionary = entity.get("closedPose", {})
-	var center := _vec3(closed_pose.get("center", []))
-	var runtime_yaw := float(closed_pose.get("yawClockwiseRadians", 0.0))
-	var godot_yaw := _yaw(runtime_yaw)
-	var pivot := P2WDoor.new()
-	pivot.name = "Door_%s" % str(entity.get("id", "door")).validate_node_name()
-	pivot.position = hinge
-	pivot.rotation.y = godot_yaw
-	pivot.set_meta("p2w_id", str(entity.get("id", "")))
-	pivot.set_meta("p2w_owner_id", str(entity.get("id", "")))
-	root.add_child(pivot)
-
-	var basis := Basis(Vector3.UP, godot_yaw)
-	var local_center := basis.inverse() * (center - hinge)
-	var size := _vec3(collider.get("size", []))
-	var shape := BoxShape3D.new()
-	shape.size = Vector3(max(size.x, 0.001), max(size.y, 0.001), max(size.z, 0.001))
-	var collision_shape := CollisionShape3D.new()
-	collision_shape.shape = shape
-	collision_shape.position = local_center
-	pivot.add_child(collision_shape)
-	pivot.configure_swing(float(interaction.get("openAngleRadians", 0.0)))
-	return pivot
-
-func _build_slide_door(entity: Dictionary, collider: Dictionary, interaction: Dictionary, root: Node3D) -> Node3D:
-	var axis := _vec3(interaction.get("axis", []))
-	var travel := float(interaction.get("travel", 0.0))
-	if axis.length_squared() <= 0.000001 or travel <= 0.0:
-		return _build_static_box(collider, root)
-
-	var closed_pose: Dictionary = entity.get("closedPose", {})
-	var body := P2WDoor.new()
-	body.name = "Door_%s" % str(entity.get("id", "door")).validate_node_name()
-	body.position = _vec3(closed_pose.get("center", collider.get("center", [])))
-	body.rotation.y = _yaw(closed_pose.get("yawClockwiseRadians", collider.get("yawClockwiseRadians", 0.0)))
-	body.set_meta("p2w_id", str(entity.get("id", "")))
-	body.set_meta("p2w_owner_id", str(entity.get("id", "")))
-	root.add_child(body)
-
-	var size := _vec3(collider.get("size", []))
-	var shape := BoxShape3D.new()
-	shape.size = Vector3(max(size.x, 0.001), max(size.y, 0.001), max(size.z, 0.001))
-	var collision_shape := CollisionShape3D.new()
-	collision_shape.shape = shape
-	body.add_child(collision_shape)
-	body.configure_slide(axis, travel)
-	return body
+	var supported := motion == "swing" or motion == "slide"
+	var assembly: Node3D = P2WDoor.new() if supported else Node3D.new()
+	assembly.name = "Door_%s" % str(entity["id"]).validate_node_name()
+	assembly.set_meta("p2w_owner_id", str(entity["id"]))
+	root.add_child(assembly)
+	for leaf in interaction["leaves"]:
+		var collider: Dictionary = colliders[str(leaf["colliderId"])]
+		var body: PhysicsBody3D = AnimatableBody3D.new() if supported else StaticBody3D.new()
+		body.name = str(leaf["id"]).validate_node_name()
+		body.set_meta("p2w_owner_id", str(entity["id"]))
+		body.set_meta("p2w_leaf_id", str(leaf["id"]))
+		body.position = _vec3(leaf["pivot"]) if motion == "swing" else _vec3(collider["center"])
+		body.rotation.y = _yaw(collider["yawClockwiseRadians"])
+		assembly.add_child(body)
+		var shape := BoxShape3D.new()
+		shape.size = _vec3(collider["size"])
+		var collision_shape := CollisionShape3D.new()
+		collision_shape.shape = shape
+		body.add_child(collision_shape)
+		var closed_collider := Transform3D(Basis(Vector3.UP, _yaw(collider["yawClockwiseRadians"])), _vec3(collider["center"]))
+		collision_shape.transform = body.transform.affine_inverse() * closed_collider
+		if supported:
+			body.sync_to_physics = true
+			body.set_meta("p2w_interaction_target", assembly)
+			if motion == "swing":
+				assembly.configure_swing(body, float(leaf["openAngleRadians"]))
+			else:
+				assembly.configure_slide(body, _vec3(leaf["axis"]), float(leaf["travel"]))
+		# Unsupported source motion stays an explicit closed blocker. No engine
+		# inference or silent fold/overhead -> swing substitution.
+		collider_nodes[str(collider["id"])] = body
+		leaf_nodes[str(leaf["id"])] = body
+	return assembly

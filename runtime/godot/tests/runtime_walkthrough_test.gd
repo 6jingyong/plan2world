@@ -40,6 +40,9 @@ func _run() -> void:
 	var artifacts := ARTIFACTS.new()
 	var path := artifacts.runtime_path_from_args()
 	var data := artifacts.load_runtime(path)
+	if data.is_empty():
+		quit(1)
+		return
 	var world := Node3D.new()
 	root.add_child(world)
 	var architecture := artifacts.load_architecture(artifacts.default_architecture_path(path))
@@ -48,7 +51,7 @@ func _run() -> void:
 		world.add_child(architecture)
 	var built := LOADER.new().build(data, world)
 	var presentation := ASSETS.new().render(data, world, built, artifacts.load_assets(path))
-	_check(presentation["presented"].size() == 4, "Furniture and both dynamic doors must load assets")
+	_check(presentation["presented"].size() == 8, "Furniture and all six dynamic door leaves must load assets")
 	player = P2WPlayer.new()
 	world.add_child(player)
 	var spawn: Array = data["floors"][0]["walkthroughStart"]
@@ -89,6 +92,38 @@ func _run() -> void:
 	await _walk(480)
 	_check(player.position.z > 9.4, "Player must descend the same straight stairs")
 	_check(player.is_on_floor() and absf(player.position.y - 0.4) < 0.03, "Descending player must return to lower floor")
+	# Each double/french leaf blocks while closed. Ray interaction with either
+	# leaf operates the same native door; both halves then permit real passage.
+	for entry in [["double-door", 9.0], ["french-door", 10.5]]:
+		var door_id := str(entry[0])
+		var z := float(entry[1])
+		for x in [2.6, 3.4]:
+			await _place(Vector3(x, 0.4, z + 0.8))
+			await _walk(50)
+			_check(player.position.z > z + 0.25, "Each closed paired leaf must block: " + door_id)
+		for x in [2.6, 3.4]:
+			await _place(Vector3(x, 0.4, z + 1.3))
+			player.interact()
+			await _frames(40)
+			await _walk(110)
+			_check(player.position.z < z - 0.6, "Either leaf's ray target must open the complete door: " + door_id)
+			# Close through the open leaf on the negative-X jamb. The other leaf
+			# shares this interaction state, including on the opposite flipSide.
+			var side := 1.0 if door_id == "double-door" else -1.0
+			await _place(Vector3(1.2, 0.4, z + side * 0.4), -PI / 2)
+			player.interact()
+			await _frames(40)
+			await _place(Vector3(3.4, 0.4, z + 0.8))
+			await _walk(50)
+			_check(player.position.z > z + 0.25, "Ray closing one leaf must restore both blockers: " + door_id)
+
+	await _place(Vector3(8, 0.4, 11.8))
+	await _walk(80)
+	_check(player.position.z > 11.3 and player.position.z < 11.5, "Native railing must block at its actual position")
+	await _place(Vector3(8, 0.4, 10.8))
+	await _walk(80)
+	_check(player.position.z > 10.3 and player.position.z < 10.5, "Invisible native air boundary must remain collidable")
+
 	_key(false)
 	world.free()
 	print("Runtime walkthrough integration: ", "PASS" if failures == 0 else "FAIL (%d)" % failures)

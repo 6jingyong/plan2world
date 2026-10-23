@@ -113,10 +113,13 @@ describe('runtime asset package', () => {
     expect(compileDefaultDoorAsset()).toEqual(compileDefaultDoorAsset());
     expect(compileAssetNormalization(compileDefaultDoorAsset())).toEqual({ translation: [-0, -0, -0], scale: [1, 1, 1] });
     const doors = runtime.entities.filter(e => e.kind === 'door');
-    expect(doors.map(d => d.interaction.kind)).toEqual(['swing', 'swing', 'slide', 'slide', 'unsupported', 'unsupported', 'none']);
-    for (const door of doors.slice(0, -1)) expect(door).toMatchObject({ assetRef: 'builtin:door-leaf-v1', leafThickness: 0.04 });
-    expect(doors.at(-1)).not.toHaveProperty('assetRef');
-    expect(doors.at(-1)).not.toHaveProperty('leafThickness');
+    expect(doors.map(d => d.interaction.kind)).toEqual(['swing', 'swing', 'slide', 'slide', 'unsupported', 'unsupported', 'none', 'swing', 'swing']);
+    for (const door of doors) {
+      if (door.interaction.kind === 'none') continue;
+      for (const leaf of door.interaction.leaves) expect(leaf).toMatchObject({ assetRef: 'builtin:door-leaf-v1', size: [expect.any(Number), 2.1, 0.04] });
+    }
+    expect(doors[6].interaction).not.toHaveProperty('leaves');
+    expect(doors.slice(-2).map(d => d.interaction.kind === 'swing' ? d.interaction.leaves.length : 0)).toEqual([2, 2]);
   });
 });
 

@@ -34,19 +34,31 @@ architecture GLB and packaged dynamic assets. Godot: the actual runtime.
    Unit/engine assertions do not establish visual quality or a manually reviewed
    real-project walkthrough.
 
-## Next: Stage C native parity
+## Stage C native parity
 
 - L/U/spiral stairs stay unsupported. Native type/width/depth/riserCount/direction
   alone do not specify turn handedness, landing geometry, U-gap or spiral inner
   radius/turn angle. Extend the native/compiled semantic contract before generating
   traversal geometry; do not copy a decorative mesh as physics truth.
-- Double/french doors still have the existing single-leaf interaction contract.
-  Introduce explicit leaf poses/pivots/motion/colliders before implementing two-leaf
-  behavior. Fold/overhead require intentional mechanisms and remain blockers.
-- Audit railing and other native boundaries. Air boundaries stay invisible but
-  collidable; native semantics must survive mesher/collider changes unchanged.
-- For each supported variant: deterministic semantics/geometry tests first, then
-  real Godot motion/collision/presentation checks. Unsupported variants stay explicit.
+- Completed: all non-opening doors emit explicit leaf parts with stable IDs,
+  asset/collider references, closed poses, sizes and discriminated motion.
+  Double/french doors have two equal jamb-hinged leaves sharing one interaction
+  state. Either physical leaf routes ray interaction to that state. Single/slide/
+  pocket use the same part contract. Fold/overhead stay explicit closed blockers.
+- Completed: railing boundaries now have shared GLB extrusion at authored height
+  and thickness; they no longer disappear when static proxies are suppressed.
+  No baluster/handrail data is inferred. Air remains invisible and collidable.
+- Curved-host door leaves fit the physical opening endpoint chord while the wall
+  aperture retains native arc width. Collision and presentation remain separately
+  emitted; adapters do not split door geometry or infer pivots from model bounds.
+- Verification: deterministic compiler/unit/schema checks; pinned Godot asset fit,
+  independent physical leaves and shared state; actual ray opening/closing through
+  either paired leaf, closed collision and open passage, native railing/air blockers,
+  existing grounding/single/slide/stair traversal gates. The bundled demo is rebuilt
+  from the native walkthrough fixture and checked for exact compiler reproduction.
+- Re-export older runtime snapshots: the experimental v1 door interaction now
+  requires explicit leaf parts. Native saved Projects are unchanged. No legacy
+  single-leaf inference path is retained in the engine.
 
 ## Final Stage D
 
@@ -63,3 +75,19 @@ provides a useful verification pattern: measurable geometry/structure gates befo
 render review, scoped passes and compact reusable evidence. Plan2World retains its
 own observation/compiler/engine ownership; generated Three.js runtime hierarchies
 and vision-based acceptance are not substituted for native semantic contracts.
+
+## Remaining native contracts
+
+The parity audit intentionally leaves these explicit limitations:
+
+| Native feature | Missing semantics / next prerequisite |
+| --- | --- |
+| L stair | Turn handedness, two flight lengths/widths, landing dimensions and travel endpoints |
+| U stair | Turn handedness, separate flights, landing and inner gap dimensions |
+| Spiral stair | Inner/outer walking radii, rotation direction, turn angle and entrance/exit bearings |
+| Bifold | Panel count/widths, fold direction, hinge chain and track constraints |
+| Garage / overhead | Section/track geometry and lifting mechanism; the native type alone does not select one |
+
+Do not add runtime-specific guesses for these fields. Their next implementation
+must start with a native authoring/editing/persistence contract, followed by shared
+compiler semantics and deterministic geometry, then adapter motion/physics tests.

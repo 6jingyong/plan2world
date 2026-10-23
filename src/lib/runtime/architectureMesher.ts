@@ -299,7 +299,7 @@ function emptyWallJoin(): WallJoin {
 
 function isMesheableWall(wall: RuntimeWallEntity, profile: RuntimeWallPathProfile) {
   const pathNumbers = [...wall.path.start, ...wall.path.end, ...(wall.path.control ?? [])];
-  return wall.visible && wall.boundaryType === 'solid' &&
+  return wall.visible && (wall.boundaryType === 'solid' || wall.boundaryType === 'railing') &&
     pathNumbers.every(Number.isFinite) && Number.isFinite(profile.length) && profile.length > EPSILON &&
     Number.isFinite(wall.thickness) && wall.thickness > EPSILON &&
     Number.isFinite(wall.startHeight) && Number.isFinite(wall.endHeight) &&
@@ -502,7 +502,7 @@ function compileWall(
   diagnostics: ArchitectureMeshDiagnostic[],
 ): ArchitectureMeshPrimitive | null {
   if (!wall.visible || wall.boundaryType === 'air') return null;
-  if (wall.boundaryType !== 'solid') {
+  if (wall.boundaryType !== 'solid' && wall.boundaryType !== 'railing') {
     diagnostics.push({
       code: 'unsupported-wall-boundary',
       entityId: wall.id,

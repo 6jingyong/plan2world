@@ -44,22 +44,34 @@ export interface RuntimeWallEntity extends RuntimeEntityBase {
   visible: boolean;
 }
 
+/** One independently moving presentation/physics part, owned by its native door.
+ * IDs and closed poses are compiler-owned; assets never specify physical truth. */
+export interface RuntimeDoorLeaf {
+  id: string;
+  colliderId: string;
+  assetRef: string;
+  size: RuntimeVec3;
+  closedPose: { center: RuntimeVec3; yawClockwiseRadians: number };
+}
+
 export type RuntimeDoorInteraction =
   | { kind: 'none' }
   | {
       kind: 'swing';
-      pivot: RuntimeVec3;
-      axis: RuntimeVec3;
-      openAngleRadians: number;
+      leaves: (RuntimeDoorLeaf & {
+        pivot: RuntimeVec3;
+        axis: RuntimeVec3;
+        openAngleRadians: number;
+      })[];
     }
   | {
       kind: 'slide';
-      axis: RuntimeVec3;
-      travel: number;
+      leaves: (RuntimeDoorLeaf & { axis: RuntimeVec3; travel: number })[];
     }
   | {
       kind: 'unsupported';
       sourceMotion: 'fold' | 'overhead';
+      leaves: RuntimeDoorLeaf[];
     };
 
 export interface RuntimeDoorEntity extends RuntimeEntityBase {
@@ -73,9 +85,6 @@ export interface RuntimeDoorEntity extends RuntimeEntityBase {
   flipSide: boolean;
   closedPose: { center: RuntimeVec3; yawClockwiseRadians: number };
   interaction: RuntimeDoorInteraction;
-  /** Absent for leafless openings. Identity resolves through the asset manifest. */
-  assetRef?: string;
-  leafThickness?: number;
 }
 
 export interface RuntimeWindowEntity extends RuntimeEntityBase {

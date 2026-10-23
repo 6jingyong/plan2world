@@ -63,43 +63,68 @@ Used for a leafless architectural opening. It has no dynamic door collider.
 { "kind": "none" }
 ```
 
+### Explicit door parts
+
+Every non-opening interaction contains `leaves`. Each leaf has its own stable
+`id`, `colliderId`, `assetRef`, `size` and `closedPose`. `size` is presentation
+width/height/thickness in metres, independent of the referenced collider's shape.
+The collider retains the native door as `ownerId`. The door's top-level dimensions
+and `closedPose` describe the whole doorway, not an implied full-width moving body.
+Leaf IDs use `door:<URI-encoded native ID>:leaf:<index>`; adapters never construct
+IDs or divide the doorway width themselves.
+
 ### `swing`
 
-A swing door carries an explicit pivot point, rotation axis and signed open angle. The pivot is emitted on the hinge axis at floor elevation; the axis is currently vertical. `openAngleRadians` follows the right-hand rule around `axis`.
+Each leaf carries an explicit pivot, rotation axis and signed open angle. Pivots
+are at floor elevation; the currently emitted axis is vertical. Axis-angle motion
+follows the right-hand rule.
 
 ```json
 {
   "kind": "swing",
-  "pivot": [2.5, 0.2, 0.0],
-  "axis": [0, 1, 0],
-  "openAngleRadians": 1.5707963267948966
+  "leaves": [{
+    "id": "door:entry:leaf:0",
+    "colliderId": "door:entry:leaf:0",
+    "assetRef": "builtin:door-leaf-v1",
+    "size": [0.9, 2.1, 0.04],
+    "closedPose": { "center": [2.0, 1.25, 0.0], "yawClockwiseRadians": 0 },
+    "pivot": [2.45, 0.2, 0.0],
+    "axis": [0, 1, 0],
+    "openAngleRadians": 1.5707963267948966
+  }]
 }
 ```
+
+`single` has one leaf. Native `double`/`french` doors compile to two equal leaves,
+hinged at opposite jambs with opposite signed angles. `swingDirection` and `flipSide` jointly select their shared opening side, matching
+the native two-leaf plan symbol. Changing either reverses both angles without
+swapping part identities. On a single door, `swingDirection` selects the hinge. A paired door has one open/close state;
+interacting with either leaf operates both, with animation input gated as a unit.
+
+On a curved host, the wall aperture retains the native physical arc width. Leaf
+centers, widths and pivots follow the chord between the same shared wall-path
+opening endpoints. Engines must not substitute the curve's midpoint tangent or
+place an additional full-width collider across the paired leaves.
 
 ### `slide`
 
-Sliding and pocket doors carry a world-space travel axis and positive travel distance. The current native model has no dedicated slide-direction field, so the compiler deterministically maps the retained native left/right direction onto the wall tangent until the authoring model gains a more specific semantic.
-
-```json
-{
-  "kind": "slide",
-  "axis": [1, 0, 0],
-  "travel": 0.9
-}
-```
+Sliding/pocket interactions contain one leaf with `axis` (world-space unit vector)
+and positive `travel` in metres. They have no pivot or swing angle. The compiler
+maps the retained native left/right direction onto the opening chord until the
+native authoring model gains a separate slide-direction semantic.
 
 ### `unsupported`
 
-Native door types whose runtime mechanics are not yet specified do not receive fake swing/slide fields. Bifold and garage doors are preserved explicitly as unsupported motion semantics:
+Bifold and garage doors retain `kind: "unsupported"`, `sourceMotion: "fold"` or
+`"overhead"`, and an explicit closed leaf. That leaf has presentation and collision
+references but no invented hinge, angle or slide axis. It remains a static closed
+blocker and exposes no interaction target.
 
-```json
-{ "kind": "unsupported", "sourceMotion": "fold" }
-{ "kind": "unsupported", "sourceMotion": "overhead" }
-```
-
-Adapters should keep those leaves as closed blockers until they implement an intentional behavior.
-
-The door entity still retains `doorType`, `swingDirection` and `flipSide` as source semantics during this transition, but interaction behavior must come from the discriminated `interaction` object.
+The entity retains `doorType`, `swingDirection` and `flipSide` as source semantics;
+engines consume the discriminated interaction object for behavior. This update to
+the experimental v1 contract requires re-exporting older derived runtime snapshots.
+The native Project format is unchanged. Godot rejects old leafless motion objects
+instead of silently omitting their collision or guessing a replacement.
 
 ## Stair traversal
 
@@ -137,7 +162,10 @@ Collision is compiler-owned output rather than something each backend infers fro
 - supported straight stairs receive compiler-owned `triangle-mesh` ramps between authored floor elevations;
 - wall collision is faceted from the same wall path used by the application;
 - door openings are removed from static wall collision;
-- closed non-opening doors receive a dynamic leaf box collider;
+- non-opening doors receive one explicit box collider per leaf; supported motion
+  uses dynamic bodies while unsupported motion remains a static closed blocker;
+- railings use their authored height/thickness for both boundary semantics and
+  independently compiled presentation/collision; air stays invisible and collidable;
 - windows do **not** create walk-through collision gaps;
 - non-flat furniture gets a conservative box collider;
 - columns get box/cylinder primitives.
@@ -162,6 +190,10 @@ architecture.glb        # compiler-owned static architecture + basic materials
 scene.assets/manifest.json # plan2world-runtime-assets-v1
 scene.assets/<sha256>.glb # referenced furniture and dynamic-door presentation
 ```
+
+Railings are capped boundary extrusions at native dimensions, matching authoring
+review. The native model does not specify balusters, handrails or infill; the
+compiler does not invent them. Air boundaries emit no presentation mesh.
 
 The presentation compiler composes the wall/room shell with static window panes, square/round columns and supported straight-stair step geometry. The GLB writer assigns a deterministic basic material palette and carries stable Plan2World ownership in node extras. Physics remains independent: engines must still use runtime JSON colliders rather than deriving collision from GLB.
 

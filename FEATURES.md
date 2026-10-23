@@ -25,6 +25,7 @@ This is a current capability summary, not a development diary.
 
 ## Compiled runtime
 
+- Native railings compile to shared GLB boundary presentation at authored height/thickness. Air boundaries remain invisible and collidable.
 - `npm run runtime:export` reads an existing native Project without invoking AI or reopening the browser editor.
 - One deterministic compilation boundary emits `plan2world-runtime-v1` plus a sibling `architecture.glb`.
 - Runtime JSON owns engine-neutral semantics, collision and interaction/traversal contracts, including explicit triangulated room floors and straight-stair ramps.
@@ -36,11 +37,11 @@ This is a current capability summary, not a development diary.
 - The Godot adapter consumes the compiled artifacts without recomputing topology or deriving collision from GLB.
 - Godot converts runtime CCW triangle winding to its clockwise convention and uses explicit runtime triangles for grounded `CharacterBody3D` motion, gravity and floor snapping. A real native-export walkthrough gate exercises collision, ray-based swing/slide interaction and stair ascent/descent.
 - Straight UP/DN stairs resolve to the adjacent authored floor and receive a compiler-owned walkable ramp; L/U/spiral stairs remain explicit unsupported traversal.
-- Swing and sliding/pocket doors are interactive `AnimatableBody3D` nodes; unsupported fold/overhead motions remain explicit closed blockers instead of being faked as hinges.
+- Single/double/french swing and sliding/pocket doors have explicit per-leaf `AnimatableBody3D` bodies and one interaction state per native door; unsupported fold/overhead motions remain explicit closed blockers instead of being faked as hinges.
 - Runtime export packages referenced catalog/custom GLBs and a deterministic shared door leaf through `plan2world-runtime-assets-v1`. Godot instances use compiler-owned normalization, native effective sizes/rotation/mirroring and explicit door motion; only missing assets use proxies.
 - When architecture GLB is present, Godot suppresses static wall/floor/window/column/stair proxies. Missing GLB still falls back to isolated compatibility presentation using compiler-owned collision triangles where available.
 
-Representative runtime tests include `tests/runtime-scene.test.ts`, `tests/runtime-stair-traversal.test.ts`, `tests/runtime-static-architecture.test.ts`, `tests/runtime-godot-boundary.test.ts`, `tests/runtime-architecture-mesher.test.ts`, `tests/runtime-room-surface-mesher.test.ts`, `tests/runtime-architecture-glb.test.ts`, `tests/runtime-export-cli.test.ts`, `tests/runtime-assets.test.ts` and the real Godot `runtime/godot/tests/runtime_assets_test.gd` gate. Focused browser regressions include `tests/browser/quick-geometry-correction.spec.ts`.
+Representative runtime tests include `tests/runtime-scene.test.ts`, `tests/runtime-stair-traversal.test.ts`, `tests/runtime-static-architecture.test.ts`, `tests/runtime-godot-boundary.test.ts`, `tests/runtime-architecture-mesher.test.ts`, `tests/runtime-room-surface-mesher.test.ts`, `tests/runtime-architecture-glb.test.ts`, `tests/runtime-export-cli.test.ts`, `tests/runtime-assets.test.ts`, `tests/runtime-door-leaves.test.ts`, `tests/runtime-boundary-parity.test.ts` and the real Godot `runtime/godot/tests/runtime_assets_test.gd` gate. Focused browser regressions include `tests/browser/quick-geometry-correction.spec.ts`.
 
 ## Fresh validation policy
 

@@ -114,9 +114,9 @@ describe('plan2world runtime compiler', () => {
       expect(door.closedPose.center).toEqual([2, 1.25, 0]);
       expect(door.interaction.kind).toBe('swing');
       if (door.interaction.kind === 'swing') {
-        expect(door.interaction.pivot).toEqual([2.5, 0.2, 0]);
-        expect(door.interaction.axis).toEqual([0, 1, 0]);
-        expect(door.interaction.openAngleRadians).toBeCloseTo(Math.PI / 2);
+        expect(door.interaction.leaves[0].pivot).toEqual([2.5, 0.2, 0]);
+        expect(door.interaction.leaves[0].axis).toEqual([0, 1, 0]);
+        expect(door.interaction.leaves[0].openAngleRadians).toBeCloseTo(Math.PI / 2);
       }
     }
     expect(scene.colliders.find(collider => collider.ownerId === 'd1')).toMatchObject({ kind: 'box', dynamic: true });
@@ -151,17 +151,17 @@ describe('plan2world runtime compiler', () => {
     const slide = doors.get('slide');
     expect(slide?.kind).toBe('door');
     if (slide?.kind === 'door') {
-      expect(slide.interaction).toEqual({ kind: 'slide', axis: [1, 0, 0], travel: 0.8 });
+      expect(slide.interaction).toMatchObject({ kind: 'slide', leaves: [{ axis: [1, 0, 0], travel: expect.closeTo(0.8, 12) }] });
       expect(scene.colliders.find(collider => collider.ownerId === 'slide')).toMatchObject({ kind: 'box', dynamic: true });
     }
 
     const fold = doors.get('fold');
     expect(fold?.kind).toBe('door');
-    if (fold?.kind === 'door') expect(fold.interaction).toEqual({ kind: 'unsupported', sourceMotion: 'fold' });
+    if (fold?.kind === 'door') expect(fold.interaction).toMatchObject({ kind: 'unsupported', sourceMotion: 'fold', leaves: [expect.any(Object)] });
 
     const garage = doors.get('garage');
     expect(garage?.kind).toBe('door');
-    if (garage?.kind === 'door') expect(garage.interaction).toEqual({ kind: 'unsupported', sourceMotion: 'overhead' });
+    if (garage?.kind === 'door') expect(garage.interaction).toMatchObject({ kind: 'unsupported', sourceMotion: 'overhead', leaves: [expect.any(Object)] });
 
     const opening = doors.get('opening');
     expect(opening?.kind).toBe('door');

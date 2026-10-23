@@ -32,7 +32,7 @@ func render(
 		var node = collider_nodes.get(str(collider.get("id", "")), null)
 		if node == null or not (node is Node3D):
 			continue
-		if presented_assets.has(str(collider.get("ownerId", ""))):
+		if presented_assets.has(str(collider.get("ownerId", ""))) or presented_assets.has(str(collider["id"])):
 			continue
 		var owner: Dictionary = entities_by_id.get(str(collider.get("ownerId", "")), {})
 		if not bool(owner.get("visible", true)):

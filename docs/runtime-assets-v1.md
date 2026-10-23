@@ -16,10 +16,11 @@ Project catalogId / customModelId + retained attachments
 
 Furniture retains `catalog:<catalogId>` or `custom-model:<customModelId>` as its
 `assetRef`; sourceCategory remains source semantics and never selects a guessed
-model. Non-opening doors receive `builtin:door-leaf-v1` and `leafThickness`.
-Leafless openings have no asset reference. Fold/overhead remain unsupported
-closed blockers even though they can display a default leaf. Double/french doors
-retain the existing single-body limitation pending an explicit two-leaf contract.
+model. Each explicit non-opening door leaf receives `builtin:door-leaf-v1` and
+its own size, closed pose and collider reference. Leafless openings have no asset
+reference. Fold/overhead remain unsupported closed blockers with a default leaf.
+Double/french doors instance the same asset twice, with compiler-owned independent
+hinges and one shared interaction state.
 
 The sibling directory follows the runtime filename: `house.runtime.json` (or
 `house.json`) resolves to `house.assets/manifest.json`; a filename without `.json`
@@ -75,8 +76,8 @@ mean `[1,1,1]`. Saved custom definition dimensions supply omitted item dimension
 then ordinary instance overrides/scales apply. Low furniture can have presentation
 without a collider. Missing low models use semantic-sized fallback markers.
 
-Door fit uses `width`, `height`, `leafThickness` and `closedPose`, independently of
-its collision primitive. The centered default leaf is a deterministic shared GLB,
+Door fit uses each explicit leaf's `size` and `closedPose`, independently of
+its referenced collision primitive. The centered default leaf is a deterministic shared GLB,
 written by the same engine-neutral presentation writer used for architecture.
 The Godot presentation adapter attaches the leaf to the loader-created physics
 node using the explicit closed pose. Existing swing pivot/axis/open angle and
@@ -85,12 +86,12 @@ slide axis/travel remain the only motion truth. No leaf geometry is baked into
 
 The Godot adapter verifies packaged hashes/lengths and caches imported scenes by
 content URI. Each entity receives its own transform hierarchy; shared geometry is
-presentation only. The proxy renderer receives the successful entity set and runs
+presentation only. The proxy renderer receives successful furniture/leaf part IDs and runs
 only for missing assets or missing static GLB. The real Godot CI integration gate
 checks vertex bounds, colliders, door animation and fallback ownership.
 
 ## Scope
 
 The asset layer does not add furniture interaction/movement, map native finish/tint metadata to models, expose authored
-door model selection, implement two-leaf/folding/overhead mechanics, or expand
+door model selection, implement folding/overhead mechanics, or expand
 non-straight stair traversal. Those require their own authoring/runtime contracts.

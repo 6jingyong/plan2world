@@ -45,10 +45,21 @@ func _run() -> void:
 	_check(artifacts.default_assets_path("House") == "House.assets", "Extensionless asset path")
 	var runtime_path := artifacts.runtime_path_from_args()
 	var data := artifacts.load_runtime(runtime_path)
+	if data.is_empty():
+		quit(1)
+		return
+	var legacy := data.duplicate(true)
+	legacy["entities"].filter(func(e): return e["kind"] == "door")[0]["interaction"].erase("leaves")
+	_check(not artifacts.has_door_leaf_contract(legacy), "Older single-leaf artifacts must require re-export, never inferred motion")
+	var wrong_owner := data.duplicate(true)
+	wrong_owner["colliders"].filter(func(c): return c["dynamic"])[0]["ownerId"] = "unrelated"
+	_check(not artifacts.has_door_leaf_contract(wrong_owner), "Leaf collider ownership must be explicit and valid")
 	var assets := artifacts.load_assets(runtime_path)
 	_check(assets.size() == 5, "Expected catalog, custom aliases and shared door leaf assets")
 	var world := Node3D.new()
 	root.add_child(world)
+	world.position = Vector3(4, 2, -3)
+	world.rotation.y = 0.3
 	var architecture := artifacts.load_architecture(artifacts.default_architecture_path(runtime_path))
 	_check(architecture != null, "Export must include architecture GLB")
 	if architecture != null:
@@ -56,7 +67,7 @@ func _run() -> void:
 	var built := LOADER.new().build(data, world)
 	var result := RENDERER.new().render(data, world, built, assets)
 	var instances: Dictionary = result["instances"]
-	_check(instances.size() == 10, "Expected six door leaves and four furniture instances")
+	_check(instances.size() == 14, "Expected ten door leaves and four furniture instances")
 	var stats := PROXIES.new().render(data, world, built, true, result["presented"])
 	_check(stats["collider_proxy_count"] == 1, "Only genuine missing furniture may use a collider proxy")
 	_check(world.get_node_or_null("MissingAsset_missing-flat") != null, "Missing flat furniture needs a semantic fallback without collision")
@@ -64,58 +75,65 @@ func _run() -> void:
 	await process_frame
 
 	for entity in data["entities"]:
-		var id := str(entity["id"])
-		if not instances.has(id):
-			continue
-		var center: Vector3
-		var size: Vector3
-		var yaw: float
-		if entity["kind"] == "furniture":
-			center = _vec3(entity["position"])
-			size = _vec3(entity["size"])
-			yaw = -float(entity["yawClockwiseRadians"])
-		else:
-			center = _vec3(entity["closedPose"]["center"])
-			size = Vector3(entity["width"], entity["height"], entity["leafThickness"])
-			yaw = -float(entity["closedPose"]["yawClockwiseRadians"])
-		var bounds := _bounds(instances[id], Transform3D(Basis(Vector3.UP, yaw), center))
-		_check(bounds.size.distance_to(size) < 0.0001, "Asset effective size mismatch: " + id)
-		_check(bounds.get_center().length() < 0.0001, "Asset center/elevation mismatch: " + id)
-		if entity["kind"] == "door":
-			var body: Node3D = built["entity_nodes"][id]
-			_check(instances[id].get_parent() == body, "Door presentation must follow the loader's physics node")
-			var shape: CollisionShape3D = body.get_child(0)
-			_check((shape.shape as BoxShape3D).size.distance_to(size) < 0.0001, "Leaf/collider alignment mismatch")
+		if entity["kind"] == "furniture" and instances.has(entity["id"]):
+			var frame := Transform3D(Basis(Vector3.UP, -float(entity["yawClockwiseRadians"])), _vec3(entity["position"]))
+			var bounds := _bounds(instances[entity["id"]], world.global_transform * frame)
+			_check(bounds.size.distance_to(_vec3(entity["size"])) < 0.0001, "Furniture effective size mismatch")
+			_check(bounds.get_center().length() < 0.0001, "Furniture center/elevation mismatch")
+		elif entity["kind"] == "door":
+			for leaf in entity["interaction"].get("leaves", []):
+				var id := str(leaf["id"])
+				var frame := Transform3D(Basis(Vector3.UP, -float(leaf["closedPose"]["yawClockwiseRadians"])), _vec3(leaf["closedPose"]["center"]))
+				var bounds := _bounds(instances[id], world.global_transform * frame)
+				var size := _vec3(leaf["size"])
+				_check(bounds.size.distance_to(size) < 0.0001, "Leaf effective size mismatch: " + id)
+				_check(bounds.get_center().length() < 0.0001, "Leaf center/elevation mismatch: " + id)
+				var body: Node3D = built["leaf_nodes"][id]
+				_check(instances[id].get_parent() == body, "Door presentation must follow its own physics leaf")
+				_check(built["collider_nodes"][leaf["colliderId"]] == body, "Each leaf must have its own compiler-owned collider")
+				var shape: CollisionShape3D = body.get_child(0)
+				_check((shape.shape as BoxShape3D).size.distance_to(size) < 0.0001, "Leaf/collider alignment mismatch")
 
 	var custom: Node3D = instances["custom"]
 	_check(custom.transform.basis.x.dot(Basis(Vector3.UP, -PI/3).x) < 0, "Native X mirror must survive export/import")
 	_check(custom.transform.basis.z.dot(Basis(Vector3.UP, -PI/3).z) < 0, "Native plan Y mirror must map to world Z")
 	var original_transforms := {}
-	for i in range(6):
-		var id := "door-%d" % i
-		var body: Node3D = built["entity_nodes"][id]
-		original_transforms[id] = body.transform
-		if i < 4:
-			_check(body is P2WDoor, "Swing/slide must use interactive physics bodies")
-			(body as P2WDoor).interact()
-		else:
-			_check(body is StaticBody3D, "Fold/overhead remain explicit static blockers")
+	for entity in data["entities"]:
+		if entity["kind"] != "door" or entity["interaction"]["kind"] == "none":
+			continue
+		var supported: bool = entity["interaction"]["kind"] != "unsupported"
+		var assembly: Node3D = built["entity_nodes"][entity["id"]]
+		_check((assembly is P2WDoor) == supported, "Only supported mechanisms have an interaction controller")
+		for leaf in entity["interaction"]["leaves"]:
+			var body: Node3D = built["leaf_nodes"][leaf["id"]]
+			original_transforms[leaf["id"]] = body.transform
+			_check(body is AnimatableBody3D if supported else body is StaticBody3D, "Correct physical leaf type")
+			_check(body.get_meta("p2w_interaction_target", null) == assembly if supported else not body.has_meta("p2w_interaction_target"), "Both leaves must route interaction to the same native door")
+		if supported:
+			assembly.interact()
+			assembly.interact() # repeated input during animation must not desynchronize leaves
 	_check(not built["entity_nodes"].has("door-6"), "Leafless opening must have no body or asset")
 	await create_timer(0.7).timeout
-	for i in range(6):
-		var id := "door-%d" % i
-		var body: Node3D = built["entity_nodes"][id]
-		var original: Transform3D = original_transforms[id]
-		_check(not body.transform.is_equal_approx(original) if i < 4 else body.transform.is_equal_approx(original), "Incorrect door motion: " + id)
-		if i < 4:
-			var entity: Dictionary = data["entities"].filter(func(e): return e["id"] == id)[0]
-			var motion: Dictionary = entity["interaction"]
+	for entity in data["entities"]:
+		if entity["kind"] != "door":
+			continue
+		var motion: Dictionary = entity["interaction"]
+		for leaf in motion.get("leaves", []):
+			var id := str(leaf["id"])
+			var body: Node3D = built["leaf_nodes"][id]
+			var original: Transform3D = original_transforms[id]
+			_check(body.transform.is_equal_approx(original) if motion["kind"] == "unsupported" else not body.transform.is_equal_approx(original), "Incorrect door motion: " + id)
 			if motion["kind"] == "slide":
-				_check(body.position.distance_to(original.origin + _vec3(motion["axis"]) * float(motion["travel"])) < 0.0001, "Slide axis/travel must come from runtime")
-			else:
-				_check(absf(body.rotation.y - (original.basis.get_euler().y + float(motion["openAngleRadians"]))) < 0.0001, "Swing angle must come from runtime")
-			var expected: Transform3D = body.transform * original.affine_inverse() * Transform3D(Basis(Vector3.UP, -float(entity["closedPose"]["yawClockwiseRadians"])), _vec3(entity["closedPose"]["center"]))
-			_check(_bounds(instances[id], expected).get_center().length() < 0.0001, "Door asset detached from motion: " + id)
+				_check(body.position.distance_to(original.origin + _vec3(leaf["axis"]) * float(leaf["travel"])) < 0.0001, "Slide axis/travel must come from runtime")
+			elif motion["kind"] == "swing":
+				_check(body.basis.is_equal_approx(Basis(Vector3.UP, float(leaf["openAngleRadians"])) * original.basis), "Swing angle must come from runtime")
+			var expected: Transform3D = body.transform * original.affine_inverse() * Transform3D(Basis(Vector3.UP, -float(leaf["closedPose"]["yawClockwiseRadians"])), _vec3(leaf["closedPose"]["center"]))
+			_check(_bounds(instances[id], world.global_transform * expected).get_center().length() < 0.0001, "Door asset detached from motion: " + id)
+		if motion["kind"] == "swing" or motion["kind"] == "slide":
+			built["entity_nodes"][entity["id"]].interact()
+	await create_timer(0.7).timeout
+	for id in original_transforms:
+		_check(built["leaf_nodes"][id].transform.is_equal_approx(original_transforms[id]), "Closing must restore every leaf exactly")
 
 	# Missing one packaged source must affect presentation only, without duplicate
 	# furniture or altered physics. Exercise the actual missing-file loader path.
@@ -139,8 +157,32 @@ func _run() -> void:
 	var fallback_stats := PROXIES.new().render(data, fallback_world, fallback_built, true, fallback_result["presented"])
 	_check(fallback_stats["collider_proxy_count"] == 2, "Missing model must have exactly one proxy")
 	_check(fallback_built["collider_nodes"].size() == built["collider_nodes"].size(), "Presentation must never change physics")
+	# Missing shared door presentation produces one fallback per physical part,
+	# with no additional full-width blocker or duplicate paired-door mesh.
+	assets.erase("builtin:door-leaf-v1")
+	var missing_doors := Node3D.new()
+	root.add_child(missing_doors)
+	var missing_built := LOADER.new().build(data, missing_doors)
+	var missing_result := RENDERER.new().render(data, missing_doors, missing_built, assets)
+	var missing_stats := PROXIES.new().render(data, missing_doors, missing_built, true, missing_result["presented"])
+	_check(missing_stats["collider_proxy_count"] == 12, "Ten missing leaves plus two missing furniture colliders need exactly twelve proxies")
+	_check(missing_built["collider_nodes"].size() == built["collider_nodes"].size(), "Missing leaf assets must preserve physics")
+	# Changing a collider must not resize its independent presentation instance.
+	var independent_data := data.duplicate(true)
+	var leaf: Dictionary = independent_data["entities"].filter(func(e): return e["kind"] == "door")[0]["interaction"]["leaves"][0]
+	for collider in independent_data["colliders"]:
+		if collider["id"] == leaf["colliderId"]:
+			collider["size"] = [0.2, 0.3, 0.1]
+	var independent_world := Node3D.new()
+	root.add_child(independent_world)
+	var independent_built := LOADER.new().build(independent_data, independent_world)
+	var independent_result := RENDERER.new().render(independent_data, independent_world, independent_built, artifacts.load_assets(runtime_path))
+	var leaf_frame := Transform3D(Basis(Vector3.UP, -float(leaf["closedPose"]["yawClockwiseRadians"])), _vec3(leaf["closedPose"]["center"]))
+	_check(_bounds(independent_result["instances"][leaf["id"]], leaf_frame).size.distance_to(_vec3(leaf["size"])) < 0.0001, "Presentation must never derive fit from collision")
 	world.free()
 	fallback_world.free()
+	missing_doors.free()
+	independent_world.free()
 	print("Runtime asset integration: ", "PASS" if failures == 0 else "FAIL (%d)" % failures)
 	quit(0 if failures == 0 else 1)
 

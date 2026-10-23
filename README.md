@@ -59,7 +59,9 @@ house.assets/manifest.json # asset identities, integrity and compiler-owned fit 
 house.assets/<sha256>.glb  # referenced catalog/custom models and shared door leaf
 ```
 
-Runtime JSON now carries explicit engine-neutral floor collision triangles as well as wall/furniture/column primitives and door interaction contracts. Godot consumes those colliders directly for grounded gravity/floor-snapped `CharacterBody3D` motion; it never derives physics from GLB. Swing and sliding/pocket doors use their explicit runtime motion semantics, while unsupported fold/overhead motion remains a closed blocker rather than being approximated as a hinge.
+Runtime JSON now carries explicit engine-neutral floor collision triangles as well as wall/furniture/column primitives and door interaction contracts. Godot consumes those colliders directly for grounded gravity/floor-snapped `CharacterBody3D` motion; it never derives physics from GLB. Single/double/french swing and sliding/pocket doors use explicit per-leaf runtime motion semantics, while unsupported fold/overhead motion remains a closed blocker rather than being approximated as a hinge.
+
+Authored railing boundaries now have shared GLB presentation at their native height/thickness; air boundaries remain invisible with collision.
 
 The Godot adapter consumes these artifacts separately: runtime JSON owns behavior/collision, architecture GLB owns static presentation, and the asset manifest resolves replaceable furniture and dynamic leaves. Catalog GLBs reuse the existing catalog mapping; custom GLBs reuse verified Project attachments. Missing models use compatibility proxies. The browser provides orbit navigation, 3D editing/review, floor stacks, architectural cuts and photo-camera previews. Browser FPS locomotion and physics have been removed; native spawn editing is retained for compiled runtime use. Future Unity/Unreal/Web runtimes should consume the same compiled boundary rather than translating from Godot.
 

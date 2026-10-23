@@ -134,6 +134,9 @@ Use `schemas/plan2world-draft-v1.schema.json` and `docs/plan2world-draft-v1.md`.
 
 ## Runtime invariants
 
+- Door interactions contain explicit stable leaf parts with collider/asset references, size, closed pose and type-specific motion. Never infer leaf count, split width or hinge positions in an adapter. Double/french leaves share one native door interaction state. Re-export old derived snapshots rather than adding single-leaf inference.
+- Native railing boundaries use authored height/thickness for compiler-owned extrusion; air stays invisible with collision. Do not infer balusters or other unretained detail.
+
 - The native `Project` is authoring truth. `plan2world-runtime-v1` and `architecture.glb` are deterministic derived artifacts; a Godot `.tscn` is never canonical.
 - Runtime JSON owns engine-neutral semantics, colliders, interaction contracts and player profile. It may contain explicit collision geometry such as triangulated walkable room floors, but never presentation-mesh data. `architecture.glb` owns architectural presentation geometry. Never infer runtime collision from GLB.
 - The Godot runtime loader owns scene semantics, collision bodies and interaction nodes only. Presentation proxies are an isolated fallback adapter and must not leak back into loader logic.

@@ -61,7 +61,7 @@ try {
 const vite = await createServer({
   appType: 'custom',
   logLevel: 'error',
-  server: { middlewareMode: true },
+  server: { middlewareMode: true, hmr: false },
 });
 
 try {

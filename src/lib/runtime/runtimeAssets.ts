@@ -36,7 +36,8 @@ export function compileDefaultDoorAsset() {
  * Missing sources are explicit diagnostics. Invalid retained sources fail export. */
 export async function compileRuntimeAssets(project: Project, runtime: Plan2WorldRuntimeSceneV1, readCatalogAsset: ReadCatalogAsset) {
   const refs = [...new Set(runtime.entities.flatMap(entity =>
-    entity.kind === 'furniture' || entity.kind === 'door' ? entity.assetRef ? [entity.assetRef] : [] : []))].sort();
+    entity.kind === 'furniture' ? [entity.assetRef] :
+      entity.kind === 'door' && entity.interaction.kind !== 'none' ? entity.interaction.leaves.map(leaf => leaf.assetRef) : []))].sort();
   const manifest: RuntimeAssetManifest = { schema: 'plan2world-runtime-assets-v1', version: 1, assets: [] };
   const files = new Map<string, Uint8Array>();
   const diagnostics: RuntimeAssetDiagnostic[] = [];

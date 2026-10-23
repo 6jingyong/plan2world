@@ -1,6 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { compileRuntimeScene } from '$lib/runtime/compileRuntimeScene';
+import { readProject } from '$lib/utils/projectValidation';
+import { runtimeWalkthroughProject } from '../tooling/runtime-walkthrough-fixture.mjs';
 
 const root = process.cwd();
 const read = (file: string) => fs.readFileSync(path.join(root, file), 'utf8');
@@ -58,7 +61,7 @@ describe('Godot runtime adapter boundaries', () => {
       expect(renderer).not.toContain(forbidden);
     }
     expect(renderer).toContain('normalization');
-    expect(renderer).toContain('entity_nodes');
+    expect(renderer).toContain('leaf_nodes');
     expect(loader).not.toContain('assetRef');
     expect(proxy).toContain('presented_assets.has');
   });
@@ -69,9 +72,10 @@ describe('Godot runtime adapter boundaries', () => {
 
     expect(door).toContain('configure_swing');
     expect(door).toContain('configure_slide');
-    expect(door).toContain('AnimatableBody3D');
-    expect(loader).toContain('"swing": return _build_swing_door');
-    expect(loader).toContain('"slide": return _build_slide_door');
+    expect(loader).toContain('AnimatableBody3D.new()');
+    expect(loader).toContain('leaf_nodes');
+    expect(loader).toContain('p2w_interaction_target');
+    expect(door).toContain('set_parallel(true)');
     expect(loader).toContain('Unsupported source motion stays an explicit closed blocker');
   });
 
@@ -85,11 +89,12 @@ describe('Godot runtime adapter boundaries', () => {
     expect(player).not.toContain('global_position.y =');
   });
 
-  it('keeps the built-in demo on the compiled runtime physics contract', () => {
+  it('reproduces the built-in demo from the native walkthrough fixture', async () => {
     const demo = JSON.parse(read('runtime/godot/demo/runtime-scene.json')) as {
       colliders: { id?: string; kind?: string }[];
       entities: { kind?: string; interaction?: { kind?: string }; traversal?: { kind?: string } }[];
     };
+    expect(demo).toEqual(compileRuntimeScene(readProject(await runtimeWalkthroughProject())));
     expect(demo.colliders.some(collider => collider.kind === 'triangle-mesh')).toBe(true);
     const motions = demo.entities
       .filter(entity => entity.kind === 'door')

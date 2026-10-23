@@ -116,10 +116,10 @@ describe('runtime stair traversal', () => {
     expect(Math.max(...collider.vertices.map(vertex => vertex[1]))).toBe(3);
   });
 
-  it('keeps non-straight and unconnected stairs explicit instead of inventing traversal', () => {
+  it.each(['l-shaped', 'u-shaped', 'spiral'] as const)('keeps %s and unconnected stairs explicit instead of inventing traversal', stairType => {
     const ground = emptyFloor('ground', 0, 0);
     ground.stairs.push(
-      stair({ id: 'turning', stairType: 'l-shaped' }),
+      stair({ id: 'turning', stairType }),
       stair({ id: 'orphan', position: { x: 400, y: 0 }, direction: 'down' }),
     );
     const upper = emptyFloor('upper', 1, 300);

@@ -87,5 +87,7 @@ func interact() -> void:
 	if not _interaction_ray.is_colliding():
 		return
 	var target := _interaction_ray.get_collider()
+	if target is Node:
+		target = target.get_meta("p2w_interaction_target", target)
 	if target and target.has_method("interact"):
 		target.interact(self)
