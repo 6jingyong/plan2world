@@ -29,6 +29,8 @@ This is a current capability summary, not a development diary.
 - One deterministic compilation boundary emits `plan2world-runtime-v1` plus a sibling `architecture.glb`.
 - Runtime JSON owns engine-neutral semantics, collision and interaction contracts.
 - `architecture.glb` owns deterministic architectural presentation geometry.
+- Straight and quadratic walls are meshed deterministically; curved openings keep quadratic `pathPosition` semantics while widths are applied in physical path distance.
+- Compatible endpoint wall networks are mitered across L/T/X/collinear junctions and hidden endpoint caps are removed.
 - The Godot adapter consumes both artifacts without recomputing topology or deriving collision from GLB.
 - Missing GLB currently falls back to isolated proxy presentation so the built-in Godot demo remains usable.
 - Swing doors are interactive in Godot; slide/unsupported door motions remain explicit closed blockers rather than being faked as hinges.
@@ -47,6 +49,6 @@ When something fails, fix the earliest responsible layer rather than hand-editin
 - Hidden doors, dense service cores, watermarks and ambiguous boundaries may remain uncertain.
 - Furniture acceptance is semantic presence/type/broad position, not exact product geometry.
 - Registration consistency is not visual correctness.
-- Architecture GLB currently does not support curved walls or polished junction miters.
+- Wall junctions with incompatible endpoint heights or unbounded/pathological offset intersections retain closed caps and emit a mesher diagnostic rather than being repaired.
 - Runtime presentation assets for doors/windows/furniture are still proxy geometry.
 - Plan2World is not BIM, structural analysis or photorealistic reconstruction.
