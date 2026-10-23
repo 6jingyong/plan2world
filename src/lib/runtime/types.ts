@@ -73,6 +73,9 @@ export interface RuntimeDoorEntity extends RuntimeEntityBase {
   flipSide: boolean;
   closedPose: { center: RuntimeVec3; yawClockwiseRadians: number };
   interaction: RuntimeDoorInteraction;
+  /** Absent for leafless openings. Identity resolves through the asset manifest. */
+  assetRef?: string;
+  leafThickness?: number;
 }
 
 export interface RuntimeWindowEntity extends RuntimeEntityBase {
@@ -95,6 +98,8 @@ export interface RuntimeFurnitureEntity extends RuntimeEntityBase {
   position: RuntimeVec3;
   yawClockwiseRadians: number;
   size: RuntimeVec3;
+  /** Plan X/Y mirror signs mapped to world X/Z; height stays upright. */
+  mirror?: RuntimeVec3;
 }
 
 export interface RuntimeColumnEntity extends RuntimeEntityBase {

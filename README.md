@@ -18,7 +18,8 @@ floor-plan JPG / PNG / WebP
   → browser 2D edit ⇄ 1.20 m cut ⇄ 3D review
   → deterministic runtime compiler
       ├─ plan2world-runtime-v1       (semantics / collision / interaction)
-      └─ architecture.glb            (presentation geometry)
+      ├─ architecture.glb            (static architectural presentation)
+      └─ assets manifest + GLBs        (furniture / dynamic door leaves)
   → Godot runtime
 ```
 
@@ -49,16 +50,18 @@ A reconstruction is evidence-bearing input, not ground truth. Unsupported source
 
 The native Plan2World `Project` is the authoring truth. Runtime backends do not read raster evidence, LLM observations, or repair authoring topology.
 
-`npm run runtime:export` compiles a saved native Project into two sibling artifacts:
+`npm run runtime:export` compiles a saved native Project into sibling engine-neutral artifacts:
 
 ```text
 house.runtime.json        # plan2world-runtime-v1 semantics, collision, interaction
 house.architecture.glb    # deterministic architectural presentation mesh
+house.assets/manifest.json # asset identities, integrity and compiler-owned fit transforms
+house.assets/<sha256>.glb  # referenced catalog/custom models and shared door leaf
 ```
 
 Runtime JSON now carries explicit engine-neutral floor collision triangles as well as wall/furniture/column primitives and door interaction contracts. Godot consumes those colliders directly for grounded gravity/floor-snapped `CharacterBody3D` motion; it never derives physics from GLB. Swing and sliding/pocket doors use their explicit runtime motion semantics, while unsupported fold/overhead motion remains a closed blocker rather than being approximated as a hinge.
 
-The Godot adapter consumes the two artifacts separately: runtime JSON owns behavior/collision, while GLB owns architectural presentation. The browser remains the authoring/review surface; future Unity/Unreal/Web runtimes should consume the same compiled boundary rather than translating from Godot.
+The Godot adapter consumes these artifacts separately: runtime JSON owns behavior/collision, architecture GLB owns static presentation, and the asset manifest resolves replaceable furniture and dynamic leaves. Catalog GLBs reuse the existing catalog mapping; custom GLBs reuse verified Project attachments. Missing models use compatibility proxies. The browser remains the authoring/review surface; future Unity/Unreal/Web runtimes should consume the same compiled boundary rather than translating from Godot.
 
 See [`runtime/godot/README.md`](runtime/godot/README.md) for the current runtime adapter and manual launch path.
 
@@ -89,7 +92,7 @@ npm ci
 npm run dev
 ```
 
-Core CI runs the TypeScript/catalog/unit/build/audit gates plus a pinned Godot 4.7.2 headless project parse and built-in runtime-demo boot. Local code checks are:
+Core CI runs the TypeScript/catalog/unit/build/audit gates plus a pinned Godot 4.7.2 headless project parse, built-in runtime-demo boot and native Project → packaged assets → Godot integration checks. Local code checks are:
 
 ```bash
 npm test

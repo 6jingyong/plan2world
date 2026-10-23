@@ -22,6 +22,7 @@ func build(data: Dictionary, root: Node3D) -> Dictionary:
 			collider_nodes[str(collider.get("id", ""))] = node
 			static_count += 1
 
+	var entity_nodes := {}
 	var door_count := 0
 	for raw_entity in data.get("entities", []):
 		if typeof(raw_entity) != TYPE_DICTIONARY:
@@ -33,6 +34,7 @@ func build(data: Dictionary, root: Node3D) -> Dictionary:
 		var node := _build_door(entity, collider, root)
 		if node != null and not collider.is_empty():
 			collider_nodes[str(collider.get("id", ""))] = node
+			entity_nodes[str(entity.get("id", ""))] = node
 		door_count += 1
 
 	return {
@@ -42,6 +44,7 @@ func build(data: Dictionary, root: Node3D) -> Dictionary:
 			"door_count": door_count,
 		},
 		"collider_nodes": collider_nodes,
+		"entity_nodes": entity_nodes,
 	}
 
 func _vec3(value) -> Vector3:
@@ -84,8 +87,8 @@ func _build_static_cylinder(collider: Dictionary, root: Node3D) -> StaticBody3D:
 	body.set_meta("p2w_owner_id", str(collider.get("ownerId", "")))
 	root.add_child(body)
 
-	var radius := max(float(collider.get("radius", 0.01)), 0.001)
-	var height := max(float(collider.get("height", 0.01)), 0.001)
+	var radius := maxf(float(collider.get("radius", 0.01)), 0.001)
+	var height := maxf(float(collider.get("height", 0.01)), 0.001)
 	var shape := CylinderShape3D.new()
 	shape.radius = radius
 	shape.height = height

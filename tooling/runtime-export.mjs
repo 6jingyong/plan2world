@@ -35,8 +35,9 @@ if (args.length < 1 || args.length > 3) {
 const inputPath = path.resolve(args[0]);
 const runtimePath = path.resolve(args[1] ?? defaultRuntimePath(inputPath));
 const architecturePath = path.resolve(args[2] ?? defaultArchitecturePath(runtimePath));
-const uniquePaths = new Set([inputPath, runtimePath, architecturePath]);
-if (uniquePaths.size !== 3) {
+const assetsPath = (/\.json$/i.test(runtimePath) ? runtimePath.replace(/(?:\.runtime)?\.json$/i, '') : runtimePath) + '.assets';
+const uniquePaths = new Set([inputPath, runtimePath, architecturePath, assetsPath]);
+if (uniquePaths.size !== 4) {
   console.error('Runtime export failed: input, runtime output, and architecture output paths must be different.');
   process.exit(2);
 }
@@ -65,7 +66,14 @@ const vite = await createServer({
 
 try {
   const { compileRuntimeArtifacts } = await vite.ssrLoadModule('/src/lib/runtime/runtimeArtifacts.ts');
-  const { runtime, architecture, architectureGlb } = compileRuntimeArtifacts(serializedProject);
+  const { runtime, architecture, architectureGlb, assets } = await compileRuntimeArtifacts(serializedProject, async file => {
+    try { return new Uint8Array(await fs.readFile(new URL(`../static/models/${file}.glb`, import.meta.url))); }
+    catch (error) { if (error.code === 'ENOENT') return null; throw error; }
+  });
+
+  await fs.mkdir(assetsPath, { recursive: true });
+  for (const [uri, bytes] of assets.files) await fs.writeFile(path.join(assetsPath, uri), bytes);
+  await fs.writeFile(path.join(assetsPath, 'manifest.json'), `${JSON.stringify(assets.manifest, null, 2)}\n`);
 
   await Promise.all([
     fs.writeFile(runtimePath, `${JSON.stringify(runtime, null, 2)}\n`, 'utf8'),
@@ -74,6 +82,8 @@ try {
 
   console.log(`Wrote ${runtimePath}`);
   console.log(`Wrote ${architecturePath}`);
+  console.log(`Wrote ${assetsPath}/manifest.json (${assets.manifest.assets.length} asset references, ${assets.files.size} GLBs)`);
+  for (const diagnostic of assets.diagnostics) console.warn(`asset warning [${diagnostic.reason}] ${diagnostic.assetRef}: using missing-asset proxy`);
   console.log(`plan2world-runtime-v1: ${runtime.floors.length} floor(s), ${runtime.entities.length} entities, ${runtime.colliders.length} colliders`);
   console.log(`architecture.glb: ${architecture.primitives.length} primitive(s), ${architecture.diagnostics.length} diagnostic(s)`);
   for (const diagnostic of architecture.diagnostics) {

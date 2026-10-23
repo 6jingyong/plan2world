@@ -45,9 +45,22 @@ describe('Godot runtime adapter boundaries', () => {
 
     expect(renderer).toContain('owner_kind == "column"');
     expect(renderer).toContain('owner_kind == "stair"');
-    expect(renderer).toContain('if not architecture_presentation_loaded:');
-    expect(renderer).toContain('_add_window_marker');
+    expect(renderer).toContain('kind == "window" and not architecture_presentation_loaded');
+    expect(renderer).toContain('_add_box_marker');
     expect(renderer).toContain('static_proxy_suppressed_count');
+  });
+
+  it('loads asset files separately and keeps dynamic presentation independent of physics', () => {
+    const renderer = read('runtime/godot/scripts/runtime_asset_renderer.gd');
+    const loader = read('runtime/godot/scripts/runtime_loader.gd');
+    const proxy = read('runtime/godot/scripts/runtime_proxy_renderer.gd');
+    for (const forbidden of ['FileAccess', 'GLTFDocument', 'BoxMesh', 'CollisionShape3D', 'get_aabb', 'SurfaceTool']) {
+      expect(renderer).not.toContain(forbidden);
+    }
+    expect(renderer).toContain('normalization');
+    expect(renderer).toContain('entity_nodes');
+    expect(loader).not.toContain('assetRef');
+    expect(proxy).toContain('presented_assets.has');
   });
 
   it('keeps swing and slide motion in the same engine-side door component', () => {

@@ -138,6 +138,7 @@ Use `schemas/plan2world-draft-v1.schema.json` and `docs/plan2world-draft-v1.md`.
 - Runtime JSON owns engine-neutral semantics, colliders, interaction contracts and player profile. It may contain explicit collision geometry such as triangulated walkable room floors, but never presentation-mesh data. `architecture.glb` owns architectural presentation geometry. Never infer runtime collision from GLB.
 - The Godot runtime loader owns scene semantics, collision bodies and interaction nodes only. Presentation proxies are an isolated fallback adapter and must not leak back into loader logic.
 - Missing presentation GLB may use proxy visuals for compatibility, but proxy geometry must not become a second source of architectural truth.
+- Dynamic furniture/door assets resolve through `plan2world-runtime-assets-v1`: reuse catalog GLBs and verified custom-model Project attachments. The compiler owns normalized fit transforms; adapters must not measure model bounds to infer size, pivot, collision or motion. Keep entity `assetRef` identities independent of relative packaged file URIs; never embed engine paths or presentation vertices in runtime JSON.
 - Sliding or unsupported door motion must remain explicit. Never fake a sliding/bifold/garage door as a hinged door to make a demo look functional.
 
 ## Product invariants
@@ -161,4 +162,4 @@ npm run check
 npm run build
 ```
 
-For browser UI/3D changes, run the relevant Playwright regression. Core CI also downloads the pinned Godot 4.7.2 build, verifies its checksum, parses/imports the Godot project and boots the built-in runtime demo headlessly; Godot adapter changes must pass that gate. After any reconstruction-Skill change, also perform at least one fresh run from an original raster; unit tests alone do not establish image-extraction quality.
+For browser UI/3D changes, run the relevant Playwright regression. Core CI also downloads the pinned Godot 4.7.2 build, verifies its checksum, parses/imports the Godot project and boots the built-in runtime demo headlessly, then exports a native Project and verifies actual asset placement/door motion/fallbacks in Godot; Godot adapter changes must pass that gate. After any reconstruction-Skill change, also perform at least one fresh run from an original raster; unit tests alone do not establish image-extraction quality.

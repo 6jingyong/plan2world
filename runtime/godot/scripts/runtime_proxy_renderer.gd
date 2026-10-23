@@ -1,28 +1,20 @@
 extends RefCounted
 class_name P2WRuntimeProxyRenderer
 
-var _wall_material: StandardMaterial3D
-var _furniture_material: StandardMaterial3D
-var _column_material: StandardMaterial3D
-var _door_material: StandardMaterial3D
-var _window_material: StandardMaterial3D
-var _floor_material: StandardMaterial3D
-var _stair_material: StandardMaterial3D
+var _materials := {}
 
 func _init() -> void:
-	_wall_material = _material(Color("d8d4cd"), 0.86)
-	_furniture_material = _material(Color("9da9b8"), 0.72)
-	_column_material = _material(Color("b7afa3"), 0.82)
-	_door_material = _material(Color("8d6448"), 0.72)
-	_floor_material = _material(Color("bab2a6"), 0.94)
-	_stair_material = _material(Color("c49a6c"), 0.82)
-	_window_material = _material(Color(0.36, 0.72, 0.92, 0.38), 0.18, true)
+	var colors := { "wall": "d8d4cd", "furniture": "9da9b8", "column": "b7afa3", "door": "8d6448", "floor": "bab2a6", "stair": "c49a6c" }
+	for kind in colors:
+		_materials[kind] = _material(Color(colors[kind]), 0.85)
+	_materials["window"] = _material(Color(0.36, 0.72, 0.92, 0.38), 0.18, true)
 
 func render(
 	data: Dictionary,
 	root: Node3D,
 	build_result: Dictionary,
 	architecture_presentation_loaded: bool,
+	presented_assets: Dictionary = {},
 ) -> Dictionary:
 	var entities_by_id := {}
 	for raw_entity in data.get("entities", []):
@@ -40,6 +32,8 @@ func render(
 		var node = collider_nodes.get(str(collider.get("id", "")), null)
 		if node == null or not (node is Node3D):
 			continue
+		if presented_assets.has(str(collider.get("ownerId", ""))):
+			continue
 		var owner: Dictionary = entities_by_id.get(str(collider.get("ownerId", "")), {})
 		if not bool(owner.get("visible", true)):
 			continue
@@ -54,14 +48,14 @@ func render(
 				floor_surface_count += 1
 
 	var window_marker_count := 0
-	if not architecture_presentation_loaded:
-		for raw_entity in data.get("entities", []):
-			if typeof(raw_entity) != TYPE_DICTIONARY:
-				continue
-			var entity: Dictionary = raw_entity
-			if str(entity.get("kind", "")) != "window" or not bool(entity.get("visible", true)):
-				continue
-			_add_window_marker(entity, root)
+	for raw_entity in data.get("entities", []):
+		var entity: Dictionary = raw_entity
+		var id := str(entity.get("id", ""))
+		var kind := str(entity.get("kind", ""))
+		if kind == "furniture" and not presented_assets.has(id) and not collider_nodes.has("furniture:" + id):
+			_add_box_marker(id, _vec3(entity["position"]), _vec3(entity["size"]), float(entity["yawClockwiseRadians"]), "furniture", root)
+		if kind == "window" and not architecture_presentation_loaded:
+			_add_box_marker(id, _vec3(entity["center"]), Vector3(entity["width"], entity["height"], 0.025), float(entity["yawClockwiseRadians"]), "window", root)
 			window_marker_count += 1
 
 	return {
@@ -132,31 +126,20 @@ func _direct_collision_shape(body: Node3D) -> CollisionShape3D:
 			return child as CollisionShape3D
 	return null
 
-func _add_window_marker(entity: Dictionary, root: Node3D) -> void:
+func _add_box_marker(id: String, center: Vector3, size: Vector3, yaw: float, kind: String, root: Node3D) -> void:
 	var mesh := MeshInstance3D.new()
-	mesh.name = "Window_%s" % str(entity.get("id", "window")).validate_node_name()
+	mesh.name = "MissingAsset_%s" % id.validate_node_name()
 	var box := BoxMesh.new()
-	box.size = Vector3(
-		max(float(entity.get("width", 0.01)), 0.01),
-		max(float(entity.get("height", 0.01)), 0.01),
-		0.025
-	)
+	box.size = size
 	mesh.mesh = box
-	mesh.material_override = _window_material
-	mesh.position = _vec3(entity.get("center", []))
-	mesh.rotation.y = _yaw(entity.get("yawClockwiseRadians", 0.0))
+	mesh.material_override = _materials[kind]
+	mesh.position = center
+	mesh.rotation.y = _yaw(yaw)
 	root.add_child(mesh)
 
 func _material_for_owner(owner: Dictionary, collider: Dictionary) -> Material:
-	match str(owner.get("kind", "")):
-		"wall": return _wall_material
-		"furniture": return _furniture_material
-		"column": return _column_material
-		"door": return _door_material
-		"stair": return _stair_material
-	if _is_floor_surface(collider):
-		return _floor_material
-	return _wall_material
+	var kind := "floor" if _is_floor_surface(collider) else str(owner.get("kind", "wall"))
+	return _materials.get(kind, _materials["wall"])
 
 func _material(color: Color, roughness: float, transparent := false) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()

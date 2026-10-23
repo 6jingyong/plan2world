@@ -1,4 +1,4 @@
-import type { ArchitecturePresentationMesh, ArchitecturePresentationPrimitive } from './architecturePresentation';
+import type { ArchitecturePresentationMesh } from './architecturePresentation';
 import type { ArchitectureMesh } from './architectureMesher';
 import type { RuntimeVec2, RuntimeVec3 } from './types';
 
@@ -13,7 +13,7 @@ const UNSIGNED_SHORT = 5123;
 const UNSIGNED_INT = 5125;
 const TRIANGLES = 4;
 
-type ArchitectureMaterialKey = 'wall' | 'floor' | 'ceiling' | 'glass' | 'column' | 'stair';
+type ArchitectureMaterialKey = 'wall' | 'floor' | 'ceiling' | 'glass' | 'column' | 'stair' | 'door';
 
 interface GltfBufferView {
   buffer: number;
@@ -63,7 +63,7 @@ function finiteVector(vector: readonly number[]) {
   return vector.every(Number.isFinite);
 }
 
-function validatePrimitive(primitive: ArchitecturePresentationPrimitive) {
+function validatePrimitive(primitive: PresentationGlbPrimitive) {
   if (primitive.positions.length === 0) throw new Error(`Architecture primitive ${primitive.id} has no positions.`);
   if (primitive.normals.length !== primitive.positions.length) {
     throw new Error(`Architecture primitive ${primitive.id} normals do not match positions.`);
@@ -127,14 +127,14 @@ function maxIndex(indices: number[]) {
   return maximum;
 }
 
-function materialKey(primitive: ArchitecturePresentationPrimitive): ArchitectureMaterialKey {
-  if ('material' in primitive) return primitive.material;
+function materialKey(primitive: PresentationGlbPrimitive): ArchitectureMaterialKey {
+  if (primitive.material) return primitive.material;
   if (primitive.kind === 'floor') return 'floor';
   if (primitive.kind === 'ceiling') return 'ceiling';
   return 'wall';
 }
 
-const materialOrder: ArchitectureMaterialKey[] = ['wall', 'floor', 'ceiling', 'glass', 'column', 'stair'];
+const materialOrder: ArchitectureMaterialKey[] = ['wall', 'floor', 'ceiling', 'glass', 'column', 'stair', 'door'];
 
 const gltfMaterials: Record<string, unknown>[] = [
   { name: 'p2w-wall', pbrMetallicRoughness: { baseColorFactor: [0.82, 0.81, 0.79, 1], metallicFactor: 0, roughnessFactor: 0.86 } },
@@ -148,6 +148,7 @@ const gltfMaterials: Record<string, unknown>[] = [
   },
   { name: 'p2w-column', pbrMetallicRoughness: { baseColorFactor: [0.70, 0.67, 0.62, 1], metallicFactor: 0, roughnessFactor: 0.82 } },
   { name: 'p2w-stair', pbrMetallicRoughness: { baseColorFactor: [0.77, 0.60, 0.42, 1], metallicFactor: 0, roughnessFactor: 0.82 } },
+  { name: 'p2w-door', pbrMetallicRoughness: { baseColorFactor: [0.55, 0.39, 0.28, 1], metallicFactor: 0, roughnessFactor: 0.72 } },
 ];
 
 function padChunk(bytes: Uint8Array, paddingByte: number) {
@@ -169,7 +170,20 @@ function writeUint32(target: Uint8Array, offset: number, value: number) {
  * Plan2World ownership is carried only as GLB node extras for renderer lookup.
  */
 export function serializeArchitectureGlb(mesh: ArchitecturePresentationMesh | ArchitectureMesh): Uint8Array {
-  const presentation = mesh as ArchitecturePresentationMesh;
+  return serializePresentationGlb(mesh.primitives, {
+    artifact: 'architecture.glb', units: mesh.units, coordinates: mesh.coordinates,
+    staticKinds: ['wall', 'floor', 'ceiling', 'window', 'column', 'stair'],
+  });
+}
+
+export interface PresentationGlbPrimitive {
+  id: string; kind: string; ownerId?: string; floorId?: string;
+  material?: ArchitectureMaterialKey;
+  positions: RuntimeVec3[]; normals: RuntimeVec3[]; uvs: RuntimeVec2[]; indices: number[];
+}
+
+/** Shared deterministic glTF writer for static architecture and reusable dynamic assets. */
+export function serializePresentationGlb(primitives: readonly PresentationGlbPrimitive[], metadata: Record<string, unknown>): Uint8Array {
   const binary = new BinaryBuilder();
   const bufferViews: GltfBufferView[] = [];
   const accessors: GltfAccessor[] = [];
@@ -190,7 +204,7 @@ export function serializeArchitectureGlb(mesh: ArchitecturePresentationMesh | Ar
     return index;
   };
 
-  for (const primitive of presentation.primitives) {
+  for (const primitive of primitives) {
     validatePrimitive(primitive);
 
     const positionView = addBufferView(encodeFloatVectors(primitive.positions, 3), ARRAY_BUFFER);
@@ -264,17 +278,12 @@ export function serializeArchitectureGlb(mesh: ArchitecturePresentationMesh | Ar
     scenes: [{ nodes: nodes.map((_, index) => index) }],
     nodes,
     meshes: gltfMeshes,
-    materials: gltfMaterials,
+    materials: gltfMaterials.slice(0, primitives.some(primitive => primitive.material === 'door') ? 7 : 6),
     accessors,
     bufferViews,
     buffers: [{ byteLength: binaryChunk.byteLength }],
     extras: {
-      plan2world: {
-        artifact: 'architecture.glb',
-        units: presentation.units,
-        coordinates: presentation.coordinates,
-        staticKinds: ['wall', 'floor', 'ceiling', 'window', 'column', 'stair'],
-      },
+      plan2world: metadata,
     },
   };
 

@@ -2,6 +2,7 @@ extends Node3D
 
 const RUNTIME_ARTIFACTS := preload("res://scripts/runtime_artifacts.gd")
 const RUNTIME_LOADER := preload("res://scripts/runtime_loader.gd")
+const RUNTIME_ASSET_RENDERER := preload("res://scripts/runtime_asset_renderer.gd")
 const RUNTIME_PROXY_RENDERER := preload("res://scripts/runtime_proxy_renderer.gd")
 
 func _ready() -> void:
@@ -21,8 +22,11 @@ func _ready() -> void:
 
 	var loader := RUNTIME_LOADER.new()
 	var build_result := loader.build(data, self)
+	var assets := artifacts.load_assets(runtime_path)
+	var asset_renderer := RUNTIME_ASSET_RENDERER.new()
+	var asset_result := asset_renderer.render(data, self, build_result, assets)
 	var proxy_renderer := RUNTIME_PROXY_RENDERER.new()
-	var presentation_stats := proxy_renderer.render(data, self, build_result, presentation_loaded)
+	var presentation_stats := proxy_renderer.render(data, self, build_result, presentation_loaded, asset_result.get("presented", {}))
 	var runtime_stats: Dictionary = build_result.get("stats", {})
 
 	var spawn := _choose_spawn(data)
@@ -42,6 +46,8 @@ func _ready() -> void:
 		presentation_status,
 		" runtime=",
 		runtime_stats,
+		" assets=",
+		asset_result.get("presented", {}).size(),
 		" presentation=",
 		presentation_stats,
 	)
