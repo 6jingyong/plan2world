@@ -28,13 +28,16 @@ describe('Godot runtime adapter boundaries', () => {
     expect(loader).toContain('"triangle-mesh"');
   });
 
-  it('keeps fallback presentation out of physics assembly', () => {
+  it('keeps fallback presentation out of physics assembly and reuses runtime triangles', () => {
     const renderer = read('runtime/godot/scripts/runtime_proxy_renderer.gd');
 
     expect(renderer).not.toContain('StaticBody3D.new()');
     expect(renderer).not.toContain('CollisionShape3D.new()');
     expect(renderer).toContain('collider_nodes');
     expect(renderer).toContain('architecture_presentation_loaded');
+    expect(renderer).toContain('SurfaceTool.new()');
+    expect(renderer).toContain('"triangle-mesh"');
+    expect(renderer).not.toContain('Geometry2D.triangulate_polygon');
   });
 
   it('keeps swing and slide motion in the same engine-side door component', () => {
@@ -61,8 +64,8 @@ describe('Godot runtime adapter boundaries', () => {
 
   it('keeps the built-in demo on the compiled runtime physics contract', () => {
     const demo = JSON.parse(read('runtime/godot/demo/runtime-scene.json')) as {
-      colliders: { kind?: string }[];
-      entities: { kind?: string; interaction?: { kind?: string } }[];
+      colliders: { id?: string; kind?: string }[];
+      entities: { kind?: string; interaction?: { kind?: string }; traversal?: { kind?: string } }[];
     };
     expect(demo.colliders.some(collider => collider.kind === 'triangle-mesh')).toBe(true);
     const motions = demo.entities
@@ -70,6 +73,8 @@ describe('Godot runtime adapter boundaries', () => {
       .map(entity => entity.interaction?.kind);
     expect(motions).toContain('swing');
     expect(motions).toContain('slide');
+    expect(demo.entities.some(entity => entity.kind === 'stair' && entity.traversal?.kind === 'ramp')).toBe(true);
+    expect(demo.colliders.some(collider => collider.id?.startsWith('stair:') && collider.kind === 'triangle-mesh')).toBe(true);
   });
 
   it('keeps main as an explicit composition root', () => {
