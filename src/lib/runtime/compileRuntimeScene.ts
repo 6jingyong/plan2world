@@ -5,6 +5,7 @@ import { floorElevations } from '$lib/utils/floors';
 import { getCatalogItem, getFurnitureSize } from '$lib/utils/furnitureCatalog';
 import { roomCeilingHeight, wallProfileSpans } from '$lib/utils/wallProfiles';
 import { wallPointAt, wallTangentAt } from '$lib/utils/wallPath';
+import { triangulatePolygonWithHoles } from './polygonTriangulation';
 import type {
   Plan2WorldRuntimeSceneV1,
   RuntimeBoxCollider,
@@ -13,6 +14,8 @@ import type {
   RuntimeDoorInteraction,
   RuntimeEntity,
   RuntimeFloor,
+  RuntimeRoomSurface,
+  RuntimeTriangleMeshCollider,
   RuntimeVec2,
   RuntimeVec3,
 } from './types';
@@ -134,6 +137,34 @@ function compileDoor(floor: Floor, elevationCm: number, door: Door, wall: Wall):
   };
 }
 
+function compileRoomFloorCollider(room: RuntimeRoomSurface, floorId: string, elevation: number): RuntimeTriangleMeshCollider | null {
+  const triangulated = triangulatePolygonWithHoles(room.polygon, room.holes);
+  if (triangulated.vertices.length < 3 || triangulated.indices.length < 3) return null;
+
+  // Runtime coordinates map the 2D plan's Y axis to +Z. A conventional CCW
+  // plan triangle therefore points toward -Y after projection into X/Y/Z.
+  // Reverse each triangle once here so one-sided physics backends receive a
+  // canonical +Y walkable surface without guessing or enabling backface hits.
+  const indices: number[] = [];
+  for (let index = 0; index < triangulated.indices.length; index += 3) {
+    indices.push(
+      triangulated.indices[index],
+      triangulated.indices[index + 2],
+      triangulated.indices[index + 1],
+    );
+  }
+
+  return {
+    id: `floor:${room.id}`,
+    ownerId: room.id,
+    floorId,
+    dynamic: false,
+    kind: 'triangle-mesh',
+    vertices: triangulated.vertices.map(([x, z]): RuntimeVec3 => [x, elevation, z]),
+    indices,
+  };
+}
+
 function compileFloor(floor: Floor, elevationCm: number): { floor: RuntimeFloor; entities: RuntimeEntity[]; colliders: RuntimeCollider[] } {
   const analysis = analyzeFloor(floor);
   const entities: RuntimeEntity[] = [];
@@ -218,7 +249,8 @@ function compileFloor(floor: Floor, elevationCm: number): { floor: RuntimeFloor;
     });
   }
 
-  const rooms = analysis.geometry.map(({ room, polygon }) => ({
+  const elevation = m(elevationCm);
+  const rooms: RuntimeRoomSurface[] = analysis.geometry.map(({ room, polygon }) => ({
     id: room.id,
     name: room.name,
     roomType: room.roomType ?? 'indoor',
@@ -230,10 +262,14 @@ function compileFloor(floor: Floor, elevationCm: number): { floor: RuntimeFloor;
       return height === undefined ? null : m(height);
     })(),
   }));
+  for (const room of rooms) {
+    const floorCollider = compileRoomFloorCollider(room, floor.id, elevation);
+    if (floorCollider) colliders.push(floorCollider);
+  }
 
   return {
     floor: {
-      id: floor.id, name: floor.name, level: floor.level, elevation: m(elevationCm),
+      id: floor.id, name: floor.name, level: floor.level, elevation,
       walkthroughStart: floor.walkthroughStart ? point3(floor.walkthroughStart, elevationCm) : null,
       rooms,
     },
