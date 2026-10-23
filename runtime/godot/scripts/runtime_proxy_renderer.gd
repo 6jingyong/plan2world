@@ -32,6 +32,7 @@ func render(
 	var collider_nodes: Dictionary = build_result.get("collider_nodes", {})
 	var collider_proxy_count := 0
 	var floor_surface_count := 0
+	var static_proxy_suppressed_count := 0
 	for raw_collider in data.get("colliders", []):
 		if typeof(raw_collider) != TYPE_DICTIONARY:
 			continue
@@ -44,7 +45,8 @@ func render(
 			continue
 		var owner_kind := str(owner.get("kind", ""))
 		var is_floor_surface := _is_floor_surface(collider)
-		if architecture_presentation_loaded and (owner_kind == "wall" or is_floor_surface):
+		if architecture_presentation_loaded and _glb_owns(owner_kind, is_floor_surface):
+			static_proxy_suppressed_count += 1
 			continue
 		if _add_collider_proxy(node as Node3D, owner, collider):
 			collider_proxy_count += 1
@@ -52,21 +54,26 @@ func render(
 				floor_surface_count += 1
 
 	var window_marker_count := 0
-	for raw_entity in data.get("entities", []):
-		if typeof(raw_entity) != TYPE_DICTIONARY:
-			continue
-		var entity: Dictionary = raw_entity
-		if str(entity.get("kind", "")) != "window" or not bool(entity.get("visible", true)):
-			continue
-		_add_window_marker(entity, root)
-		window_marker_count += 1
+	if not architecture_presentation_loaded:
+		for raw_entity in data.get("entities", []):
+			if typeof(raw_entity) != TYPE_DICTIONARY:
+				continue
+			var entity: Dictionary = raw_entity
+			if str(entity.get("kind", "")) != "window" or not bool(entity.get("visible", true)):
+				continue
+			_add_window_marker(entity, root)
+			window_marker_count += 1
 
 	return {
 		"architecture_presentation_loaded": architecture_presentation_loaded,
 		"floor_surface_count": floor_surface_count,
 		"collider_proxy_count": collider_proxy_count,
+		"static_proxy_suppressed_count": static_proxy_suppressed_count,
 		"window_marker_count": window_marker_count,
 	}
+
+func _glb_owns(owner_kind: String, is_floor_surface: bool) -> bool:
+	return is_floor_surface or owner_kind == "wall" or owner_kind == "column" or owner_kind == "stair"
 
 func _is_floor_surface(collider: Dictionary) -> bool:
 	return str(collider.get("kind", "")) == "triangle-mesh" and str(collider.get("id", "")).begins_with("floor:")
