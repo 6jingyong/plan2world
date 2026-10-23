@@ -49,7 +49,7 @@ The first contract carries only runtime-relevant native semantics:
 - `column`;
 - `stair`: authored footprint/type plus explicit traversal semantics.
 
-IDs remain stable native/runtime references. `floorId`, door `hostWallId`, stair `targetFloorId` and collider `ownerId` refer back to compiled runtime objects rather than engine nodes.
+IDs remain stable native/runtime references. Saved native room IDs are preserved; unsaved detected-room runtime IDs derive from the floor and sorted boundary wall IDs rather than transient editor timestamps. `floorId`, door `hostWallId`, stair `targetFloorId` and collider `ownerId` refer back to compiled runtime objects rather than engine nodes.
 
 ## Door interaction
 
@@ -159,11 +159,12 @@ The current package is:
 ```text
 scene.json              # plan2world-runtime-v1 semantics, interaction, collision
 architecture.glb        # compiler-owned static architecture + basic materials
-assets/*.glb            # future/optional furniture and dynamic-door assets
+scene.assets/manifest.json # plan2world-runtime-assets-v1
+scene.assets/<sha256>.glb # referenced furniture and dynamic-door presentation
 ```
 
 The presentation compiler composes the wall/room shell with static window panes, square/round columns and supported straight-stair step geometry. The GLB writer assigns a deterministic basic material palette and carries stable Plan2World ownership in node extras. Physics remains independent: engines must still use runtime JSON colliders rather than deriving collision from GLB.
 
-Dynamic door leaves and replaceable furniture remain outside `architecture.glb`. They require a later asset/presentation layer because their transforms or model choice can change at runtime. L/U/spiral stairs also remain outside shared presentation until their traversal semantics are intentionally specified; they are not faked as straight stairs.
+Dynamic door leaves and replaceable furniture remain outside `architecture.glb`. Their `assetRef` resolves through the sibling asset manifest, so model choice and transforms can change at runtime without rebuilding static architecture. See [Runtime assets](runtime-assets-v1.md). L/U/spiral stairs also remain outside shared presentation until their traversal semantics are intentionally specified; they are not faked as straight stairs.
 
 Do not put Godot `.tscn`, Unity prefab or Unreal Actor details into the contract.

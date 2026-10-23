@@ -91,3 +91,18 @@ export function validateLocalGLBScene(document: Record<string, any>) {
   if (!totals[activeScene].primitives) fail('The active scene has no mesh.');
   return { activeScene, scenes: totals };
 }
+
+export function validateStaticLocalGLBScene(document: Record<string, any>) {
+  for (const field of ['animations', 'skins', 'cameras']) {
+    if (document[field] !== undefined && (!Array.isArray(document[field]) || document[field].length)) throw new Error(`Local furniture import does not support ${field} yet. Export a static mesh.`);
+  }
+  for (const node of document.nodes) {
+    if (node.skin !== undefined || node.camera !== undefined) throw new Error('Export static furniture without skins or cameras.');
+    if (node.rotation && Math.abs(Math.hypot(...node.rotation) - 1) > 0.001) throw new Error('A model rotation is not a unit quaternion.');
+    if (node.matrix && [3, 7, 11, 15].some((index, i) => node.matrix[index] !== (i === 3 ? 1 : 0))) throw new Error('A model transform is not affine.');
+    if (node.weights !== undefined) {
+      const count = document.meshes[node.mesh]?.primitives[0].targets?.length ?? 0;
+      if (!Array.isArray(node.weights) || node.weights.length !== count || node.weights.some((value: unknown) => typeof value !== 'number' || !Number.isFinite(value))) throw new Error('Invalid model morph weights.');
+    }
+  }
+}

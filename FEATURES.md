@@ -33,13 +33,14 @@ This is a current capability summary, not a development diary.
 - Straight and quadratic walls are meshed deterministically; curved openings keep quadratic `pathPosition` semantics while widths are applied in physical path distance.
 - Compatible endpoint wall networks are mitered across L/T/X/collinear junctions and hidden endpoint caps are removed.
 - Static window panes, square/round columns and traversable straight-stair step geometry are compiled into the same shared GLB instead of being rebuilt by Godot.
-- The Godot adapter consumes both artifacts without recomputing topology or deriving collision from GLB.
+- The Godot adapter consumes the compiled artifacts without recomputing topology or deriving collision from GLB.
 - Godot uses runtime triangle meshes for grounded `CharacterBody3D` motion with gravity and floor snapping.
 - Straight UP/DN stairs resolve to the adjacent authored floor and receive a compiler-owned walkable ramp; L/U/spiral stairs remain explicit unsupported traversal.
 - Swing and sliding/pocket doors are interactive `AnimatableBody3D` nodes; unsupported fold/overhead motions remain explicit closed blockers instead of being faked as hinges.
+- Runtime export packages referenced catalog/custom GLBs and a deterministic shared door leaf through `plan2world-runtime-assets-v1`. Godot instances use compiler-owned normalization, native effective sizes/rotation/mirroring and explicit door motion; only missing assets use proxies.
 - When architecture GLB is present, Godot suppresses static wall/floor/window/column/stair proxies. Missing GLB still falls back to isolated compatibility presentation using compiler-owned collision triangles where available.
 
-Representative runtime tests include `tests/runtime-scene.test.ts`, `tests/runtime-stair-traversal.test.ts`, `tests/runtime-static-architecture.test.ts`, `tests/runtime-godot-boundary.test.ts`, `tests/runtime-architecture-mesher.test.ts`, `tests/runtime-room-surface-mesher.test.ts`, `tests/runtime-architecture-glb.test.ts`, and `tests/runtime-export-cli.test.ts`. Focused browser regressions include `tests/browser/quick-geometry-correction.spec.ts`.
+Representative runtime tests include `tests/runtime-scene.test.ts`, `tests/runtime-stair-traversal.test.ts`, `tests/runtime-static-architecture.test.ts`, `tests/runtime-godot-boundary.test.ts`, `tests/runtime-architecture-mesher.test.ts`, `tests/runtime-room-surface-mesher.test.ts`, `tests/runtime-architecture-glb.test.ts`, `tests/runtime-export-cli.test.ts`, `tests/runtime-assets.test.ts` and the real Godot `runtime/godot/tests/runtime_assets_test.gd` gate. Focused browser regressions include `tests/browser/quick-geometry-correction.spec.ts`.
 
 ## Fresh validation policy
 
@@ -54,7 +55,7 @@ When something fails, fix the earliest responsible layer rather than hand-editin
 - Furniture acceptance is semantic presence/type/broad position, not exact product geometry.
 - Registration consistency is not visual correctness.
 - Wall junctions with incompatible endpoint heights or unbounded/pathological offset intersections retain closed caps and emit a mesher diagnostic rather than being repaired.
-- Dynamic door leaves and furniture assets still use Godot compatibility presentation; final asset resolution is not compiled yet.
+- Native furniture finish/tint mapping and richer authored door models remain deferred.
 - L-shaped, U-shaped and spiral stairs do not yet receive shared GLB presentation or traversal; those variants remain explicit unsupported semantics rather than receiving a fake straight ramp.
 - Stairwell apertures must exist in the native Project as `floorOpening`; the runtime preserves them but does not invent them from stair footprints.
 - Bifold and garage/overhead door animation is not implemented; those leaves stay closed blockers.

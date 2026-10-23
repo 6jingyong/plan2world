@@ -39,11 +39,13 @@ npm ci
 npm run runtime:export -- "C:\path\house.project.json" "C:\path\house.runtime.json"
 ```
 
-The CLI emits two sibling artifacts from one deterministic compilation path:
+The CLI emits sibling artifacts from one deterministic compilation path:
 
 ```text
 house.runtime.json        # semantics, collision, interaction
 house.architecture.glb    # shared static presentation geometry + materials
+house.assets/manifest.json # plan2world-runtime-assets-v1
+house.assets/<sha256>.glb  # immutable furniture / door-leaf presentation
 ```
 
 The runtime output path is optional. Without it, `house.project.json` becomes `house.project.runtime.json`, with `house.project.architecture.glb` beside it. A third argument can explicitly choose the GLB path.
@@ -80,22 +82,24 @@ Both `--scene=<path>` and `--architecture=<path>` are accepted.
 
 ## Runtime boundary
 
-Godot consumes the two artifacts for different jobs:
+Godot consumes the artifacts for different jobs:
 
 - `architecture.glb`: shared static presentation geometry and deterministic basic PBR materials;
+- sibling `.assets/manifest.json` and content-addressed GLBs: existing catalog models, verified custom-model attachments and a shared default door leaf;
 - `plan2world-runtime-v1`: player spawn/profile, collision, doors, windows, furniture and interaction/traversal semantics.
 
 Collision is always generated from runtime JSON, never inferred from GLB. Room polygons are deterministically triangulated by the runtime compiler into `triangle-mesh` floor colliders with canonical +Y winding. Native `floorOpening` regions remain holes and are not emitted as replacement floor surfaces. Supported straight stairs are also compiled into explicit upward-wound triangle ramps between adjacent authored floor elevations. Godot consumes all of those as `ConcavePolygonShape3D` rather than deriving them from presentation geometry.
 
 The architecture presentation compiler owns straight and quadratic wall tessellation, physical-width openings on curved paths, compatible endpoint-network miters, room slabs/ceilings, static window panes, square/round columns and step presentation for traversable straight stairs. The GLB writer also assigns a small deterministic material palette. Godot only imports the finished static scene; it does not reconstruct any of that geometry.
 
-When GLB is loaded successfully, compatibility wall/floor/window/column/stair presentation is suppressed. If GLB is absent, the fallback renderer reuses runtime colliders and compiler-owned triangle meshes where possible; it does not re-triangulate room polygons or infer stair geometry from authoring data.
+When GLB is loaded successfully, compatibility wall/floor/window/column/stair presentation is suppressed. Furniture and door asset instances also suppress their own proxies independently. Furniture is visible even when its native height excludes it from collision. If GLB is absent, the fallback renderer reuses runtime colliders and compiler-owned triangle meshes where possible; it does not re-triangulate room polygons or infer stair geometry from authoring data.
 
 The scripts are intentionally split by responsibility:
 
-- `runtime_artifacts.gd`: command-line paths, runtime JSON loading/schema gate, external GLB import;
+- `runtime_artifacts.gd`: command-line paths, runtime JSON/asset manifest gates, digest verification and external GLB import;
+- `runtime_asset_renderer.gd`: normalized furniture/door asset instances using emitted semantics, with door presentation attached to loader-owned physics nodes;
 - `runtime_loader.gd`: runtime semantics -> Godot collision and interaction nodes;
-- `runtime_proxy_renderer.gd`: temporary compatibility presentation for missing GLB and still-unresolved dynamic/assets;
+- `runtime_proxy_renderer.gd`: compatibility presentation only for missing architecture GLB or missing assets;
 - `player.gd` / `door.gd`: engine-side runtime behavior;
 - `main.gd`: thin orchestration, spawn and demo shell.
 
@@ -119,8 +123,9 @@ This is still an architecture/runtime milestone, not a rendering-quality milesto
 - straight stairs can connect adjacent authored floors physically and now have shared step presentation; L-shaped, U-shaped and spiral stairs remain explicit unsupported traversal/presentation rather than being approximated;
 - a multi-floor stairwell still needs the native project to contain the corresponding `floorOpening` aperture; the runtime compiler will preserve it but will not invent one;
 - wall junctions with incompatible endpoint heights or pathological/unbounded offset intersections retain closed caps and emit a compiler diagnostic;
-- dynamic door leaves still use Godot compatibility presentation until the dynamic asset layer is finalized;
-- furniture uses collider-sized proxy boxes; furniture GLB/custom-asset resolution is deferred;
+- default door presentation is intentionally a simple shared GLB leaf; richer models/handles and authored door asset selection remain deferred;
+- furniture with no actual catalog/custom asset (including semantic `imported_object` blocks) uses a compatibility proxy; sourceCategory is never guessed into a replacement catalog model;
+- custom model sources must be the existing supported static, self-contained GLB profile; invalid/corrupt sources fail export, and missing sources are diagnosed;
 - the material palette is intentionally generic and not yet sourced from native finishes/textures.
 
 ## Adapter boundary
@@ -129,3 +134,21 @@ The authoring source of truth is still the native Plan2World `Project`.
 Godot must not import native `Project`, `plan2world-draft-v1`, LLM observations, Three.js nodes, or Godot scene data back into the core model.
 
 Future backends (Unity/Unreal/Web) should consume the same runtime JSON + presentation geometry boundary rather than translating from this Godot project.
+
+## Asset integration gate
+
+The Godot CI job exports `tooling/runtime-asset-fixture.mjs` through the real CLI,
+then runs `tests/runtime_assets_test.gd` in the pinned engine. It checks actual
+imported vertices against emitted effective dimensions/centers, native mirrors,
+nonzero floor elevation, catalog and textured custom models, no-collider low
+furniture, swing/slide/pocket physics attachment and motion, unsupported blockers,
+leafless openings, missing-file handling and duplicate-proxy suppression.
+
+```sh
+node tooling/runtime-asset-fixture.mjs /tmp/runtime-assets
+Godot_v4.7.2-stable_linux.x86_64 --headless --path runtime/godot --script res://tests/runtime_assets_test.gd -- --scene /tmp/runtime-assets/assets.runtime.json
+```
+
+Transfer the runtime JSON, architecture GLB and sibling `.assets` directory together.
+The asset directory follows the runtime JSON basename, independently of an explicit
+`--architecture` override. No engine-specific paths are stored in either JSON contract.

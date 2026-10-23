@@ -130,6 +130,7 @@
     },
     "doorEntity": {
       "type": "object", "additionalProperties": false,
+      "dependentRequired": { "assetRef": ["leafThickness"], "leafThickness": ["assetRef"] },
       "required": ["id", "floorId", "kind", "hostWallId", "pathPosition", "width", "height", "doorType", "swingDirection", "flipSide", "closedPose", "interaction"],
       "properties": {
         "id": { "$ref": "#/$defs/id" }, "floorId": { "$ref": "#/$defs/id" }, "kind": { "const": "door" },
@@ -137,6 +138,7 @@
         "width": { "$ref": "#/$defs/positive" }, "height": { "$ref": "#/$defs/positive" },
         "doorType": { "enum": ["single", "double", "sliding", "french", "pocket", "bifold", "opening", "garage"] },
         "swingDirection": { "enum": ["left", "right"] }, "flipSide": { "type": "boolean" },
+        "assetRef": { "type": "string", "minLength": 1 }, "leafThickness": { "$ref": "#/$defs/positive" },
         "closedPose": { "$ref": "#/$defs/closedPose" }, "interaction": { "$ref": "#/$defs/doorInteraction" }
       }
     },
@@ -157,6 +159,7 @@
       "properties": {
         "id": { "$ref": "#/$defs/id" }, "floorId": { "$ref": "#/$defs/id" }, "kind": { "const": "furniture" },
         "catalogId": { "$ref": "#/$defs/id" }, "sourceCategory": { "type": "string" }, "assetRef": { "type": "string", "minLength": 1 },
+        "mirror": { "type": "array", "prefixItems": [{ "enum": [-1, 1] }, { "const": 1 }, { "enum": [-1, 1] }], "minItems": 3, "maxItems": 3 },
         "position": { "$ref": "#/$defs/vec3" }, "yawClockwiseRadians": { "type": "number" }, "size": { "$ref": "#/$defs/positiveVec3" }
       }
     },

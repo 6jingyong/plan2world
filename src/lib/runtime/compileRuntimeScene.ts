@@ -124,6 +124,7 @@ function compileDoor(floor: Floor, elevationCm: number, door: Door, wall: Wall):
     swingDirection: door.swingDirection,
     flipSide: door.flipSide,
     closedPose: { center: point3(centerPoint, elevationCm + door.height / 2), yawClockwiseRadians: yaw },
+    ...(door.type !== 'opening' ? { assetRef: 'builtin:door-leaf-v1', leafThickness: m(DOOR_LEAF_THICKNESS_CM) } : {}),
     interaction: compileDoorInteraction(door, tangent, hingePoint, elevationCm),
   };
   if (door.type === 'opening') return { entity };
@@ -168,6 +169,7 @@ function compileFloor(
   floor: Floor,
   elevationCm: number,
   adjacentFloors: AdjacentFloors,
+  customModels: Project['customModels'],
 ): { floor: RuntimeFloor; entities: RuntimeEntity[]; colliders: RuntimeCollider[] } {
   const analysis = analyzeFloor(floor);
   const entities: RuntimeEntity[] = [];
@@ -209,14 +211,16 @@ function compileFloor(
 
   for (const item of floor.furniture) {
     const catalog = getCatalogItem(item.catalogId);
-    if (catalog?.symbol) continue;
-    const size = getFurnitureSize(item);
+    if (catalog?.symbol && !item.customModelId) continue;
+    const custom = customModels?.find(model => model.id === item.customModelId);
+    const size = getFurnitureSize({ ...item, width: item.width ?? custom?.width, depth: item.depth ?? custom?.depth, height: item.height ?? custom?.height });
     const position = point3(item.position, elevationCm + size.height / 2);
     const yaw = item.rotation * Math.PI / 180;
     entities.push({
       id: item.id, floorId: floor.id, kind: 'furniture', catalogId: item.catalogId,
       ...(item.sourceCategory ? { sourceCategory: item.sourceCategory } : {}),
       assetRef: item.customModelId ? `custom-model:${item.customModelId}` : `catalog:${item.catalogId}`,
+      mirror: [(item.scale?.x ?? 1) < 0 ? -1 : 1, 1, (item.scale?.y ?? 1) < 0 ? -1 : 1],
       position, yawClockwiseRadians: yaw, size: [m(size.width), m(size.height), m(size.depth)],
     });
     if (size.width > 0 && size.depth > 0 && size.height >= 20) {
@@ -257,7 +261,10 @@ function compileFloor(
   const rooms: RuntimeRoomSurface[] = analysis.geometry
     .filter(({ room }) => !room.floorOpening)
     .map(({ room, polygon }) => ({
-      id: room.id,
+      // Saved native room identity is authoritative. Unpersisted detected rooms
+      // carry editor timestamps; derive their runtime identity from floor/boundary.
+      id: floor.rooms.some(saved => saved.id === room.id) ? room.id :
+        `room:${encodeURIComponent(floor.id)}:${[...room.walls].sort().map(encodeURIComponent).join(',')}`,
       name: room.name,
       roomType: room.roomType ?? 'indoor',
       polygon: polygon.map(point2),
@@ -297,7 +304,7 @@ export function compileRuntimeScene(project: Project): Plan2WorldRuntimeSceneV1 
     const compiled = compileFloor(floor, elevation, {
       below: index > 0 ? { floorId: entries[index - 1].floor.id, elevationCm: entries[index - 1].elevation } : null,
       above: index + 1 < entries.length ? { floorId: entries[index + 1].floor.id, elevationCm: entries[index + 1].elevation } : null,
-    });
+    }, project.customModels);
     floors.push(compiled.floor);
     entities.push(...compiled.entities);
     colliders.push(...compiled.colliders);

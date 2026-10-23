@@ -1,1 +1,4 @@
 .godot/
+
+# Godot-generated script identifiers (scripts are referenced by path).
+*.gd.uid

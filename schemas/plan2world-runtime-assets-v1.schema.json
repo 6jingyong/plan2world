@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://plan2world.local/schemas/plan2world-runtime-assets-v1.schema.json",
+  "title": "plan2world-runtime-assets-v1",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema", "version", "assets"],
+  "properties": {
+    "schema": { "const": "plan2world-runtime-assets-v1" },
+    "version": { "const": 1 },
+    "assets": { "type": "array", "items": { "$ref": "#/$defs/asset" } }
+  },
+  "$defs": {
+    "vec3": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
+    "asset": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "uri", "sha256", "byteLength", "normalization"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "uri": { "type": "string", "pattern": "^[a-f0-9]{64}\\.glb$" },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "byteLength": { "type": "integer", "minimum": 20 },
+        "normalization": {
+          "type": "object", "additionalProperties": false, "required": ["translation", "scale"],
+          "properties": { "translation": { "$ref": "#/$defs/vec3" }, "scale": { "type": "array", "items": { "type": "number", "exclusiveMinimum": 0 }, "minItems": 3, "maxItems": 3 } }
+        }
+      }
+    }
+  }
+}
