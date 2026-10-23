@@ -1,8 +1,8 @@
 # Plan2World
 
-**Floor-plan image → deterministic reconstruction → editable Three.js home → first-person walkthrough.**
+**Floor-plan image → deterministic reconstruction → editable browser home → engine-neutral runtime artifacts → first-person runtime.**
 
-Plan2World is an MIT-licensed project built on [openPlan3D](https://github.com/laanlabs/openPlan3D). It keeps the existing deterministic editor/project/viewer and adds a provider-neutral floor-plan reconstruction layer.
+Plan2World is an MIT-licensed project built on [openPlan3D](https://github.com/laanlabs/openPlan3D). It keeps the existing deterministic editor/project/viewer and adds a provider-neutral floor-plan reconstruction layer plus a deterministic runtime compilation boundary.
 
 ## Current pipeline
 
@@ -15,34 +15,22 @@ floor-plan JPG / PNG / WebP
   → freeze final architecture and guiding furniture anchors
   → deterministic plan2world-draft-v1 assembly
   → Review / native Project
-  → 2D edit ⇄ 1.20 m cut ⇄ 3D ⇄ first-person walkthrough
+  → browser 2D edit ⇄ 1.20 m cut ⇄ 3D review
+  → deterministic runtime compiler
+      ├─ plan2world-runtime-v1       (semantics / collision / interaction)
+      └─ architecture.glb            (presentation geometry)
+  → Godot runtime
 ```
 
-The model observes source evidence. Programs own topology, calculations, IDs, host matching, conversion, room analysis, collision and rendering.
+The model observes source evidence. Programs own topology, calculations, IDs, host matching, conversion, room analysis, collision contracts and runtime compilation.
 
-The direct Skill / CLI and browser provider use the same sequence. Browser prompts
-load the portable architecture and furnishing references directly. Every accepted
-opening must have a source-supported host baseline; unresolved hosts block normal
-assembly. Furniture anchors reach the program before final closure. Direct Skill
-runs do not certify external-model quality.
+The direct Skill / CLI and browser provider use the same reconstruction sequence. Browser prompts load the portable architecture and furnishing references directly. Every accepted opening must have a source-supported host baseline; unresolved hosts block normal assembly. Furniture anchors reach the program before final closure. Direct Skill runs do not certify external-model quality.
 
-Initial reconstructed doors/windows extend from floor to host wall height, with
-window sill 0. These are editable starting values, not measurements inferred from
-the raster. Furniture extraction remains semantics and position only.
+Initial reconstructed doors/windows extend from floor to host wall height, with window sill 0. These are editable starting values, not measurements inferred from the raster. Furniture extraction remains semantics and position only.
 
-Functional zones and architecture are observed together, followed by the
-furniture-only observation. The program verifies independent native regions,
-inserts source-supported leafless thresholds and balcony air/railing boundaries,
-and evaluates bounded connections of observed wall endpoints. See
-[functional zones](docs/functional-zones.md) and
-[furniture-guided closure](docs/furniture-guided-closure.md).
+Functional zones and architecture are observed together, followed by the furniture-only observation. The program verifies independent native regions, inserts source-supported leafless thresholds and balcony air/railing boundaries, and evaluates bounded connections of observed wall endpoints. See [functional zones](docs/functional-zones.md) and [furniture-guided closure](docs/furniture-guided-closure.md).
 
-Original-pixel raster evidence supports conservative refinement. Background
-sampling uses accepted architectural bounds and an interior grid to avoid photo
-frames; ambiguous backgrounds disable raster assistance. Sampling never crops
-coordinates or authorizes walls. Centerline correction remains disabled; see
-[raster background](docs/raster-background.md) and
-[centerline policy](docs/raster-centerlines.md).
+Original-pixel raster evidence supports conservative refinement. Background sampling uses accepted architectural bounds and an interior grid to avoid photo frames; ambiguous backgrounds disable raster assistance. Sampling never crops coordinates or authorizes walls. Centerline correction remains disabled; see [raster background](docs/raster-background.md) and [centerline policy](docs/raster-centerlines.md).
 
 ## Current reconstruction scope
 
@@ -53,9 +41,24 @@ coordinates or authorizes walls. Centerline correction remains disabled; see
 - fixed-vocabulary imported furniture blocks;
 - optional source-supported `floorAreas`;
 - declared balcony enclosure policy;
-- conversion into the existing editable native model with no parallel scene graph.
+- conversion into the existing editable native model with no parallel authoring scene graph.
 
 A reconstruction is evidence-bearing input, not ground truth. Unsupported source details should be omitted or disclosed rather than invented.
+
+## Runtime boundary
+
+The native Plan2World `Project` is the authoring truth. Runtime backends do not read raster evidence, LLM observations, or repair authoring topology.
+
+`npm run runtime:export` compiles a saved native Project into two sibling artifacts:
+
+```text
+house.runtime.json        # plan2world-runtime-v1 semantics, collision, interaction
+house.architecture.glb    # deterministic architectural presentation mesh
+```
+
+The Godot adapter consumes those artifacts separately: runtime JSON owns behavior/collision, while GLB owns architectural presentation. Godot does not derive collision from GLB. The browser remains the authoring/review surface; future Unity/Unreal/Web runtimes should consume the same compiled boundary rather than translating from Godot.
+
+See [`runtime/godot/README.md`](runtime/godot/README.md) for the current runtime adapter and manual launch path.
 
 ## Fresh validation
 
@@ -94,9 +97,10 @@ npm run build
 
 ## Architecture principles
 
-- SvelteKit + Three.js remain the application stack.
-- Keep the existing openPlan3D native model rather than introducing a second geometry store.
+- SvelteKit + Three.js own browser authoring, correction, review and quick preview.
+- Keep the existing openPlan3D native `Project` as the authoring model rather than introducing a competing scene graph.
+- Compile runtime semantics/collision and presentation geometry deterministically from that native Project.
+- Keep runtime artifacts engine-neutral; Godot is a consumer, not a second source of truth.
 - Keep provider-specific transport outside editor core.
-- Keep geometry checks, room analysis, collision and rendering deterministic.
-- Keep local/manual JSON import available.
+- Keep local/manual JSON import and offline runtime export available; AI must not be mandatory.
 - Preserve upstream MIT attribution.
