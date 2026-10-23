@@ -6,6 +6,7 @@ import { getCatalogItem, getFurnitureSize } from '$lib/utils/furnitureCatalog';
 import { roomCeilingHeight, wallProfileSpans } from '$lib/utils/wallProfiles';
 import { wallPointAt, wallTangentAt } from '$lib/utils/wallPath';
 import { triangulatePolygonWithHoles } from './polygonTriangulation';
+import { compileRuntimeStair, type RuntimeStairTarget } from './stairTraversal';
 import type {
   Plan2WorldRuntimeSceneV1,
   RuntimeBoxCollider,
@@ -158,7 +159,16 @@ function compileRoomFloorCollider(room: RuntimeRoomSurface, floorId: string, ele
   };
 }
 
-function compileFloor(floor: Floor, elevationCm: number): { floor: RuntimeFloor; entities: RuntimeEntity[]; colliders: RuntimeCollider[] } {
+interface AdjacentFloors {
+  above: RuntimeStairTarget | null;
+  below: RuntimeStairTarget | null;
+}
+
+function compileFloor(
+  floor: Floor,
+  elevationCm: number,
+  adjacentFloors: AdjacentFloors,
+): { floor: RuntimeFloor; entities: RuntimeEntity[]; colliders: RuntimeCollider[] } {
   const analysis = analyzeFloor(floor);
   const entities: RuntimeEntity[] = [];
   const colliders: RuntimeCollider[] = [];
@@ -234,27 +244,30 @@ function compileFloor(floor: Floor, elevationCm: number): { floor: RuntimeFloor;
   }
 
   for (const stair of floor.stairs) {
-    entities.push({
-      id: stair.id, floorId: floor.id, kind: 'stair', position: point3(stair.position, elevationCm),
-      yawClockwiseRadians: stair.rotation * Math.PI / 180,
-      width: m(stair.width), depth: m(stair.depth), riserCount: stair.riserCount,
-      direction: stair.direction, stairType: stair.stairType,
-    });
+    const target = stair.direction === 'up' ? adjacentFloors.above : adjacentFloors.below;
+    const result = compileRuntimeStair(floor, elevationCm, stair, target);
+    entities.push(result.entity);
+    if (result.collider) colliders.push(result.collider);
   }
 
   const elevation = m(elevationCm);
-  const rooms: RuntimeRoomSurface[] = analysis.geometry.map(({ room, polygon }) => ({
-    id: room.id,
-    name: room.name,
-    roomType: room.roomType ?? 'indoor',
-    polygon: polygon.map(point2),
-    holes: (analysis.holes.get(room.id) ?? []).map(hole => hole.map(point2)),
-    slabThickness: m(floor.slabThickness ?? 5),
-    ceilingHeight: (() => {
-      const height = roomCeilingHeight(room.walls, floor.walls);
-      return height === undefined ? null : m(height);
-    })(),
-  }));
+  // Explicit floorOpening rooms participate in nesting so parent room holes are
+  // preserved, but they are apertures rather than surfaces of their own. Do not
+  // emit a second floor/ceiling primitive that would fill the opening again.
+  const rooms: RuntimeRoomSurface[] = analysis.geometry
+    .filter(({ room }) => !room.floorOpening)
+    .map(({ room, polygon }) => ({
+      id: room.id,
+      name: room.name,
+      roomType: room.roomType ?? 'indoor',
+      polygon: polygon.map(point2),
+      holes: (analysis.holes.get(room.id) ?? []).map(hole => hole.map(point2)),
+      slabThickness: m(floor.slabThickness ?? 5),
+      ceilingHeight: (() => {
+        const height = roomCeilingHeight(room.walls, floor.walls);
+        return height === undefined ? null : m(height);
+      })(),
+    }));
   for (const room of rooms) {
     const floorCollider = compileRoomFloorCollider(room, floor.id, elevation);
     if (floorCollider) colliders.push(floorCollider);
@@ -278,8 +291,13 @@ export function compileRuntimeScene(project: Project): Plan2WorldRuntimeSceneV1 
   const floors: RuntimeFloor[] = [];
   const entities: RuntimeEntity[] = [];
   const colliders: RuntimeCollider[] = [];
-  for (const { floor, elevation } of floorElevations(project.floors)) {
-    const compiled = compileFloor(floor, elevation);
+  const entries = floorElevations(project.floors);
+  for (let index = 0; index < entries.length; index += 1) {
+    const { floor, elevation } = entries[index];
+    const compiled = compileFloor(floor, elevation, {
+      below: index > 0 ? { floorId: entries[index - 1].floor.id, elevationCm: entries[index - 1].elevation } : null,
+      above: index + 1 < entries.length ? { floorId: entries[index + 1].floor.id, elevationCm: entries[index + 1].elevation } : null,
+    });
     floors.push(compiled.floor);
     entities.push(...compiled.entities);
     colliders.push(...compiled.colliders);
