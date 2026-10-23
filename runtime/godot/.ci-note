@@ -1,1 +1,0 @@
-Godot runtime scripts are parsed and the built-in runtime demo is booted headlessly by .github/workflows/godot.yml using the pinned Godot 4.7.2 Linux build.
