@@ -106,7 +106,7 @@ function triangleCentroidsWithNormal(primitive: ArchitectureMeshPrimitive, norma
   return result;
 }
 
-describe('architecture mesher v0', () => {
+describe('architecture mesher', () => {
   it('extrudes a straight wall with thickness, height, floor elevation, normals and UVs', () => {
     const mesh = compileArchitectureMesh(scene([wall()]));
     expect(mesh.diagnostics).toEqual([]);
@@ -154,7 +154,7 @@ describe('architecture mesher v0', () => {
     expect(signature(mesh.primitives[0])).toMatchObject({ vertices: 120, indices: 180 });
   });
 
-  it('keeps stable wall ownership for a four-wall rectangular fixture', () => {
+  it('miters a four-wall rectangle and removes hidden endpoint caps while preserving wall ownership', () => {
     const mesh = compileArchitectureMesh(scene([
       wall({ id: 'north', path: { start: [0, 0], end: [4, 0] } }),
       wall({ id: 'east', path: { start: [4, 0], end: [4, 3] } }),
@@ -168,7 +168,12 @@ describe('architecture mesher v0', () => {
       'architecture:wall:south',
       'architecture:wall:west',
     ]);
-    expect(mesh.primitives.every(primitive => primitive.positions.length === 24 && primitive.indices.length === 36)).toBe(true);
+    expect(mesh.primitives.every(primitive => primitive.positions.length === 16 && primitive.indices.length === 24)).toBe(true);
+    const all = mesh.primitives.flatMap(primitive => primitive.positions);
+    expect(rounded(Math.min(...all.map(point => point[0])))).toBe(-0.1);
+    expect(rounded(Math.max(...all.map(point => point[0])))).toBe(4.1);
+    expect(rounded(Math.min(...all.map(point => point[2])))).toBe(-0.1);
+    expect(rounded(Math.max(...all.map(point => point[2])))).toBe(3.1);
   });
 
   it('supports different straight-wall end heights without delegating slope reconstruction to an engine', () => {
@@ -184,10 +189,50 @@ describe('architecture mesher v0', () => {
     });
   });
 
-  it('reports unsupported curves instead of silently faceting them in the adapter', () => {
-    const mesh = compileArchitectureMesh(scene([wall({ path: { start: [0, 0], end: [4, 0], control: [2, 1] } })]));
-    expect(mesh.primitives).toEqual([]);
-    expect(mesh.diagnostics).toEqual([expect.objectContaining({ code: 'unsupported-curved-wall', entityId: 'wall-1' })]);
+  it('tessellates a quadratic wall into deterministic smooth-sided presentation geometry', () => {
+    const mesh = compileArchitectureMesh(scene([
+      wall({ path: { start: [0, 0], end: [4, 0], control: [2, 1] } }),
+    ]));
+    expect(mesh.diagnostics).toEqual([]);
+    expect(mesh.primitives).toHaveLength(1);
+    const primitive = mesh.primitives[0];
+    expect(primitive.positions.length).toBeGreaterThan(24);
+    expect(primitive.indices.length).toBeGreaterThan(36);
+    expect(primitive.normals).toHaveLength(primitive.positions.length);
+    expect(Math.max(...primitive.positions.map(point => point[2]))).toBeGreaterThan(0.59);
+    expect(Math.min(...primitive.positions.map(point => point[2]))).toBeLessThan(-0.08);
+  });
+
+  it('uses physical path distance for opening width on a quadratic wall', () => {
+    const curved = wall({ path: { start: [0, 0], end: [4, 0], control: [2, 1] } });
+    const withoutOpening = compileArchitectureMesh(scene([curved]));
+    const withOpening = compileArchitectureMesh(scene([curved, door({ width: 1, pathPosition: 0.5 })]));
+    expect(withOpening.diagnostics).toEqual([]);
+    expect(withOpening.primitives[0].positions.length).toBeGreaterThan(withoutOpening.primitives[0].positions.length);
+    expect(withOpening.primitives[0].indices.length).toBeGreaterThan(withoutOpening.primitives[0].indices.length);
+  });
+
+  it('fills a compatible T junction with deterministic multi-wall miters', () => {
+    const mesh = compileArchitectureMesh(scene([
+      wall({ id: 'east', path: { start: [0, 0], end: [2, 0] } }),
+      wall({ id: 'west', path: { start: [0, 0], end: [-2, 0] } }),
+      wall({ id: 'north', path: { start: [0, 0], end: [0, 2] } }),
+    ]));
+    expect(mesh.diagnostics).toEqual([]);
+    expect(mesh.primitives).toHaveLength(3);
+    expect(mesh.primitives.every(primitive => primitive.positions.length === 20 && primitive.indices.length === 30)).toBe(true);
+  });
+
+  it('keeps closed caps and reports a diagnostic when joined wall endpoint heights disagree', () => {
+    const mesh = compileArchitectureMesh(scene([
+      wall({ id: 'east', path: { start: [0, 0], end: [2, 0] }, startHeight: 2.8, endHeight: 2.8 }),
+      wall({ id: 'north', path: { start: [0, 0], end: [0, 2] }, startHeight: 3, endHeight: 3 }),
+    ]));
+    expect(mesh.primitives).toHaveLength(2);
+    expect(mesh.primitives.every(primitive => primitive.positions.length === 24 && primitive.indices.length === 36)).toBe(true);
+    expect(mesh.diagnostics).toEqual([
+      expect.objectContaining({ code: 'wall-junction-fallback', entityId: 'east' }),
+    ]);
   });
 
   it('rejects an invalid opening instead of repairing upstream geometry in the mesher', () => {

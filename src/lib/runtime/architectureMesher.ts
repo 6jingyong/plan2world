@@ -7,8 +7,13 @@ import type {
   RuntimeWindowEntity,
 } from './types';
 import { compileRoomSurfaceMesh } from './roomSurfaceMesher';
+import { compileRuntimeWallPathProfile, type RuntimeWallPathProfile } from './wallPathGeometry';
 
 const EPSILON = 1e-9;
+const JOIN_POINT_EPSILON = 1e-6;
+const JOIN_HEIGHT_EPSILON = 1e-6;
+const PARALLEL_EPSILON = 1e-8;
+const MITER_LIMIT_FACTOR = 12;
 
 export interface ArchitectureMeshPrimitive {
   id: string;
@@ -22,11 +27,11 @@ export interface ArchitectureMeshPrimitive {
 }
 
 export type ArchitectureMeshDiagnosticCode =
-  | 'unsupported-curved-wall'
   | 'unsupported-wall-boundary'
   | 'degenerate-wall'
   | 'invalid-opening'
   | 'overlapping-openings'
+  | 'wall-junction-fallback'
   | 'invalid-room-surface';
 
 export interface ArchitectureMeshDiagnostic {
@@ -54,15 +59,6 @@ interface OpeningRect {
   y1: number;
 }
 
-interface WallFrame {
-  length: number;
-  tx: number;
-  tz: number;
-  nx: number;
-  nz: number;
-  floorElevation: number;
-}
-
 interface MeshBuilder {
   positions: RuntimeVec3[];
   normals: RuntimeVec3[];
@@ -76,24 +72,79 @@ interface SolidSpan {
   topB: number;
 }
 
-function near(a: number, b: number) {
-  return Math.abs(a - b) <= EPSILON;
+type WallSide = 'front' | 'back';
+type WallEndpoint = 'start' | 'end';
+
+interface WallEndpointJoin {
+  cap: boolean;
+  front?: RuntimeVec2;
+  back?: RuntimeVec2;
 }
 
-function wallHeightAt(wall: RuntimeWallEntity, frame: WallFrame, x: number) {
-  return wall.startHeight + (wall.endHeight - wall.startHeight) * x / frame.length;
+interface WallJoin {
+  start: WallEndpointJoin;
+  end: WallEndpointJoin;
 }
 
-function localPoint(wall: RuntimeWallEntity, frame: WallFrame, x: number, y: number, z: number): RuntimeVec3 {
-  return [
-    wall.path.start[0] + frame.tx * x + frame.nx * z,
-    frame.floorElevation + y,
-    wall.path.start[1] + frame.tz * x + frame.nz * z,
+interface JunctionRef {
+  wall: RuntimeWallEntity;
+  endpoint: WallEndpoint;
+  point: RuntimeVec2;
+  away: RuntimeVec2;
+  halfThickness: number;
+  height: number;
+  leftKey: WallSide;
+  rightKey: WallSide;
+  leftPoint: RuntimeVec2;
+  rightPoint: RuntimeVec2;
+}
+
+function near(a: number, b: number, epsilon = EPSILON) {
+  return Math.abs(a - b) <= epsilon;
+}
+
+function add2(a: RuntimeVec2, b: RuntimeVec2): RuntimeVec2 {
+  return [a[0] + b[0], a[1] + b[1]];
+}
+
+function subtract2(a: RuntimeVec2, b: RuntimeVec2): RuntimeVec2 {
+  return [a[0] - b[0], a[1] - b[1]];
+}
+
+function scale2(value: RuntimeVec2, scale: number): RuntimeVec2 {
+  return [value[0] * scale, value[1] * scale];
+}
+
+function cross2(a: RuntimeVec2, b: RuntimeVec2) {
+  return a[0] * b[1] - a[1] * b[0];
+}
+
+function distance2(a: RuntimeVec2, b: RuntimeVec2) {
+  return Math.hypot(b[0] - a[0], b[1] - a[1]);
+}
+
+function normalize3(value: RuntimeVec3): RuntimeVec3 {
+  const length = Math.hypot(value[0], value[1], value[2]);
+  if (length <= EPSILON || !Number.isFinite(length)) return [0, 1, 0];
+  return [value[0] / length, value[1] / length, value[2] / length];
+}
+
+function faceNormal(points: [RuntimeVec3, RuntimeVec3, RuntimeVec3, RuntimeVec3]): RuntimeVec3 {
+  const a: RuntimeVec3 = [
+    points[1][0] - points[0][0],
+    points[1][1] - points[0][1],
+    points[1][2] - points[0][2],
   ];
-}
-
-function localNormal(frame: WallFrame, x: number, y: number, z: number): RuntimeVec3 {
-  return [frame.tx * x + frame.nx * z, y, frame.tz * x + frame.nz * z];
+  const b: RuntimeVec3 = [
+    points[3][0] - points[0][0],
+    points[3][1] - points[0][1],
+    points[3][2] - points[0][2],
+  ];
+  return normalize3([
+    a[1] * b[2] - a[2] * b[1],
+    a[2] * b[0] - a[0] * b[2],
+    a[0] * b[1] - a[1] * b[0],
+  ]);
 }
 
 function addQuad(
@@ -109,6 +160,27 @@ function addQuad(
   builder.indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
 }
 
+function addQuadWithNormals(
+  builder: MeshBuilder,
+  points: [RuntimeVec3, RuntimeVec3, RuntimeVec3, RuntimeVec3],
+  normals: [RuntimeVec3, RuntimeVec3, RuntimeVec3, RuntimeVec3],
+  uvs: [RuntimeVec2, RuntimeVec2, RuntimeVec2, RuntimeVec2],
+) {
+  const base = builder.positions.length;
+  builder.positions.push(...points);
+  builder.normals.push(...normals);
+  builder.uvs.push(...uvs);
+  builder.indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
+}
+
+function addFaceQuad(
+  builder: MeshBuilder,
+  points: [RuntimeVec3, RuntimeVec3, RuntimeVec3, RuntimeVec3],
+  uvs: [RuntimeVec2, RuntimeVec2, RuntimeVec2, RuntimeVec2],
+) {
+  addQuad(builder, points, faceNormal(points), uvs);
+}
+
 function uniqueSorted(values: number[]) {
   const sorted = [...values].sort((a, b) => a - b);
   const result: number[] = [];
@@ -119,7 +191,7 @@ function uniqueSorted(values: number[]) {
 }
 
 function mergeVerticalIntervals(openings: OpeningRect[]) {
-  const intervals = openings.map(opening => [opening.y0, opening.y1] as const).sort((a, b) => a[0] - b[0]);
+  const intervals = openings.map(opening => [opening.y0, opening.y1] as [number, number]).sort((a, b) => a[0] - b[0]);
   const merged: [number, number][] = [];
   for (const [start, end] of intervals) {
     const previous = merged[merged.length - 1];
@@ -149,28 +221,31 @@ function openingsAtX(openings: OpeningRect[], x: number) {
   return openings.filter(opening => x >= opening.x0 - EPSILON && x <= opening.x1 + EPSILON);
 }
 
+function wallHeightAt(profile: RuntimeWallPathProfile, distance: number) {
+  return profile.sampleDistance(distance).height;
+}
+
 function openingFromEntity(
   entity: RuntimeDoorEntity | RuntimeWindowEntity,
-  wall: RuntimeWallEntity,
-  frame: WallFrame,
+  profile: RuntimeWallPathProfile,
 ): OpeningRect | null {
-  const center = entity.pathPosition * frame.length;
+  const center = profile.distanceAt(entity.pathPosition);
   const x0 = center - entity.width / 2;
   const x1 = center + entity.width / 2;
   const y0 = entity.kind === 'window' ? entity.sillHeight : 0;
   const y1 = y0 + entity.height;
-  const minTop = Math.min(wallHeightAt(wall, frame, x0), wallHeightAt(wall, frame, x1));
+  const minTop = Math.min(wallHeightAt(profile, x0), wallHeightAt(profile, x1));
 
   if (
     !Number.isFinite(center) || !Number.isFinite(entity.width) || !Number.isFinite(entity.height) ||
-    entity.width <= EPSILON || entity.height <= EPSILON || x0 < -EPSILON || x1 > frame.length + EPSILON ||
+    entity.width <= EPSILON || entity.height <= EPSILON || x0 < -EPSILON || x1 > profile.length + EPSILON ||
     y0 < -EPSILON || y1 > minTop + EPSILON
   ) return null;
 
   return {
     id: entity.id,
     x0: Math.max(0, x0),
-    x1: Math.min(frame.length, x1),
+    x1: Math.min(profile.length, x1),
     y0: Math.max(0, y0),
     y1: Math.min(minTop, y1),
   };
@@ -179,7 +254,7 @@ function openingFromEntity(
 function collectOpenings(
   scene: Plan2WorldRuntimeSceneV1,
   wall: RuntimeWallEntity,
-  frame: WallFrame,
+  profile: RuntimeWallPathProfile,
   diagnostics: ArchitectureMeshDiagnostic[],
 ): OpeningRect[] | null {
   const hosted = scene.entities.filter((entity): entity is RuntimeDoorEntity | RuntimeWindowEntity =>
@@ -188,7 +263,7 @@ function collectOpenings(
   const openings: OpeningRect[] = [];
 
   for (const entity of hosted) {
-    const opening = openingFromEntity(entity, wall, frame);
+    const opening = openingFromEntity(entity, profile);
     if (!opening) {
       diagnostics.push({
         code: 'invalid-opening',
@@ -218,9 +293,211 @@ function collectOpenings(
   return openings;
 }
 
-function compileStraightWall(
+function emptyWallJoin(): WallJoin {
+  return { start: { cap: true }, end: { cap: true } };
+}
+
+function isMesheableWall(wall: RuntimeWallEntity, profile: RuntimeWallPathProfile) {
+  const pathNumbers = [...wall.path.start, ...wall.path.end, ...(wall.path.control ?? [])];
+  return wall.visible && wall.boundaryType === 'solid' &&
+    pathNumbers.every(Number.isFinite) && Number.isFinite(profile.length) && profile.length > EPSILON &&
+    Number.isFinite(wall.thickness) && wall.thickness > EPSILON &&
+    Number.isFinite(wall.startHeight) && Number.isFinite(wall.endHeight) &&
+    wall.startHeight > EPSILON && wall.endHeight > EPSILON;
+}
+
+function junctionRef(
+  wall: RuntimeWallEntity,
+  profile: RuntimeWallPathProfile,
+  endpoint: WallEndpoint,
+): JunctionRef {
+  const sample = profile.sampleDistance(endpoint === 'start' ? 0 : profile.length);
+  const away: RuntimeVec2 = endpoint === 'start'
+    ? sample.tangent
+    : [-sample.tangent[0], -sample.tangent[1]];
+  const leftNormal: RuntimeVec2 = [-away[1], away[0]];
+  const halfThickness = wall.thickness / 2;
+  return {
+    wall,
+    endpoint,
+    point: sample.point,
+    away,
+    halfThickness,
+    height: sample.height,
+    leftKey: endpoint === 'start' ? 'front' : 'back',
+    rightKey: endpoint === 'start' ? 'back' : 'front',
+    leftPoint: add2(sample.point, scale2(leftNormal, halfThickness)),
+    rightPoint: add2(sample.point, scale2(leftNormal, -halfThickness)),
+  };
+}
+
+function lineIntersectionOrCoincident(
+  aPoint: RuntimeVec2,
+  aDirection: RuntimeVec2,
+  bPoint: RuntimeVec2,
+  bDirection: RuntimeVec2,
+): RuntimeVec2 | null {
+  const denominator = cross2(aDirection, bDirection);
+  const delta = subtract2(bPoint, aPoint);
+  if (Math.abs(denominator) <= PARALLEL_EPSILON) {
+    if (Math.abs(cross2(delta, aDirection)) <= JOIN_POINT_EPSILON * 4) {
+      return [(aPoint[0] + bPoint[0]) / 2, (aPoint[1] + bPoint[1]) / 2];
+    }
+    return null;
+  }
+  const t = cross2(delta, bDirection) / denominator;
+  const intersection = add2(aPoint, scale2(aDirection, t));
+  return intersection.every(Number.isFinite) ? intersection : null;
+}
+
+function pushJunctionFallback(
+  diagnostics: ArchitectureMeshDiagnostic[],
+  group: JunctionRef[],
+  reason: string,
+) {
+  const ids = [...new Set(group.map(ref => ref.wall.id))].sort();
+  diagnostics.push({
+    code: 'wall-junction-fallback',
+    entityId: ids[0] ?? 'unknown-wall',
+    message: `Wall junction [${ids.join(', ')}] kept closed end caps: ${reason}.`,
+  });
+}
+
+function compileWallJunctions(
+  walls: RuntimeWallEntity[],
+  profiles: Map<string, RuntimeWallPathProfile>,
+  diagnostics: ArchitectureMeshDiagnostic[],
+) {
+  const joins = new Map<string, WallJoin>();
+  const groups: JunctionRef[][] = [];
+
+  for (const wall of walls) {
+    const profile = profiles.get(wall.id);
+    if (!profile || !isMesheableWall(wall, profile)) continue;
+    joins.set(wall.id, emptyWallJoin());
+    for (const endpoint of ['start', 'end'] as const) {
+      const ref = junctionRef(wall, profile, endpoint);
+      let group = groups.find(candidate =>
+        candidate[0].wall.floorId === wall.floorId &&
+        distance2(candidate[0].point, ref.point) <= JOIN_POINT_EPSILON,
+      );
+      if (!group) {
+        group = [];
+        groups.push(group);
+      }
+      group.push(ref);
+    }
+  }
+
+  for (const group of groups) {
+    if (group.length < 2) continue;
+    if (new Set(group.map(ref => ref.wall.id)).size !== group.length) {
+      pushJunctionFallback(diagnostics, group, 'the same wall reaches the junction more than once');
+      continue;
+    }
+    const heights = group.map(ref => ref.height);
+    if (Math.max(...heights) - Math.min(...heights) > JOIN_HEIGHT_EPSILON) {
+      pushJunctionFallback(diagnostics, group, 'endpoint heights disagree');
+      continue;
+    }
+
+    const ordered = [...group].sort((a, b) => {
+      const angleA = Math.atan2(a.away[1], a.away[0]);
+      const angleB = Math.atan2(b.away[1], b.away[0]);
+      if (!near(angleA, angleB, PARALLEL_EPSILON)) return angleA - angleB;
+      return a.wall.id.localeCompare(b.wall.id) || a.endpoint.localeCompare(b.endpoint);
+    });
+    const candidates = new Map<JunctionRef, { left: RuntimeVec2; right: RuntimeVec2 }>();
+    const junctionCenter: RuntimeVec2 = [
+      group.reduce((sum, ref) => sum + ref.point[0], 0) / group.length,
+      group.reduce((sum, ref) => sum + ref.point[1], 0) / group.length,
+    ];
+    const maxHalfThickness = Math.max(...group.map(ref => ref.halfThickness));
+    const miterLimit = Math.max(JOIN_POINT_EPSILON * 10, maxHalfThickness * MITER_LIMIT_FACTOR);
+    let failed = false;
+
+    for (let index = 0; index < ordered.length; index += 1) {
+      const current = ordered[index];
+      const next = ordered[(index + 1) % ordered.length];
+      const previous = ordered[(index - 1 + ordered.length) % ordered.length];
+      const left = lineIntersectionOrCoincident(current.leftPoint, current.away, next.rightPoint, next.away);
+      const right = lineIntersectionOrCoincident(current.rightPoint, current.away, previous.leftPoint, previous.away);
+      if (
+        !left || !right ||
+        distance2(junctionCenter, left) > miterLimit ||
+        distance2(junctionCenter, right) > miterLimit
+      ) {
+        failed = true;
+        break;
+      }
+      candidates.set(current, { left, right });
+    }
+
+    if (failed || candidates.size !== ordered.length) {
+      pushJunctionFallback(diagnostics, group, 'offset boundaries do not form a bounded deterministic miter');
+      continue;
+    }
+
+    for (const ref of ordered) {
+      const candidate = candidates.get(ref)!;
+      const join = joins.get(ref.wall.id)!;
+      const endpointJoin = join[ref.endpoint];
+      endpointJoin.cap = false;
+      endpointJoin[ref.leftKey] = candidate.left;
+      endpointJoin[ref.rightKey] = candidate.right;
+    }
+  }
+
+  return joins;
+}
+
+function endpointOverride(join: WallJoin, profile: RuntimeWallPathProfile, distance: number, side: WallSide) {
+  if (near(distance, 0)) return join.start[side];
+  if (near(distance, profile.length)) return join.end[side];
+  return undefined;
+}
+
+function sidePlanPoint(
+  profile: RuntimeWallPathProfile,
+  join: WallJoin,
+  distance: number,
+  halfThickness: number,
+  side: WallSide,
+): RuntimeVec2 {
+  const override = endpointOverride(join, profile, distance, side);
+  if (override) return override;
+  const sample = profile.sampleDistance(distance);
+  const sign = side === 'front' ? 1 : -1;
+  return [
+    sample.point[0] + sample.normal[0] * halfThickness * sign,
+    sample.point[1] + sample.normal[1] * halfThickness * sign,
+  ];
+}
+
+function wallPoint(
+  profile: RuntimeWallPathProfile,
+  join: WallJoin,
+  floorElevation: number,
+  halfThickness: number,
+  distance: number,
+  y: number,
+  side: WallSide,
+): RuntimeVec3 {
+  const point = sidePlanPoint(profile, join, distance, halfThickness, side);
+  return [point[0], floorElevation + y, point[1]];
+}
+
+function sideNormal(profile: RuntimeWallPathProfile, distance: number, side: WallSide): RuntimeVec3 {
+  const sample = profile.sampleDistance(distance);
+  const sign = side === 'front' ? 1 : -1;
+  return [sample.normal[0] * sign, 0, sample.normal[1] * sign];
+}
+
+function compileWall(
   scene: Plan2WorldRuntimeSceneV1,
   wall: RuntimeWallEntity,
+  profile: RuntimeWallPathProfile,
+  join: WallJoin,
   floorElevation: number,
   diagnostics: ArchitectureMeshDiagnostic[],
 ): ArchitectureMeshPrimitive | null {
@@ -229,179 +506,146 @@ function compileStraightWall(
     diagnostics.push({
       code: 'unsupported-wall-boundary',
       entityId: wall.id,
-      message: `Wall boundary ${wall.boundaryType} is not part of architecture mesher v0.`,
+      message: `Wall boundary ${wall.boundaryType} is not supported by the architecture mesher.`,
     });
     return null;
   }
-  if (wall.path.control) {
-    diagnostics.push({
-      code: 'unsupported-curved-wall',
-      entityId: wall.id,
-      message: `Curved wall ${wall.id} is preserved semantically but is not tessellated by architecture mesher v0.`,
-    });
-    return null;
-  }
-
-  const dx = wall.path.end[0] - wall.path.start[0];
-  const dz = wall.path.end[1] - wall.path.start[1];
-  const length = Math.hypot(dx, dz);
-  if (
-    length <= EPSILON || wall.thickness <= EPSILON || wall.startHeight <= EPSILON || wall.endHeight <= EPSILON ||
-    !Number.isFinite(length) || !Number.isFinite(wall.thickness) ||
-    !Number.isFinite(wall.startHeight) || !Number.isFinite(wall.endHeight)
-  ) {
+  if (!isMesheableWall(wall, profile)) {
     diagnostics.push({ code: 'degenerate-wall', entityId: wall.id, message: `Wall ${wall.id} has degenerate presentation dimensions.` });
     return null;
   }
 
-  const frame: WallFrame = {
-    length,
-    tx: dx / length,
-    tz: dz / length,
-    nx: -dz / length,
-    nz: dx / length,
-    floorElevation,
-  };
-  const openings = collectOpenings(scene, wall, frame, diagnostics);
+  const openings = collectOpenings(scene, wall, profile, diagnostics);
   if (!openings) return null;
 
   const builder: MeshBuilder = { positions: [], normals: [], uvs: [], indices: [] };
   const half = wall.thickness / 2;
-  const cuts = uniqueSorted([0, length, ...openings.flatMap(opening => [opening.x0, opening.x1])]);
-  const frontNormal = localNormal(frame, 0, 0, 1);
-  const backNormal = localNormal(frame, 0, 0, -1);
-  const flatUpNormal = localNormal(frame, 0, 1, 0);
-  const downNormal = localNormal(frame, 0, -1, 0);
-  const slope = (wall.endHeight - wall.startHeight) / length;
-  const topNormalScale = 1 / Math.hypot(slope, 1);
-  const topNormal = localNormal(frame, -slope * topNormalScale, topNormalScale, 0);
+  const cuts = uniqueSorted([
+    0,
+    profile.length,
+    ...profile.nodes.map(node => node.distance),
+    ...openings.flatMap(opening => [opening.x0, opening.x1]),
+  ]);
 
   for (let index = 0; index < cuts.length - 1; index += 1) {
     const x0 = cuts[index], x1 = cuts[index + 1];
     if (x1 - x0 <= EPSILON) continue;
-    const top0 = wallHeightAt(wall, frame, x0), top1 = wallHeightAt(wall, frame, x1);
+    const top0 = wallHeightAt(profile, x0), top1 = wallHeightAt(profile, x1);
     const spans = solidSpans(top0, top1, openingsAtStrip(openings, x0, x1));
 
     for (const span of spans) {
       if (Math.max(span.topA, span.topB) <= span.bottom + EPSILON) continue;
-      addQuad(builder,
+      addQuadWithNormals(builder,
         [
-          localPoint(wall, frame, x0, span.bottom, half),
-          localPoint(wall, frame, x1, span.bottom, half),
-          localPoint(wall, frame, x1, span.topB, half),
-          localPoint(wall, frame, x0, span.topA, half),
-        ], frontNormal,
+          wallPoint(profile, join, floorElevation, half, x0, span.bottom, 'front'),
+          wallPoint(profile, join, floorElevation, half, x1, span.bottom, 'front'),
+          wallPoint(profile, join, floorElevation, half, x1, span.topB, 'front'),
+          wallPoint(profile, join, floorElevation, half, x0, span.topA, 'front'),
+        ],
+        [
+          sideNormal(profile, x0, 'front'),
+          sideNormal(profile, x1, 'front'),
+          sideNormal(profile, x1, 'front'),
+          sideNormal(profile, x0, 'front'),
+        ],
         [[x0, span.bottom], [x1, span.bottom], [x1, span.topB], [x0, span.topA]],
       );
-      addQuad(builder,
+      addQuadWithNormals(builder,
         [
-          localPoint(wall, frame, x1, span.bottom, -half),
-          localPoint(wall, frame, x0, span.bottom, -half),
-          localPoint(wall, frame, x0, span.topA, -half),
-          localPoint(wall, frame, x1, span.topB, -half),
-        ], backNormal,
+          wallPoint(profile, join, floorElevation, half, x1, span.bottom, 'back'),
+          wallPoint(profile, join, floorElevation, half, x0, span.bottom, 'back'),
+          wallPoint(profile, join, floorElevation, half, x0, span.topA, 'back'),
+          wallPoint(profile, join, floorElevation, half, x1, span.topB, 'back'),
+        ],
+        [
+          sideNormal(profile, x1, 'back'),
+          sideNormal(profile, x0, 'back'),
+          sideNormal(profile, x0, 'back'),
+          sideNormal(profile, x1, 'back'),
+        ],
         [[x1, span.bottom], [x0, span.bottom], [x0, span.topA], [x1, span.topB]],
       );
     }
 
     if (spans.some(span => near(span.topA, top0) && near(span.topB, top1))) {
-      addQuad(builder,
-        [
-          localPoint(wall, frame, x0, top0, -half),
-          localPoint(wall, frame, x0, top0, half),
-          localPoint(wall, frame, x1, top1, half),
-          localPoint(wall, frame, x1, top1, -half),
-        ], topNormal,
-        [[x0, 0], [x0, wall.thickness], [x1, wall.thickness], [x1, 0]],
-      );
+      const points: [RuntimeVec3, RuntimeVec3, RuntimeVec3, RuntimeVec3] = [
+        wallPoint(profile, join, floorElevation, half, x0, top0, 'back'),
+        wallPoint(profile, join, floorElevation, half, x0, top0, 'front'),
+        wallPoint(profile, join, floorElevation, half, x1, top1, 'front'),
+        wallPoint(profile, join, floorElevation, half, x1, top1, 'back'),
+      ];
+      addFaceQuad(builder, points, [[x0, 0], [x0, wall.thickness], [x1, wall.thickness], [x1, 0]]);
     }
 
     if (spans.some(span => near(span.bottom, 0))) {
-      addQuad(builder,
-        [
-          localPoint(wall, frame, x0, 0, -half),
-          localPoint(wall, frame, x1, 0, -half),
-          localPoint(wall, frame, x1, 0, half),
-          localPoint(wall, frame, x0, 0, half),
-        ], downNormal,
-        [[x0, 0], [x1, 0], [x1, wall.thickness], [x0, wall.thickness]],
-      );
+      const points: [RuntimeVec3, RuntimeVec3, RuntimeVec3, RuntimeVec3] = [
+        wallPoint(profile, join, floorElevation, half, x0, 0, 'back'),
+        wallPoint(profile, join, floorElevation, half, x1, 0, 'back'),
+        wallPoint(profile, join, floorElevation, half, x1, 0, 'front'),
+        wallPoint(profile, join, floorElevation, half, x0, 0, 'front'),
+      ];
+      addFaceQuad(builder, points, [[x0, 0], [x1, 0], [x1, wall.thickness], [x0, wall.thickness]]);
     }
   }
 
-  for (const [x, normalX] of [[0, -1], [length, 1]] as const) {
-    const top = wallHeightAt(wall, frame, x);
-    const normal = localNormal(frame, normalX, 0, 0);
+  for (const [x, endpoint] of [[0, join.start], [profile.length, join.end]] as const) {
+    if (!endpoint.cap) continue;
+    const top = wallHeightAt(profile, x);
     for (const span of solidSpans(top, top, openingsAtX(openings, x))) {
-      if (normalX < 0) {
-        addQuad(builder,
-          [
-            localPoint(wall, frame, x, span.bottom, -half),
-            localPoint(wall, frame, x, span.bottom, half),
-            localPoint(wall, frame, x, span.topA, half),
-            localPoint(wall, frame, x, span.topA, -half),
-          ], normal,
-          [[0, span.bottom], [wall.thickness, span.bottom], [wall.thickness, span.topA], [0, span.topA]],
-        );
-      } else {
-        addQuad(builder,
-          [
-            localPoint(wall, frame, x, span.bottom, half),
-            localPoint(wall, frame, x, span.bottom, -half),
-            localPoint(wall, frame, x, span.topA, -half),
-            localPoint(wall, frame, x, span.topA, half),
-          ], normal,
-          [[0, span.bottom], [wall.thickness, span.bottom], [wall.thickness, span.topA], [0, span.topA]],
-        );
-      }
+      const points: [RuntimeVec3, RuntimeVec3, RuntimeVec3, RuntimeVec3] = near(x, 0)
+        ? [
+            wallPoint(profile, join, floorElevation, half, x, span.bottom, 'back'),
+            wallPoint(profile, join, floorElevation, half, x, span.bottom, 'front'),
+            wallPoint(profile, join, floorElevation, half, x, span.topA, 'front'),
+            wallPoint(profile, join, floorElevation, half, x, span.topA, 'back'),
+          ]
+        : [
+            wallPoint(profile, join, floorElevation, half, x, span.bottom, 'front'),
+            wallPoint(profile, join, floorElevation, half, x, span.bottom, 'back'),
+            wallPoint(profile, join, floorElevation, half, x, span.topA, 'back'),
+            wallPoint(profile, join, floorElevation, half, x, span.topA, 'front'),
+          ];
+      addFaceQuad(builder, points, [[0, span.bottom], [wall.thickness, span.bottom], [wall.thickness, span.topA], [0, span.topA]]);
     }
   }
 
   for (const opening of openings) {
     if (opening.x0 > EPSILON) {
-      addQuad(builder,
-        [
-          localPoint(wall, frame, opening.x0, opening.y0, half),
-          localPoint(wall, frame, opening.x0, opening.y0, -half),
-          localPoint(wall, frame, opening.x0, opening.y1, -half),
-          localPoint(wall, frame, opening.x0, opening.y1, half),
-        ], localNormal(frame, 1, 0, 0),
-        [[0, opening.y0], [wall.thickness, opening.y0], [wall.thickness, opening.y1], [0, opening.y1]],
-      );
+      const points: [RuntimeVec3, RuntimeVec3, RuntimeVec3, RuntimeVec3] = [
+        wallPoint(profile, join, floorElevation, half, opening.x0, opening.y0, 'front'),
+        wallPoint(profile, join, floorElevation, half, opening.x0, opening.y0, 'back'),
+        wallPoint(profile, join, floorElevation, half, opening.x0, opening.y1, 'back'),
+        wallPoint(profile, join, floorElevation, half, opening.x0, opening.y1, 'front'),
+      ];
+      addFaceQuad(builder, points, [[0, opening.y0], [wall.thickness, opening.y0], [wall.thickness, opening.y1], [0, opening.y1]]);
     }
-    if (opening.x1 < length - EPSILON) {
-      addQuad(builder,
-        [
-          localPoint(wall, frame, opening.x1, opening.y0, -half),
-          localPoint(wall, frame, opening.x1, opening.y0, half),
-          localPoint(wall, frame, opening.x1, opening.y1, half),
-          localPoint(wall, frame, opening.x1, opening.y1, -half),
-        ], localNormal(frame, -1, 0, 0),
-        [[0, opening.y0], [wall.thickness, opening.y0], [wall.thickness, opening.y1], [0, opening.y1]],
-      );
+    if (opening.x1 < profile.length - EPSILON) {
+      const points: [RuntimeVec3, RuntimeVec3, RuntimeVec3, RuntimeVec3] = [
+        wallPoint(profile, join, floorElevation, half, opening.x1, opening.y0, 'back'),
+        wallPoint(profile, join, floorElevation, half, opening.x1, opening.y0, 'front'),
+        wallPoint(profile, join, floorElevation, half, opening.x1, opening.y1, 'front'),
+        wallPoint(profile, join, floorElevation, half, opening.x1, opening.y1, 'back'),
+      ];
+      addFaceQuad(builder, points, [[0, opening.y0], [wall.thickness, opening.y0], [wall.thickness, opening.y1], [0, opening.y1]]);
     }
     if (opening.y0 > EPSILON) {
-      addQuad(builder,
-        [
-          localPoint(wall, frame, opening.x0, opening.y0, -half),
-          localPoint(wall, frame, opening.x0, opening.y0, half),
-          localPoint(wall, frame, opening.x1, opening.y0, half),
-          localPoint(wall, frame, opening.x1, opening.y0, -half),
-        ], flatUpNormal,
-        [[opening.x0, 0], [opening.x0, wall.thickness], [opening.x1, wall.thickness], [opening.x1, 0]],
-      );
+      const points: [RuntimeVec3, RuntimeVec3, RuntimeVec3, RuntimeVec3] = [
+        wallPoint(profile, join, floorElevation, half, opening.x0, opening.y0, 'back'),
+        wallPoint(profile, join, floorElevation, half, opening.x0, opening.y0, 'front'),
+        wallPoint(profile, join, floorElevation, half, opening.x1, opening.y0, 'front'),
+        wallPoint(profile, join, floorElevation, half, opening.x1, opening.y0, 'back'),
+      ];
+      addFaceQuad(builder, points, [[opening.x0, 0], [opening.x0, wall.thickness], [opening.x1, wall.thickness], [opening.x1, 0]]);
     }
-    const maxTop = Math.max(wallHeightAt(wall, frame, opening.x0), wallHeightAt(wall, frame, opening.x1));
+    const maxTop = Math.max(wallHeightAt(profile, opening.x0), wallHeightAt(profile, opening.x1));
     if (opening.y1 < maxTop - EPSILON) {
-      addQuad(builder,
-        [
-          localPoint(wall, frame, opening.x0, opening.y1, -half),
-          localPoint(wall, frame, opening.x1, opening.y1, -half),
-          localPoint(wall, frame, opening.x1, opening.y1, half),
-          localPoint(wall, frame, opening.x0, opening.y1, half),
-        ], downNormal,
-        [[opening.x0, 0], [opening.x1, 0], [opening.x1, wall.thickness], [opening.x0, wall.thickness]],
-      );
+      const points: [RuntimeVec3, RuntimeVec3, RuntimeVec3, RuntimeVec3] = [
+        wallPoint(profile, join, floorElevation, half, opening.x0, opening.y1, 'back'),
+        wallPoint(profile, join, floorElevation, half, opening.x1, opening.y1, 'back'),
+        wallPoint(profile, join, floorElevation, half, opening.x1, opening.y1, 'front'),
+        wallPoint(profile, join, floorElevation, half, opening.x0, opening.y1, 'front'),
+      ];
+      addFaceQuad(builder, points, [[opening.x0, 0], [opening.x1, 0], [opening.x1, wall.thickness], [opening.x0, wall.thickness]]);
     }
   }
 
@@ -418,15 +662,18 @@ export function compileArchitectureMesh(scene: Plan2WorldRuntimeSceneV1): Archit
   const diagnostics: ArchitectureMeshDiagnostic[] = [];
   const primitives: ArchitectureMeshPrimitive[] = [];
   const floorElevations = new Map(scene.floors.map(floor => [floor.id, floor.elevation]));
+  const walls = scene.entities.filter((entity): entity is RuntimeWallEntity => entity.kind === 'wall');
+  const profiles = new Map(walls.map(wall => [wall.id, compileRuntimeWallPathProfile(wall)]));
+  const joins = compileWallJunctions(walls, profiles, diagnostics);
 
-  for (const entity of scene.entities) {
-    if (entity.kind !== 'wall') continue;
-    const floorElevation = floorElevations.get(entity.floorId);
+  for (const wall of walls) {
+    const floorElevation = floorElevations.get(wall.floorId);
     if (floorElevation === undefined) {
-      diagnostics.push({ code: 'degenerate-wall', entityId: entity.id, message: `Wall ${entity.id} references missing floor ${entity.floorId}.` });
+      diagnostics.push({ code: 'degenerate-wall', entityId: wall.id, message: `Wall ${wall.id} references missing floor ${wall.floorId}.` });
       continue;
     }
-    const primitive = compileStraightWall(scene, entity, floorElevation, diagnostics);
+    const profile = profiles.get(wall.id)!;
+    const primitive = compileWall(scene, wall, profile, joins.get(wall.id) ?? emptyWallJoin(), floorElevation, diagnostics);
     if (primitive) primitives.push(primitive);
   }
 
