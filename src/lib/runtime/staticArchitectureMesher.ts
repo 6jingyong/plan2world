@@ -132,18 +132,18 @@ function compileRoundColumn(entity: RuntimeColumnEntity): StaticArchitecturePrim
     const p1: RuntimeVec3 = [entity.position[0] + Math.cos(a1) * radius, bottom, entity.position[2] + Math.sin(a1) * radius];
     const p2: RuntimeVec3 = [p1[0], top, p1[2]];
     const p3: RuntimeVec3 = [p0[0], top, p0[2]];
-    addQuad(builder, [p0, p1, p2, p3], [[index / CYLINDER_SEGMENTS, 0], [(index + 1) / CYLINDER_SEGMENTS, 0], [(index + 1) / CYLINDER_SEGMENTS, entity.height], [index / CYLINDER_SEGMENTS, entity.height]]);
+    addQuad(builder, [p1, p0, p3, p2], [[(index + 1) / CYLINDER_SEGMENTS, 0], [index / CYLINDER_SEGMENTS, 0], [index / CYLINDER_SEGMENTS, entity.height], [(index + 1) / CYLINDER_SEGMENTS, entity.height]]);
 
     const topBase = builder.positions.length;
-    builder.positions.push([entity.position[0], top, entity.position[2]], p3, p2);
+    builder.positions.push([entity.position[0], top, entity.position[2]], p2, p3);
     builder.normals.push([0, 1, 0], [0, 1, 0], [0, 1, 0]);
-    builder.uvs.push([0.5, 0.5], [0, 0], [1, 0]);
+    builder.uvs.push([0.5, 0.5], [1, 0], [0, 0]);
     builder.indices.push(topBase, topBase + 1, topBase + 2);
 
     const bottomBase = builder.positions.length;
-    builder.positions.push([entity.position[0], bottom, entity.position[2]], p1, p0);
+    builder.positions.push([entity.position[0], bottom, entity.position[2]], p0, p1);
     builder.normals.push([0, -1, 0], [0, -1, 0], [0, -1, 0]);
-    builder.uvs.push([0.5, 0.5], [1, 0], [0, 0]);
+    builder.uvs.push([0.5, 0.5], [0, 0], [1, 0]);
     builder.indices.push(bottomBase, bottomBase + 1, bottomBase + 2);
   }
   return {
