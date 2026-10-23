@@ -1,19 +1,30 @@
 extends Node3D
 
-var _loader: P2WRuntimeLoader
+const RUNTIME_ARTIFACTS := preload("res://scripts/runtime_artifacts.gd")
+const RUNTIME_LOADER := preload("res://scripts/runtime_loader.gd")
+const RUNTIME_PROXY_RENDERER := preload("res://scripts/runtime_proxy_renderer.gd")
 
 func _ready() -> void:
 	_build_environment()
-	_loader = P2WRuntimeLoader.new()
-	add_child(_loader)
-	var runtime_path := _runtime_path_from_args()
-	var architecture_path := _architecture_path_from_args(runtime_path)
-	var data := _loader.load_runtime(runtime_path)
+	var artifacts := RUNTIME_ARTIFACTS.new()
+	var runtime_path := artifacts.runtime_path_from_args()
+	var architecture_path := artifacts.architecture_path_from_args(runtime_path)
+	var data := artifacts.load_runtime(runtime_path)
 	if data.is_empty():
 		_show_status("Could not load runtime scene:\n%s" % runtime_path, true)
 		return
-	var presentation_loaded := _load_architecture(architecture_path)
-	var stats := _loader.build(data, self, presentation_loaded)
+
+	var architecture_scene = artifacts.load_architecture(architecture_path)
+	var presentation_loaded := architecture_scene != null
+	if presentation_loaded:
+		add_child(architecture_scene)
+
+	var loader := RUNTIME_LOADER.new()
+	var build_result := loader.build(data, self)
+	var proxy_renderer := RUNTIME_PROXY_RENDERER.new()
+	var presentation_stats := proxy_renderer.render(data, self, build_result, presentation_loaded)
+	var runtime_stats: Dictionary = build_result.get("stats", {})
+
 	var spawn := _choose_spawn(data)
 	var player := P2WPlayer.new()
 	player.name = "Player"
@@ -24,54 +35,16 @@ func _ready() -> void:
 		"WASD move  ·  Ctrl slow  ·  Shift fast  ·  E door  ·  Esc mouse\nRuntime: %s\nArchitecture: %s" % [runtime_path, presentation_status],
 		false,
 	)
-	print("Plan2World runtime loaded: ", runtime_path, " architecture=", presentation_status, " ", stats)
-
-func _runtime_path_from_args() -> String:
-	var args := OS.get_cmdline_user_args()
-	for i in range(args.size()):
-		var arg := str(args[i])
-		if arg.begins_with("--scene="):
-			return arg.trim_prefix("--scene=")
-		if arg == "--scene" and i + 1 < args.size():
-			return str(args[i + 1])
-	return "res://demo/runtime-scene.json"
-
-func _architecture_path_from_args(runtime_path: String) -> String:
-	var args := OS.get_cmdline_user_args()
-	for i in range(args.size()):
-		var arg := str(args[i])
-		if arg.begins_with("--architecture="):
-			return arg.trim_prefix("--architecture=")
-		if arg == "--architecture" and i + 1 < args.size():
-			return str(args[i + 1])
-	return _default_architecture_path(runtime_path)
-
-func _default_architecture_path(runtime_path: String) -> String:
-	const RUNTIME_SUFFIX := ".runtime.json"
-	const JSON_SUFFIX := ".json"
-	if runtime_path.ends_with(RUNTIME_SUFFIX):
-		return runtime_path.left(runtime_path.length() - RUNTIME_SUFFIX.length()) + ".architecture.glb"
-	if runtime_path.ends_with(JSON_SUFFIX):
-		return runtime_path.left(runtime_path.length() - JSON_SUFFIX.length()) + ".architecture.glb"
-	return runtime_path + ".architecture.glb"
-
-func _load_architecture(path: String) -> bool:
-	if not FileAccess.file_exists(path):
-		print("Plan2World architecture GLB not found; using runtime proxy visuals: ", path)
-		return false
-	var document := GLTFDocument.new()
-	var state := GLTFState.new()
-	var error := document.append_from_file(path, state)
-	if error != OK:
-		push_warning("Plan2World architecture GLB could not be loaded (%s): %s" % [error_string(error), path])
-		return false
-	var scene := document.generate_scene(state)
-	if scene == null:
-		push_warning("Plan2World architecture GLB generated no scene: %s" % path)
-		return false
-	scene.name = "Architecture"
-	add_child(scene)
-	return true
+	print(
+		"Plan2World runtime loaded: ",
+		runtime_path,
+		" architecture=",
+		presentation_status,
+		" runtime=",
+		runtime_stats,
+		" presentation=",
+		presentation_stats,
+	)
 
 func _choose_spawn(data: Dictionary) -> Vector3:
 	var floors: Array = data.get("floors", [])
@@ -129,7 +102,7 @@ func _show_status(text: String, error: bool) -> void:
 	add_child(layer)
 	var panel := ColorRect.new()
 	panel.position = Vector2(16, 16)
-	panel.size = Vector2(840, 86 if not error else 86)
+	panel.size = Vector2(840, 86)
 	panel.color = Color(0.05, 0.06, 0.08, 0.78 if not error else 0.9)
 	layer.add_child(panel)
 	var label := Label.new()

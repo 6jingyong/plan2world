@@ -1,8 +1,8 @@
-# Plan2World Godot runtime spike
+# Plan2World Godot runtime
 
 This directory is a deliberately small consumer of `plan2world-runtime-v1` plus its sibling `architecture.glb` presentation artifact.
 It is **not** a second authoring model and must never become the source of truth for a house.
-The editable Plan2World `Project` remains authoritative; this viewer only consumes compiled runtime artifacts.
+The editable Plan2World `Project` remains authoritative; this runtime only consumes compiled artifacts.
 
 ## Target
 
@@ -24,7 +24,7 @@ The editable Plan2World `Project` remains authoritative; this viewer only consum
    - `E`: interact with a swing door
    - `Esc`: release/capture mouse
 
-The default scene is `demo/runtime-scene.json`, so the Godot spike can still be tested without the web app, AI service, or external GLB. When no architecture GLB is present the runtime falls back to its old proxy visuals.
+The default scene is `demo/runtime-scene.json`, so the runtime can still be tested without the web app, AI service, or external GLB. When no architecture GLB is present, `runtime_proxy_renderer.gd` supplies compatibility visuals only; those meshes are not canonical presentation data.
 
 ## Compile an existing native Plan2World project
 
@@ -37,7 +37,7 @@ npm ci
 npm run runtime:export -- "C:\path\house.project.json" "C:\path\house.runtime.json"
 ```
 
-The CLI now emits two sibling artifacts from the same deterministic compilation path:
+The CLI emits two sibling artifacts from one deterministic compilation path:
 
 ```text
 house.runtime.json        # semantics, collision, interaction
@@ -46,7 +46,7 @@ house.architecture.glb    # presentation geometry
 
 The runtime output path is optional. Without it, `house.project.json` becomes `house.project.runtime.json`, with `house.project.architecture.glb` beside it. A third argument can explicitly choose the GLB path.
 
-The CLI reads the native file through `readProject()` and then uses one shared `compileRuntimeArtifacts()` boundary:
+The CLI reads the native file through `readProject()` and then uses the shared `compileRuntimeArtifacts()` boundary:
 
 ```text
 native Project
@@ -56,7 +56,7 @@ native Project
   -> architecture.glb
 ```
 
-No AI or network service is invoked, and there is no browser-only converter anymore.
+No AI or network service is invoked, and there is no browser-only runtime exporter.
 
 ## Load an external runtime scene
 
@@ -87,35 +87,45 @@ existing native Project JSON
 
 Godot consumes the two artifacts for different jobs:
 
-- `architecture.glb`: walls plus room floor/ceiling presentation geometry
-- `plan2world-runtime-v1`: player spawn/profile, collision, doors, windows, furniture and interaction semantics
+- `architecture.glb`: architectural presentation geometry;
+- `plan2world-runtime-v1`: player spawn/profile, collision, doors, windows, furniture and interaction semantics.
 
-When the GLB loads successfully, the runtime loader stops drawing duplicate wall boxes and room-floor debug meshes. Collision remains generated from runtime JSON, while door leaves, window markers, furniture and columns remain semantic/runtime proxies until their own asset pipeline exists.
+Collision is always generated from runtime JSON, never inferred from GLB. When the GLB loads successfully, compatibility wall boxes and room-floor meshes are suppressed. Door leaves, window markers, furniture and columns remain semantic/runtime proxies until their own presentation asset pipeline exists.
 
-The adapter intentionally delegates engine work to Godot:
+The scripts are intentionally split by responsibility:
 
-- player body: `CharacterBody3D`
-- collision: runtime-v1 primitives -> Godot `CollisionShape3D`
-- architecture display: runtime-loaded glTF 2.0 binary via `GLTFDocument`/`GLTFState`
-- interactive swing door: `AnimatableBody3D`
-- sliding along walls and collision response: `move_and_slide()`
-- mouse look and three movement speeds live only in the runtime backend
+- `runtime_artifacts.gd`: command-line paths, runtime JSON loading/schema gate, external GLB import;
+- `runtime_loader.gd`: runtime semantics -> Godot collision and interaction nodes;
+- `runtime_proxy_renderer.gd`: temporary compatibility presentation only;
+- `player.gd` / `door.gd`: engine-side runtime behavior;
+- `main.gd`: thin orchestration, spawn and demo shell.
 
-No Plan2World wall topology or room detection is recomputed here. The runtime compiler and architecture mesher have already resolved those semantics.
+This split is deliberate: future removal of proxy presentation must not require rewriting semantic loading or collision.
+
+The adapter delegates engine work to Godot:
+
+- player body: `CharacterBody3D`;
+- collision: runtime-v1 primitives -> Godot `CollisionShape3D`;
+- architecture display: runtime-loaded glTF 2.0 binary via `GLTFDocument`/`GLTFState`;
+- interactive swing door: `AnimatableBody3D`;
+- movement/collision response: `move_and_slide()`;
+- mouse look and movement speeds live only in the runtime backend.
+
+No Plan2World wall topology, room detection, geometry repair, or AI reconstruction is recomputed here. The runtime compiler and architecture mesher have already resolved those semantics.
 
 ## Deliberate limitations
 
 This is still an architecture/runtime milestone, not a rendering-quality milestone.
 
-- only `kind: "swing"` doors are interactive; slide and unsupported motions remain closed blockers
-- double/french swing doors are represented as one leaf for now
-- curved walls are still reported by the architecture mesher as unsupported
-- wall junction/miter cleanup is not implemented yet
-- door/window leaves and panes remain Godot proxy geometry; GLB currently owns the surrounding architectural openings
-- stairs are not yet physical
-- player motion is planar and holds the current floor elevation; gravity/floor-body traversal is deferred
-- furniture uses collider-sized proxy boxes; furniture GLB asset resolution is deferred
-- materials and lighting are intentionally basic
+- only `kind: "swing"` doors are interactive; slide and unsupported motions remain closed blockers;
+- double/french swing doors are represented as one leaf for now;
+- curved walls are still reported by the architecture mesher as unsupported;
+- wall junction/miter cleanup is not implemented yet;
+- door/window leaves and panes remain Godot proxy geometry; GLB currently owns the surrounding architectural openings;
+- stairs are not yet physical;
+- player motion is planar and holds the current floor elevation; gravity/floor-body traversal is deferred;
+- furniture uses collider-sized proxy boxes; furniture GLB asset resolution is deferred;
+- materials and lighting are intentionally basic.
 
 ## Adapter boundary
 
