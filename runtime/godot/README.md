@@ -92,6 +92,8 @@ Godot consumes the two artifacts for different jobs:
 
 Collision is always generated from runtime JSON, never inferred from GLB. When the GLB loads successfully, compatibility wall boxes and room-floor meshes are suppressed. Door leaves, window markers, furniture and columns remain semantic/runtime proxies until their own presentation asset pipeline exists.
 
+The architecture GLB compiler now owns straight and quadratic wall tessellation, physical-width openings on curved paths, and compatible endpoint-network miters. Godot only imports the finished mesh; it does not reconstruct wall curves or junctions.
+
 The scripts are intentionally split by responsibility:
 
 - `runtime_artifacts.gd`: command-line paths, runtime JSON loading/schema gate, external GLB import;
@@ -119,8 +121,7 @@ This is still an architecture/runtime milestone, not a rendering-quality milesto
 
 - only `kind: "swing"` doors are interactive; slide and unsupported motions remain closed blockers;
 - double/french swing doors are represented as one leaf for now;
-- curved walls are still reported by the architecture mesher as unsupported;
-- wall junction/miter cleanup is not implemented yet;
+- wall junctions with incompatible endpoint heights or pathological/unbounded offset intersections retain closed caps and emit a compiler diagnostic;
 - door/window leaves and panes remain Godot proxy geometry; GLB currently owns the surrounding architectural openings;
 - stairs are not yet physical;
 - player motion is planar and holds the current floor elevation; gravity/floor-body traversal is deferred;
