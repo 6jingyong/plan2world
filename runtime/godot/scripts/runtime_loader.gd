@@ -7,6 +7,7 @@ var _column_material: StandardMaterial3D
 var _door_material: StandardMaterial3D
 var _window_material: StandardMaterial3D
 var _floor_material: StandardMaterial3D
+var _architecture_presentation_loaded := false
 
 func load_runtime(path: String) -> Dictionary:
 	var file := FileAccess.open(path, FileAccess.READ)
@@ -23,14 +24,16 @@ func load_runtime(path: String) -> Dictionary:
 		return {}
 	return data
 
-func build(data: Dictionary, root: Node3D) -> Dictionary:
+func build(data: Dictionary, root: Node3D, architecture_presentation_loaded := false) -> Dictionary:
+	_architecture_presentation_loaded = architecture_presentation_loaded
 	_init_materials()
 	var entities_by_id := {}
 	for raw_entity in data.get("entities", []):
 		if typeof(raw_entity) == TYPE_DICTIONARY:
 			entities_by_id[str(raw_entity.get("id", ""))] = raw_entity
 
-	_build_room_surfaces(data, root)
+	if not _architecture_presentation_loaded:
+		_build_room_surfaces(data, root)
 
 	var dynamic_colliders := {}
 	var static_count := 0
@@ -61,6 +64,7 @@ func build(data: Dictionary, root: Node3D) -> Dictionary:
 		"entity_count": entities_by_id.size(),
 		"static_collider_count": static_count,
 		"door_count": door_count,
+		"architecture_presentation_loaded": _architecture_presentation_loaded,
 	}
 
 func _init_materials() -> void:
@@ -112,7 +116,8 @@ func _build_static_box(collider: Dictionary, owner: Dictionary, root: Node3D) ->
 	collision_shape.shape = shape
 	body.add_child(collision_shape)
 
-	if bool(owner.get("visible", true)):
+	var hide_architecture_proxy := _architecture_presentation_loaded and str(owner.get("kind", "")) == "wall"
+	if bool(owner.get("visible", true)) and not hide_architecture_proxy:
 		var mesh := MeshInstance3D.new()
 		var box := BoxMesh.new()
 		box.size = shape.size

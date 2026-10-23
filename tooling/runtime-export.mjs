@@ -5,11 +5,17 @@ import process from 'node:process';
 import { createServer } from 'vite';
 
 function usage() {
-  console.log('Usage: npm run runtime:export -- <project.json> [output.runtime.json]');
+  console.log('Usage: npm run runtime:export -- <project.json> [output.runtime.json] [output.architecture.glb]');
 }
 
-function defaultOutputPath(inputPath) {
+function defaultRuntimePath(inputPath) {
   return inputPath.replace(/\.json$/i, '') + '.runtime.json';
+}
+
+function defaultArchitecturePath(runtimePath) {
+  if (/\.runtime\.json$/i.test(runtimePath)) return runtimePath.replace(/\.runtime\.json$/i, '.architecture.glb');
+  if (/\.json$/i.test(runtimePath)) return runtimePath.replace(/\.json$/i, '.architecture.glb');
+  return runtimePath + '.architecture.glb';
 }
 
 function messageOf(error) {
@@ -21,15 +27,17 @@ if (args.includes('--help') || args.includes('-h')) {
   usage();
   process.exit(0);
 }
-if (args.length < 1 || args.length > 2) {
+if (args.length < 1 || args.length > 3) {
   usage();
   process.exit(2);
 }
 
 const inputPath = path.resolve(args[0]);
-const outputPath = path.resolve(args[1] ?? defaultOutputPath(inputPath));
-if (inputPath === outputPath) {
-  console.error('Runtime export failed: input and output paths must be different.');
+const runtimePath = path.resolve(args[1] ?? defaultRuntimePath(inputPath));
+const architecturePath = path.resolve(args[2] ?? defaultArchitecturePath(runtimePath));
+const uniquePaths = new Set([inputPath, runtimePath, architecturePath]);
+if (uniquePaths.size !== 3) {
+  console.error('Runtime export failed: input, runtime output, and architecture output paths must be different.');
   process.exit(2);
 }
 
@@ -56,15 +64,21 @@ const vite = await createServer({
 });
 
 try {
-  const [{ readProject }, { compileRuntimeScene }] = await Promise.all([
-    vite.ssrLoadModule('/src/lib/utils/projectValidation.ts'),
-    vite.ssrLoadModule('/src/lib/runtime/compileRuntimeScene.ts'),
+  const { compileRuntimeArtifacts } = await vite.ssrLoadModule('/src/lib/runtime/runtimeArtifacts.ts');
+  const { runtime, architecture, architectureGlb } = compileRuntimeArtifacts(serializedProject);
+
+  await Promise.all([
+    fs.writeFile(runtimePath, `${JSON.stringify(runtime, null, 2)}\n`, 'utf8'),
+    fs.writeFile(architecturePath, architectureGlb),
   ]);
-  const project = readProject(serializedProject);
-  const runtime = compileRuntimeScene(project);
-  await fs.writeFile(outputPath, `${JSON.stringify(runtime, null, 2)}\n`, 'utf8');
-  console.log(`Wrote ${outputPath}`);
+
+  console.log(`Wrote ${runtimePath}`);
+  console.log(`Wrote ${architecturePath}`);
   console.log(`plan2world-runtime-v1: ${runtime.floors.length} floor(s), ${runtime.entities.length} entities, ${runtime.colliders.length} colliders`);
+  console.log(`architecture.glb: ${architecture.primitives.length} primitive(s), ${architecture.diagnostics.length} diagnostic(s)`);
+  for (const diagnostic of architecture.diagnostics) {
+    console.warn(`architecture warning [${diagnostic.code}] ${diagnostic.entityId}: ${diagnostic.message}`);
+  }
 } catch (error) {
   console.error(`Runtime export failed: ${messageOf(error)}`);
   process.exitCode = 1;

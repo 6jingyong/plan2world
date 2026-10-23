@@ -5,10 +5,11 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 describe('runtime export CLI', () => {
-  it('compiles a serialized native Project into plan2world-runtime-v1', async () => {
+  it('compiles a serialized native Project into runtime JSON and architecture GLB', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'plan2world-runtime-'));
     const input = path.join(dir, 'house.project.json');
-    const output = path.join(dir, 'house.runtime.json');
+    const runtimeOutput = path.join(dir, 'house.runtime.json');
+    const architectureOutput = path.join(dir, 'house.architecture.glb');
     const nativeProject = {
       id: 'project-cli',
       name: 'CLI runtime fixture',
@@ -42,13 +43,15 @@ describe('runtime export CLI', () => {
 
     try {
       await writeFile(input, JSON.stringify(nativeProject), 'utf8');
-      const stdout = execFileSync(process.execPath, ['tooling/runtime-export.mjs', input, output], {
+      const stdout = execFileSync(process.execPath, ['tooling/runtime-export.mjs', input, runtimeOutput], {
         cwd: process.cwd(),
         encoding: 'utf8',
       });
-      const runtime = JSON.parse(await readFile(output, 'utf8'));
+      const runtime = JSON.parse(await readFile(runtimeOutput, 'utf8'));
+      const glb = await readFile(architectureOutput);
 
       expect(stdout).toContain('plan2world-runtime-v1');
+      expect(stdout).toContain('architecture.glb');
       expect(runtime.schema).toBe('plan2world-runtime-v1');
       expect(runtime.floors[0].id).toBe('floor-1');
       expect(runtime.entities.some((entity: { id: string }) => entity.id === 'w1')).toBe(true);
@@ -56,6 +59,9 @@ describe('runtime export CLI', () => {
       expect(door?.hostWallId).toBe('w1');
       expect(door?.interaction?.kind).toBe('swing');
       expect(runtime.colliders.some((collider: { ownerId: string }) => collider.ownerId === 'd1')).toBe(true);
+      expect(glb.readUInt32LE(0)).toBe(0x46546c67);
+      expect(glb.readUInt32LE(4)).toBe(2);
+      expect(glb.readUInt32LE(8)).toBe(glb.byteLength);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
