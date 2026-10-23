@@ -27,9 +27,10 @@ func architecture_path_from_args(runtime_path: String) -> String:
 	return default_architecture_path(runtime_path)
 
 func default_architecture_path(runtime_path: String) -> String:
-	if runtime_path.ends_with(RUNTIME_SUFFIX):
+	var suffix_path := runtime_path.to_lower()
+	if suffix_path.ends_with(RUNTIME_SUFFIX):
 		return runtime_path.left(runtime_path.length() - RUNTIME_SUFFIX.length()) + ARCHITECTURE_SUFFIX
-	if runtime_path.ends_with(JSON_SUFFIX):
+	if suffix_path.ends_with(JSON_SUFFIX):
 		return runtime_path.left(runtime_path.length() - JSON_SUFFIX.length()) + ARCHITECTURE_SUFFIX
 	return runtime_path + ARCHITECTURE_SUFFIX
 
@@ -71,9 +72,10 @@ func _load_glb(path: String) -> Node:
 	return scene
 
 func default_assets_path(runtime_path: String) -> String:
-	if runtime_path.ends_with(RUNTIME_SUFFIX):
+	var suffix_path := runtime_path.to_lower()
+	if suffix_path.ends_with(RUNTIME_SUFFIX):
 		return runtime_path.left(runtime_path.length() - RUNTIME_SUFFIX.length()) + ".assets"
-	if runtime_path.ends_with(JSON_SUFFIX):
+	if suffix_path.ends_with(JSON_SUFFIX):
 		return runtime_path.left(runtime_path.length() - JSON_SUFFIX.length()) + ".assets"
 	return runtime_path + ".assets"
 

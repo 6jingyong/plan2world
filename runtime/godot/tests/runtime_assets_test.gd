@@ -39,6 +39,10 @@ func _bounds(node: Node3D, frame: Transform3D) -> AABB:
 
 func _run() -> void:
 	var artifacts := ARTIFACTS.new()
+	_check(artifacts.default_assets_path("House.RUNTIME.JSON") == "House.assets", "Asset path suffix must match CLI case handling")
+	_check(artifacts.default_architecture_path("House.RUNTIME.JSON") == "House.architecture.glb", "Architecture path suffix must match CLI case handling")
+	_check(artifacts.default_assets_path("House.JSON") == "House.assets", "Generic JSON asset path")
+	_check(artifacts.default_assets_path("House") == "House.assets", "Extensionless asset path")
 	var runtime_path := artifacts.runtime_path_from_args()
 	var data := artifacts.load_runtime(runtime_path)
 	var assets := artifacts.load_assets(runtime_path)
