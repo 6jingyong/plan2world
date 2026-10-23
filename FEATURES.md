@@ -27,15 +27,16 @@ This is a current capability summary, not a development diary.
 
 - `npm run runtime:export` reads an existing native Project without invoking AI or reopening the browser editor.
 - One deterministic compilation boundary emits `plan2world-runtime-v1` plus a sibling `architecture.glb`.
-- Runtime JSON owns engine-neutral semantics, collision and interaction contracts.
+- Runtime JSON owns engine-neutral semantics, collision and interaction contracts, including explicit triangulated room-floor collision.
 - `architecture.glb` owns deterministic architectural presentation geometry.
 - Straight and quadratic walls are meshed deterministically; curved openings keep quadratic `pathPosition` semantics while widths are applied in physical path distance.
 - Compatible endpoint wall networks are mitered across L/T/X/collinear junctions and hidden endpoint caps are removed.
 - The Godot adapter consumes both artifacts without recomputing topology or deriving collision from GLB.
+- Godot uses runtime floor triangles for grounded `CharacterBody3D` motion with gravity and floor snapping.
+- Swing and sliding/pocket doors are interactive `AnimatableBody3D` nodes; unsupported fold/overhead motions remain explicit closed blockers instead of being faked as hinges.
 - Missing GLB currently falls back to isolated proxy presentation so the built-in Godot demo remains usable.
-- Swing doors are interactive in Godot; slide/unsupported door motions remain explicit closed blockers rather than being faked as hinges.
 
-Representative tests include `tests/plan2world-draft.test.ts`, `tests/plan2world-reconstruction-assembly.test.ts`, `tests/imported-objects.test.ts`, `tests/runtime-compile.test.ts`, `tests/runtime-artifacts.test.ts`, `tests/runtime-architecture-mesher.test.ts`, `tests/runtime-room-surface-mesher.test.ts`, `tests/runtime-architecture-glb.test.ts`, `tests/runtime-export-cli.test.ts`, and focused browser regressions such as `tests/browser/quick-geometry-correction.spec.ts`.
+Representative runtime tests include `tests/runtime-scene.test.ts`, `tests/runtime-godot-boundary.test.ts`, `tests/runtime-architecture-mesher.test.ts`, `tests/runtime-room-surface-mesher.test.ts`, `tests/runtime-architecture-glb.test.ts`, and `tests/runtime-export-cli.test.ts`. Focused browser regressions include `tests/browser/quick-geometry-correction.spec.ts`.
 
 ## Fresh validation policy
 
@@ -51,4 +52,6 @@ When something fails, fix the earliest responsible layer rather than hand-editin
 - Registration consistency is not visual correctness.
 - Wall junctions with incompatible endpoint heights or unbounded/pathological offset intersections retain closed caps and emit a mesher diagnostic rather than being repaired.
 - Runtime presentation assets for doors/windows/furniture are still proxy geometry.
+- Stairs remain semantic/nonphysical, so continuous vertical traversal between floors is not implemented yet.
+- Bifold and garage/overhead door animation is not implemented; those leaves stay closed blockers.
 - Plan2World is not BIM, structural analysis or photorealistic reconstruction.
