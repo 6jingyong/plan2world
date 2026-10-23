@@ -1,4 +1,4 @@
-name: Web checks
+name: Core checks
 
 on:
   push:
@@ -54,9 +54,36 @@ jobs:
           NPM_CONFIG_INCLUDE: dev
       - run: npm audit --audit-level=high
 
+  # Runtime is now a first-class output. Keep this small and deterministic: use
+  # the exact supported Godot build, verify its checksum, parse/import the
+  # project, then boot the built-in compiled-runtime demo headlessly.
+  godot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GODOT_URL: https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip
+      GODOT_SHA256: cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4
+      GODOT_BIN: /tmp/godot/Godot_v4.7.2-stable_linux.x86_64
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Install pinned Godot 4.7.2
+        run: |
+          curl --fail --location --retry 3 --output /tmp/godot.zip "$GODOT_URL"
+          echo "$GODOT_SHA256  /tmp/godot.zip" | sha256sum --check --strict
+          mkdir -p /tmp/godot
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x "$GODOT_BIN"
+          "$GODOT_BIN" --version
+      - name: Parse and import Godot project
+        run: "$GODOT_BIN" --headless --path runtime/godot --editor --quit
+      - name: Boot built-in runtime demo
+        run: "$GODOT_BIN" --headless --path runtime/godot --quit-after 5
+
   # Full browser regression is useful after code reaches main, but it is too
-  # expensive and flaky to gate every small PR. Pull requests already run the
-  # deterministic type/unit/build checks above.
+  # expensive and flaky to gate every PR. Pull requests already run the
+  # deterministic type/unit/build checks above plus the headless runtime check.
   browser:
     if: github.event_name == 'push'
     needs: build
@@ -140,7 +167,7 @@ jobs:
 
   check:
     if: ${{ always() }}
-    needs: [build, audit, browser, benchmark]
+    needs: [build, audit, godot, browser, benchmark]
     runs-on: ubuntu-latest
     timeout-minutes: 1
     steps:
@@ -149,11 +176,13 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           BUILD_RESULT: ${{ needs.build.result }}
           AUDIT_RESULT: ${{ needs.audit.result }}
+          GODOT_RESULT: ${{ needs.godot.result }}
           BROWSER_RESULT: ${{ needs.browser.result }}
           BENCHMARK_RESULT: ${{ needs.benchmark.result }}
         run: |
           test "$BUILD_RESULT" = success
           test "$AUDIT_RESULT" = success
+          test "$GODOT_RESULT" = success
           if [ "$EVENT_NAME" = push ]; then
             test "$BROWSER_RESULT" = success
             test "$BENCHMARK_RESULT" = success
