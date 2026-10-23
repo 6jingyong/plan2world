@@ -30,9 +30,11 @@ Runtime adapters must not re-run room detection, reinterpret source evidence or 
 
 Adapters own any final engine-specific axis or quaternion conversion.
 
-## Floors and room surfaces
+## Floors, room surfaces and apertures
 
 Each floor contains its resolved elevation, optional walkthrough start and room surfaces. Room polygons and holes are compiled from native room analysis so a runtime backend never has to reproduce Plan2World room detection.
+
+A native room with `floorOpening: true` is an aperture, not a walkable surface. It still participates in native nesting so an enclosing room receives that polygon as a hole, but the runtime compiler does not emit the opening as a second room surface. This prevents presentation or collision code from filling a stairwell/shaft after the hole was correctly detected.
 
 A room may have `ceilingHeight: null` when the native boundary does not establish one uniform ceiling. Backends must not invent a ceiling from that null value.
 
@@ -45,9 +47,9 @@ The first contract carries only runtime-relevant native semantics:
 - `window`: host association, dimensions and closed pose;
 - `furniture`: semantic/catalog asset reference, transform and effective size;
 - `column`;
-- `stair`.
+- `stair`: authored footprint/type plus explicit traversal semantics.
 
-IDs remain stable native/runtime references. `floorId`, door `hostWallId` and collider `ownerId` refer back to compiled runtime objects rather than engine nodes.
+IDs remain stable native/runtime references. `floorId`, door `hostWallId`, stair `targetFloorId` and collider `ownerId` refer back to compiled runtime objects rather than engine nodes.
 
 ## Door interaction
 
@@ -99,36 +101,67 @@ Adapters should keep those leaves as closed blockers until they implement an int
 
 The door entity still retains `doorType`, `swingDirection` and `flipSide` as source semantics during this transition, but interaction behavior must come from the discriminated `interaction` object.
 
+## Stair traversal
+
+Stair traversal is also discriminated. Runtime adapters must consume `traversal` rather than deriving a destination floor or vertical shape from `stairType`, `riserCount`, Three.js geometry, or a render mesh.
+
+For a native straight stair, the compiler resolves the adjacent authored floor from ordered floor levels: `direction: "up"` targets the next floor and `direction: "down"` targets the previous floor. Explicit floor elevations are authoritative. If level ordering and elevation direction disagree, the stair stays unsupported rather than silently reversing itself.
+
+The native 2D UP/DN arrow also fixes which end of the footprint reaches the target. A supported straight stair receives:
+
+```json
+{
+  "kind": "ramp",
+  "targetFloorId": "floor-1",
+  "startElevation": 0.0,
+  "endElevation": 3.0
+}
+```
+
+The compiler emits a matching upward-wound `triangle-mesh` ramp collider. The ramp is intentionally a continuous physics surface: engines can use ordinary grounded character motion instead of needing engine-specific stair-step climbing heuristics. `riserCount` remains source semantics and may later support higher-fidelity presentation.
+
+L-shaped, U-shaped and spiral stairs are currently preserved as explicit unsupported traversal:
+
+```json
+{ "kind": "unsupported", "reason": "non-straight" }
+```
+
+Other unsupported reasons cover missing adjacent floors, contradictory target elevations and invalid native dimensions. Do not approximate those cases as straight ramps.
+
 ## Collision
 
 Collision is compiler-owned output rather than something each backend infers from render meshes.
 
+- room floors are deterministic upward-wound `triangle-mesh` surfaces with native room holes preserved;
+- explicit `floorOpening` regions produce holes but never their own floor collider;
+- supported straight stairs receive compiler-owned `triangle-mesh` ramps between authored floor elevations;
 - wall collision is faceted from the same wall path used by the application;
 - door openings are removed from static wall collision;
 - closed non-opening doors receive a dynamic leaf box collider;
 - windows do **not** create walk-through collision gaps;
 - non-flat furniture gets a conservative box collider;
-- columns get box/cylinder primitives;
-- stairs are emitted semantically but do not yet receive generated walkable collision in v1.
+- columns get box/cylinder primitives.
 
-This is deliberate: runtime backends translate primitive colliders into their native physics types instead of implementing Plan2World geometry rules.
+Runtime backends translate these colliders into native physics types. They do not triangulate rooms, carve floor openings or infer stair ramps themselves.
 
 ## Schema and references
 
-`schemas/plan2world-runtime-v1.schema.json` uses closed variants for every entity, collider and door-interaction kind. Unknown fields are rejected rather than silently accepted.
+`schemas/plan2world-runtime-v1.schema.json` uses closed variants for every entity, collider, door-interaction and stair-traversal kind. Unknown fields are rejected rather than silently accepted. The collider union includes `box`, `cylinder` and static `triangle-mesh` variants.
 
-JSON Schema cannot express all cross-object references, so compiler tests also assert that emitted floor IDs, entity IDs and collider IDs are unique and that door/collider references resolve to objects on the same floor.
+JSON Schema cannot express all cross-object references, so compiler tests also assert that emitted floor IDs, entity IDs and collider IDs are unique and that door/collider references resolve to objects on the same floor. Stair compiler tests additionally cover adjacent-floor targets, authored elevations, upward triangle winding and unsupported cases.
 
 ## Rendering boundary
 
-`plan2world-runtime-v1` is currently a semantic/runtime contract, not a replacement 3D interchange format. A later compiler stage may package compiler-owned static geometry and PBR assets as glTF/GLB. That stage should be shared by all backends rather than letting each engine independently mesh walls, openings, floors and ceilings.
+`plan2world-runtime-v1` owns semantics, interaction and physics geometry; it is not the canonical presentation mesh. `architecture.glb` is the sibling compiler-owned architectural presentation artifact shared by runtime backends.
 
-The intended package is therefore eventually:
+The intended package is:
 
 ```text
 scene.json              # plan2world-runtime-v1 semantics, interaction, collision
-architecture.glb        # compiler-owned static mesh + materials
+architecture.glb        # compiler-owned static architectural mesh + materials
 assets/*.glb            # optional furniture/door assets
 ```
+
+Straight-stair presentation is still a compatibility proxy in the current Godot adapter; the ramp collider is physics data, not a promise that `architecture.glb` contains stair artwork. Future stair presentation must remain derived from the same native/runtime semantics rather than becoming another source of truth.
 
 Do not put Godot `.tscn`, Unity prefab or Unreal Actor details into the contract.
