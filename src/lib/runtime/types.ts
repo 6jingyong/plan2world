@@ -106,6 +106,18 @@ export interface RuntimeColumnEntity extends RuntimeEntityBase {
   height: number;
 }
 
+export type RuntimeStairTraversal =
+  | {
+      kind: 'ramp';
+      targetFloorId: string;
+      startElevation: number;
+      endElevation: number;
+    }
+  | {
+      kind: 'unsupported';
+      reason: 'missing-target-floor' | 'invalid-target-elevation' | 'invalid-geometry' | 'non-straight';
+    };
+
 export interface RuntimeStairEntity extends RuntimeEntityBase {
   kind: 'stair';
   position: RuntimeVec3;
@@ -115,6 +127,7 @@ export interface RuntimeStairEntity extends RuntimeEntityBase {
   riserCount: number;
   direction: 'up' | 'down';
   stairType: 'straight' | 'l-shaped' | 'u-shaped' | 'spiral';
+  traversal: RuntimeStairTraversal;
 }
 
 export type RuntimeEntity = RuntimeWallEntity | RuntimeDoorEntity | RuntimeWindowEntity |
