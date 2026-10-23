@@ -204,6 +204,9 @@ function compileFloor(
       holes: (analysis.holes.get(room.id) ?? []).map(hole => hole.map(point2)),
       slabThickness: m(floor.slabThickness ?? 5),
       ceilingHeight: (() => {
+        // Match native authoring: an outdoor room or explicit ground boundary
+        // does not establish a roof, even when some retained walls share height.
+        if (room.roomType === 'outdoor' || room.boundary) return null;
         const height = roomCeilingHeight(room.walls, floor.walls);
         return height === undefined ? null : m(height);
       })(),

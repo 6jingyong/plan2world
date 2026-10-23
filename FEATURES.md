@@ -30,6 +30,7 @@ This is a current capability summary, not a development diary.
 - One deterministic compilation boundary emits `plan2world-runtime-v1` plus a sibling `architecture.glb`.
 - Runtime JSON owns engine-neutral semantics, collision and interaction/traversal contracts, including explicit triangulated room floors and straight-stair ramps.
 - Native `floorOpening` regions remain compiler-owned apertures: they cut holes in enclosing room surfaces and are not re-emitted as floors that fill themselves.
+- Outdoor rooms and explicitly bounded ground retain native no-ceiling semantics, even when retained walls share a height.
 - `architecture.glb` owns deterministic static presentation geometry plus a small engine-neutral material palette.
 - Straight and quadratic walls are meshed deterministically; curved openings keep quadratic `pathPosition` semantics while widths are applied in physical path distance.
 - Compatible endpoint wall networks are mitered across L/T/X/collinear junctions and hidden endpoint caps are removed.
@@ -44,6 +45,8 @@ This is a current capability summary, not a development diary.
 Representative runtime tests include `tests/runtime-scene.test.ts`, `tests/runtime-stair-traversal.test.ts`, `tests/runtime-static-architecture.test.ts`, `tests/runtime-godot-boundary.test.ts`, `tests/runtime-architecture-mesher.test.ts`, `tests/runtime-room-surface-mesher.test.ts`, `tests/runtime-architecture-glb.test.ts`, `tests/runtime-export-cli.test.ts`, `tests/runtime-assets.test.ts`, `tests/runtime-door-leaves.test.ts`, `tests/runtime-boundary-parity.test.ts` and the real Godot `runtime/godot/tests/runtime_assets_test.gd` gate. Focused browser regressions include `tests/browser/quick-geometry-correction.spec.ts`.
 
 ## Fresh validation policy
+
+Runtime integration acceptance uses a normally saved real-house Project plus a separate authored complex scene; see [the acceptance recipe](docs/runtime-integration.md). Byte/ownership checks, real engine physics, inspected rendering and platform coverage are recorded separately.
 
 Generated benchmark outputs are disposable run artifacts, not fixtures. Each rerun uses a new ignored `.plan2world-validation/runs/<run-id>/<sample-id>/` directory. Reconstruction input metadata contains no answer paths. Human references are isolated under `tests/evaluation/plan2world/source-references/` and are read only after fresh generation is frozen.
 

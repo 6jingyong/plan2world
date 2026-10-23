@@ -177,6 +177,12 @@ Re-export older derived snapshots that relied on engine-side automatic spawn or
 implicit single-leaf door motion. The artifact gate rejects missing leaf contracts.
 The native Project format and saved spawn field are unchanged.
 
+For complete saved-Project acceptance, artifact ownership/byte checks, rendered
+review and browser/benchmark regression requirements, follow the
+[integration recipe](../../docs/runtime-integration.md). Successful runtime HUD
+shows the native Project name and controls; detailed artifact paths stay in the
+console, while failed loads retain an explicit path diagnostic.
+
 The bundled JSON is generated from the same native fixture. Regenerate it with
 `node tooling/runtime-demo.mjs`; do not hand-edit it. A unit test verifies exact
 compiler reproduction. It intentionally omits GLBs to exercise missing-artifact

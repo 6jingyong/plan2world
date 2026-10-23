@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
+import { captureCanvas } from './canvas-pixels';
 
 for (const width of [1440,390]) test(`native opening edits and undo stay live in 3D Review at ${width}px`, async ({page},testInfo) => {
   await page.setViewportSize({width,height:900});
@@ -21,7 +22,7 @@ for (const width of [1440,390]) test(`native opening edits and undo stay live in
   await page.getByRole('button',{name:'Import JSON',exact:true}).click();
   await (await chooser).setFiles({name:'native-review.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(plan))});
   const canvas=page.getByRole('region',{name:'3D floor plan viewer'}).locator('canvas').first();
-  const pixels=async()=>createHash('sha256').update(await canvas.evaluate((node:HTMLCanvasElement)=>node.toDataURL())).digest('hex');
+  const pixels=async()=>createHash('sha256').update(await captureCanvas(canvas)).digest('hex');
   async function review(){
     await page.getByRole('button',{name:'3D',exact:true}).click();
     await expect(canvas).toHaveAttribute('data-rendered','true');

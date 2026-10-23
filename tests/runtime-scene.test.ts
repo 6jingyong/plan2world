@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Floor, Project } from '$lib/models/types';
 import { compileRuntimeScene } from '$lib/runtime/compileRuntimeScene';
+import { compileArchitectureMesh } from '$lib/runtime/architectureMesher';
 import type { Plan2WorldRuntimeSceneV1 } from '$lib/runtime/types';
 
 function floorFixture(): Floor {
@@ -76,6 +77,32 @@ describe('plan2world runtime compiler', () => {
     expect(start[1]).toBe(0.2);
     expect(project).toEqual(before);
     expect(compileRuntimeScene(project).floors[0].walkthroughStart).toEqual(start);
+  });
+
+  it.each(['outdoor', 'explicit-boundary'] as const)('preserves native %s ground without inventing a ceiling from wall heights', kind => {
+    const floor = floorFixture();
+    floor.rooms = [{ id: 'source-area', name: 'Authored ground', walls: floor.walls.map(wall => wall.id),
+      area: 12, floorTexture: 'concrete', roomType: kind === 'outdoor' ? 'outdoor' : 'indoor' }];
+    if (kind === 'explicit-boundary') {
+      // Only one edge is a real wall. Free boundary points close the authored
+      // ground; retaining that wall reference does not establish a ceiling.
+      floor.walls = [floor.walls[0]];
+      floor.rooms[0].walls = ['w1'];
+      floor.rooms[0].boundary = [{ wallId: 'w1' }, { point: { x: 400, y: 300 } }, { point: { x: 0, y: 300 } }];
+      floor.windows = [];
+    }
+    const project = projectFixture(floor), before = structuredClone(project);
+    const scene = compileRuntimeScene(project);
+    const surface = scene.floors[0].rooms.find(room => room.id === 'source-area')!;
+    expect(surface.ceilingHeight).toBeNull();
+    expect(surface.polygon).toHaveLength(4);
+    expect(scene.colliders.some(collider => collider.ownerId === surface.id && collider.kind === 'triangle-mesh')).toBe(true);
+    expect(scene.colliders.some(collider => collider.ownerId === 'w1' && collider.kind === 'box')).toBe(true);
+    const architecture = compileArchitectureMesh(scene);
+    expect(architecture.primitives.some(primitive => primitive.ownerId === surface.id && primitive.kind === 'floor')).toBe(true);
+    expect(architecture.primitives.some(primitive => primitive.ownerId === surface.id && primitive.kind === 'ceiling')).toBe(false);
+    expect(compileRuntimeScene(project)).toEqual(scene);
+    expect(project).toEqual(before);
   });
 
   it('emits room floor triangle collision with canonical upward winding', () => {

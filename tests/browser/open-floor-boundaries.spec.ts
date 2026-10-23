@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
+import { inspectCanvas } from './canvas-pixels';
 
 const openBalconyPlan = {
   schemaVersion: 'plan2world-draft-v1',
@@ -84,12 +85,8 @@ for (const width of [1440, 390]) test(`open balcony ground edits survive views, 
   ]);
   await page.getByRole('button', { name: 'Save', exact: true }).press('Escape');
   async function groundPixels(canvas: import('@playwright/test').Locator) {
-    return canvas.evaluate(async (node: HTMLCanvasElement) => {
-      // Sample after the editor has painted the fit/selection update.
-      await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
-      const probe = document.createElement('canvas'); probe.width = node.width; probe.height = node.height;
-      const ctx = probe.getContext('2d')!; ctx.drawImage(node, 0, 0);
-      const { data } = ctx.getImageData(0, 0, node.width, node.height); let count = 0;
+    return inspectCanvas(canvas, ({ data }) => {
+      let count = 0;
       for (let i = 0; i < data.length; i += 4) if (data[i] > 110 && data[i + 2] > 110 && data[i] > data[i + 1] * 1.5 && data[i + 2] > data[i + 1] * 1.5) count++;
       return count;
     });

@@ -112,4 +112,4 @@ npm run build
 - Keep local/manual JSON import and offline runtime export available; AI must not be mandatory.
 - Preserve upstream MIT attribution.
 
-The remaining migration work and focused verification paths are tracked in [`docs/runtime-migration.md`](docs/runtime-migration.md).
+Migration status is tracked in [`docs/runtime-migration.md`](docs/runtime-migration.md). The [integration acceptance recipe](docs/runtime-integration.md) covers a normally saved real-house Project, complementary complex geometry, full browser regressions and rendering benchmarks.

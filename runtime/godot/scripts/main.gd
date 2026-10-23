@@ -39,7 +39,7 @@ func _ready() -> void:
 	player.configure(data.get("playerProfile", {}), spawn)
 	var presentation_status := architecture_path if presentation_loaded else "runtime proxy fallback"
 	_show_status(
-		"WASD move  ·  Ctrl slow  ·  Shift fast  ·  E door  ·  Esc mouse\nRuntime: %s\nArchitecture: %s" % [runtime_path, presentation_status],
+		"WASD move  ·  Ctrl slow  ·  Shift fast  ·  E door  ·  Esc mouse\nProject: %s" % str(data["source"]["projectName"]),
 		false,
 	)
 	print(
@@ -92,13 +92,14 @@ func _show_status(text: String, error: bool) -> void:
 	add_child(layer)
 	var panel := ColorRect.new()
 	panel.position = Vector2(16, 16)
-	panel.size = Vector2(840, 86)
+	panel.size = Vector2(840, 86 if error else 64)
 	panel.color = Color(0.05, 0.06, 0.08, 0.78 if not error else 0.9)
 	layer.add_child(panel)
 	var label := Label.new()
 	label.position = Vector2(12, 9)
 	label.size = panel.size - Vector2(24, 18)
 	label.text = text
+	label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	label.modulate = Color("f8fafc") if not error else Color("fecaca")
 	panel.add_child(label)
 	if error:

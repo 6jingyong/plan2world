@@ -60,13 +60,37 @@ architecture GLB and packaged dynamic assets. Godot: the actual runtime.
   requires explicit leaf parts. Native saved Projects are unchanged. No legacy
   single-leaf inference path is retained in the engine.
 
-## Final Stage D
+## Stage D integration
 
-Clean obsolete paths/docs and use a real saved native Project for a reviewed
-Project → CLI export → Godot walkthrough covering curves, openings, furniture,
-holes, stairs, floor elevations, spawn and GLB/runtime ownership. Run main-level
-browser/benchmark regressions locally. Publishing or preparing the final
-`runtime-v2 → main` PR requires an explicit user request; never merge implicitly.
+- The Wikimedia two-bedroom downstream baseline was imported, saved and downloaded
+  through the normal editor. That unchanged native Project then passed CLI export
+  and an actual Godot walkthrough: compiled spawn, grounding, paired door operation
+  and passage to the porch, and full-height window collision. All 47 static GLB
+  nodes resolve to native owners; dynamic leaves load separately with no proxies.
+  Repeated JSON/GLB exports and asset manifests are byte-stable and packaged asset
+  digests match. This is a saved real-house baseline, not an AI extraction result.
+- That house does not contain furniture, curved walls or stairs. The separately
+  authored native walkthrough scene covers catalog/custom furniture, curved walls,
+  windows, columns, floor apertures, straight stairs, nonzero multi-floor elevations
+  and railing/air boundaries through the same compiler and engine. Rendered views
+  were inspected alongside the grounded physics/interaction gates.
+- Integration exposed a compiler parity bug: uniform retained wall heights could
+  invent ceilings over outdoor rooms or explicit ground boundaries. Those now
+  retain native no-ceiling semantics, with deterministic tests preserving floor
+  and wall collision. The successful Godot HUD shows the Project name and controls;
+  artifact paths remain available in console diagnostics.
+- Browser verification uses the production build, isolated mock-provider ports
+  and composited canvas pixels for idle WebGL review. It retains the existing
+  viewport/color/occlusion requirements rather than requiring an idle renderer to
+  preserve its drawing buffer. The onboarding expectation follows the current
+  editor/review controls.
+
+Follow the [acceptance recipe](runtime-integration.md) for core/pinned-engine gates,
+complete browser and benchmark regressions, saved input, ownership/hash checks and
+local evidence. Render review was performed on Linux GL Compatibility with Mesa
+software rendering; Windows Forward+ and manual hardware checks remain separate.
+Publishing or preparing the final `runtime-v2 → main` PR requires an explicit user
+request; never merge implicitly.
 
 ## Reference applied
 

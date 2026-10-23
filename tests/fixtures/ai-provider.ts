@@ -1,8 +1,17 @@
 /** Local browser-test provider. Echoes the submitted camera PNG; never calls an AI service. */
-import { createServer } from 'node:http';
+import { createServer, type Server } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { pathToFileURL } from 'node:url';
 
 export interface ProviderRequest { path: string; method: string; authorization?: string; body: Record<string, any> }
+/** Ephemeral loopback ports keep independent browser runs isolated. */
+export async function listenTestProvider(server: Server): Promise<string> {
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', () => { server.off('error', reject); resolve(); });
+  });
+  return `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+}
 export function createTestAIProvider(onRequest: (request: ProviderRequest) => void = () => {}) {
   return createServer(async (request, response) => {
     const origin = request.headers.origin;

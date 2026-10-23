@@ -1,3 +1,4 @@
+import { listenTestProvider } from '../fixtures/ai-provider';
 import { expect, test } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { readFile as readAsync } from 'node:fs/promises';
@@ -17,7 +18,8 @@ const provider = createFloorPlanAIProvider(
   { sourceWidthPx: 535, sourceHeightPx: 526 },
 );
 
-test.beforeAll(async () => { await new Promise<void>(resolve => provider.listen(4202, '127.0.0.1', resolve)); });
+let providerURL: string;
+test.beforeAll(async () => { providerURL = await listenTestProvider(provider); });
 test.afterAll(async () => { provider.closeAllConnections(); await new Promise<void>(resolve => provider.close(() => resolve())); });
 test.beforeEach(() => { requests = []; });
 
@@ -47,7 +49,7 @@ for (const width of [1440, 390]) test(`existing real source reaches a corrected,
   await page.goto('/');
   await page.getByRole('button', { name: /Generate from floor-plan image/ }).click();
   await page.getByRole('button', { name: 'Configure', exact: true }).click();
-  await page.getByLabel('Provider base URL', { exact: true }).fill('http://127.0.0.1:4202/v1');
+  await page.getByLabel('Provider base URL', { exact: true }).fill(`${providerURL}/v1`);
   await page.getByLabel('OpenAI model', { exact: true }).fill('deterministic-evidence-fixture');
   await page.getByRole('button', { name: 'Save OpenAI settings', exact: true }).click();
   await page.locator('input[type="file"][accept="image/png,image/jpeg,image/webp"]')

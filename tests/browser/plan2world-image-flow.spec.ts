@@ -1,12 +1,13 @@
+import { listenTestProvider } from '../fixtures/ai-provider';
 import { expect, test } from '@playwright/test';
 import { createFloorPlanAIProvider, type FloorPlanProviderRequest } from '../fixtures/floorplan-ai-provider';
 
-const providerURL = 'http://127.0.0.1:4201';
+let providerURL: string;
 let requests: FloorPlanProviderRequest[] = [];
 const provider = createFloorPlanAIProvider(request => requests.push(request));
 
 test.describe.configure({ timeout: 180_000 });
-test.beforeAll(async () => { await new Promise<void>(resolve => provider.listen(4201, '127.0.0.1', resolve)); });
+test.beforeAll(async () => { providerURL = await listenTestProvider(provider); });
 test.afterAll(async () => { provider.closeAllConnections(); await new Promise<void>(resolve => provider.close(() => resolve())); });
 test.beforeEach(() => { requests = []; });
 

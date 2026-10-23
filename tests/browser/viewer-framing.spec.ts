@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { resolve } from 'node:path';
+import { inspectCanvas } from './canvas-pixels';
 
 // Four magenta columns mark the outer corners of a wide plan. Inspect rendered
 // pixels, rather than depending on Three/Svelte internals or screenshot goldens.
@@ -22,10 +23,7 @@ test('top-down fits every corner after orbit, stacking and viewport changes', as
   await expect(hint).not.toBeVisible();
   const canvas = page.getByRole('region', { name: '3D floor plan viewer' }).locator('canvas').last();
   const samples: any[] = [];
-  const inspect = () => canvas.evaluate((node: HTMLCanvasElement) => {
-    const probe = document.createElement('canvas'); probe.width = node.width; probe.height = node.height;
-    const ctx = probe.getContext('2d')!; ctx.drawImage(node, 0, 0);
-    const { data, width, height } = ctx.getImageData(0, 0, probe.width, probe.height);
+  const inspect = () => inspectCanvas(canvas, ({ canvas: node, data, width, height }) => {
     const canvasBounds = node.getBoundingClientRect();
     const buttons = [...node.closest('[role="region"]')!.querySelectorAll('button')].map(button => button.getBoundingClientRect()).filter(rect => rect.width && rect.height);
     const counts = [0, 0, 0, 0]; let minX = width, minY = height, maxX = -1, maxY = -1;
@@ -41,8 +39,9 @@ test('top-down fits every corner after orbit, stacking and viewport changes', as
     }
     return { counts, minX, minY, maxX, maxY, width, height, occluded };
   });
+  let lastInspection: Awaited<ReturnType<typeof inspect>> | null = null;
   const allCornersFit = async () => {
-    const result = await inspect();
+    const result = lastInspection = await inspect();
     return result.occluded === 0 && result.counts.every(count => count > 25) && result.minX > result.width * 0.025 && result.maxX < result.width * 0.975 && result.minY > result.height * 0.025 && result.maxY < result.height * 0.975;
   };
   try {
@@ -70,5 +69,6 @@ test('top-down fits every corner after orbit, stacking and viewport changes', as
     expect(errors).toEqual([]); expect(external).toEqual([]);
   } finally {
     await testInfo.attach('corner-pixel-bounds', { body: JSON.stringify(samples, null, 2), contentType: 'application/json' });
+    await testInfo.attach('last-corner-pixel-bounds', { body: JSON.stringify(lastInspection, null, 2), contentType: 'application/json' });
   }
 });

@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import { observeGPU, gpu } from './gpu';
+import { captureCanvas } from './canvas-pixels';
 
 test.use({ viewport: { width: 844, height: 600 } });
 
@@ -36,7 +37,7 @@ test('3D sleeps when idle and wakes for controls, scene changes and review edits
   const canvas = page.getByRole('region', { name: '3D floor plan viewer' }).locator('canvas').last();
   const audit = () => page.evaluate(() => (window as any).__animationAudit());
   const activeDraws = async () => (await gpu(page)).find((entry: any) => entry.connected && !entry.lost)?.draws ?? 0;
-  const pixels = async () => createHash('sha256').update(await canvas.evaluate((node: HTMLCanvasElement) => node.toDataURL())).digest('hex');
+  const pixels = async () => createHash('sha256').update(await captureCanvas(canvas)).digest('hex');
   const idle = async () => {
     // Software rendering and resize/scene observers may enqueue a final frame
     // after the first zero-pending snapshot. Settle over a whole quiet interval.
