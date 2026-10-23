@@ -1,6 +1,6 @@
 import { readProject } from '../utils/projectValidation';
 import { serializeArchitectureGlb } from './architectureGlb';
-import { compileArchitectureMesh } from './architectureMesher';
+import { compileArchitecturePresentation } from './architecturePresentation';
 import { compileRuntimeScene } from './compileRuntimeScene';
 
 /**
@@ -10,7 +10,7 @@ import { compileRuntimeScene } from './compileRuntimeScene';
 export function compileRuntimeArtifacts(serializedProject: unknown) {
   const project = readProject(serializedProject);
   const runtime = compileRuntimeScene(project);
-  const architecture = compileArchitectureMesh(runtime);
+  const architecture = compileArchitecturePresentation(runtime);
   const architectureGlb = serializeArchitectureGlb(architecture);
   return { runtime, architecture, architectureGlb };
 }

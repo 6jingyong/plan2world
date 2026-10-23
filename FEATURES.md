@@ -29,16 +29,17 @@ This is a current capability summary, not a development diary.
 - One deterministic compilation boundary emits `plan2world-runtime-v1` plus a sibling `architecture.glb`.
 - Runtime JSON owns engine-neutral semantics, collision and interaction/traversal contracts, including explicit triangulated room floors and straight-stair ramps.
 - Native `floorOpening` regions remain compiler-owned apertures: they cut holes in enclosing room surfaces and are not re-emitted as floors that fill themselves.
-- `architecture.glb` owns deterministic architectural presentation geometry.
+- `architecture.glb` owns deterministic static presentation geometry plus a small engine-neutral material palette.
 - Straight and quadratic walls are meshed deterministically; curved openings keep quadratic `pathPosition` semantics while widths are applied in physical path distance.
 - Compatible endpoint wall networks are mitered across L/T/X/collinear junctions and hidden endpoint caps are removed.
+- Static window panes, square/round columns and traversable straight-stair step geometry are compiled into the same shared GLB instead of being rebuilt by Godot.
 - The Godot adapter consumes both artifacts without recomputing topology or deriving collision from GLB.
 - Godot uses runtime triangle meshes for grounded `CharacterBody3D` motion with gravity and floor snapping.
 - Straight UP/DN stairs resolve to the adjacent authored floor and receive a compiler-owned walkable ramp; L/U/spiral stairs remain explicit unsupported traversal.
 - Swing and sliding/pocket doors are interactive `AnimatableBody3D` nodes; unsupported fold/overhead motions remain explicit closed blockers instead of being faked as hinges.
-- Missing GLB falls back to isolated proxy presentation; floor and stair triangle proxies reuse compiler output rather than re-triangulating rooms in Godot.
+- When architecture GLB is present, Godot suppresses static wall/floor/window/column/stair proxies. Missing GLB still falls back to isolated compatibility presentation using compiler-owned collision triangles where available.
 
-Representative runtime tests include `tests/runtime-scene.test.ts`, `tests/runtime-stair-traversal.test.ts`, `tests/runtime-godot-boundary.test.ts`, `tests/runtime-architecture-mesher.test.ts`, `tests/runtime-room-surface-mesher.test.ts`, `tests/runtime-architecture-glb.test.ts`, and `tests/runtime-export-cli.test.ts`. Focused browser regressions include `tests/browser/quick-geometry-correction.spec.ts`.
+Representative runtime tests include `tests/runtime-scene.test.ts`, `tests/runtime-stair-traversal.test.ts`, `tests/runtime-static-architecture.test.ts`, `tests/runtime-godot-boundary.test.ts`, `tests/runtime-architecture-mesher.test.ts`, `tests/runtime-room-surface-mesher.test.ts`, `tests/runtime-architecture-glb.test.ts`, and `tests/runtime-export-cli.test.ts`. Focused browser regressions include `tests/browser/quick-geometry-correction.spec.ts`.
 
 ## Fresh validation policy
 
@@ -53,8 +54,8 @@ When something fails, fix the earliest responsible layer rather than hand-editin
 - Furniture acceptance is semantic presence/type/broad position, not exact product geometry.
 - Registration consistency is not visual correctness.
 - Wall junctions with incompatible endpoint heights or unbounded/pathological offset intersections retain closed caps and emit a mesher diagnostic rather than being repaired.
-- Runtime presentation assets for doors/windows/furniture and dedicated stair artwork are still proxy geometry.
-- L-shaped, U-shaped and spiral stair traversal is not implemented; those variants remain explicit unsupported semantics rather than receiving a fake straight ramp.
+- Dynamic door leaves and furniture assets still use Godot compatibility presentation; final asset resolution is not compiled yet.
+- L-shaped, U-shaped and spiral stairs do not yet receive shared GLB presentation or traversal; those variants remain explicit unsupported semantics rather than receiving a fake straight ramp.
 - Stairwell apertures must exist in the native Project as `floorOpening`; the runtime preserves them but does not invent them from stair footprints.
 - Bifold and garage/overhead door animation is not implemented; those leaves stay closed blockers.
 - Plan2World is not BIM, structural analysis or photorealistic reconstruction.

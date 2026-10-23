@@ -58,7 +58,7 @@ function readAccessorVec3(parsed: ReturnType<typeof parseGlb>, accessorIndex: nu
 }
 
 describe('architecture GLB writer', () => {
-  it('serializes stable Plan2World ownership and glTF geometry without engine types', () => {
+  it('serializes stable Plan2World ownership, geometry and deterministic materials without engine types', () => {
     const source = mesh([
       primitive(),
       primitive({
@@ -73,11 +73,12 @@ describe('architecture GLB writer', () => {
 
     const parsed = parseGlb(serializeArchitectureGlb(source));
     expect(parsed.json.asset).toMatchObject({ version: '2.0' });
-    expect(parsed.json.extras.plan2world).toEqual({
+    expect(parsed.json.extras.plan2world).toMatchObject({
       artifact: 'architecture.glb',
       units: 'metres',
       coordinates: source.coordinates,
     });
+    expect(parsed.json.extras.plan2world.staticKinds).toEqual(['wall', 'floor', 'ceiling', 'window', 'column', 'stair']);
     expect(parsed.json.scenes[0].nodes).toEqual([0, 1]);
     expect(parsed.json.nodes.map((node: { name: string }) => node.name)).toEqual([
       'architecture:wall:wall-1',
@@ -91,6 +92,11 @@ describe('architecture GLB writer', () => {
     });
     expect(parsed.json.nodes[1].extras.plan2world.ownerId).toBe('room-1');
     expect(parsed.json.meshes).toHaveLength(2);
+    expect(parsed.json.meshes.map((entry: { primitives: { material: number }[] }) => entry.primitives[0].material)).toEqual([0, 1]);
+    expect(parsed.json.materials.map((material: { name: string }) => material.name)).toEqual([
+      'p2w-wall', 'p2w-floor', 'p2w-ceiling', 'p2w-glass', 'p2w-column', 'p2w-stair',
+    ]);
+    expect(parsed.json.materials[3]).toMatchObject({ alphaMode: 'BLEND', doubleSided: true });
     expect(parsed.json.accessors).toHaveLength(8);
     expect(parsed.json.bufferViews).toHaveLength(8);
     expect(parsed.json.accessors[0]).toMatchObject({

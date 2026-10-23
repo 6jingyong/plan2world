@@ -118,7 +118,7 @@ The native 2D UP/DN arrow also fixes which end of the footprint reaches the targ
 }
 ```
 
-The compiler emits a matching upward-wound `triangle-mesh` ramp collider. The ramp is intentionally a continuous physics surface: engines can use ordinary grounded character motion instead of needing engine-specific stair-step climbing heuristics. `riserCount` remains source semantics and may later support higher-fidelity presentation.
+The compiler emits a matching upward-wound `triangle-mesh` ramp collider. The ramp is intentionally a continuous physics surface: engines can use ordinary grounded character motion instead of needing engine-specific stair-step climbing heuristics. `riserCount` remains source semantics and is now also used by the shared presentation compiler to create deterministic straight-stair step geometry in `architecture.glb`.
 
 L-shaped, U-shaped and spiral stairs are currently preserved as explicit unsupported traversal:
 
@@ -152,16 +152,18 @@ JSON Schema cannot express all cross-object references, so compiler tests also a
 
 ## Rendering boundary
 
-`plan2world-runtime-v1` owns semantics, interaction and physics geometry; it is not the canonical presentation mesh. `architecture.glb` is the sibling compiler-owned architectural presentation artifact shared by runtime backends.
+`plan2world-runtime-v1` owns semantics, interaction and physics geometry; it is not the canonical presentation mesh. `architecture.glb` is the sibling compiler-owned static presentation artifact shared by runtime backends.
 
-The intended package is:
+The current package is:
 
 ```text
 scene.json              # plan2world-runtime-v1 semantics, interaction, collision
-architecture.glb        # compiler-owned static architectural mesh + materials
-assets/*.glb            # optional furniture/door assets
+architecture.glb        # compiler-owned static architecture + basic materials
+assets/*.glb            # future/optional furniture and dynamic-door assets
 ```
 
-Straight-stair presentation is still a compatibility proxy in the current Godot adapter; the ramp collider is physics data, not a promise that `architecture.glb` contains stair artwork. Future stair presentation must remain derived from the same native/runtime semantics rather than becoming another source of truth.
+The presentation compiler composes the wall/room shell with static window panes, square/round columns and supported straight-stair step geometry. The GLB writer assigns a deterministic basic material palette and carries stable Plan2World ownership in node extras. Physics remains independent: engines must still use runtime JSON colliders rather than deriving collision from GLB.
+
+Dynamic door leaves and replaceable furniture remain outside `architecture.glb`. They require a later asset/presentation layer because their transforms or model choice can change at runtime. L/U/spiral stairs also remain outside shared presentation until their traversal semantics are intentionally specified; they are not faked as straight stairs.
 
 Do not put Godot `.tscn`, Unity prefab or Unreal Actor details into the contract.

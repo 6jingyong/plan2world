@@ -40,6 +40,16 @@ describe('Godot runtime adapter boundaries', () => {
     expect(renderer).not.toContain('Geometry2D.triangulate_polygon');
   });
 
+  it('lets architecture GLB own static windows, columns and stairs when present', () => {
+    const renderer = read('runtime/godot/scripts/runtime_proxy_renderer.gd');
+
+    expect(renderer).toContain('owner_kind == "column"');
+    expect(renderer).toContain('owner_kind == "stair"');
+    expect(renderer).toContain('if not architecture_presentation_loaded:');
+    expect(renderer).toContain('_add_window_marker');
+    expect(renderer).toContain('static_proxy_suppressed_count');
+  });
+
   it('keeps swing and slide motion in the same engine-side door component', () => {
     const door = read('runtime/godot/scripts/door.gd');
     const loader = read('runtime/godot/scripts/runtime_loader.gd');

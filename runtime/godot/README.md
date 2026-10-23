@@ -43,7 +43,7 @@ The CLI emits two sibling artifacts from one deterministic compilation path:
 
 ```text
 house.runtime.json        # semantics, collision, interaction
-house.architecture.glb    # presentation geometry
+house.architecture.glb    # shared static presentation geometry + materials
 ```
 
 The runtime output path is optional. Without it, `house.project.json` becomes `house.project.runtime.json`, with `house.project.architecture.glb` beside it. A third argument can explicitly choose the GLB path.
@@ -54,7 +54,9 @@ The CLI reads the native file through `readProject()` and then uses the shared `
 native Project
   -> compileRuntimeScene()
   -> plan2world-runtime-v1
-  -> compileArchitectureMesh()
+  -> compileArchitecturePresentation()
+       -> wall/room shell mesh
+       -> static windows/columns/straight stairs
   -> architecture.glb
 ```
 
@@ -80,20 +82,20 @@ Both `--scene=<path>` and `--architecture=<path>` are accepted.
 
 Godot consumes the two artifacts for different jobs:
 
-- `architecture.glb`: architectural presentation geometry;
+- `architecture.glb`: shared static presentation geometry and deterministic basic PBR materials;
 - `plan2world-runtime-v1`: player spawn/profile, collision, doors, windows, furniture and interaction/traversal semantics.
 
 Collision is always generated from runtime JSON, never inferred from GLB. Room polygons are deterministically triangulated by the runtime compiler into `triangle-mesh` floor colliders with canonical +Y winding. Native `floorOpening` regions remain holes and are not emitted as replacement floor surfaces. Supported straight stairs are also compiled into explicit upward-wound triangle ramps between adjacent authored floor elevations. Godot consumes all of those as `ConcavePolygonShape3D` rather than deriving them from presentation geometry.
 
-The fallback renderer now reuses those same runtime triangle meshes for room-floor and stair-ramp compatibility visuals. It no longer re-triangulates room polygons in Godot, so fallback rendering cannot accidentally ignore a compiler-owned floor hole.
+The architecture presentation compiler owns straight and quadratic wall tessellation, physical-width openings on curved paths, compatible endpoint-network miters, room slabs/ceilings, static window panes, square/round columns and step presentation for traversable straight stairs. The GLB writer also assigns a small deterministic material palette. Godot only imports the finished static scene; it does not reconstruct any of that geometry.
 
-The architecture GLB compiler owns straight and quadratic wall tessellation, physical-width openings on curved paths, and compatible endpoint-network miters. Godot only imports the finished architectural mesh; it does not reconstruct wall curves or junctions.
+When GLB is loaded successfully, compatibility wall/floor/window/column/stair presentation is suppressed. If GLB is absent, the fallback renderer reuses runtime colliders and compiler-owned triangle meshes where possible; it does not re-triangulate room polygons or infer stair geometry from authoring data.
 
 The scripts are intentionally split by responsibility:
 
 - `runtime_artifacts.gd`: command-line paths, runtime JSON loading/schema gate, external GLB import;
 - `runtime_loader.gd`: runtime semantics -> Godot collision and interaction nodes;
-- `runtime_proxy_renderer.gd`: temporary compatibility presentation only;
+- `runtime_proxy_renderer.gd`: temporary compatibility presentation for missing GLB and still-unresolved dynamic/assets;
 - `player.gd` / `door.gd`: engine-side runtime behavior;
 - `main.gd`: thin orchestration, spawn and demo shell.
 
@@ -101,7 +103,7 @@ The adapter delegates engine work to Godot:
 
 - player body: grounded `CharacterBody3D` with project gravity, floor snapping and `move_and_slide()`;
 - collision: runtime-v1 boxes/cylinders/triangle meshes -> Godot `CollisionShape3D`;
-- architecture display: runtime-loaded glTF 2.0 binary via `GLTFDocument`/`GLTFState`;
+- static architecture display: runtime-loaded glTF 2.0 binary via `GLTFDocument`/`GLTFState`;
 - interactive swing and slide doors: `AnimatableBody3D` driven by explicit runtime motion data;
 - straight-stair traversal: ordinary grounded movement over compiler-owned ramp collision;
 - mouse look and movement speeds live only in the runtime backend.
@@ -114,13 +116,12 @@ This is still an architecture/runtime milestone, not a rendering-quality milesto
 
 - `kind: "swing"` and `kind: "slide"` doors are interactive; fold and overhead source motions remain closed blockers;
 - double/french swing doors are represented as one leaf for now;
-- straight stairs can connect adjacent authored floors physically; L-shaped, U-shaped and spiral stairs remain explicit unsupported traversal rather than being approximated;
+- straight stairs can connect adjacent authored floors physically and now have shared step presentation; L-shaped, U-shaped and spiral stairs remain explicit unsupported traversal/presentation rather than being approximated;
 - a multi-floor stairwell still needs the native project to contain the corresponding `floorOpening` aperture; the runtime compiler will preserve it but will not invent one;
-- stair artwork is still compatibility proxy presentation; `architecture.glb` does not yet own dedicated stair meshes;
 - wall junctions with incompatible endpoint heights or pathological/unbounded offset intersections retain closed caps and emit a compiler diagnostic;
-- door/window leaves and panes remain Godot proxy geometry; GLB currently owns the surrounding architectural openings;
-- furniture uses collider-sized proxy boxes; furniture GLB asset resolution is deferred;
-- materials and lighting are intentionally basic.
+- dynamic door leaves still use Godot compatibility presentation until the dynamic asset layer is finalized;
+- furniture uses collider-sized proxy boxes; furniture GLB/custom-asset resolution is deferred;
+- the material palette is intentionally generic and not yet sourced from native finishes/textures.
 
 ## Adapter boundary
 
