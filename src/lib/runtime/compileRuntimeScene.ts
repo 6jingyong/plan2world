@@ -139,20 +139,13 @@ function compileDoor(floor: Floor, elevationCm: number, door: Door, wall: Wall):
 
 function compileRoomFloorCollider(room: RuntimeRoomSurface, floorId: string, elevation: number): RuntimeTriangleMeshCollider | null {
   const triangulated = triangulatePolygonWithHoles(room.polygon, room.holes);
-  if (triangulated.vertices.length < 3 || triangulated.indices.length < 3) return null;
+  if (!triangulated || triangulated.vertices.length < 3 || triangulated.triangles.length === 0) return null;
 
   // Runtime coordinates map the 2D plan's Y axis to +Z. A conventional CCW
   // plan triangle therefore points toward -Y after projection into X/Y/Z.
   // Reverse each triangle once here so one-sided physics backends receive a
   // canonical +Y walkable surface without guessing or enabling backface hits.
-  const indices: number[] = [];
-  for (let index = 0; index < triangulated.indices.length; index += 3) {
-    indices.push(
-      triangulated.indices[index],
-      triangulated.indices[index + 2],
-      triangulated.indices[index + 1],
-    );
-  }
+  const indices = triangulated.triangles.flatMap(([a, b, c]) => [a, c, b]);
 
   return {
     id: `floor:${room.id}`,
