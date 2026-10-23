@@ -6,7 +6,7 @@ This is a current capability summary, not a development diary.
 
 | Capability | Current behavior |
 | --- | --- |
-| Image reconstruction | `source-wall-trace-v1` → deterministic Bare House → `source-annotation-v1` → deterministic `plan2world-draft-v1`. |
+| Image reconstruction | `source-architecture-v1` + `source-furnishing-v1` → deterministic refinement/closure → `plan2world-draft-v1`. |
 | Walls | Zero-width straight or quadratic centrelines; topology normalization is deterministic. |
 | Doors/windows | Source endpoints are projected onto normalized walls; host IDs, width and position are program-derived. |
 | Scale/registration | Scale evidence is converted deterministically; source registration comes from the same source-pixel transform and is strict when present. |
@@ -14,15 +14,26 @@ This is a current capability summary, not a development diary.
 | Open ground | `floorAreas` can represent visible open ground without fake closure walls. |
 | Balcony policy | Recognized balconies/terraces default to independent enclosed glazed rooms unless source evidence triggers the guard. |
 
-## Review, editing and runtime
+## Review and editing
 
 - Valid drafts convert into the existing native `Project`/`Floor` model.
 - Native wall/opening/furniture correction, Undo/Redo and persistence remain available.
 - Imported-object blocks can be styled/replaced while retaining native identity.
 - Rooms/areas are derived from live native geometry.
-- The same geometry feeds 2D, 1.20 m architectural cut, 3D and first-person walkthrough.
+- Browser 2D, 1.20 m architectural cut and 3D review all consume the same native Project.
+- The legacy browser first-person walkthrough remains available during runtime migration, but it is no longer the target runtime architecture.
 
-Representative tests include `tests/plan2world-draft.test.ts`, `tests/plan2world-reconstruction-assembly.test.ts`, `tests/imported-objects.test.ts`, `tests/browser/imported-object-editing.spec.ts`, `tests/browser/quick-geometry-correction.spec.ts` and `tests/browser/walkthrough.spec.ts`.
+## Compiled runtime
+
+- `npm run runtime:export` reads an existing native Project without invoking AI or reopening the browser editor.
+- One deterministic compilation boundary emits `plan2world-runtime-v1` plus a sibling `architecture.glb`.
+- Runtime JSON owns engine-neutral semantics, collision and interaction contracts.
+- `architecture.glb` owns deterministic architectural presentation geometry.
+- The Godot adapter consumes both artifacts without recomputing topology or deriving collision from GLB.
+- Missing GLB currently falls back to isolated proxy presentation so the built-in Godot demo remains usable.
+- Swing doors are interactive in Godot; slide/unsupported door motions remain explicit closed blockers rather than being faked as hinges.
+
+Representative tests include `tests/plan2world-draft.test.ts`, `tests/plan2world-reconstruction-assembly.test.ts`, `tests/imported-objects.test.ts`, `tests/runtime-compile.test.ts`, `tests/runtime-artifacts.test.ts`, `tests/runtime-architecture-mesher.test.ts`, `tests/runtime-room-surface-mesher.test.ts`, `tests/runtime-architecture-glb.test.ts`, `tests/runtime-export-cli.test.ts`, and focused browser regressions such as `tests/browser/quick-geometry-correction.spec.ts`.
 
 ## Fresh validation policy
 
@@ -36,4 +47,6 @@ When something fails, fix the earliest responsible layer rather than hand-editin
 - Hidden doors, dense service cores, watermarks and ambiguous boundaries may remain uncertain.
 - Furniture acceptance is semantic presence/type/broad position, not exact product geometry.
 - Registration consistency is not visual correctness.
+- Architecture GLB currently does not support curved walls or polished junction miters.
+- Runtime presentation assets for doors/windows/furniture are still proxy geometry.
 - Plan2World is not BIM, structural analysis or photorealistic reconstruction.
