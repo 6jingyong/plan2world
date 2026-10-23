@@ -77,9 +77,11 @@ jobs:
           chmod +x "$GODOT_BIN"
           "$GODOT_BIN" --version
       - name: Parse and import Godot project
-        run: "$GODOT_BIN" --headless --path runtime/godot --editor --quit
+        run: |
+          "$GODOT_BIN" --headless --path runtime/godot --editor --quit
       - name: Boot built-in runtime demo
-        run: "$GODOT_BIN" --headless --path runtime/godot --quit-after 5
+        run: |
+          "$GODOT_BIN" --headless --path runtime/godot --quit-after 5
 
   # Full browser regression is useful after code reaches main, but it is too
   # expensive and flaky to gate every PR. Pull requests already run the
