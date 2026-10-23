@@ -10,6 +10,8 @@ The editable Plan2World `Project` remains authoritative; this runtime only consu
 - Desktop Forward+ renderer
 - Windows is the first manual test target
 
+Core CI uses the pinned official Godot 4.7.2 Linux build, verifies its SHA-256 checksum, imports/parses this project headlessly, and boots the built-in runtime demo. A runtime/GDScript change is not considered merge-ready if that gate fails.
+
 ## Run the built-in demo
 
 1. Install Godot 4.7.2.
