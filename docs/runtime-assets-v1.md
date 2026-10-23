@@ -91,7 +91,6 @@ checks vertex bounds, colliders, door animation and fallback ownership.
 
 ## Scope
 
-This milestone does not remove the legacy browser walkthrough, add furniture
-interaction/movement, map native finish/tint metadata to models, expose authored
+The asset layer does not add furniture interaction/movement, map native finish/tint metadata to models, expose authored
 door model selection, implement two-leaf/folding/overhead mechanics, or expand
 non-straight stair traversal. Those require their own authoring/runtime contracts.

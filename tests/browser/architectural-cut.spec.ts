@@ -13,7 +13,7 @@ async function open3D(page: import('@playwright/test').Page) {
   await page.waitForLoadState('networkidle');
 }
 
-test('1.20 m architectural cut clips the live 3D canvas and yields to walkthrough', async ({ page }) => {
+test('1.20 m architectural cut clips the live 3D canvas and yields to the floor-stack review', async ({ page }) => {
   await open3D(page);
 
   const cut = page.getByRole('button', { name: /1\.20 m/ });
@@ -26,7 +26,7 @@ test('1.20 m architectural cut clips the live 3D canvas and yields to walkthroug
   await expect(cut).toHaveAttribute('aria-pressed', 'true');
   await expect(canvas).toHaveAttribute('data-architectural-cut', '120');
 
-  await page.getByRole('button', { name: 'Enter Walkthrough Mode', exact: true }).click();
+  await page.getByRole('button', { name: 'Show All Floors Stacked', exact: true }).click();
   await expect(cut).toHaveAttribute('aria-pressed', 'false');
   await expect(canvas).not.toHaveAttribute('data-architectural-cut', /.+/);
 });

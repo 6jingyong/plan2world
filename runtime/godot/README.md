@@ -10,7 +10,7 @@ The editable Plan2World `Project` remains authoritative; this runtime only consu
 - Desktop Forward+ renderer
 - Windows is the first manual test target
 
-Core CI uses the pinned official Godot 4.7.2 Linux build, verifies its SHA-256 checksum, imports/parses this project headlessly, and boots the built-in runtime demo. A runtime/GDScript change is not considered merge-ready if that gate fails.
+Core CI uses the pinned official Godot 4.7.2 Linux build, verifies its SHA-256 checksum, imports/parses this project headlessly, boots the built-in runtime demo, then checks native-export asset placement and a real grounded walkthrough. A runtime/GDScript change is not considered merge-ready if that gate fails.
 
 ## Run the built-in demo
 
@@ -88,7 +88,7 @@ Godot consumes the artifacts for different jobs:
 - sibling `.assets/manifest.json` and content-addressed GLBs: existing catalog models, verified custom-model attachments and a shared default door leaf;
 - `plan2world-runtime-v1`: player spawn/profile, collision, doors, windows, furniture and interaction/traversal semantics.
 
-Collision is always generated from runtime JSON, never inferred from GLB. Room polygons are deterministically triangulated by the runtime compiler into `triangle-mesh` floor colliders with canonical +Y winding. Native `floorOpening` regions remain holes and are not emitted as replacement floor surfaces. Supported straight stairs are also compiled into explicit upward-wound triangle ramps between adjacent authored floor elevations. Godot consumes all of those as `ConcavePolygonShape3D` rather than deriving them from presentation geometry.
+Collision is always generated from runtime JSON, never inferred from GLB. Room polygons are deterministically triangulated by the runtime compiler into `triangle-mesh` floor colliders with canonical +Y winding. Native `floorOpening` regions remain holes and are not emitted as replacement floor surfaces. Supported straight stairs are also compiled into explicit upward-wound triangle ramps between adjacent authored floor elevations. Godot converts their canonical CCW winding to its clockwise face convention and consumes them as `ConcavePolygonShape3D` rather than deriving them from presentation geometry.
 
 The architecture presentation compiler owns straight and quadratic wall tessellation, physical-width openings on curved paths, compatible endpoint-network miters, room slabs/ceilings, static window panes, square/round columns and step presentation for traversable straight stairs. The GLB writer also assigns a small deterministic material palette. Godot only imports the finished static scene; it does not reconstruct any of that geometry.
 
@@ -152,3 +152,25 @@ Godot_v4.7.2-stable_linux.x86_64 --headless --path runtime/godot --script res://
 Transfer the runtime JSON, architecture GLB and sibling `.assets` directory together.
 The asset directory follows the runtime JSON basename, independently of an explicit
 `--architecture` override. No engine-specific paths are stored in either JSON contract.
+
+## Grounded walkthrough gate
+
+```sh
+node tooling/runtime-walkthrough-fixture.mjs /tmp/runtime-walkthrough
+Godot_v4.7.2-stable_linux.x86_64 --headless --fixed-fps 60 --path runtime/godot --script res://tests/runtime_walkthrough_test.gd -- --scene /tmp/runtime-walkthrough/walkthrough.runtime.json
+```
+
+This starts from native Project JSON, runs the real exporter and loads both the
+architecture GLB and dynamic model package. It drives the actual player through
+Godot input actions and physics frames: floor contact at nonzero elevation, wall,
+furniture and round-column collision, ray-based swing/slide interaction, the
+native stairwell aperture, ascent to an upper landing and descent to the lower
+floor. `--fixed-fps 60` accelerates deterministic simulation without bypassing
+`CharacterBody3D`, gravity, raycasts or `move_and_slide()`.
+
+Physical keys are bound through Godot's `move_*` input actions. The runtime compiler
+owns default interior spawn selection. Scenes without a compiled point display
+an explicit missing-spawn status instead of the engine inventing a location.
+
+Re-export older derived snapshots that relied on engine-side automatic spawn; the
+native Project format and saved spawn field are unchanged.

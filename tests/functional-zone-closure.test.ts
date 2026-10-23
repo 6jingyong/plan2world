@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { prepareArchitectureStage, assembleFrozenArchitecture } from '$lib/plan2world/architecture';
 import { draftToProject, parsePlan2WorldDraft } from '$lib/plan2world/draft';
 import { calibratePlan2WorldDraft } from '$lib/plan2world/review';
-import { createWalkthroughCollisionWorld } from '$lib/utils/walkthroughCollision';
+import { buildFloorClearance } from '$lib/utils/floorClearance';
 import { parseFunctionalZones } from '$lib/plan2world/functionalZones';
 
 const p = (x: number, y: number) => ({ x, y });
@@ -43,7 +43,7 @@ it('closes independent doorless functional zones with one shared logical host an
   expect(passage).toHaveLength(1);
   expect(passage[0]).toMatchObject({ width: 200, height: 280 });
   const host = passage[0].wallId;
-  expect(createWalkthroughCollisionWorld(native.floors[0]).obstacles.some(o => o.id.startsWith(`wall:${host}:`))).toBe(false);
+  expect(buildFloorClearance(native.floors[0]).obstacles.some(o => o.id.startsWith(`wall:${host}:`))).toBe(false);
   expect(native.floors[0].rooms.map(r => r.name).sort()).toEqual(['bedroom', 'dressing']);
   expect(JSON.stringify(input)).toBe(before);
   const stored = JSON.stringify(result.draft);
@@ -85,7 +85,7 @@ it('closes an unfurnished balcony using invisible air boundaries and an editable
   expect(air).toHaveLength(2); expect(rail.height).toBe(110);
   const floor = draftToProject(draft).floors[0];
   expect(floor.rooms.find(r => r.name === 'balcony')?.roomType).toBe('outdoor');
-  expect(createWalkthroughCollisionWorld(floor).obstacles.some(o => o.id.startsWith(`wall:${air[0].id}:`))).toBe(true);
+  expect(buildFloorClearance(floor).obstacles.some(o => o.id.startsWith(`wall:${air[0].id}:`))).toBe(true);
   expect(draft.floors[0].doors![0].height).toBe(280);
 });
 

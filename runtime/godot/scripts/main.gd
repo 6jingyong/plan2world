@@ -29,7 +29,10 @@ func _ready() -> void:
 	var presentation_stats := proxy_renderer.render(data, self, build_result, presentation_loaded, asset_result.get("presented", {}))
 	var runtime_stats: Dictionary = build_result.get("stats", {})
 
-	var spawn := _choose_spawn(data)
+	var spawn = _choose_spawn(data)
+	if spawn == null:
+		_show_status("Runtime scene has no compiled player spawn.", true)
+		return
 	var player := P2WPlayer.new()
 	player.name = "Player"
 	add_child(player)
@@ -52,31 +55,12 @@ func _ready() -> void:
 		presentation_stats,
 	)
 
-func _choose_spawn(data: Dictionary) -> Vector3:
-	var floors: Array = data.get("floors", [])
-	for raw_floor in floors:
-		if typeof(raw_floor) != TYPE_DICTIONARY:
-			continue
-		var floor: Dictionary = raw_floor
-		var explicit = floor.get("walkthroughStart", null)
-		if typeof(explicit) == TYPE_ARRAY and explicit.size() >= 3:
-			return Vector3(float(explicit[0]), float(explicit[1]), float(explicit[2]))
-		var rooms: Array = floor.get("rooms", [])
-		if rooms.is_empty() or typeof(rooms[0]) != TYPE_DICTIONARY:
-			continue
-		var polygon: Array = rooms[0].get("polygon", [])
-		if polygon.is_empty():
-			continue
-		var centroid := Vector2.ZERO
-		var count := 0
-		for raw_point in polygon:
-			if typeof(raw_point) == TYPE_ARRAY and raw_point.size() >= 2:
-				centroid += Vector2(float(raw_point[0]), float(raw_point[1]))
-				count += 1
-		if count > 0:
-			centroid /= float(count)
-			return Vector3(centroid.x, float(floor.get("elevation", 0.0)), centroid.y)
-	return Vector3(0, 0, 0)
+func _choose_spawn(data: Dictionary):
+	for floor in data.get("floors", []):
+		var point = floor.get("walkthroughStart", null)
+		if typeof(point) == TYPE_ARRAY and point.size() == 3:
+			return Vector3(float(point[0]), float(point[1]), float(point[2]))
+	return null
 
 func _build_environment() -> void:
 	var world := WorldEnvironment.new()

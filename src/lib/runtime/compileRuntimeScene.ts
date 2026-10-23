@@ -1,5 +1,6 @@
 import type { Door, Floor, Point, Project, Wall } from '$lib/models/types';
 import { getWallEndHeight, getWallStartHeight } from '$lib/models/types';
+import { floorInteriorPoint } from '$lib/utils/floorInteriorPoint';
 import { analyzeFloor } from '$lib/utils/floorAnalysis';
 import { floorElevations } from '$lib/utils/floors';
 import { getCatalogItem, getFurnitureSize } from '$lib/utils/furnitureCatalog';
@@ -283,7 +284,8 @@ function compileFloor(
   return {
     floor: {
       id: floor.id, name: floor.name, level: floor.level, elevation,
-      walkthroughStart: floor.walkthroughStart ? point3(floor.walkthroughStart, elevationCm) : null,
+      walkthroughStart: floor.walkthroughStart ? point3(floor.walkthroughStart, elevationCm) :
+        rooms.length ? point3(floorInteriorPoint(analysis), elevationCm) : null,
       rooms,
     },
     entities,

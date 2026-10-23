@@ -65,13 +65,7 @@ test('top-down fits every corner after orbit, stacking and viewport changes', as
         if (stacked) await page.getByRole('button', { name: 'Active Floor Only', exact: true }).click();
       }
     }
-    // Top-Down is also an explicit way out of keyboard walkthrough, including
-    // browsers where mouse capture is denied.
-    await page.evaluate(() => { HTMLCanvasElement.prototype.requestPointerLock = () => Promise.reject(new DOMException('Denied', 'NotAllowedError')); });
-    await page.getByRole('button', { name: 'Enter Walkthrough Mode', exact: true }).click();
-    await expect(page.getByText('Walkthrough Controls', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Top-Down View', exact: true }).click();
-    await expect(page.getByText('Walkthrough Controls', { exact: true })).not.toBeVisible();
     await expect.poll(allCornersFit).toBe(true);
     expect(errors).toEqual([]); expect(external).toEqual([]);
   } finally {

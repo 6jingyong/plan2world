@@ -32,7 +32,7 @@ Adapters own any final engine-specific axis or quaternion conversion.
 
 ## Floors, room surfaces and apertures
 
-Each floor contains its resolved elevation, optional walkthrough start and room surfaces. Room polygons and holes are compiled from native room analysis so a runtime backend never has to reproduce Plan2World room detection.
+Each floor contains its resolved elevation, compiled walkthrough start and room surfaces. An explicit native `walkthroughStart` is retained; otherwise the compiler selects a deterministic interior point from the same native room polygons/holes and offline clearance used by authoring diagnostics. Floors without a walkable room or authored point retain null. Godot selects an emitted point and never reconstructs a room centroid or repairs an invalid spawn. Room polygons and holes are compiled from native room analysis so a runtime backend never has to reproduce Plan2World room detection.
 
 A native room with `floorOpening: true` is an aperture, not a walkable surface. It still participates in native nesting so an enclosing room receives that polygon as a hole, but the runtime compiler does not emit the opening as a second room surface. This prevents presentation or collision code from filling a stairwell/shaft after the hole was correctly detected.
 
@@ -142,7 +142,7 @@ Collision is compiler-owned output rather than something each backend infers fro
 - non-flat furniture gets a conservative box collider;
 - columns get box/cylinder primitives.
 
-Runtime backends translate these colliders into native physics types. They do not triangulate rooms, carve floor openings or infer stair ramps themselves.
+Runtime backends translate these colliders into native physics types. Runtime triangles use right-handed CCW winding with +Y normals for walkable surfaces; Godot reverses triangle winding at its adapter boundary to match clockwise front faces. This conversion applies to physics and missing-GLB fallback presentation. They do not triangulate rooms, carve floor openings or infer stair ramps themselves.
 
 ## Schema and references
 

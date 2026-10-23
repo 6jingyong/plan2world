@@ -3,7 +3,7 @@ import { prepareArchitectureStage, assembleFrozenArchitecture } from '$lib/plan2
 import { draftToProject } from '$lib/plan2world/draft';
 import { wallPathCoverage } from '$lib/utils/wallPathCoverage';
 import { wallSubpath } from '$lib/utils/wallPath';
-import { createWalkthroughCollisionWorld } from '$lib/utils/walkthroughCollision';
+import { buildFloorClearance } from '$lib/utils/floorClearance';
 
 const p = (x: number, y: number) => ({ x, y });
 const curve = { start: p(20, 40), end: p(180, 40), curvePoint: p(100, 160) };
@@ -54,7 +54,7 @@ it.each(['air', 'railing'])('closes an unfurnished curved balcony with %s while 
   if (kind === 'railing') expect(boundaries.every(w => w.height === 110)).toBe(true);
   const floor = draftToProject(draft).floors[0];
   expect(floor.rooms.find(r => r.name === 'balcony')?.roomType).toBe('outdoor');
-  expect(createWalkthroughCollisionWorld(floor).obstacles.some(o => o.id.startsWith(`wall:${boundaries[0].id}:`))).toBe(true);
+  expect(buildFloorClearance(floor).obstacles.some(o => o.id.startsWith(`wall:${boundaries[0].id}:`))).toBe(true);
   expect(JSON.stringify(a)).toBe(original);
 });
 
@@ -67,7 +67,7 @@ it('deduplicates a curved shared leafless passage and preserves its traversable 
   expect(stage.functionalZoneReview!.finalMetrics.resolvedZoneCount).toBe(2);
   expect(draft.floors[0].doors).toHaveLength(1); expect(draft.floors[0].doors![0].type).toBe('opening');
   const floor = draftToProject(draft).floors[0];
-  expect(createWalkthroughCollisionWorld(floor).obstacles.some(o => o.id.startsWith('wall:w5:'))).toBe(false);
+  expect(buildFloorClearance(floor).obstacles.some(o => o.id.startsWith('wall:w5:'))).toBe(false);
   // Two T junctions split the outer top/bottom runs; the shared curve stays one.
   expect(stage.bareHouse.walls).toHaveLength(7);
   expect(stage.bareHouse.walls.filter(w => w.curvePoint)).toHaveLength(1);

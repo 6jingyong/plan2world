@@ -60,13 +60,8 @@ for (const viewport of [{ width: 390, height: 900 }, { width: 1440, height: 900 
     const picture = testInfo.outputPath('usable-3d-viewport.png');
     await page.screenshot({ path: picture });
     await testInfo.attach('usable-3d-viewport', { path: picture, contentType: 'image/png' });
-    await page.evaluate(() => {
-      HTMLCanvasElement.prototype.requestPointerLock = () => Promise.reject(new DOMException('Denied', 'NotAllowedError'));
-    });
-    await page.getByRole('button', { name: 'Enter Walkthrough Mode', exact: true }).click();
-    await expect(page.getByText('Walkthrough Controls', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Edit Mode', exact: true }).click();
     await expectUncoveredViewport();
-    await page.getByRole('button', { name: 'Exit Walkthrough Mode', exact: true }).click();
     await page.getByRole('button', { name: '2D', exact: true }).click();
     await expect(page.locator('[data-quick-wall-length]')).toHaveValue(originalLength);
     expect(await exportedFloors()).toEqual(original);

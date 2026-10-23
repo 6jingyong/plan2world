@@ -61,7 +61,7 @@ house.assets/<sha256>.glb  # referenced catalog/custom models and shared door le
 
 Runtime JSON now carries explicit engine-neutral floor collision triangles as well as wall/furniture/column primitives and door interaction contracts. Godot consumes those colliders directly for grounded gravity/floor-snapped `CharacterBody3D` motion; it never derives physics from GLB. Swing and sliding/pocket doors use their explicit runtime motion semantics, while unsupported fold/overhead motion remains a closed blocker rather than being approximated as a hinge.
 
-The Godot adapter consumes these artifacts separately: runtime JSON owns behavior/collision, architecture GLB owns static presentation, and the asset manifest resolves replaceable furniture and dynamic leaves. Catalog GLBs reuse the existing catalog mapping; custom GLBs reuse verified Project attachments. Missing models use compatibility proxies. The browser remains the authoring/review surface; future Unity/Unreal/Web runtimes should consume the same compiled boundary rather than translating from Godot.
+The Godot adapter consumes these artifacts separately: runtime JSON owns behavior/collision, architecture GLB owns static presentation, and the asset manifest resolves replaceable furniture and dynamic leaves. Catalog GLBs reuse the existing catalog mapping; custom GLBs reuse verified Project attachments. Missing models use compatibility proxies. The browser provides orbit navigation, 3D editing/review, floor stacks, architectural cuts and photo-camera previews. Browser FPS locomotion and physics have been removed; native spawn editing is retained for compiled runtime use. Future Unity/Unreal/Web runtimes should consume the same compiled boundary rather than translating from Godot.
 
 See [`runtime/godot/README.md`](runtime/godot/README.md) for the current runtime adapter and manual launch path.
 
@@ -92,7 +92,7 @@ npm ci
 npm run dev
 ```
 
-Core CI runs the TypeScript/catalog/unit/build/audit gates plus a pinned Godot 4.7.2 headless project parse, built-in runtime-demo boot and native Project → packaged assets → Godot integration checks. Local code checks are:
+Core CI runs the TypeScript/catalog/unit/build/audit gates plus a pinned Godot 4.7.2 headless project parse, built-in runtime-demo boot and native Project → packaged assets → Godot integration and actual grounded walkthrough checks. Local code checks are:
 
 ```bash
 npm test
@@ -109,3 +109,5 @@ npm run build
 - Keep provider-specific transport outside editor core.
 - Keep local/manual JSON import and offline runtime export available; AI must not be mandatory.
 - Preserve upstream MIT attribution.
+
+The remaining migration work and focused verification paths are tracked in [`docs/runtime-migration.md`](docs/runtime-migration.md).

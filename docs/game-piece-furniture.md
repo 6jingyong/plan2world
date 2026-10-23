@@ -28,4 +28,4 @@ Detailed custom models remain supported as an optional skin. They should never b
 
 The product is testing whether a normal user can reconstruct a home from a flat plan and manipulate the space like a simple game. Asset realism is not on that critical path. Keeping furniture abstract makes the catalog faster, the scene cheaper, category/footprint differences clearer, and future AI reconstruction independent of a fragile model-ID vocabulary.
 
-Walkthrough collision is currently independent of furniture meshes: the existing walkthrough motion directly updates the camera pose. Proper wall/furniture collision should therefore be implemented later as explicit plan-space collision geometry rather than relying on visual mesh bounds.
+Browser furniture is an authoring/review preview. The browser FPS runtime has been removed. The deterministic runtime compiler emits explicit furniture colliders from native effective dimensions; Godot consumes those colliders independently of catalog/custom GLB presentation.

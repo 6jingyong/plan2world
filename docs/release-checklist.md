@@ -19,7 +19,7 @@ When reconstruction behavior or the Skill changes:
 - [ ] Freeze the complete emitted JSON before inspecting downstream output; record its hash when practical.
 - [ ] Review source → draft separately from draft-contract validity.
 - [ ] Validate the frozen draft before testing validated draft → native conversion.
-- [ ] Inspect native geometry before judging 2D/cut/3D, then inspect walkthrough and interaction/persistence in order.
+- [ ] Inspect native geometry before judging 2D/cut/3D, then export runtime artifacts and inspect Godot walkthrough and interaction/persistence in order.
 - [ ] Do not hand-edit a failed JSON or generated native/3D model to make a candidate pass.
 - [ ] Stop at the earliest failed boundary. Fix that reusable layer and leave later stages unclaimed for that run.
 - [ ] If the reconstruction Skill changed, generate a separate fresh draft candidate rather than overwriting the failed one.
@@ -30,7 +30,8 @@ The ordered stage IDs and manifest semantics live in `src/lib/plan2world/validat
 
 - [ ] Verify affected import → Review → native edit → save/reload behavior.
 - [ ] For 3D changes, verify the 1.20 m cut and ordinary 3D view on unchanged native geometry.
-- [ ] For walkthrough changes, verify entry, movement, doorway traversal/collision and exit/re-entry without modifying the candidate geometry.
+- [ ] For runtime changes, run native export → pinned Godot asset and grounded-walkthrough gates; verify spawn, physical collision, door interaction and vertical traversal without modifying generated artifacts.
+- [ ] For browser review changes, verify orbit, cut/stack, 3D element editing, phone inspector layout, camera preview and idle/resource disposal. The browser has no FPS runtime.
 - [ ] Verify affected Undo/Redo and package round trips where applicable. Use `docs/project-package-v1.md` for the package contract.
 - [ ] Record browser/device/input checks and explicitly list untested environments. Managed browser CI is not physical-device qualification.
 - [ ] For performance changes, record the workload, hardware and measurement method; viewport emulation is not a device benchmark.

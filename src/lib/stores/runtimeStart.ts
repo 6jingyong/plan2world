@@ -1,25 +1,18 @@
 import { get } from 'svelte/store';
 import type { Point } from '$lib/models/types';
 import { activeFloor, beginUndoGroup, currentProject, endUndoGroup } from './project';
-import { createWalkthroughCollisionWorld, resolveWalkthroughStart } from '$lib/utils/walkthroughCollision';
+import { buildFloorClearance, resolveClearancePoint } from '$lib/utils/floorClearance';
 
 function finitePoint(point: Point): boolean {
   return Number.isFinite(point.x) && Number.isFinite(point.y);
 }
 
-/** Resolve the saved first-person start against the floor's current collision geometry. */
-export function resolvedActiveWalkthroughStart(): Point | undefined {
-  const floor = get(activeFloor);
-  if (!floor?.walkthroughStart || !finitePoint(floor.walkthroughStart)) return undefined;
-  return resolveWalkthroughStart(floor.walkthroughStart, createWalkthroughCollisionWorld(floor));
-}
-
 /** Persist a collision-safe first-person start on the active floor as one undoable edit. */
-export function setWalkthroughStart(point: Point): Point | undefined {
+export function setRuntimeStart(point: Point): Point | undefined {
   if (!finitePoint(point)) return undefined;
   const floor = get(activeFloor);
   if (!floor) return undefined;
-  const resolved = resolveWalkthroughStart(point, createWalkthroughCollisionWorld(floor));
+  const resolved = resolveClearancePoint(point, buildFloorClearance(floor));
   if (floor.walkthroughStart?.x === resolved.x && floor.walkthroughStart?.y === resolved.y) return resolved;
 
   beginUndoGroup();
@@ -38,8 +31,8 @@ export function setWalkthroughStart(point: Point): Point | undefined {
   return resolved;
 }
 
-/** Remove the explicit start so the viewer falls back to automatic room-centre placement. */
-export function clearWalkthroughStart() {
+/** Remove the explicit start so the compiler chooses an automatic interior spawn. */
+export function clearRuntimeStart() {
   const floor = get(activeFloor);
   if (!floor?.walkthroughStart) return;
   beginUndoGroup();

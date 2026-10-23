@@ -26,11 +26,7 @@
   import { updateOrbitDamping } from '$lib/utils/orbitDamping';
   import { portableRenderSceneJSON } from '$lib/utils/portableRenderScene';
   import { sceneSignature } from '$lib/utils/sceneSignature';
-  import { WalkthroughMotion } from '$lib/utils/walkthroughMotion';
-  import { automaticWalkthroughStart } from '$lib/utils/walkthroughEntry';
-  import { createWalkthroughCollisionWorld, type WalkthroughCollisionWorld } from '$lib/utils/walkthroughCollision';
   import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-  import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
   import { getCatalogItem, furnitureCatalog, furnitureCategories } from '$lib/utils/furnitureCatalog';
   import type { FurnitureDef } from '$lib/utils/furnitureCatalog';
   import { createWallHighlight } from '$lib/utils/wallHighlight';
@@ -66,7 +62,6 @@
     sceneDirty = true;
     requestRender();
   }
-  let pointerControls: PointerLockControls;
   let currentFloor = $state.raw<Floor | null>(null);
   let renderedSignature: string | null = null;
   let wallGroup: THREE.Group;
@@ -80,7 +75,6 @@
 
   // 3D Edit mode — enables click-to-select
   let editMode = $state(false);
-  let preserveWalkthroughOnUnlock = false;
   // Wall transparency toggle
   let wallsTransparent = $state(false);
   // Multi-floor stacking
@@ -90,15 +84,6 @@
   let activeFloorElevation = $state(0);
   let sceneGround: THREE.Mesh;
   // Stacked geometry uses the same floor levels as the 2D reference layer.
-
-  // Walkthrough mode
-  let walkthroughMode = $state(false);
-  let walkthroughMouseUnavailable = $state(false);
-  const walkthroughMotion = new WalkthroughMotion();
-  let walkthroughCollisionWorld: WalkthroughCollisionWorld | null = null;
-  let moveSpeed = $state(800);
-  let sprintSpeed = $state(1600);
-  let eyeHeight = $state(160); // cm
 
   // Lighting controls state
   let lightingPanelOpen = $state(false);
@@ -625,21 +610,10 @@
   const WALL_THICKNESS = 15;
   const BASEBOARD_HEIGHT = 8;
 
-  function exitWalkthroughMode() {
-    walkthroughMode = false;
-    controls.enabled = true;
-    walkthroughMotion.reset();
-    markSceneDirty();
-
-    if (typeof document !== 'undefined' && document.pointerLockElement) {
-      document.exitPointerLock();
-    }
-  }
-
   function onKeyDown(event: KeyboardEvent) {
     if (hasOpenModal()) return;
     // ESC exits edit mode
-    if (event.code === 'Escape' && editMode && !walkthroughMode) {
+    if (event.code === 'Escape' && editMode) {
       if (furniturePlacementMode) {
         furniturePlacementMode = false;
         furniturePickerOpen = false;
@@ -651,39 +625,6 @@
       selectSingleElement(null);
       return;
     }
-    if (!walkthroughMode) return;
-    if (event.code === 'Escape') { exitWalkthroughMode(); return; }
-    if (event.defaultPrevented || event.isComposing || event.ctrlKey || event.metaKey || event.altKey
-      || isWalkthroughField(event.target)) return;
-    if (walkthroughMotion.setKey(event.code, true, event.repeat)) {
-      event.preventDefault();
-      wakeWalkthrough();
-    }
-  }
-
-  function onKeyUp(event: KeyboardEvent) {
-    walkthroughMotion.setKey(event.code, false);
-    wakeWalkthrough();
-  }
-
-  function wakeWalkthrough() {
-    if (walkthroughMode && walkthroughMotion.active) {
-      walkthroughMotion.startClock(performance.now());
-      requestRender();
-    }
-  }
-
-  function resetWalkthroughInput() {
-    walkthroughMotion.reset();
-  }
-
-  function isWalkthroughField(target: EventTarget | null) {
-    return target instanceof HTMLElement && (target.isContentEditable
-      || Boolean(target.closest('input, textarea, select')));
-  }
-
-  function onWalkthroughFocus(event: FocusEvent) {
-    if (hasOpenModal() || isWalkthroughField(event.target)) resetWalkthroughInput();
   }
 
   function init() {
@@ -790,29 +731,14 @@
       pointerDownPos = { x: e.clientX, y: e.clientY };
     });
     renderer.domElement.addEventListener('pointerup', (e) => {
-      // Walkthrough can select an opening for the same native property editor.
-      if (!editMode && !walkthroughMode) return;
+      if (!editMode) return;
       const dx = e.clientX - pointerDownPos.x;
       const dy = e.clientY - pointerDownPos.y;
       if (Math.hypot(dx, dy) > 5) return;
       const rect = renderer.domElement.getBoundingClientRect();
-      const locked = walkthroughMode && document.pointerLockElement === renderer.domElement;
-      mouse.x = locked ? 0 : ((e.clientX - rect.left) / rect.width) * 2 - 1;
-      mouse.y = locked ? 0 : -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
       raycaster.setFromCamera(mouse, camera);
-
-      if (walkthroughMode) {
-        const id = sceneElementAt(raycaster, wallGroup);
-        if (currentFloor?.doors.some(door => door.id === id) || currentFloor?.windows.some(window => window.id === id)) {
-          walkthroughMotion.reset();
-          if (locked) {
-            preserveWalkthroughOnUnlock = true;
-            document.exitPointerLock();
-          }
-          selectSingleElement(id);
-        }
-        return;
-      }
 
       // Camera placement mode: first click = position, second click = look-at target
       if (cameraPlacementMode) {
@@ -916,24 +842,8 @@
       }
     });
 
-    // Initialize PointerLock controls for walkthrough mode
-    pointerControls = new PointerLockControls(camera, renderer.domElement);
-    pointerControls.addEventListener('change', markSceneDirty);
-
-    // Keyboard event listeners for walkthrough
+    // Escape cancels authoring tools without capturing runtime input.
     document.addEventListener('keydown', onKeyDown, false);
-    document.addEventListener('keyup', onKeyUp, false);
-    window.addEventListener('blur', resetWalkthroughInput);
-    document.addEventListener('visibilitychange', resetWalkthroughInput);
-    document.addEventListener('focusin', onWalkthroughFocus);
-
-    // ESC key to exit walkthrough mode
-    pointerControls.addEventListener('unlock', () => {
-      if (preserveWalkthroughOnUnlock) { preserveWalkthroughOnUnlock = false; return; }
-      if (walkthroughMode) {
-        exitWalkthroughMode();
-      }
-    });
 
     // Lights — improved multi-source setup
     ambientLight = new THREE.AmbientLight(0xffffff, 0.35);
@@ -1792,8 +1702,6 @@
     if (!project || !currentFloor) return;
     const signature = sceneSignature(project, currentFloor, showAllFloors, get(projectSettings).units);
     if (!force && signature === renderedSignature) return;
-    const walkingPosition = walkthroughMode ? camera.position.clone() : null;
-    const walkingRotation = walkthroughMode ? camera.quaternion.clone() : null;
     if (showAllFloors) {
       buildAllFloorsStacked();
     } else if (currentFloor) {
@@ -1803,11 +1711,6 @@
       buildWalls(currentFloor);
     }
     wallHighlight.apply(elementMeshMap, selectedWallId3D);
-    if (walkingPosition && walkingRotation) {
-      camera.position.copy(walkingPosition);
-      camera.position.y = activeFloorElevation + eyeHeight;
-      camera.quaternion.copy(walkingRotation);
-    }
     if (cameraPlaced) {
       updateInteriorCamera();
       updateCameraMarkerFromState();
@@ -1864,7 +1767,6 @@
       disableArchitecturalCut();
       return;
     }
-    if (walkthroughMode) exitWalkthroughMode();
     if (showAllFloors) {
       showAllFloors = false;
       rebuildScene();
@@ -1875,7 +1777,6 @@
   }
 
   function viewTopDown() {
-    if (walkthroughMode) exitWalkthroughMode();
     // Consume pending orbit/pan deltas before setting the requested view. This
     // public update path clears damping without reaching into control internals.
     const damping = controls.enableDamping;
@@ -1890,77 +1791,17 @@
     markSceneDirty();
   }
 
-  function toggleWalkthroughMode() {
-    if (walkthroughMode) {
-      exitWalkthroughMode();
-    } else {
-      enterWalkthroughMode();
-    }
-  }
-
-  function enterWalkthroughMode() {
-    disableArchitecturalCut();
-    cancelAIRender();
-    cameraPlacementMode = false;
-    cameraPreviewOpen = false;
-    furniturePlacementMode = false;
-    removeGhostPreview();
-    walkthroughMode = true;
-    walkthroughMotion.reset();
-    walkthroughMouseUnavailable = false;
-    controls.enabled = false;
-
-    // Use the same live room polygons/holes as the plan and rendered floors.
-    if (currentFloor) {
-      const analysis = get(projectFloorAnalysis).active;
-      const point = analysis ? automaticWalkthroughStart(analysis, walkthroughCollisionWorld ?? undefined) : { x: 0, y: 0 };
-      const startPos = { x: point.x, y: eyeHeight, z: point.y };
-      setFloorCameraPose(camera, activeFloorElevation, startPos,
-        { ...startPos, z: startPos.z - 100 });
-    }
-
-    // Three's lock() discards the browser's promise. Handle rejection here so
-    // embedded/unsupported browsers can still use keyboard movement and look.
-    try {
-      Promise.resolve(renderer.domElement.requestPointerLock()).catch(() => {
-        if (walkthroughMode) walkthroughMouseUnavailable = true;
-      });
-    } catch {
-      walkthroughMouseUnavailable = true;
-    }
-    markSceneDirty();
-  }
-
-
-
   let lastOrbitFrame: number | undefined;
   function animate(timestamp: number) {
     animId = undefined;
 
-    if (walkthroughMode) {
-      lastOrbitFrame = undefined;
-      const moving = walkthroughMotion.active;
-      walkthroughMotion.advance(timestamp, camera, {
-        moveSpeed, sprintSpeed, eyeHeight, floorElevation: activeFloorElevation,
-        collisionWorld: walkthroughCollisionWorld,
-      });
-      if (sceneDirty || moving) {
-        sceneDirty = false;
-        renderer.render(scene, camera);
-        renderer.domElement.dataset.rendered = 'true';
-      }
-      if (walkthroughMotion.active) requestRender();
-      else walkthroughMotion.stopClock();
-    } else {
-      // A change event schedules the next damping step. Once the controls settle,
-      // leave no callback queued until an interaction or scene update wakes us.
-      updateOrbitDamping(controls, lastOrbitFrame === undefined ? 1 / 60 : (timestamp - lastOrbitFrame) / 1000);
-      lastOrbitFrame = animId === undefined ? undefined : timestamp;
-      if (sceneDirty) {
-        sceneDirty = false;
-        renderer.render(scene, camera);
-        renderer.domElement.dataset.rendered = 'true';
-      }
+    // A change event schedules damping; settled review views have no RAF work.
+    updateOrbitDamping(controls, lastOrbitFrame === undefined ? 1 / 60 : (timestamp - lastOrbitFrame) / 1000);
+    lastOrbitFrame = animId === undefined ? undefined : timestamp;
+    if (sceneDirty) {
+      sceneDirty = false;
+      renderer.render(scene, camera);
+      renderer.domElement.dataset.rendered = 'true';
     }
   }
 
@@ -2021,10 +1862,8 @@
     const unsub = activeFloor.subscribe((f) => {
       if (currentFloor?.id !== f?.id) {
         closeCamera();
-        if (walkthroughMode) exitWalkthroughMode();
       }
       currentFloor = f;
-      walkthroughCollisionWorld = f ? createWalkthroughCollisionWorld(f) : null;
       if (f) rebuildScene();
     });
     // Room area labels are textures and must refresh when display units change.
@@ -2050,11 +1889,6 @@
       if (animId !== undefined) cancelAnimationFrame(animId);
       animId = undefined;
       document.removeEventListener('keydown', onKeyDown, false);
-      document.removeEventListener('keyup', onKeyUp, false);
-      window.removeEventListener('blur', resetWalkthroughInput);
-      document.removeEventListener('visibilitychange', resetWalkthroughInput);
-      document.removeEventListener('focusin', onWalkthroughFocus);
-      walkthroughMotion.reset();
       releaseCameraPreview();
       wallHighlight.clear();
       removeGhostPreview();
@@ -2062,8 +1896,6 @@
       sunLight.shadow.dispose();
       clearGroup(scene);
       elementMeshMap.clear();
-      pointerControls.removeEventListener('change', markSceneDirty);
-      pointerControls.dispose();
       controls.dispose();
       releaseRenderer(renderer);
     };
@@ -2140,7 +1972,7 @@
 
     <!-- Edit Mode Toggle -->
     <button
-      onclick={() => { editMode = !editMode; if (editMode && walkthroughMode) { exitWalkthroughMode(); } if (!editMode) { selectSingleElement(null); } }}
+      onclick={() => { editMode = !editMode; if (!editMode) { selectSingleElement(null); } }}
       class="p-2 rounded-lg transition-colors {editMode ? 'bg-blue-600 text-white ring-2 ring-blue-300' : 'bg-black/70 text-white hover:bg-black/80'}"
       title={editMode ? $t('viewerNav.exitEdit') : $t('viewerNav.editHelp')}
       aria-label={editMode ? $t('viewerNav.exitEdit') : $t('viewerNav.edit')}
@@ -2160,7 +1992,6 @@
           cameraPlacementMode = true;
           cameraPlaced = false;
           editMode = true;
-          if (walkthroughMode) exitWalkthroughMode();
           furniturePlacementMode = false;
         }
       }}
@@ -2187,30 +2018,6 @@
       </svg>
     </button>
 
-    <!-- Walkthrough Mode Toggle Button -->
-    <button
-      onclick={toggleWalkthroughMode}
-      class="p-2 rounded-lg bg-black/70 text-white hover:bg-black/80 transition-colors"
-      title={walkthroughMode ? $t('viewerNav.exitWalk') : $t('viewerNav.enterWalk')}
-      aria-label={walkthroughMode ? $t('viewerNav.exitWalk') : $t('viewerNav.enterWalk')}
-  >
-    {#if walkthroughMode}
-      <!-- Exit/Eye closed icon -->
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-        <line x1="1" y1="1" x2="23" y2="23"/>
-      </svg>
-    {:else}
-      <!-- Walking person icon -->
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="12" cy="4" r="2"/>
-        <path d="M10 16v6"/>
-        <path d="M14 16v6"/>
-        <path d="M12 6h2l4 4"/>
-        <path d="M10 14l2-2 1 2"/>
-      </svg>
-    {/if}
-    </button>
   </div><!-- end 3D toolbar row -->
 
   {#if cameraPlacementMode && !cameraPlaced}
@@ -2401,58 +2208,7 @@
     </div>
   {/if}
 
-  {#if walkthroughMode}
-    <!-- Crosshair -->
-    <div class="absolute inset-0 pointer-events-none z-10 flex items-center justify-center">
-      <div class="w-4 h-4">
-        <svg width="16" height="16" viewBox="0 0 16 16" class="text-white drop-shadow-lg">
-          <line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" stroke-width="1"/>
-          <line x1="8" y1="10" x2="8" y2="14" stroke="currentColor" stroke-width="1"/>
-          <line x1="2" y1="8" x2="6" y2="8" stroke="currentColor" stroke-width="1"/>
-          <line x1="10" y1="8" x2="14" y2="8" stroke="currentColor" stroke-width="1"/>
-        </svg>
-      </div>
-    </div>
-
-    <!-- Controls Panel -->
-    <div class="absolute top-4 left-4 z-10 bg-black/70 text-white text-xs rounded-lg backdrop-blur-sm p-3 space-y-2 min-w-[180px]">
-      <div class="font-semibold text-white/90 mb-1">{$t('viewerNav.walkControls')}</div>
-      <p class="max-w-56 text-white/80">{$t('viewerNav.editOpeningHint')}</p>
-      {#if walkthroughMouseUnavailable}
-        <p role="status" class="max-w-56 text-amber-200">{$t('viewerNav.mouseUnavailable')}</p>
-      {/if}
-      <label class="flex items-center justify-between gap-2">
-        <span class="text-white/70">{$t('viewerNav.eyeHeight')}</span>
-        <div class="flex items-center gap-1">
-          <input type="range" min="80" max="220" bind:value={eyeHeight} oninput={markSceneDirty} class="w-16 h-1 accent-blue-400" />
-          <span class="w-10 text-right">{eyeHeight}cm</span>
-        </div>
-      </label>
-      <label class="flex items-center justify-between gap-2">
-        <span class="text-white/70">{$t('viewerNav.walkSpeed')}</span>
-        <div class="flex items-center gap-1">
-          <input type="range" min="100" max="1000" step="50" bind:value={moveSpeed} class="w-16 h-1 accent-blue-400" />
-          <span class="w-10 text-right">{moveSpeed}</span>
-        </div>
-      </label>
-      <label class="flex items-center justify-between gap-2">
-        <span class="text-white/70">{$t('viewerNav.sprintSpeed')}</span>
-        <div class="flex items-center gap-1">
-          <input type="range" min="200" max="2000" step="100" bind:value={sprintSpeed} class="w-16 h-1 accent-blue-400" />
-          <span class="w-10 text-right">{sprintSpeed}</span>
-        </div>
-      </label>
-    </div>
-
-    <!-- Help Text -->
-    <div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10">
-      <div class="bg-black/70 text-white text-sm px-4 py-2 rounded-lg backdrop-blur-sm">
-        {$t('viewerNav.walkHelp')}
-      </div>
-    </div>
-  {/if}
-
-  {#if editMode && !walkthroughMode}
+  {#if editMode}
     <div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10">
       <div class="bg-blue-600/90 text-white text-sm px-4 py-2 rounded-lg backdrop-blur-sm flex items-center gap-2">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

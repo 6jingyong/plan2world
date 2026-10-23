@@ -144,7 +144,7 @@ Use `schemas/plan2world-draft-v1.schema.json` and `docs/plan2world-draft-v1.md`.
 ## Product invariants
 
 - Keep 2D correction and browser 3D review/quick preview on the same native Project, then compile runtime artifacts from that Project.
-- Keep Three.js focused on authoring, review and quick preview. Do not expand `ThreeViewer` into the target game/runtime layer with FPS controllers, runtime physics, door/furniture interaction state machines or equivalent engine responsibilities.
+- The legacy browser FPS runtime is removed. Keep Three.js focused on authoring, review and quick preview. Do not reintroduce `ThreeViewer` into the target game/runtime layer with FPS controllers, runtime physics, door/furniture interaction state machines or equivalent engine responsibilities.
 - Keep Godot focused on runtime input, physics, interaction, animation, lighting/materials and future experience features. It must not redo AI reconstruction, room detection, wall inference or topology repair.
 - Keep local/manual JSON import possible; AI must not be mandatory.
 - Preserve existing custom-model/project-package infrastructure for future asset replacement.
@@ -162,4 +162,10 @@ npm run check
 npm run build
 ```
 
-For browser UI/3D changes, run the relevant Playwright regression. Core CI also downloads the pinned Godot 4.7.2 build, verifies its checksum, parses/imports the Godot project and boots the built-in runtime demo headlessly, then exports a native Project and verifies actual asset placement/door motion/fallbacks in Godot; Godot adapter changes must pass that gate. After any reconstruction-Skill change, also perform at least one fresh run from an original raster; unit tests alone do not establish image-extraction quality.
+For browser UI/3D changes, run the relevant Playwright regression. Core CI also downloads the pinned Godot 4.7.2 build, verifies its checksum, parses/imports the Godot project and boots the built-in runtime demo headlessly, then exports a native Project and verifies actual asset placement/door motion/fallbacks plus grounded walking, collisions and straight-stair ascent/descent in Godot; Godot adapter changes must pass that gate. After any reconstruction-Skill change, also perform at least one fresh run from an original raster; unit tests alone do not establish image-extraction quality.
+
+## Agent development workflow
+
+Keep implementation, validation and commits local by default. Do not push, open/update
+PRs or merge unless the user explicitly asks. Read-only fetching/research is allowed.
+Complete an architecture milestone and its relevant local checks before reporting it.

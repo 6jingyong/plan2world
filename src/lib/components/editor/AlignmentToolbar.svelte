@@ -2,7 +2,7 @@
   import { t } from '$lib/i18n';
   import { selectedElementIds, activeFloor } from '$lib/stores/project';
   import { alignElements, alignmentItems, type AlignmentOp } from '$lib/utils/alignment';
-  import WalkthroughStartOverlay from './WalkthroughStartOverlay.svelte';
+  import RuntimeStartOverlay from './RuntimeStartOverlay.svelte';
   import ContextToolbar from './ContextToolbar.svelte';
 
   const multiCount = $derived($selectedElementIds.size);
@@ -25,7 +25,7 @@
   ]);
 </script>
 
-<WalkthroughStartOverlay />
+<RuntimeStartOverlay />
 <ContextToolbar />
 
 {#if multiCount >= 2}

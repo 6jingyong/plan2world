@@ -21,7 +21,7 @@ This is a current capability summary, not a development diary.
 - Imported-object blocks can be styled/replaced while retaining native identity.
 - Rooms/areas are derived from live native geometry.
 - Browser 2D, 1.20 m architectural cut and 3D review all consume the same native Project.
-- The legacy browser first-person walkthrough remains available during runtime migration, but it is no longer the target runtime architecture.
+- Browser FPS/PointerLock movement has been removed. Orbit, 3D selection/editing, camera previews, floor stacks, cuts and native runtime-spawn editing remain available.
 
 ## Compiled runtime
 
@@ -34,7 +34,7 @@ This is a current capability summary, not a development diary.
 - Compatible endpoint wall networks are mitered across L/T/X/collinear junctions and hidden endpoint caps are removed.
 - Static window panes, square/round columns and traversable straight-stair step geometry are compiled into the same shared GLB instead of being rebuilt by Godot.
 - The Godot adapter consumes the compiled artifacts without recomputing topology or deriving collision from GLB.
-- Godot uses runtime triangle meshes for grounded `CharacterBody3D` motion with gravity and floor snapping.
+- Godot converts runtime CCW triangle winding to its clockwise convention and uses explicit runtime triangles for grounded `CharacterBody3D` motion, gravity and floor snapping. A real native-export walkthrough gate exercises collision, ray-based swing/slide interaction and stair ascent/descent.
 - Straight UP/DN stairs resolve to the adjacent authored floor and receive a compiler-owned walkable ramp; L/U/spiral stairs remain explicit unsupported traversal.
 - Swing and sliding/pocket doors are interactive `AnimatableBody3D` nodes; unsupported fold/overhead motions remain explicit closed blockers instead of being faked as hinges.
 - Runtime export packages referenced catalog/custom GLBs and a deterministic shared door leaf through `plan2world-runtime-assets-v1`. Godot instances use compiler-owned normalization, native effective sizes/rotation/mirroring and explicit door motion; only missing assets use proxies.

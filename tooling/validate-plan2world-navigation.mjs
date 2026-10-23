@@ -8,27 +8,27 @@ const save=async(p,v)=>writeFile(resolve(run,p),JSON.stringify(v,null,2)+'\n',{f
 const hash=b=>createHash('sha256').update(b).digest('hex');
 const server=await createServer({root,configFile:false,logLevel:'error',resolve:{alias:{$lib:resolve(root,'src/lib')}},optimizeDeps:{noDiscovery:true,include:[]},server:{middlewareMode:true,watch:null,ws:false},appType:'custom'});
 try {
- const [{draftToProjectWithSourceBackground},{analyzeFloor},{pointInPolygon},collision,{automaticWalkthroughStart},{projectOntoWall},{wallPointAt}]=await Promise.all([
+ const [{draftToProjectWithSourceBackground},{analyzeFloor},{pointInPolygon},collision,{floorInteriorPoint},{projectOntoWall},{wallPointAt}]=await Promise.all([
   server.ssrLoadModule('/src/lib/plan2world/sourceBackground.ts'),server.ssrLoadModule('/src/lib/utils/floorAnalysis.ts'),
-  server.ssrLoadModule('/src/lib/utils/hitTesting.ts'),server.ssrLoadModule('/src/lib/utils/walkthroughCollision.ts'),
-  server.ssrLoadModule('/src/lib/utils/walkthroughEntry.ts'),server.ssrLoadModule('/src/lib/utils/wallProjection.ts'),
+  server.ssrLoadModule('/src/lib/utils/hitTesting.ts'),server.ssrLoadModule('/src/lib/utils/floorClearance.ts'),
+  server.ssrLoadModule('/src/lib/utils/floorInteriorPoint.ts'),server.ssrLoadModule('/src/lib/utils/wallProjection.ts'),
   server.ssrLoadModule('/src/lib/utils/wallPath.ts')]);
  const draft=await json(`${process.argv[4] ?? 'assembled'}/draft.json`),stage=await json(`${process.argv[3] ?? 'prepared'}/architecture-stage.json`),source=await readFile(resolve(run,'source.jpg'));
  const project=draftToProjectWithSourceBackground(draft,{dataUrl:`data:image/jpeg;base64,${source.toString('base64')}`,width:stage.sourceContext.sourceWidthPx,height:stage.sourceContext.sourceHeightPx,name:'case02-original.jpg'});
  await save('inspection/native-project-with-source.json',project);
- const floor=project.floors[0], analysis=analyzeFloor(floor), world=collision.createWalkthroughCollisionWorld(floor);
+ const floor=project.floors[0], analysis=analyzeFloor(floor), world=collision.buildFloorClearance(floor);
  const rooms=analysis.rooms.filter(room=>!room.floorOpening&&room.roomType!=='outdoor');
  const contains=(room,p)=>pointInPolygon(p,analysis.polygons.get(room.id)??[])&&!(analysis.holes.get(room.id)??[]).some(hole=>pointInPolygon(p,hole));
  const roomIds=p=>rooms.filter(room=>contains(room,p)).map(room=>room.id),inside=p=>roomIds(p).length>0;
- const start=automaticWalkthroughStart(analysis,world),dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+ const start=floorInteriorPoint(analysis,world),dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
  const traversable=(a,b)=>{
   for(let t=0,n=Math.max(1,Math.ceil(dist(a,b)/5));t<=n;t++)if(!inside({x:a.x+(b.x-a.x)*t/n,y:a.y+(b.y-a.y)*t/n}))return false;
-  return dist(collision.resolveWalkthroughMove(a,{x:b.x-a.x,y:b.y-a.y},world),b)<1e-4;
+  return collision.hasClearanceAlongSegment(a,b,world);
  };
  const points=rooms.flatMap(r=>analysis.polygons.get(r.id)??[]),minX=Math.min(...points.map(p=>p.x)),minY=Math.min(...points.map(p=>p.y));
  const step=20,cols=Math.ceil((Math.max(...points.map(p=>p.x))-minX)/step)+1,rows=Math.ceil((Math.max(...points.map(p=>p.y))-minY)/step)+1;
  const grid=Array.from({length:cols*rows},(_,id)=>({x:minX+id%cols*step,y:minY+Math.floor(id/cols)*step}));
- const free=grid.map(p=>inside(p)&&dist(collision.resolveWalkthroughStart(p,world),p)<1e-4);
+ const free=grid.map(p=>inside(p)&&dist(collision.resolveClearancePoint(p,world),p)<1e-4);
  let bridge;
  const seed=grid.map((p,id)=>({id,d:dist(start,p)})).filter(p=>free[p.id]&&p.d<=step*2).sort((a,b)=>a.d-b.d).find(({id})=>{
   const p=grid[id];

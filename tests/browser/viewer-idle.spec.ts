@@ -5,7 +5,7 @@ import { observeGPU, gpu } from './gpu';
 
 test.use({ viewport: { width: 844, height: 600 } });
 
-test('3D sleeps when idle and wakes for controls, scene changes and walkthrough', async ({ page }) => {
+test('3D sleeps when idle and wakes for controls, scene changes and review edits', async ({ page }) => {
   test.setTimeout(120_000);
   await observeGPU(page);
   // Observe the browser boundary in CI, without production instrumentation.
@@ -96,21 +96,13 @@ test('3D sleeps when idle and wakes for controls, scene changes and walkthrough'
   await idle();
   expect((await gpu(page))[0].draws).toBeGreaterThan(draws);
 
-  await page.evaluate(() => { HTMLCanvasElement.prototype.requestPointerLock = () => Promise.reject(new DOMException('Denied', 'NotAllowedError')); });
-  await page.getByRole('button', { name: 'Enter Walkthrough Mode', exact: true }).click();
-  await expect(page.getByText('Walkthrough Controls', { exact: true })).toBeVisible();
-  await idle();
+  // Game movement keys do not animate or move the authoring review camera.
   before = await pixels();
-  await page.keyboard.down('ArrowUp');
-  try {
-    // Hold through an actual rendered movement step, including slow CI GPUs.
-    await expect.poll(pixels, { timeout: 10_000 }).not.toBe(before);
-  } finally {
-    await page.keyboard.up('ArrowUp');
-  }
-  await page.getByRole('button', { name: 'Top-Down View', exact: true }).click();
-  await expect(page.getByText('Walkthrough Controls', { exact: true })).not.toBeVisible();
+  await page.keyboard.press('w');
+  await page.keyboard.press('ArrowUp');
   await idle();
+  expect(await pixels()).toBe(before);
+  await expect(page.getByRole('button', {name:'Enter Walkthrough Mode',exact:true})).toHaveCount(0);
   await page.getByRole('button', { name: '2D', exact: true }).click();
   await expect.poll(async () => (await gpu(page))[0].lost).toBe(true);
   await page.getByRole('button', { name: '3D', exact: true }).click();

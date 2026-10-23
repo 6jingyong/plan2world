@@ -65,6 +65,19 @@ describe('plan2world runtime compiler', () => {
     expectStableReferences(scene);
   });
 
+  it('compiles an automatic interior spawn when the native Project has no explicit start', () => {
+    const floor=floorFixture(); delete floor.walkthroughStart;
+    floor.furniture=[];
+    const project=projectFixture(floor), before=structuredClone(project);
+    const scene=compileRuntimeScene(project);
+    const start=scene.floors[0].walkthroughStart!;
+    expect(start[0]).toBeGreaterThan(0); expect(start[0]).toBeLessThan(4);
+    expect(start[2]).toBeGreaterThan(0); expect(start[2]).toBeLessThan(3);
+    expect(start[1]).toBe(0.2);
+    expect(project).toEqual(before);
+    expect(compileRuntimeScene(project).floors[0].walkthroughStart).toEqual(start);
+  });
+
   it('emits room floor triangle collision with canonical upward winding', () => {
     const scene = compileRuntimeScene(projectFixture());
     const room = scene.floors[0].rooms[0];

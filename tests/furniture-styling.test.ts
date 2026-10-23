@@ -5,7 +5,7 @@ import { furnitureStyleIds, furnitureStylePatch } from '$lib/utils/furnitureStyl
 import { createPlacedFurnitureModel } from '$lib/utils/furnitureModelLoader';
 import { disposeModel } from '$lib/utils/furnitureModelResources';
 import { getFurnitureSize } from '$lib/utils/furnitureCatalog';
-import { createWalkthroughCollisionWorld } from '$lib/utils/walkthroughCollision';
+import { buildFloorClearance } from '$lib/utils/floorClearance';
 import { sceneElementAt } from '$lib/utils/sceneSelection';
 import { currentProject, loadProject, updateFurniture, undo, redo, selectSingleElement, selectedElementId, selectedElementIds } from '$lib/stores/project';
 import { readProject } from '$lib/utils/projectValidation';
@@ -24,7 +24,7 @@ it('replaces a semantic block in one native undo step without changing placement
   const styled = structuredClone(get(currentProject)!.floors[0]);
   expect(styled.furniture[0]).toEqual({ ...original.furniture[0], catalogId: 'bed_queen', renderStyle: 'model' });
   expect(styled.walls).toEqual(original.walls); expect(styled.rooms).toEqual(original.rooms);
-  expect(createWalkthroughCollisionWorld(styled)).toEqual(createWalkthroughCollisionWorld(original));
+  expect(buildFloorClearance(styled)).toEqual(buildFloorClearance(original));
   expect(get(selectedElementId)).toBe('block'); expect(get(selectedElementIds)).toEqual(new Set());
   const saved = readProject(JSON.parse(JSON.stringify(get(currentProject))));
   expect(saved.floors[0].furniture[0]).toEqual(styled.furniture[0]);

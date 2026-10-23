@@ -2,11 +2,11 @@ import type { Floor, Point } from '$lib/models/types';
 import { getFurnitureSize, getCatalogItem } from './furnitureCatalog';
 import { wallProfileSpans } from './wallProfiles';
 
-/** Matches the viewer's minimum rendered wall thickness. */
-export const WALKTHROUGH_MIN_WALL_THICKNESS = 15;
-export const DEFAULT_WALKTHROUGH_PLAYER_RADIUS = 28;
+/** Offline floor-plan clearance in native centimetres; no motion integration. */
+export const MIN_FLOOR_WALL_THICKNESS_CM = 15;
+export const DEFAULT_CLEARANCE_RADIUS_CM = 28;
 
-export interface WalkthroughObstacle {
+export interface FloorObstacle {
   id: string;
   center: Point;
   halfWidth: number;
@@ -16,16 +16,16 @@ export interface WalkthroughObstacle {
   kind: 'wall' | 'furniture';
 }
 
-export interface WalkthroughCollisionWorld {
-  obstacles: WalkthroughObstacle[];
+export interface FloorClearance {
+  obstacles: FloorObstacle[];
 }
 
 function finitePositive(value: number): boolean {
   return Number.isFinite(value) && value > 0;
 }
 
-function wallObstacles(floor: Floor): WalkthroughObstacle[] {
-  const result: WalkthroughObstacle[] = [];
+function wallObstacles(floor: Floor): FloorObstacle[] {
+  const result: FloorObstacle[] = [];
   for (const wall of floor.walls) {
     const doors = floor.doors.filter(door => door.wallId === wall.id);
     for (const span of wallProfileSpans(wall, doors, [])) {
@@ -33,10 +33,10 @@ function wallObstacles(floor: Floor): WalkthroughObstacle[] {
       const dx = span.end.x - span.start.x;
       const dy = span.end.y - span.start.y;
       const rotation = Math.atan2(dy, dx) * 180 / Math.PI;
-      const thickness = Math.max(WALKTHROUGH_MIN_WALL_THICKNESS, wall.thickness);
+      const thickness = Math.max(MIN_FLOOR_WALL_THICKNESS_CM, wall.thickness);
 
       // wallProfileSpans includes a header above each door opening. Only segments
-      // that reach the floor should block a walking player.
+      // that reach the floor should block a clearance probe.
       for (let index = 0; index < span.segments.length; index++) {
         const segment = span.segments[index];
         if (segment.bottomY > 1e-6 || !finitePositive(segment.width)) continue;
@@ -64,7 +64,7 @@ function wallObstacles(floor: Floor): WalkthroughObstacle[] {
   return result;
 }
 
-function furnitureObstacles(floor: Floor): WalkthroughObstacle[] {
+function furnitureObstacles(floor: Floor): FloorObstacle[] {
   return floor.furniture.flatMap(item => {
     const catalog = getCatalogItem(item.catalogId);
     if (catalog?.symbol) return [];
@@ -83,14 +83,14 @@ function furnitureObstacles(floor: Floor): WalkthroughObstacle[] {
   });
 }
 
-export function createWalkthroughCollisionWorld(floor: Floor): WalkthroughCollisionWorld {
+export function buildFloorClearance(floor: Floor): FloorClearance {
   return { obstacles: [...wallObstacles(floor), ...furnitureObstacles(floor)] };
 }
 
 interface Correction { x: number; y: number; penetration: number }
 
 /** Exact circle-vs-oriented-rectangle depenetration in plan coordinates. */
-function circleObstacleCorrection(point: Point, radius: number, obstacle: WalkthroughObstacle): Correction | null {
+function circleObstacleCorrection(point: Point, radius: number, obstacle: FloorObstacle): Correction | null {
   const angle = obstacle.rotation * Math.PI / 180;
   const cos = Math.cos(angle), sin = Math.sin(angle);
   const dx = point.x - obstacle.center.x;
@@ -112,7 +112,7 @@ function circleObstacleCorrection(point: Point, radius: number, obstacle: Walkth
     penetration = radius - distance;
   } else {
     // Circle centre lies inside the rectangle. Push toward the nearest face,
-    // including the player's radius, rather than choosing an arbitrary diagonal.
+    // including the probe radius, rather than choosing an arbitrary diagonal.
     const toLeft = lx + obstacle.halfWidth;
     const toRight = obstacle.halfWidth - lx;
     const toTop = ly + obstacle.halfDepth;
@@ -132,7 +132,7 @@ function circleObstacleCorrection(point: Point, radius: number, obstacle: Walkth
   };
 }
 
-function depenetrate(point: Point, world: WalkthroughCollisionWorld, radius: number): Point {
+function depenetrate(point: Point, world: FloorClearance, radius: number): Point {
   let next = { ...point };
   // Multiple passes handle corners and overlapping wall facets without a physics engine.
   for (let pass = 0; pass < 6; pass++) {
@@ -150,36 +150,23 @@ function depenetrate(point: Point, world: WalkthroughCollisionWorld, radius: num
   return next;
 }
 
-/** Place the player at the requested point, nudging it out of walls/furniture if necessary. */
-export function resolveWalkthroughStart(
+/** Resolve a requested authoring/diagnostic point, nudging it out of walls/furniture if necessary. */
+export function resolveClearancePoint(
   point: Point,
-  world: WalkthroughCollisionWorld,
-  radius = DEFAULT_WALKTHROUGH_PLAYER_RADIUS,
+  world: FloorClearance,
+  radius = DEFAULT_CLEARANCE_RADIUS_CM,
 ): Point {
   if (![point.x, point.y, radius].every(Number.isFinite) || radius <= 0) return { ...point };
   if (!world.obstacles.length) return { ...point };
   return depenetrate(point, world, radius);
 }
 
-/**
- * Move a circular player through plan-space rectangles. Small deterministic
- * substeps prevent tunnelling; depenetration removes only the inward component,
- * so diagonal motion naturally continues along a wall.
- */
-export function resolveWalkthroughMove(
-  start: Point,
-  delta: Point,
-  world: WalkthroughCollisionWorld,
-  radius = DEFAULT_WALKTHROUGH_PLAYER_RADIUS,
-): Point {
-  if (![start.x, start.y, delta.x, delta.y, radius].every(Number.isFinite) || radius <= 0) return { ...start };
-  if (!world.obstacles.length || (!delta.x && !delta.y)) return { x: start.x + delta.x, y: start.y + delta.y };
-  const distance = Math.hypot(delta.x, delta.y);
-  const steps = Math.max(1, Math.ceil(distance / Math.max(4, Math.min(10, radius / 2))));
-  const step = { x: delta.x / steps, y: delta.y / steps };
-  let current = depenetrate(start, world, radius);
-  for (let i = 0; i < steps; i++) {
-    current = depenetrate({ x: current.x + step.x, y: current.y + step.y }, world, radius);
+/** Offline segment sampling for the native connectivity audit; never moves a camera/body. */
+export function hasClearanceAlongSegment(start: Point, end: Point, world: FloorClearance, radius = DEFAULT_CLEARANCE_RADIUS_CM): boolean {
+  const steps = Math.max(1, Math.ceil(Math.hypot(end.x - start.x, end.y - start.y) / 5));
+  for (let step = 0; step <= steps; step++) {
+    const point = { x: start.x + (end.x - start.x) * step / steps, y: start.y + (end.y - start.y) * step / steps };
+    if (world.obstacles.some(obstacle => circleObstacleCorrection(point, radius, obstacle))) return false;
   }
-  return current;
+  return true;
 }
