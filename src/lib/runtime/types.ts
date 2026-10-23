@@ -141,7 +141,17 @@ export interface RuntimeCylinderCollider extends RuntimeColliderBase {
   height: number;
 }
 
-export type RuntimeCollider = RuntimeBoxCollider | RuntimeCylinderCollider;
+/** Static level geometry represented as indexed triangles in runtime coordinates.
+ * Triangle winding is part of the contract so one-sided physics backends do not
+ * need to infer which side is walkable.
+ */
+export interface RuntimeTriangleMeshCollider extends RuntimeColliderBase {
+  kind: 'triangle-mesh';
+  vertices: RuntimeVec3[];
+  indices: number[];
+}
+
+export type RuntimeCollider = RuntimeBoxCollider | RuntimeCylinderCollider | RuntimeTriangleMeshCollider;
 
 export interface Plan2WorldRuntimeSceneV1 {
   schema: 'plan2world-runtime-v1';
