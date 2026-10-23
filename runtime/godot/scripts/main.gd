@@ -2,6 +2,7 @@ extends Node3D
 
 const RUNTIME_ARTIFACTS := preload("res://scripts/runtime_artifacts.gd")
 const RUNTIME_LOADER := preload("res://scripts/runtime_loader.gd")
+const RUNTIME_PROXY_RENDERER := preload("res://scripts/runtime_proxy_renderer.gd")
 
 func _ready() -> void:
 	_build_environment()
@@ -19,7 +20,11 @@ func _ready() -> void:
 		add_child(architecture_scene)
 
 	var loader := RUNTIME_LOADER.new()
-	var stats := loader.build(data, self, presentation_loaded)
+	var build_result := loader.build(data, self)
+	var proxy_renderer := RUNTIME_PROXY_RENDERER.new()
+	var presentation_stats := proxy_renderer.render(data, self, build_result, presentation_loaded)
+	var runtime_stats: Dictionary = build_result.get("stats", {})
+
 	var spawn := _choose_spawn(data)
 	var player := P2WPlayer.new()
 	player.name = "Player"
@@ -30,7 +35,16 @@ func _ready() -> void:
 		"WASD move  ·  Ctrl slow  ·  Shift fast  ·  E door  ·  Esc mouse\nRuntime: %s\nArchitecture: %s" % [runtime_path, presentation_status],
 		false,
 	)
-	print("Plan2World runtime loaded: ", runtime_path, " architecture=", presentation_status, " ", stats)
+	print(
+		"Plan2World runtime loaded: ",
+		runtime_path,
+		" architecture=",
+		presentation_status,
+		" runtime=",
+		runtime_stats,
+		" presentation=",
+		presentation_stats,
+	)
 
 func _choose_spawn(data: Dictionary) -> Vector3:
 	var floors: Array = data.get("floors", [])
