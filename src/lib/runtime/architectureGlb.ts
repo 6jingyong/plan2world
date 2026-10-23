@@ -1,4 +1,5 @@
-import type { ArchitectureMesh, ArchitectureMeshPrimitive } from './architectureMesher';
+import type { ArchitecturePresentationMesh, ArchitecturePresentationPrimitive } from './architecturePresentation';
+import type { ArchitectureMesh } from './architectureMesher';
 import type { RuntimeVec2, RuntimeVec3 } from './types';
 
 const GLB_MAGIC = 0x46546c67;
@@ -11,6 +12,8 @@ const FLOAT = 5126;
 const UNSIGNED_SHORT = 5123;
 const UNSIGNED_INT = 5125;
 const TRIANGLES = 4;
+
+type ArchitectureMaterialKey = 'wall' | 'floor' | 'ceiling' | 'glass' | 'column' | 'stair';
 
 interface GltfBufferView {
   buffer: number;
@@ -60,7 +63,7 @@ function finiteVector(vector: readonly number[]) {
   return vector.every(Number.isFinite);
 }
 
-function validatePrimitive(primitive: ArchitectureMeshPrimitive) {
+function validatePrimitive(primitive: ArchitecturePresentationPrimitive) {
   if (primitive.positions.length === 0) throw new Error(`Architecture primitive ${primitive.id} has no positions.`);
   if (primitive.normals.length !== primitive.positions.length) {
     throw new Error(`Architecture primitive ${primitive.id} normals do not match positions.`);
@@ -124,6 +127,29 @@ function maxIndex(indices: number[]) {
   return maximum;
 }
 
+function materialKey(primitive: ArchitecturePresentationPrimitive): ArchitectureMaterialKey {
+  if ('material' in primitive) return primitive.material;
+  if (primitive.kind === 'floor') return 'floor';
+  if (primitive.kind === 'ceiling') return 'ceiling';
+  return 'wall';
+}
+
+const materialOrder: ArchitectureMaterialKey[] = ['wall', 'floor', 'ceiling', 'glass', 'column', 'stair'];
+
+const gltfMaterials: Record<string, unknown>[] = [
+  { name: 'p2w-wall', pbrMetallicRoughness: { baseColorFactor: [0.82, 0.81, 0.79, 1], metallicFactor: 0, roughnessFactor: 0.86 } },
+  { name: 'p2w-floor', pbrMetallicRoughness: { baseColorFactor: [0.72, 0.69, 0.64, 1], metallicFactor: 0, roughnessFactor: 0.94 } },
+  { name: 'p2w-ceiling', pbrMetallicRoughness: { baseColorFactor: [0.94, 0.94, 0.91, 1], metallicFactor: 0, roughnessFactor: 0.95 }, doubleSided: true },
+  {
+    name: 'p2w-glass',
+    pbrMetallicRoughness: { baseColorFactor: [0.36, 0.72, 0.92, 0.35], metallicFactor: 0, roughnessFactor: 0.18 },
+    alphaMode: 'BLEND',
+    doubleSided: true,
+  },
+  { name: 'p2w-column', pbrMetallicRoughness: { baseColorFactor: [0.70, 0.67, 0.62, 1], metallicFactor: 0, roughnessFactor: 0.82 } },
+  { name: 'p2w-stair', pbrMetallicRoughness: { baseColorFactor: [0.77, 0.60, 0.42, 1], metallicFactor: 0, roughnessFactor: 0.82 } },
+];
+
 function padChunk(bytes: Uint8Array, paddingByte: number) {
   const paddedLength = bytes.byteLength + (4 - bytes.byteLength % 4) % 4;
   if (paddedLength === bytes.byteLength) return bytes;
@@ -142,7 +168,8 @@ function writeUint32(target: Uint8Array, offset: number, value: number) {
  * glTF 2.0 binary. Runtime semantics remain in plan2world-runtime-v1; stable
  * Plan2World ownership is carried only as GLB node extras for renderer lookup.
  */
-export function serializeArchitectureGlb(mesh: ArchitectureMesh): Uint8Array {
+export function serializeArchitectureGlb(mesh: ArchitecturePresentationMesh | ArchitectureMesh): Uint8Array {
+  const presentation = mesh as ArchitecturePresentationMesh;
   const binary = new BinaryBuilder();
   const bufferViews: GltfBufferView[] = [];
   const accessors: GltfAccessor[] = [];
@@ -163,7 +190,7 @@ export function serializeArchitectureGlb(mesh: ArchitectureMesh): Uint8Array {
     return index;
   };
 
-  for (const primitive of mesh.primitives) {
+  for (const primitive of presentation.primitives) {
     validatePrimitive(primitive);
 
     const positionView = addBufferView(encodeFloatVectors(primitive.positions, 3), ARRAY_BUFFER);
@@ -205,11 +232,13 @@ export function serializeArchitectureGlb(mesh: ArchitectureMesh): Uint8Array {
     });
 
     const meshIndex = gltfMeshes.length;
+    const materialIndex = materialOrder.indexOf(materialKey(primitive));
     gltfMeshes.push({
       name: primitive.id,
       primitives: [{
         attributes: { POSITION: positionAccessor, NORMAL: normalAccessor, TEXCOORD_0: uvAccessor },
         indices: indexAccessor,
+        material: materialIndex,
         mode: TRIANGLES,
       }],
     });
@@ -235,14 +264,16 @@ export function serializeArchitectureGlb(mesh: ArchitectureMesh): Uint8Array {
     scenes: [{ nodes: nodes.map((_, index) => index) }],
     nodes,
     meshes: gltfMeshes,
+    materials: gltfMaterials,
     accessors,
     bufferViews,
     buffers: [{ byteLength: binaryChunk.byteLength }],
     extras: {
       plan2world: {
         artifact: 'architecture.glb',
-        units: mesh.units,
-        coordinates: mesh.coordinates,
+        units: presentation.units,
+        coordinates: presentation.coordinates,
+        staticKinds: ['wall', 'floor', 'ceiling', 'window', 'column', 'stair'],
       },
     },
   };
