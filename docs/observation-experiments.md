@@ -47,6 +47,17 @@ source hashes and overwrite refusal. Generate and inspect views for the five
 original uploads in a new ignored run. This verifies evidence preparation only;
 it does not establish an improvement in extraction or five-image pass rate.
 
+## Current decision after the fresh observation trial
+
+Keep the view generator opt-in. An initial five-image direct-Skill historical
+comparison found local gains and regressions, with no increase in strict
+completion. Extra source views did not reliably prevent repeated shared walls,
+contradictory door/partition observations or endpoint inconsistencies. This was
+not a blinded/provider evaluation; do not promote the workflow on that evidence.
+The next isolated variable is a global feature inventory mapped to the existing
+wall/opening/zone records, with consistency findings preserved rather than
+silently repaired. Runtime and reconstruction algorithms remain unchanged.
+
 ## Subsequent steps, one variable at a time
 
 1. Supply the verified views during the existing single architectural observation
