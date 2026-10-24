@@ -15,11 +15,15 @@ presentation over exact curve fitting. Preserve openings, recesses, useful spati
 relationships and authored native geometry. No mesher, topology or Godot changes
 are required for this policy.
 
-E6–E8 test polygon approximation and shorter observation bookkeeping as a combined
-workflow; their results cannot isolate either change's effect. The recessed-home
-trial is complete and remains strictly failed on two split-host apertures. Continue
-with a fresh rounded-source execution, then the complex diagonal case. Do not combine selected
-runs into a five-image score or claim external-provider quality from direct Codex runs.
+E6–E9 test polygon approximation and shorter observation bookkeeping as a combined
+workflow; their results cannot isolate either change's effect. E9 reaches real
+Godot with polygons, but only 17/19 accepted zones are supported. The recessed-home
+trial stays strictly failed. See R1 in the ledger for the responsibility analysis.
+Next, preserve per-zone observation findings through the review handoff, then test
+an early read-only consistency check separately before another expensive diagonal
+execution. Keep provisional host warnings distinct from final closure failures.
+Do not combine selected runs into a five-image score or claim external-provider
+quality from direct Codex runs.
 
 Every run starts from the original raster in a fresh ignored directory. Freeze
 architecture before furniture and both before preparation. Preserve generated
