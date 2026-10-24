@@ -1,5 +1,10 @@
 # Observation workflow experiments
 
+Per-round inputs, results, conclusions and decisions are retained in the
+[experiment results ledger](observation-experiment-results.md). Update it after
+every experiment, including failed or no-effect trials; link the frozen local
+evidence and distinguish program fixes from observation-quality results.
+
 The runtime migration is merged through PR #62. Observation experiments start
 from main commit `a2b5dd6` on local branch `observation-v2`. They remain separate
 from the frozen five-image baseline and the native-Project runtime regression.
@@ -116,7 +121,15 @@ blocks an untriangulatable room surface or invalid/unresolved explicit ground/
 floor-opening boundary. It preserves native editing and fails before artifact
 output. The frozen diagonal trial remains failed and unchanged; post-hoc compiler
 rejection is not an observation-method improvement. Explicit per-edge observation
-and a shorter inventory remain separate, untested candidate changes.
+and a shorter inventory remain separate candidate changes.
+
+The [E5 ledger entry](observation-experiment-results.md)
+records the first curved-source edge-kind ablation: both arms stopped at the
+same invalid balcony seed/outline observation, before preparation could produce
+a stage. It is inconclusive about semantic transmission. A separate synthetic
+mechanism comparison confirms that supported `passage` edges can separate logical
+rooms while retaining a passable aperture; that is not evidence of better image
+extraction. Preserve both conclusions and the raw failed observation.
 
 ## Subsequent steps, one variable at a time
 

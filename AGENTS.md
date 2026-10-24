@@ -114,6 +114,11 @@ Do not use an older run as input. Do not write generated wall traces, annotation
 `tests/fixtures/real-floorplans/reconstruction-corpus/manifest.json` contains source identity only. Human source references live separately under `tests/evaluation/plan2world/source-references/` and may be read only after the fresh wall evidence, Bare House, annotations, draft and source overlay are generated and frozen.
 
 Historical runs and development diaries belong in Git history, not the active tree.
+Per user instruction, retain the compact versioned experiment ledger at
+`docs/observation-experiment-results.md`. Each round records its question, single
+variable, source/code identity, actual results, failures, conclusion and next
+decision, with links to frozen ignored evidence. Keep bulk diaries/artifacts out
+of the active tree; do not erase negative results when later fixes pass.
 
 ## Draft invariants
 
