@@ -1,11 +1,44 @@
-import { execFileSync } from 'node:child_process';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import JSZip from 'jszip';
+import { runtimeAssetProject } from '../tooling/runtime-asset-fixture.mjs';
 
 describe('runtime export CLI', () => {
+  it.each([false, true])('rejects an invalid native floor before writing outputs (existing outputs: %s)', async existing => {
+    const directory = await mkdtemp(path.join(tmpdir(), 'plan2world-invalid-floor-'));
+    try {
+      const original = await runtimeAssetProject();
+      const source = { ...original, floors: [{ ...original.floors[0], rooms: [{
+        id: 'invalid-ground', name: 'Invalid ground', walls: [], area: 0, floorTexture: 'concrete',
+        boundary: [[100, 100], [400, 400], [100, 400], [400, 100]].map(([x, y]) => ({ point: { x, y } })),
+      }] }, ...original.floors.slice(1)] };
+      const input = path.join(directory, 'input.json'), bytes = JSON.stringify(source);
+      await writeFile(input, bytes);
+      const output = path.join(directory, 'scene.runtime.json'), zip = path.join(directory, 'scene.zip');
+      const retained = ['scene.runtime.json', 'scene.architecture.glb', 'scene.assets/manifest.json', 'scene.assets/model.glb', 'scene.zip'];
+      if (existing) {
+        await mkdir(path.join(directory, 'scene.assets'));
+        for (const file of retained) await writeFile(path.join(directory, file), `preserve ${file}`);
+      }
+      const result = spawnSync(process.execPath, ['tooling/runtime-export.mjs', input, output, '--package', zip], {
+        encoding: 'utf8', env: { ...process.env, NODE_ENV: 'production' },
+      });
+      expect(result.status).toBe(1);
+      expect(result.stderr).toMatch(/floor "ground".*room "invalid-ground".*native boundary/i);
+      expect(result.stdout).not.toContain('Wrote');
+      expect(await readFile(input, 'utf8')).toBe(bytes);
+      if (existing) {
+        for (const file of retained) expect(await readFile(path.join(directory, file), 'utf8')).toBe(`preserve ${file}`);
+        expect((await readdir(path.join(directory, 'scene.assets'))).sort()).toEqual(['manifest.json', 'model.glb']);
+      } else {
+        expect(await readdir(directory)).toEqual(['input.json']);
+      }
+    } finally { await rm(directory, { recursive: true, force: true }); }
+  }, 15_000);
+
   it('compiles a serialized native Project into runtime JSON and architecture GLB', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'plan2world-runtime-'));
     const input = path.join(dir, 'house.project.json');

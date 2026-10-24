@@ -6,12 +6,12 @@ import path from 'node:path';
 import JSZip from 'jszip';
 import { runtimeAssetProject } from '../../tooling/runtime-asset-fixture.mjs';
 
-async function importFixture(page: Page) {
+async function importFixture(page: Page, supplied?: { name: string }) {
   await page.goto('/editor');
   await page.getByRole('button', { name: 'Export', exact: true }).click();
   const chooser = page.waitForEvent('filechooser');
   await page.getByRole('button', { name: 'Import JSON', exact: true }).click();
-  const source = await runtimeAssetProject();
+  const source = supplied ?? await runtimeAssetProject();
   await (await chooser).setFiles({ name: '家 居.project.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(source)) });
   await expect(page.getByRole('button', { name: source.name, exact: true })).toBeVisible();
 }
@@ -65,5 +65,29 @@ test('asset request failure reports an error and allows a successful retry', asy
   await page.unroute('**/models/*.glb');
   const zip = await JSZip.loadAsync(await download(page, 'Export runtime scene (.zip)'));
   expect(zip.file('scene.runtime.json')).not.toBeNull();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+});
+
+test('invalid native floor blocks runtime download while preserving editable JSON', async ({ page }) => {
+  const original = await runtimeAssetProject();
+  const source = { ...original, floors: [{ ...original.floors[0], rooms: [{
+    id: 'invalid-ground', name: 'Invalid ground', walls: [], area: 0, floorTexture: 'concrete',
+    boundary: [[100, 100], [400, 400], [100, 400], [400, 100]].map(([x, y]) => ({ point: { x, y } })),
+  }] }, ...original.floors.slice(1)] };
+  await importFixture(page, source);
+  const before = await download(page, 'Download JSON');
+  const downloads: string[] = [];
+  page.on('download', download => downloads.push(download.suggestedFilename()));
+  await page.getByRole('button', { name: 'Export', exact: true }).click();
+  await page.getByRole('button', { name: 'Export runtime scene (.zip)', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('Couldn’t export runtime scene');
+  await expect(page.getByRole('alert')).toContainText('floor "ground" room "invalid-ground"');
+  expect(downloads).toEqual([]);
+  expect(JSON.parse((await download(page, 'Download JSON')).toString())).toEqual(JSON.parse(before.toString()));
+  await page.getByRole('button', { name: 'Dismiss runtime export error', exact: true }).click();
+  const recovered = { ...original, id: 'runtime-assets-recovered', name: 'Recovered runtime scene' };
+  await importFixture(page, recovered);
+  const zip = await JSZip.loadAsync(await download(page, 'Export runtime scene (.zip)'));
+  expect(JSON.parse(await zip.file('scene.runtime.json')!.async('text')).source.projectId).toBe(recovered.id);
   await expect(page.getByRole('alert')).toHaveCount(0);
 });

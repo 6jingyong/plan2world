@@ -104,14 +104,19 @@ floor-plan extraction. Upstream's own [review guide](https://github.com/img2thre
 warns that passing image metrics can miss wrong geometry. Multi-angle review is
 useful for rendering, but cannot establish unseen source construction.
 
-Candidate next changes must be tested separately: reduce repetitive ledger
-output to shared/ambiguous features; require explicitly observed edge kinds in
-experimental serializers instead of defaulting every accepted-zone edge to
-`wall`; and make an invalid native floor or missing compiled floor collider a
-blocking export finding. Do not repair frozen observations, fill a missing floor,
-or move spawn in Godot. Native geometry validation and compiler acceptance own
-the newly exposed program failure. Keep those fixes separate from the original
-observation-method comparison.
+Candidate observation changes must be tested separately: reduce repetitive ledger
+output to shared/ambiguous features, and require explicitly observed edge kinds
+in experimental serializers instead of defaulting every accepted-zone edge to
+`wall`. Do not repair frozen observations, fill a missing floor or move spawn in
+Godot. Native geometry validation and compiler acceptance own program failures;
+keep those fixes separate from the original observation-method comparison.
+
+The floor-acceptance change is a separate program fix: shared runtime export now
+blocks an untriangulatable room surface or invalid/unresolved explicit ground/
+floor-opening boundary. It preserves native editing and fails before artifact
+output. The frozen diagonal trial remains failed and unchanged; post-hoc compiler
+rejection is not an observation-method improvement. Explicit per-edge observation
+and a shorter inventory remain separate, untested candidate changes.
 
 ## Subsequent steps, one variable at a time
 

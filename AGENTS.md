@@ -145,6 +145,7 @@ Use `schemas/plan2world-draft-v1.schema.json` and `docs/plan2world-draft-v1.md`.
 - Preserve native no-ceiling policy for outdoor rooms and explicit ground boundaries in the compiler; do not infer a roof merely from uniform wall heights.
 
 - The native `Project` is authoring truth. `plan2world-runtime-v1` and `architecture.glb` are deterministic derived artifacts; a Godot `.tscn` is never canonical.
+- Every emitted room surface must compile floor collision. Untriangulatable surfaces and invalid/unresolved explicit native ground or `floorOpening` boundaries block shared browser/CLI export before output; never silently skip the floor/aperture, fill a hole or move spawn to hide failure. Preserve native editing and JSON backup for source correction.
 - Runtime JSON owns engine-neutral semantics, colliders, interaction contracts and player profile. It may contain explicit collision geometry such as triangulated walkable room floors, but never presentation-mesh data. `architecture.glb` owns architectural presentation geometry. Never infer runtime collision from GLB.
 - The Godot runtime loader owns scene semantics, collision bodies and interaction nodes only. Presentation proxies are an isolated fallback adapter and must not leak back into loader logic.
 - Missing presentation GLB may use proxy visuals for compatibility, but proxy geometry must not become a second source of architectural truth.
