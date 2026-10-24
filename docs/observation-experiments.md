@@ -15,10 +15,10 @@ presentation over exact curve fitting. Preserve openings, recesses, useful spati
 relationships and authored native geometry. No mesher, topology or Godot changes
 are required for this policy.
 
-E6/E7 test polygon approximation and shorter observation bookkeeping as a combined
-workflow; their results cannot isolate either change's effect. Continue with the
-recessed large home, then a fresh rounded-source execution and the complex diagonal
-case. Do not combine selected
+E6–E8 test polygon approximation and shorter observation bookkeeping as a combined
+workflow; their results cannot isolate either change's effect. The recessed-home
+trial is complete and remains strictly failed on two split-host apertures. Continue
+with a fresh rounded-source execution, then the complex diagonal case. Do not combine selected
 runs into a five-image score or claim external-provider quality from direct Codex runs.
 
 Every run starts from the original raster in a fresh ignored directory. Freeze
