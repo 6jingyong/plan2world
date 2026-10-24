@@ -11,6 +11,9 @@ Plan2World turns a floor-plan raster into an editable browser home and an engine
 - The direct Skill records `source-architecture-v1` in original image pixels,
   including concise visual evidence, decisions and uncertain/rejected candidates.
 - Wall evidence `source-wall-trace-v1` is projected from that observation by code.
+- User geometry policy: source observation may prefer modest polygon approximations
+  of rounded outlines for walkthrough presentation. Preserve openings, recesses
+  and connectivity; never flatten already-authored native Project curves.
 - The normalizer owns intersections, splitting, snapping and evidenced door-gap connectivity.
 - Optional visible junction points remain source-pixel evidence without wall IDs.
   Source-topology review reports near misses beyond conservative snapping; it
@@ -115,9 +118,10 @@ Do not use an older run as input. Do not write generated wall traces, annotation
 
 Historical runs and development diaries belong in Git history, not the active tree.
 Per user instruction, retain the compact versioned experiment ledger at
-`docs/observation-experiment-results.md`. Each round records its question, single
-variable, source/code identity, actual results, failures, conclusion and next
-decision, with links to frozen ignored evidence. Keep bulk diaries/artifacts out
+`docs/observation-experiment-results.md`. Each round records its question, declared
+variables (label combined workflow trials), source/code identity, actual results,
+failures, conclusion and next decision, with links to frozen ignored evidence.
+Keep bulk diaries/artifacts out
 of the active tree; do not erase negative results when later fixes pass.
 
 ## Draft invariants

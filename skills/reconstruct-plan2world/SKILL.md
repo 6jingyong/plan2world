@@ -59,6 +59,8 @@ baseline in this same observation, including the aperture interval. Observe the
 baseline; do not calculate topology, IDs, host matching, units or final geometry.
 All initial doors/windows extend from floor to host wall height by program policy;
 height and sill height are not image extraction tasks.
+Rounded outlines may use a concise polygon approximation under the stage guide;
+native curves are optional, and authored Project geometry remains authoritative.
 
 Freeze and hash `source-architecture.json` before furniture observation. This
 freezes visual observations, not the final normalized geometry. Do not run final

@@ -27,7 +27,7 @@ function responseJson(value: unknown): Response {
 describe('Plan2World architecture-first vision reconstruction', () => {
   it('loads both portable Skill stage references into browser prompts, without a competing prompt copy', () => {
     const prompt = buildFloorPlanVisionPrompt({ scaleHint: 'bottom wall is 360 cm' });
-    expect(PLAN2WORLD_VISION_PROMPT_VERSION).toContain('architecture-furnishing-instructions-v21');
+    expect(PLAN2WORLD_VISION_PROMPT_VERSION).toContain('architecture-furnishing-instructions-v22');
     expect(prompt).toContain(readFileSync('skills/reconstruct-plan2world/references/architecture-pass.md', 'utf8'));
     expect(prompt).toContain('For EVERY accepted door, window or sliding door');
     expect(prompt).toContain('bottom wall is 360 cm');
