@@ -270,6 +270,7 @@ for (const width of [1440, 390]) {
     await page.goto('/editor');
     await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeVisible();
     await importJSON(page, resolve('tests/fixtures/sloped-walls.openplan.json'));
+    await expect(page.getByRole('button', { name: 'QA Sloped Walls', exact: true })).toBeVisible();
     const original = await exportJSON(page);
     await settings();
     const upper = page.getByRole('spinbutton', { name: 'Curved Upper elevation (cm)', exact: true });
