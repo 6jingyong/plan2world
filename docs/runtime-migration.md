@@ -4,6 +4,12 @@ The native Project is authoring truth. Browser: authoring, correction, review an
 quick previews. Shared deterministic compilation: runtime semantics/collision,
 architecture GLB and packaged dynamic assets. Godot: the actual runtime.
 
+Offline delivery now uses the same compiler from the editor/CLI to produce
+portable scene ZIPs, plus separate standalone Windows/Linux player ZIPs. The
+player adds scene selection, paused menu/resume and world replacement. See
+[runtime delivery](runtime-delivery.md) for build commands, exported-PCK/release
+verification and the outstanding Windows hardware acceptance boundary.
+
 ## Completed stages
 
 - Stage A (#78): content-addressed catalog/custom GLBs, stable asset identity,

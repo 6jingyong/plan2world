@@ -12,12 +12,23 @@ The editable Plan2World `Project` remains authoritative; this runtime only consu
 
 Core CI uses the pinned official Godot 4.7.2 Linux build, verifies its SHA-256 checksum, imports/parses this project headlessly, boots the built-in runtime demo, then checks native-export asset placement and a real grounded walkthrough. A runtime/GDScript change is not considered merge-ready if that gate fails.
 
-## Run the built-in demo
+## Run the standalone player
+
+Extract the Windows/Linux player ZIP, start its executable and choose **Open
+runtime scene…**. Extract the editor's **Export runtime scene (.zip)** output
+and select `scene.runtime.json`. Keep its sibling GLB/assets directory together.
+F1 opens a paused scene menu with resume and scene switching; failed opens retain
+the current walkthrough. No Godot editor is required for delivered players.
+See [offline delivery and build instructions](../../docs/runtime-delivery.md).
+
+## Develop locally / run the built-in demo
 
 1. Install Godot 4.7.2.
 2. Open `runtime/godot/project.godot`.
 3. Press **F6/F5** to run the project.
-4. Controls:
+4. The scene picker opens. Choose an exported runtime JSON, or explicitly start
+   the compatibility demo with `godot --path runtime/godot -- --demo`.
+5. Controls:
    - `WASD`: move
    - `Ctrl`: slow walk
    - default: normal walk
@@ -25,8 +36,13 @@ Core CI uses the pinned official Godot 4.7.2 Linux build, verifies its SHA-256 c
    - mouse: look
    - `E`: interact with a swing or sliding door
    - `Esc`: release/capture mouse
+   - `F1`: pause and open the scene menu
 
-The default scene is `demo/runtime-scene.json`, so the runtime can still be tested without the web app, AI service, or external GLB. The demo includes grounded room floors, single/double/french swing and slide doors, native railing/air boundaries and a compiler-owned straight-stair ramp to an upper landing. When no architecture GLB is present, `runtime_proxy_renderer.gd` supplies compatibility visuals only; those meshes are not canonical presentation data.
+The explicit `--demo` scene is `demo/runtime-scene.json`, so compatibility can
+still be tested without the web app, AI service or external GLB. It includes
+grounded room floors, single/double/french swing and slide doors, native railing/air
+boundaries and a straight-stair ramp. It intentionally exercises proxy presentation;
+the normal delivery gates use complete compiler-owned GLB/asset packages.
 
 ## Compile an existing native Plan2World project
 
@@ -62,7 +78,9 @@ native Project
   -> architecture.glb
 ```
 
-No AI or network service is invoked, and there is no browser-only runtime exporter.
+No AI service is invoked. The editor's runtime ZIP entry uses this same compiler;
+it does not introduce browser runtime behavior or a separate export pipeline.
+Add `--package house.runtime.zip` to the CLI to emit the identical portable scene ZIP.
 
 ## Load an external runtime scene
 

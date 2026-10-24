@@ -25,6 +25,7 @@
 		"catalog:manifest": "node tooling/catalog-manifest.mjs",
 		"catalog:check": "node tooling/catalog-manifest.mjs --check",
 		"runtime:export": "node tooling/runtime-export.mjs",
+		"runtime:player": "node tooling/runtime-player-build.mjs",
 		"build:render-lab": "vite build --config tooling/render-lab-site/vite.config.ts"
 	},
 	"devDependencies": {

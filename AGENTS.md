@@ -134,6 +134,10 @@ Use `schemas/plan2world-draft-v1.schema.json` and `docs/plan2world-draft-v1.md`.
 
 ## Runtime invariants
 
+- Browser and CLI runtime scene ZIP export must share `compileRuntimeArtifacts()` and the same serializer. ZIP is transport for the existing artifacts, not another semantic schema or authoring format. Retain native Project/package backups separately.
+- Standalone players load compiled scene JSON with sibling GLB/assets. No native Project parsing or reconstruction belongs in the scene picker. Scene-menu pause, failed-open recovery and world replacement must preserve engine ownership.
+- Verify delivery from relocated player/scene ZIPs. Official release templates disable script/path overrides: assert launcher/physics against the exact exported PCK with the pinned editor, then separately boot the actual release executable. Do not add production test execution hooks or claim this proves Windows hardware behavior. See [runtime delivery](docs/runtime-delivery.md).
+
 - Door interactions contain explicit stable leaf parts with collider/asset references, size, closed pose and type-specific motion. Never infer leaf count, split width or hinge positions in an adapter. Double/french leaves share one native door interaction state. Re-export old derived snapshots rather than adding single-leaf inference.
 - Native railing boundaries use authored height/thickness for compiler-owned extrusion; air stays invisible with collision. Do not infer balusters or other unretained detail.
 - Preserve native no-ceiling policy for outdoor rooms and explicit ground boundaries in the compiler; do not infer a roof merely from uniform wall heights.

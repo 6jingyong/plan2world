@@ -25,6 +25,10 @@ This is a current capability summary, not a development diary.
 
 ## Compiled runtime
 
+- Browser **Export runtime scene (.zip)** and CLI `--package` share the deterministic compiler/serializer. ZIPs retain the existing JSON/GLB/assets artifacts, portable fixed paths and export notes; no alternate scene schema is introduced.
+- Standalone Windows/Linux Godot player builds include an offline scene picker, paused F1 menu, resume and scene replacement. No Godot editor or Node.js installation is required to run the delivered player.
+- Delivery checks build both desktop players, test the shipped PCK's launcher/physics from relocated UTF-8 paths, and boot the actual Linux release executable with full presentation. Windows hardware/manual acceptance remains separate.
+
 - Native railings compile to shared GLB boundary presentation at authored height/thickness. Air boundaries remain invisible and collidable.
 - `npm run runtime:export` reads an existing native Project without invoking AI or reopening the browser editor.
 - One deterministic compilation boundary emits `plan2world-runtime-v1` plus a sibling `architecture.glb`.

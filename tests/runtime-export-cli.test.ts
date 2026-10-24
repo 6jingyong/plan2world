@@ -3,6 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import JSZip from 'jszip';
 
 describe('runtime export CLI', () => {
   it('compiles a serialized native Project into runtime JSON and architecture GLB', async () => {
@@ -10,6 +11,7 @@ describe('runtime export CLI', () => {
     const input = path.join(dir, 'house.project.json');
     const runtimeOutput = path.join(dir, 'house.runtime.json');
     const architectureOutput = path.join(dir, 'house.architecture.glb');
+    const packageOutput = path.join(dir, 'house.runtime.zip');
     const nativeProject = {
       id: 'project-cli',
       name: 'CLI runtime fixture',
@@ -43,7 +45,7 @@ describe('runtime export CLI', () => {
 
     try {
       await writeFile(input, JSON.stringify(nativeProject), 'utf8');
-      const stdout = execFileSync(process.execPath, ['tooling/runtime-export.mjs', input, runtimeOutput], {
+      const stdout = execFileSync(process.execPath, ['tooling/runtime-export.mjs', input, runtimeOutput, '--package', packageOutput], {
         cwd: process.cwd(),
         encoding: 'utf8',
       });
@@ -62,6 +64,10 @@ describe('runtime export CLI', () => {
       expect(glb.readUInt32LE(0)).toBe(0x46546c67);
       expect(glb.readUInt32LE(4)).toBe(2);
       expect(glb.readUInt32LE(8)).toBe(glb.byteLength);
+      const zip = await JSZip.loadAsync(await readFile(packageOutput), { checkCRC32: true });
+      expect(await zip.file('scene.runtime.json')!.async('text')).toBe(await readFile(runtimeOutput, 'utf8'));
+      expect(await zip.file('scene.architecture.glb')!.async('nodebuffer')).toEqual(glb);
+      expect(await zip.file('scene.assets/manifest.json')!.async('text')).toBe(await readFile(path.join(dir, 'house.assets/manifest.json'), 'utf8'));
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

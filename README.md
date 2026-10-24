@@ -65,7 +65,12 @@ Authored railing boundaries now have shared GLB presentation at their native hei
 
 The Godot adapter consumes these artifacts separately: runtime JSON owns behavior/collision, architecture GLB owns static presentation, and the asset manifest resolves replaceable furniture and dynamic leaves. Catalog GLBs reuse the existing catalog mapping; custom GLBs reuse verified Project attachments. Missing models use compatibility proxies. The browser provides orbit navigation, 3D editing/review, floor stacks, architectural cuts and photo-camera previews. Browser FPS locomotion and physics have been removed; native spawn editing is retained for compiled runtime use. Future Unity/Unreal/Web runtimes should consume the same compiled boundary rather than translating from Godot.
 
-See [`runtime/godot/README.md`](runtime/godot/README.md) for the current runtime adapter and manual launch path.
+The editor's **Export → Export runtime scene (.zip)** uses the same compiler as
+`npm run runtime:export -- house.project.json --package house.runtime.zip`.
+Extract the scene ZIP and open its runtime JSON in the separate standalone
+Plan2World Runtime player. Windows/Linux player builds, offline use and delivery
+verification are described in [runtime delivery](docs/runtime-delivery.md).
+See [`runtime/godot/README.md`](runtime/godot/README.md) for adapter details.
 
 ## Fresh validation
 

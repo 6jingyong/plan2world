@@ -32,6 +32,8 @@
 
   let importError = $state<string | null>(null);
   let packageError = $state<string | null>(null);
+  let runtimeError = $state<string | null>(null);
+  let exportingRuntime = $state(false);
   let assistantShareProject = $state<import('$lib/models/types').Project | null>(null);
 
   let settingsOpen = $state(false);
@@ -185,6 +187,35 @@
       const { downloadProjectPackage } = await import('$lib/services/projectPackage');
       if (!openingLifetime.signal.aborted) downloadProjectPackage(snapshot);
     } catch (error) { packageError = error instanceof Error ? error.message : 'Could not export this project package.'; }
+  }
+
+  async function onExportRuntime() {
+    if (exportingRuntime) return;
+    const project = get(currentProject);
+    exportOpen = false; runtimeError = null;
+    if (!project) return;
+    const snapshot = structuredClone(project);
+    exportingRuntime = true;
+    try {
+      const [{ compileRuntimeArtifacts }, { serializeRuntimePackage }] = await Promise.all([
+        import('$lib/runtime/runtimeArtifacts'), import('$lib/runtime/runtimePackage'),
+      ]);
+      const artifacts = await compileRuntimeArtifacts(snapshot, async file => {
+        const response = await fetch(`${base}/models/${file}.glb`, { signal: openingLifetime.signal });
+        if (response.status === 404) return null;
+        if (!response.ok) throw new Error(`Could not load model ${file} (${response.status}).`);
+        return new Uint8Array(await response.arrayBuffer());
+      });
+      const bytes = await serializeRuntimePackage(artifacts);
+      if (openingLifetime.signal.aborted) return;
+      const url = URL.createObjectURL(new Blob([bytes], { type: 'application/zip' }));
+      try {
+        const link = document.createElement('a');
+        link.href = url; link.download = `${snapshot.name || 'project'}.runtime.zip`; link.click();
+      } finally { URL.revokeObjectURL(url); }
+    } catch (error) {
+      if (!openingLifetime.signal.aborted) runtimeError = error instanceof Error ? error.message : String(error);
+    } finally { exportingRuntime = false; }
   }
 
   function onShareWithAssistant() {
@@ -574,7 +605,7 @@
       <span class="max-xl:hidden">{$t('exportMenu.title')}</span>
     </button>
     {#if exportOpen}
-      <div class="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 w-48 z-50">
+      <div class="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 w-64 max-h-[calc(100dvh-4rem)] overflow-y-auto z-50">
         <button class="w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 text-left flex items-center gap-2" onclick={() => { exportOpen = false; window.dispatchEvent(new KeyboardEvent('keydown', { key: 'p', ctrlKey: true })); }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
           {$t('print.entry')}
@@ -610,6 +641,8 @@
         </button>
         <button class="w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 text-left" onclick={onExportPackage}>{$t('exportMenu.package')}</button>
         <p class="px-3 pb-2 text-xs text-gray-500">{$t('exportMenu.packageHelp')}</p>
+        <button class="w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 text-left disabled:opacity-50" onclick={onExportRuntime} disabled={exportingRuntime}>{$t(exportingRuntime ? 'exportMenu.runtimeBusy' : 'exportMenu.runtime')}</button>
+        <p class="px-3 pb-2 text-xs text-gray-500">{$t('exportMenu.runtimeHelp')}</p>
         <button class="w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 text-left" onclick={onShareWithAssistant}>{$t('exportMenu.assistant')}</button>
         <div class="h-px bg-gray-100 my-1"></div>
         <button class="w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 text-left flex items-center gap-2" onclick={onImportJSON}>
@@ -677,6 +710,8 @@
   <ImportError title={$t('projectToolbar.openError')} message={importError} onDismiss={() => importError = null} />
 {/if}
 {#if packageError}<ImportError title={$t('projectToolbar.packageError')} message={packageError} onDismiss={() => packageError = null} />{/if}
+{#if exportingRuntime}<div role="status" class="fixed bottom-4 left-4 z-50 rounded-lg bg-slate-800 px-4 py-3 text-sm text-white shadow-lg">{$t('exportMenu.runtimeBusy')}</div>{/if}
+{#if runtimeError}<ImportError title={$t('exportMenu.runtimeError')} message={runtimeError} help={$t('exportMenu.runtimeRetry')} dismissLabel={$t('exportMenu.runtimeDismiss')} onDismiss={() => runtimeError = null} />{/if}
 {#if assistantShareProject}<AssistantShareDialog project={assistantShareProject} onclose={() => assistantShareProject = null} />{/if}
 
 <ExportNotice />

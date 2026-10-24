@@ -6,7 +6,7 @@ import { compileRuntimeScene } from './compileRuntimeScene';
 
 /**
  * Compile the engine-neutral runtime artifacts from one serialized native
- * Project. This is the single non-UI boundary used by CLI/runtime adapters.
+ * Project. Browser export and the CLI use this same non-UI boundary.
  */
 export async function compileRuntimeArtifacts(serializedProject: unknown, readCatalogAsset: ReadCatalogAsset) {
   const project = readProject(serializedProject);

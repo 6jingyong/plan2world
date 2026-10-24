@@ -14,7 +14,9 @@ func runtime_path_from_args() -> String:
 			return arg.trim_prefix("--scene=")
 		if arg == "--scene" and i + 1 < args.size():
 			return str(args[i + 1])
-	return DEFAULT_RUNTIME_PATH
+		if arg == "--demo":
+			return DEFAULT_RUNTIME_PATH
+	return ""
 
 func architecture_path_from_args(runtime_path: String) -> String:
 	var args := OS.get_cmdline_user_args()

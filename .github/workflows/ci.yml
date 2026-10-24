@@ -54,12 +54,11 @@ jobs:
           NPM_CONFIG_INCLUDE: dev
       - run: npm audit --audit-level=high
 
-  # Runtime is now a first-class output. Keep this small and deterministic: use
-  # the exact supported Godot build, verify its checksum, parse/import the
-  # project, then boot the built-in compiled-runtime demo headlessly.
+  # Verify the pinned engine, compiler artifacts and grounded walkthrough, then
+  # build both desktop players and check the shipped PCK/release executable.
   godot:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     env:
       GODOT_URL: https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip
       GODOT_SHA256: cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4
@@ -81,7 +80,7 @@ jobs:
           "$GODOT_BIN" --headless --path runtime/godot --editor --quit
       - name: Boot built-in runtime demo
         run: |
-          "$GODOT_BIN" --headless --path runtime/godot --quit-after 5
+          "$GODOT_BIN" --headless --path runtime/godot --quit-after 5 -- --demo
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version-file: .nvmrc
@@ -98,6 +97,17 @@ jobs:
         run: |
           node tooling/runtime-walkthrough-fixture.mjs /tmp/runtime-walkthrough
           "$GODOT_BIN" --headless --fixed-fps 60 --path runtime/godot --script res://tests/runtime_walkthrough_test.gd -- --scene /tmp/runtime-walkthrough/walkthrough.runtime.json
+      - name: Verify runtime scene launcher
+        run: |
+          "$GODOT_BIN" --headless --path runtime/godot --script res://tests/runtime_launcher_test.gd -- /tmp/runtime-walkthrough/walkthrough.runtime.json
+      - name: Install verified desktop export templates
+        run: bash tooling/install-godot-templates.sh
+      - name: Build standalone Windows and Linux players
+        run: |
+          npm run runtime:player -- windows /tmp/plan2world-windows
+          npm run runtime:player -- linux /tmp/plan2world-linux
+      - name: Walk relocated release player and scene ZIPs
+        run: node tooling/runtime-delivery-test.mjs /tmp/plan2world-linux.zip /tmp/plan2world-delivery
 
 
 

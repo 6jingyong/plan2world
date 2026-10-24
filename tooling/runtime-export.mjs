@@ -5,7 +5,7 @@ import process from 'node:process';
 import { createServer } from 'vite';
 
 function usage() {
-  console.log('Usage: npm run runtime:export -- <project.json> [output.runtime.json] [output.architecture.glb]');
+  console.log('Usage: npm run runtime:export -- <project.json> [output.runtime.json] [output.architecture.glb] [--package output.zip]');
 }
 
 function defaultRuntimePath(inputPath) {
@@ -27,7 +27,16 @@ if (args.includes('--help') || args.includes('-h')) {
   usage();
   process.exit(0);
 }
-if (args.length < 1 || args.length > 3) {
+let packagePath;
+const packageIndex = args.indexOf('--package');
+if (packageIndex !== -1) {
+  if (!args[packageIndex + 1] || args[packageIndex + 1].startsWith('--') || args.indexOf('--package', packageIndex + 1) !== -1) {
+    usage(); process.exit(2);
+  }
+  packagePath = path.resolve(args[packageIndex + 1]);
+  args.splice(packageIndex, 2);
+}
+if (args.length < 1 || args.length > 3 || args.some(arg => arg.startsWith('--'))) {
   usage();
   process.exit(2);
 }
@@ -36,8 +45,9 @@ const inputPath = path.resolve(args[0]);
 const runtimePath = path.resolve(args[1] ?? defaultRuntimePath(inputPath));
 const architecturePath = path.resolve(args[2] ?? defaultArchitecturePath(runtimePath));
 const assetsPath = (/\.json$/i.test(runtimePath) ? runtimePath.replace(/(?:\.runtime)?\.json$/i, '') : runtimePath) + '.assets';
-const uniquePaths = new Set([inputPath, runtimePath, architecturePath, assetsPath]);
-if (uniquePaths.size !== 4) {
+const outputs = [inputPath, runtimePath, architecturePath, assetsPath, ...(packagePath ? [packagePath] : [])];
+const uniquePaths = new Set(outputs);
+if (uniquePaths.size !== outputs.length || (packagePath && packagePath.startsWith(assetsPath + path.sep))) {
   console.error('Runtime export failed: input, runtime output, and architecture output paths must be different.');
   process.exit(2);
 }
@@ -66,10 +76,15 @@ const vite = await createServer({
 
 try {
   const { compileRuntimeArtifacts } = await vite.ssrLoadModule('/src/lib/runtime/runtimeArtifacts.ts');
-  const { runtime, architecture, architectureGlb, assets } = await compileRuntimeArtifacts(serializedProject, async file => {
+  const artifacts = await compileRuntimeArtifacts(serializedProject, async file => {
     try { return new Uint8Array(await fs.readFile(new URL(`../static/models/${file}.glb`, import.meta.url))); }
     catch (error) { if (error.code === 'ENOENT') return null; throw error; }
   });
+  const { runtime, architecture, architectureGlb, assets } = artifacts;
+  // Complete compilation/serialization before writing any outputs.
+  const packageBytes = packagePath
+    ? await (await vite.ssrLoadModule('/src/lib/runtime/runtimePackage.ts')).serializeRuntimePackage(artifacts)
+    : null;
 
   await fs.mkdir(assetsPath, { recursive: true });
   for (const [uri, bytes] of assets.files) await fs.writeFile(path.join(assetsPath, uri), bytes);
@@ -79,6 +94,10 @@ try {
     fs.writeFile(runtimePath, `${JSON.stringify(runtime, null, 2)}\n`, 'utf8'),
     fs.writeFile(architecturePath, architectureGlb),
   ]);
+  if (packagePath) {
+    await fs.writeFile(packagePath, packageBytes);
+    console.log(`Wrote ${packagePath}`);
+  }
 
   console.log(`Wrote ${runtimePath}`);
   console.log(`Wrote ${architecturePath}`);
