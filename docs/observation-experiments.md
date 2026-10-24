@@ -13,9 +13,11 @@ separate.
 
 The reference is [img2threejs](https://github.com/img2threejs/img2threejs/tree/954cd5845e90efd045694bab725d68a9863c20e0):
 explicit source-region coverage, inspectable evidence views and observations
-that reach real structured outputs. Its AI-authored Three.js scene, minimum
-detail quotas, confidence scores and repeated geometry-correction loop do not
-replace Plan2World's existing deterministic ownership.
+that reach real structured outputs. Its current pipeline also uses a deterministic
+factory generator from a model-authored spec; it is not simply a request for the
+model to hand-write a Three.js scene. Plan2World already has its own equivalent
+ownership boundary through observations, native Project and runtime compilation.
+Do not adopt its sculpt-spec/Three.js factory as another canonical representation.
 
 ## Step 1: original-pixel evidence views
 
@@ -66,6 +68,50 @@ sampling reached only 5/8 regions (the earlier baseline reached 8/8), and source
 uncertainties and perimeter omissions remain. Complete bookkeeping does not
 establish complete source coverage. Keep this procedure opt-in; this one known,
 non-blind case does not establish a five-image or general quality improvement.
+The office image's ambiguous concealed doors are excluded from recognition-quality
+scoring by user instruction; keep the original uncertainty and connectivity
+diagnostics without treating them alone as a failure of the method.
+
+The diagonal-apartment trial also linked every planned entry (162/162) and
+resolved all 47 accepted apertures through strict assembly. It did not establish
+an overall improvement: only 10/24 functional zones were supported, native room
+analysis produced a non-simple outer ring, and actual Godot grounding failed
+where the untriangulatable floor had no compiled collider. Preserve this failed
+execution. Reference completeness and successful export do not prove source
+fidelity or a runnable floor.
+
+## What transfers from img2threejs
+
+The inspected upstream main is still `954cd5845e90efd045694bab725d68a9863c20e0`.
+Its [detail-inventory tool](https://github.com/img2threejs/img2threejs/blob/954cd5845e90efd045694bab725d68a9863c20e0/forge/stage1_intake/build_detail_inventory.py)
+prepares views and unfilled stubs; it explicitly does not detect or score visual
+features. The [inventory contract](https://github.com/img2threejs/img2threejs/blob/954cd5845e90efd045694bab725d68a9863c20e0/grimoire/intake/detail_inventory.md)
+requires observed details to map to actual output features. That traceability,
+stage ownership, explicit evidence gaps, and diagnosing the responsible artifact
+are useful engineering ideas. Current local trials have not proved an extraction
+gain from extra views or a larger ledger.
+
+Feature recognition, cabinet-versus-wall classification, jamb direction, curve
+controls and scale-anchor correspondence still depend on visual observation.
+Procedural part selection, occluded shape and material inference in upstream
+also depend on model capability. Schema/generator checks do not establish those
+judgments, and self-reported confidence is not calibrated accuracy.
+
+Do not transfer minimum feature quotas, generic subjective fidelity scores as
+acceptance gates, camera/image fitting that conceals plan-coordinate errors,
+repeated visual geometry correction, or sculpting/material/rig subsystems into
+floor-plan extraction. Upstream's own [review guide](https://github.com/img2threejs/img2threejs/blob/954cd5845e90efd045694bab725d68a9863c20e0/grimoire/review/self_correction.md)
+warns that passing image metrics can miss wrong geometry. Multi-angle review is
+useful for rendering, but cannot establish unseen source construction.
+
+Candidate next changes must be tested separately: reduce repetitive ledger
+output to shared/ambiguous features; require explicitly observed edge kinds in
+experimental serializers instead of defaulting every accepted-zone edge to
+`wall`; and make an invalid native floor or missing compiled floor collider a
+blocking export finding. Do not repair frozen observations, fill a missing floor,
+or move spawn in Godot. Native geometry validation and compiler acceptance own
+the newly exposed program failure. Keep those fixes separate from the original
+observation-method comparison.
 
 ## Subsequent steps, one variable at a time
 

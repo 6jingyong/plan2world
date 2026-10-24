@@ -51,3 +51,17 @@ Success permits testing the same procedure on the other original images. It
 does not justify changing the default workflow. A general improvement needs
 multi-image results and repeated/provider-controlled trials; familiarity,
 attention and token use remain confounders in direct-Codex experiments.
+
+## Evaluation scope and remaining cases
+
+The user excludes the office image's ambiguous concealed doors from recognition
+quality scoring. Keep their uncertainty and raw connectivity diagnostics intact;
+do not add doors or require every region to be reachable through unsupported
+evidence. Other source and geometry findings remain reviewable.
+
+Continue with the diagonal apartment, then the curved apartment, conventional
+home and recessed large home. Keep this observation procedure and deterministic
+algorithms fixed during those trials. Do not combine selected results from
+different runs into a new five-image pass rate. Only a later uniform rerun can
+support that comparison. Source fidelity, strict generation and runtime checks
+remain separate outcomes; uncertain source evidence is reported separately.
