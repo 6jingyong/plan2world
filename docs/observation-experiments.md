@@ -58,6 +58,15 @@ The next isolated variable is a global feature inventory mapped to the existing
 wall/opening/zone records, with consistency findings preserved rather than
 silently repaired. Runtime and reconstruction algorithms remain unchanged.
 
+The [global inventory pilot](observation-inventory-pilot.md) keeps that variable
+inside the existing architectural observation. Its first selected office-plan
+execution recovered strict generation from the previous overlap failure, with
+all 39 planned entries linked to actual observations. However, indoor collision
+sampling reached only 5/8 regions (the earlier baseline reached 8/8), and source
+uncertainties and perimeter omissions remain. Complete bookkeeping does not
+establish complete source coverage. Keep this procedure opt-in; this one known,
+non-blind case does not establish a five-image or general quality improvement.
+
 ## Subsequent steps, one variable at a time
 
 1. Supply the verified views during the existing single architectural observation
