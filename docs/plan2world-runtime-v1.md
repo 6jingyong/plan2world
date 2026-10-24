@@ -197,6 +197,12 @@ compiler does not invent them. Air boundaries emit no presentation mesh.
 
 The presentation compiler composes the wall/room shell with static window panes, square/round columns and supported straight-stair step geometry. The GLB writer assigns a deterministic basic material palette and carries stable Plan2World ownership in node extras. Physics remains independent: engines must still use runtime JSON colliders rather than deriving collision from GLB.
 
+A full-width, full-height aperture may consume its entire host wall. The wall
+and opening keep their runtime IDs and semantics, but the mesher emits no wall
+primitive when no solid surface remains. This is valid absence of presentation,
+not an empty GLB mesh or a request for an adapter to reconstruct the wall. Door
+leaves, window panes and collision remain independently compiled.
+
 Dynamic door leaves and replaceable furniture remain outside `architecture.glb`. Their `assetRef` resolves through the sibling asset manifest, so model choice and transforms can change at runtime without rebuilding static architecture. See [Runtime assets](runtime-assets-v1.md). L/U/spiral stairs also remain outside shared presentation until their traversal semantics are intentionally specified; they are not faked as straight stairs.
 
 Do not put Godot `.tscn`, Unity prefab or Unreal Actor details into the contract.

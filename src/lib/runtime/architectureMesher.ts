@@ -649,6 +649,10 @@ function compileWall(
     }
   }
 
+  // A full-width, full-height aperture can consume the entire host. Its
+  // semantic wall and opening still exist, but there is no wall to present.
+  if (builder.positions.length === 0) return null;
+
   return {
     id: `architecture:wall:${wall.id}`,
     kind: 'wall',

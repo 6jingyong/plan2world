@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { compileArchitectureMesh, type ArchitectureMeshPrimitive } from '$lib/runtime/architectureMesher';
+import { compileRuntimeWallPathProfile } from '$lib/runtime/wallPathGeometry';
 import type {
   Plan2WorldRuntimeSceneV1,
   RuntimeDoorEntity,
@@ -142,6 +143,36 @@ describe('architecture mesher', () => {
     const frontTriangles = triangleCentroidsWithNormal(primitive, [0, 0, 1]);
     expect(frontTriangles.some(([x, y]) => x > 1.5 && x < 2.5 && y > 1.1 && y < 2.3)).toBe(false);
     expect(frontTriangles.some(([x, y]) => x > 1.5 && x < 2.5 && y > 0.2 && y < 1.1)).toBe(true);
+  });
+
+  it.each(['door', 'opening', 'window', 'curved door'] as const)(
+    'omits the wall primitive when a full-width, full-height %s consumes the host',
+    kind => {
+      const host = wall(kind === 'curved door'
+        ? { path: { start: [0, 0], end: [4, 0], control: [2, 1] } } : {});
+      const width = compileRuntimeWallPathProfile(host).length;
+      const aperture = kind === 'window'
+        ? windowEntity({ width, height: 2.8, sillHeight: 0 })
+        : door({ width, height: 2.8, doorType: kind === 'opening' ? 'opening' : 'single' });
+      const source = scene([host, aperture]);
+      const original = structuredClone(source);
+      const mesh = compileArchitectureMesh(source);
+      expect(mesh.diagnostics).toEqual([]);
+      expect(mesh.primitives).toEqual([]);
+      expect(source).toEqual(original);
+    },
+  );
+
+  it.each([
+    { name: 'lintel', aperture: door({ width: 4 }), min: [0, 2.3, -0.1], max: [4, 3, 0.1] },
+    { name: 'side piers', aperture: door({ width: 3.8, height: 2.8 }), min: [0, 0.2, -0.1], max: [4, 3, 0.1] },
+    { name: 'window sill', aperture: windowEntity({ width: 4, sillHeight: 0.9, height: 1.9 }), min: [0, 0.2, -0.1], max: [4, 1.1, 0.1] },
+  ])('retains real $name geometry around an almost complete aperture', ({ aperture, min, max }) => {
+    const mesh = compileArchitectureMesh(scene([wall(), aperture]));
+    expect(mesh.diagnostics).toEqual([]);
+    expect(mesh.primitives).toHaveLength(1);
+    expect(signature(mesh.primitives[0])).toMatchObject({ min, max });
+    expect(mesh.primitives[0].indices.length).toBeGreaterThan(0);
   });
 
   it('keeps separate door and window openings deterministic on the same wall', () => {

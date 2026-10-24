@@ -117,6 +117,8 @@ describe('architecture GLB writer', () => {
   });
 
   it('rejects malformed presentation arrays instead of repairing them during serialization', () => {
+    expect(() => serializeArchitectureGlb(mesh([primitive({ positions: [], normals: [], uvs: [], indices: [] })])))
+      .toThrow('has no positions');
     expect(() => serializeArchitectureGlb(mesh([primitive({ normals: [[0, 0, 1]] })])))
       .toThrow('normals do not match positions');
     expect(() => serializeArchitectureGlb(mesh([primitive({ indices: [0, 1, 9] })])))
