@@ -2,7 +2,7 @@
 
 ## Mission
 
-Plan2World turns a floor-plan raster into an editable browser home while reusing the existing openPlan3D `Project`, editor, history, persistence, Three.js viewer and walkthrough. Do not create a competing scene graph.
+Plan2World turns a floor-plan raster into an editable browser home and an engine-neutral compiled runtime. The existing openPlan3D `Project` remains the canonical authoring truth, with its editor, history, persistence and Three.js review/preview surfaces. Runtime experience is derived from that Project through deterministic artifacts and consumed by Godot or future engines. Do not create a competing canonical scene graph.
 
 ## Canonical reconstruction
 
@@ -28,7 +28,7 @@ Plan2World turns a floor-plan raster into an editable browser home while reusing
 - The browser decodes original pixels; the Skill/CLI uses `prepare --source original.jpg`. Neutral-ink evidence is frozen for replay. Raster-supported continuations and bounded, unique window-junction refinement run before final architecture freeze; they add zero model calls and retain original observations and decision audits. Geometry-only callers without pixels are an explicit compatibility/ablation path.
 - Centerline correction is DISABLED in browser and CLI generation. Whole-image ridge/furniture-weight/fit diagnostics run only through the explicit read-only review command; their unapproved candidates never enter closure or assembly. Do not re-enable correction, project openings with candidate lines, or move junctions from a review. See `docs/raster-centerlines.md`. Independent relative geometry uses one divisor for both axes; native centimetre calibration remains uniform.
 - The assembler owns IDs, host matching, cm conversion, opening width/position, furniture catalog IDs, source registration and `plan2world-draft-v1`.
-- The existing application owns room derivation, editing, rendering, collision, walkthrough and persistence.
+- The native application owns room derivation, editing, persistence and browser review/preview. The deterministic runtime compiler derives `plan2world-runtime-v1` plus `architecture.glb` from that same native Project. Godot consumes those artifacts for runtime collision and interaction; it must not redo reconstruction, room detection or topology repair.
 
 Core rule: **LLM observes; programs calculate and assemble.**
 
@@ -96,9 +96,12 @@ The legacy furniture-only closure is a compatibility path without zone evidence.
 - wrong furniture evidence → furniture observation;
 - changed architecture after furniture assembly → program integrity check;
 - wrong host match, units, IDs, registration or final draft → assembler/parser;
-- wrong room/2D/3D/collision/walkthrough → downstream application.
+- wrong room derivation, 2D editing or browser 3D review → native application;
+- wrong runtime semantics/collision/interaction contract → runtime compiler;
+- wrong architectural presentation mesh → architecture mesher/GLB writer;
+- wrong engine loading, input, physics or runtime interaction behavior → engine adapter (currently Godot).
 
-Never compensate for a deterministic bug with prompt instructions. Never hand-edit a generated artifact to make a later screenshot pass.
+Never compensate for a deterministic bug with prompt instructions. Never hand-edit a generated artifact to make a later screenshot pass. Never patch an engine adapter to hide an upstream runtime or mesh defect.
 
 ## Fresh validation
 
@@ -129,9 +132,30 @@ Use `schemas/plan2world-draft-v1.schema.json` and `docs/plan2world-draft-v1.md`.
   markers, replacement and snapping are application responsibilities;
 - source-supported open ground may use `floorAreas`; never invent walls merely to force closure.
 
+## Runtime invariants
+
+- Browser and CLI runtime scene ZIP export must share `compileRuntimeArtifacts()` and the same serializer. ZIP is transport for the existing artifacts, not another semantic schema or authoring format. Retain native Project/package backups separately.
+- Standalone players load compiled scene JSON with sibling GLB/assets. No native Project parsing or reconstruction belongs in the scene picker. Scene-menu pause, failed-open recovery and world replacement must preserve engine ownership.
+- Desktop focus loss pauses and clears held controls; focus return requires explicit resume. Manual return to start uses only the compiled spawn, resets player motion/view, and preserves world/door state. Never invent a floor, infer a safe target or silently repair an authored aperture for recovery.
+- Distinguish native Windows CI execution from Windows cross-builds and PowerShell installer checks on Linux; neither proves Windows Forward+ hardware/input acceptance. Release boot assertions use the engine log file so Windows GUI binaries do not require console stdout.
+- Verify delivery from relocated player/scene ZIPs. Official release templates disable script/path overrides: assert launcher/physics against the exact exported PCK with the pinned editor, then separately boot the actual release executable. Do not add production test execution hooks or claim this proves Windows hardware behavior. See [runtime delivery](docs/runtime-delivery.md).
+
+- Door interactions contain explicit stable leaf parts with collider/asset references, size, closed pose and type-specific motion. Never infer leaf count, split width or hinge positions in an adapter. Double/french leaves share one native door interaction state. Re-export old derived snapshots rather than adding single-leaf inference.
+- Native railing boundaries use authored height/thickness for compiler-owned extrusion; air stays invisible with collision. Do not infer balusters or other unretained detail.
+- Preserve native no-ceiling policy for outdoor rooms and explicit ground boundaries in the compiler; do not infer a roof merely from uniform wall heights.
+
+- The native `Project` is authoring truth. `plan2world-runtime-v1` and `architecture.glb` are deterministic derived artifacts; a Godot `.tscn` is never canonical.
+- Runtime JSON owns engine-neutral semantics, colliders, interaction contracts and player profile. It may contain explicit collision geometry such as triangulated walkable room floors, but never presentation-mesh data. `architecture.glb` owns architectural presentation geometry. Never infer runtime collision from GLB.
+- The Godot runtime loader owns scene semantics, collision bodies and interaction nodes only. Presentation proxies are an isolated fallback adapter and must not leak back into loader logic.
+- Missing presentation GLB may use proxy visuals for compatibility, but proxy geometry must not become a second source of architectural truth.
+- Dynamic furniture/door assets resolve through `plan2world-runtime-assets-v1`: reuse catalog GLBs and verified custom-model Project attachments. The compiler owns normalized fit transforms; adapters must not measure model bounds to infer size, pivot, collision or motion. Keep entity `assetRef` identities independent of relative packaged file URIs; never embed engine paths or presentation vertices in runtime JSON.
+- Sliding or unsupported door motion must remain explicit. Never fake a sliding/bifold/garage door as a hinged door to make a demo look functional.
+
 ## Product invariants
 
-- Keep 2D correction and first-person walkthrough on the same native geometry.
+- Keep 2D correction and browser 3D review/quick preview on the same native Project, then compile runtime artifacts from that Project.
+- The legacy browser FPS runtime is removed. Keep Three.js focused on authoring, review and quick preview. Do not reintroduce `ThreeViewer` into the target game/runtime layer with FPS controllers, runtime physics, door/furniture interaction state machines or equivalent engine responsibilities.
+- Keep Godot focused on runtime input, physics, interaction, animation, lighting/materials and future experience features. It must not redo AI reconstruction, room detection, wall inference or topology repair.
 - Keep local/manual JSON import possible; AI must not be mandatory.
 - Preserve existing custom-model/project-package infrastructure for future asset replacement.
 - Generated geometry is evidence-bearing draft data, not ground truth.
@@ -148,4 +172,12 @@ npm run check
 npm run build
 ```
 
-For UI/3D/walkthrough changes, run the relevant Playwright regression. After any reconstruction-Skill change, also perform at least one fresh run from an original raster; unit tests alone do not establish image-extraction quality.
+For browser UI/3D changes, run the relevant Playwright regression. Core CI also downloads the pinned Godot 4.7.2 build, verifies its checksum, parses/imports the Godot project and boots the built-in runtime demo headlessly, then exports a native Project and verifies actual asset placement/door motion/fallbacks plus grounded walking, collisions and straight-stair ascent/descent in Godot; Godot adapter changes must pass that gate. After any reconstruction-Skill change, also perform at least one fresh run from an original raster; unit tests alone do not establish image-extraction quality.
+
+Final runtime integration follows [the acceptance recipe](docs/runtime-integration.md): preserve the normally saved native input, check byte stability and ownership, run complete browser/benchmark regressions and inspect actual engine rendering. Distinguish real-house coverage, authored complex-scene coverage and platform/manual checks in the evidence.
+
+## Agent development workflow
+
+Keep implementation, validation and commits local by default. Do not push, open/update
+PRs or merge unless the user explicitly asks. Read-only fetching/research is allowed.
+Complete an architecture milestone and its relevant local checks before reporting it.

@@ -1,9 +1,9 @@
+import { listenTestProvider } from '../fixtures/ai-provider';
 import { expect, test } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { readFile as readAsync } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { createHash } from 'node:crypto';
-import { Matrix4, Vector3 } from 'three';
 import { createFloorPlanAIProvider, type FloorPlanProviderRequest } from '../fixtures/floorplan-ai-provider';
 
 const reference = JSON.parse(readFileSync('tests/fixtures/real-floorplans/wikimedia-two-bedroom.json', 'utf8'));
@@ -18,17 +18,17 @@ const provider = createFloorPlanAIProvider(
   { sourceWidthPx: 535, sourceHeightPx: 526 },
 );
 
-test.beforeAll(async () => { await new Promise<void>(resolve => provider.listen(4202, '127.0.0.1', resolve)); });
+let providerURL: string;
+test.beforeAll(async () => { providerURL = await listenTestProvider(provider); });
 test.afterAll(async () => { provider.closeAllConnections(); await new Promise<void>(resolve => provider.close(() => resolve())); });
 test.beforeEach(() => { requests = []; });
 
-for (const width of [1440, 390]) test(`existing real source reaches a corrected, saved and walkable home at ${width}px`, async ({ page }, testInfo) => {
+for (const width of [1440, 390]) test(`existing real source reaches a corrected, saved home with 3D review at ${width}px`, async ({ page }, testInfo) => {
   test.setTimeout(180_000);
   await page.setViewportSize({ width, height: 900 });
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.addInitScript(() => {
     localStorage.setItem('o3d_tips_seen', JSON.stringify(['first-wall', 'first-3d', 'first-export', 'first-door']));
-    HTMLCanvasElement.prototype.requestPointerLock = () => Promise.reject(new DOMException('Denied for keyboard fallback regression', 'NotAllowedError'));
     const getContext = HTMLCanvasElement.prototype.getContext, seen = new WeakSet();
     const audit = { view: [] as number[], writes: 0 }; (window as any).__realPlanCamera = audit;
     HTMLCanvasElement.prototype.getContext = function(this: HTMLCanvasElement, ...args: any[]) {
@@ -49,7 +49,7 @@ for (const width of [1440, 390]) test(`existing real source reaches a corrected,
   await page.goto('/');
   await page.getByRole('button', { name: /Generate from floor-plan image/ }).click();
   await page.getByRole('button', { name: 'Configure', exact: true }).click();
-  await page.getByLabel('Provider base URL', { exact: true }).fill('http://127.0.0.1:4202/v1');
+  await page.getByLabel('Provider base URL', { exact: true }).fill(`${providerURL}/v1`);
   await page.getByLabel('OpenAI model', { exact: true }).fill('deterministic-evidence-fixture');
   await page.getByRole('button', { name: 'Save OpenAI settings', exact: true }).click();
   await page.locator('input[type="file"][accept="image/png,image/jpeg,image/webp"]')
@@ -123,22 +123,11 @@ for (const width of [1440, 390]) test(`existing real source reaches a corrected,
   await expect(canvas).toHaveAttribute('data-architectural-cut', '120');
   await expect.poll(() => page.evaluate(() => (window as any).__realPlanCamera.writes)).toBeGreaterThan(writes);
   await snapshot('real-plan-architectural-cut');
-  await page.getByRole('button', { name: 'Enter Walkthrough Mode', exact: true }).click();
-  await expect(page.getByText('Walkthrough Controls', { exact: true })).toBeVisible();
-  await expect(canvas).not.toHaveAttribute('data-architectural-cut', /.+/);
-  async function cameraPosition() {
-    const view = await page.evaluate(() => (window as any).__realPlanCamera.view);
-    return new Vector3().setFromMatrixPosition(new Matrix4().fromArray(view).invert());
-  }
-  await expect.poll(async () => (await cameraPosition()).y).toBeCloseTo(160);
-  const start = await cameraPosition();
-  expect(start.x).toBeGreaterThan(0); expect(start.x).toBeLessThan(690);
-  expect(start.z).toBeGreaterThan(0); expect(start.z).toBeLessThan(1200);
-  await page.keyboard.down('w');
-  try { await expect.poll(async () => (await cameraPosition()).distanceTo(start)).toBeGreaterThan(5); }
-  finally { await page.keyboard.up('w'); }
-  await snapshot('real-plan-walkthrough');
-  await page.getByRole('button', { name: 'Exit Walkthrough Mode', exact: true }).click();
+  await page.getByRole('button', { name: /1\.20 m/ }).click();
+  await page.getByRole('button', { name: 'Edit Mode', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Exit Edit Mode', exact: true })).toBeVisible();
+  await snapshot('real-plan-3d-review');
+  await page.getByRole('button', { name: 'Exit Edit Mode', exact: true }).click();
   await page.getByRole('button', { name: '2D', exact: true }).click();
   await expect(page.getByRole('application')).toContainText('11 rooms');
   expect((await exported()).floors[0].doors[0].width).toBe(editedDoorWidth);

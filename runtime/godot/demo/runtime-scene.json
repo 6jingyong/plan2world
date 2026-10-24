@@ -1,0 +1,2408 @@
+{
+  "schema": "plan2world-runtime-v1",
+  "version": 1,
+  "units": "metres",
+  "coordinates": {
+    "handedness": "right",
+    "up": "+Y",
+    "planX": "+X",
+    "planY": "+Z",
+    "yaw": "clockwise-from-+X"
+  },
+  "source": {
+    "projectId": "runtime-walkthrough",
+    "projectName": "Native multi-floor runtime walkthrough"
+  },
+  "playerProfile": {
+    "eyeHeight": 1.6,
+    "radius": 0.28,
+    "speeds": {
+      "slow": 0.6,
+      "walk": 1.2,
+      "fast": 2.4
+    }
+  },
+  "floors": [
+    {
+      "id": "ground",
+      "name": "ground",
+      "level": 0,
+      "elevation": 0.4,
+      "walkthroughStart": [
+        3,
+        0.4,
+        8
+      ],
+      "rooms": [
+        {
+          "id": "room:ground:double-wall,french-wall,ground-w0,ground-w1,ground-w2,ground-w3,slide,swing",
+          "name": "Room 1",
+          "roomType": "indoor",
+          "polygon": [
+            [
+              0,
+              0
+            ],
+            [
+              12,
+              0
+            ],
+            [
+              12.1171875,
+              0.75
+            ],
+            [
+              12.21875,
+              1.5
+            ],
+            [
+              12.3046875,
+              2.25
+            ],
+            [
+              12.375,
+              3
+            ],
+            [
+              12.4296875,
+              3.75
+            ],
+            [
+              12.46875,
+              4.5
+            ],
+            [
+              12.4921875,
+              5.25
+            ],
+            [
+              12.5,
+              6
+            ],
+            [
+              12.4921875,
+              6.75
+            ],
+            [
+              12.46875,
+              7.5
+            ],
+            [
+              12.4296875,
+              8.25
+            ],
+            [
+              12.375,
+              9
+            ],
+            [
+              12.3046875,
+              9.75
+            ],
+            [
+              12.21875,
+              10.5
+            ],
+            [
+              12.1171875,
+              11.25
+            ],
+            [
+              12,
+              12
+            ],
+            [
+              0,
+              12
+            ],
+            [
+              0,
+              10.5
+            ],
+            [
+              0,
+              9
+            ],
+            [
+              0,
+              6
+            ],
+            [
+              0,
+              4
+            ]
+          ],
+          "holes": [
+            [
+              [
+                8,
+                3
+              ],
+              [
+                10,
+                3
+              ],
+              [
+                10,
+                9
+              ],
+              [
+                8,
+                9
+              ]
+            ]
+          ],
+          "slabThickness": 0.05,
+          "ceilingHeight": 3
+        }
+      ]
+    },
+    {
+      "id": "upper",
+      "name": "upper",
+      "level": 1,
+      "elevation": 3.4,
+      "walkthroughStart": [
+        11.016447368421053,
+        3.4,
+        6
+      ],
+      "rooms": [
+        {
+          "id": "room:upper:upper-w0,upper-w1,upper-w2,upper-w3",
+          "name": "Room 1",
+          "roomType": "indoor",
+          "polygon": [
+            [
+              0,
+              0
+            ],
+            [
+              12,
+              0
+            ],
+            [
+              12.1171875,
+              0.75
+            ],
+            [
+              12.21875,
+              1.5
+            ],
+            [
+              12.3046875,
+              2.25
+            ],
+            [
+              12.375,
+              3
+            ],
+            [
+              12.4296875,
+              3.75
+            ],
+            [
+              12.46875,
+              4.5
+            ],
+            [
+              12.4921875,
+              5.25
+            ],
+            [
+              12.5,
+              6
+            ],
+            [
+              12.4921875,
+              6.75
+            ],
+            [
+              12.46875,
+              7.5
+            ],
+            [
+              12.4296875,
+              8.25
+            ],
+            [
+              12.375,
+              9
+            ],
+            [
+              12.3046875,
+              9.75
+            ],
+            [
+              12.21875,
+              10.5
+            ],
+            [
+              12.1171875,
+              11.25
+            ],
+            [
+              12,
+              12
+            ],
+            [
+              0,
+              12
+            ]
+          ],
+          "holes": [
+            [
+              [
+                8,
+                3
+              ],
+              [
+                10,
+                3
+              ],
+              [
+                10,
+                9
+              ],
+              [
+                8,
+                9
+              ]
+            ]
+          ],
+          "slabThickness": 0.05,
+          "ceilingHeight": 3
+        }
+      ]
+    }
+  ],
+  "entities": [
+    {
+      "id": "ground-w0",
+      "floorId": "ground",
+      "kind": "wall",
+      "path": {
+        "start": [
+          0,
+          0
+        ],
+        "end": [
+          12,
+          0
+        ]
+      },
+      "thickness": 0.2,
+      "startHeight": 3,
+      "endHeight": 3,
+      "boundaryType": "solid",
+      "visible": true
+    },
+    {
+      "id": "ground-w1",
+      "floorId": "ground",
+      "kind": "wall",
+      "path": {
+        "start": [
+          12,
+          0
+        ],
+        "end": [
+          12,
+          12
+        ],
+        "control": [
+          13,
+          6
+        ]
+      },
+      "thickness": 0.2,
+      "startHeight": 3,
+      "endHeight": 3,
+      "boundaryType": "solid",
+      "visible": true
+    },
+    {
+      "id": "ground-w2",
+      "floorId": "ground",
+      "kind": "wall",
+      "path": {
+        "start": [
+          12,
+          12
+        ],
+        "end": [
+          0,
+          12
+        ]
+      },
+      "thickness": 0.2,
+      "startHeight": 3,
+      "endHeight": 3,
+      "boundaryType": "solid",
+      "visible": true
+    },
+    {
+      "id": "ground-w3",
+      "floorId": "ground",
+      "kind": "wall",
+      "path": {
+        "start": [
+          0,
+          12
+        ],
+        "end": [
+          0,
+          0
+        ]
+      },
+      "thickness": 0.2,
+      "startHeight": 3,
+      "endHeight": 3,
+      "boundaryType": "solid",
+      "visible": true
+    },
+    {
+      "id": "swing",
+      "floorId": "ground",
+      "kind": "wall",
+      "path": {
+        "start": [
+          0,
+          6
+        ],
+        "end": [
+          5,
+          6
+        ]
+      },
+      "thickness": 0.2,
+      "startHeight": 3,
+      "endHeight": 3,
+      "boundaryType": "solid",
+      "visible": true
+    },
+    {
+      "id": "slide",
+      "floorId": "ground",
+      "kind": "wall",
+      "path": {
+        "start": [
+          0,
+          4
+        ],
+        "end": [
+          5,
+          4
+        ]
+      },
+      "thickness": 0.2,
+      "startHeight": 3,
+      "endHeight": 3,
+      "boundaryType": "solid",
+      "visible": true
+    },
+    {
+      "id": "double-wall",
+      "floorId": "ground",
+      "kind": "wall",
+      "path": {
+        "start": [
+          0,
+          9
+        ],
+        "end": [
+          6,
+          9
+        ]
+      },
+      "thickness": 0.2,
+      "startHeight": 3,
+      "endHeight": 3,
+      "boundaryType": "solid",
+      "visible": true
+    },
+    {
+      "id": "french-wall",
+      "floorId": "ground",
+      "kind": "wall",
+      "path": {
+        "start": [
+          0,
+          10.5
+        ],
+        "end": [
+          6,
+          10.5
+        ]
+      },
+      "thickness": 0.2,
+      "startHeight": 3,
+      "endHeight": 3,
+      "boundaryType": "solid",
+      "visible": true
+    },
+    {
+      "id": "railing",
+      "floorId": "ground",
+      "kind": "wall",
+      "path": {
+        "start": [
+          7,
+          11
+        ],
+        "end": [
+          11,
+          11
+        ]
+      },
+      "thickness": 0.15,
+      "startHeight": 1.1,
+      "endHeight": 1.1,
+      "boundaryType": "railing",
+      "visible": true
+    },
+    {
+      "id": "air",
+      "floorId": "ground",
+      "kind": "wall",
+      "path": {
+        "start": [
+          7,
+          10
+        ],
+        "end": [
+          11,
+          10
+        ]
+      },
+      "thickness": 0.15,
+      "startHeight": 3,
+      "endHeight": 3,
+      "boundaryType": "air",
+      "visible": false
+    },
+    {
+      "id": "swing-door",
+      "floorId": "ground",
+      "kind": "door",
+      "hostWallId": "swing",
+      "pathPosition": 0.6,
+      "width": 1,
+      "height": 2.2,
+      "doorType": "single",
+      "swingDirection": "left",
+      "flipSide": false,
+      "closedPose": {
+        "center": [
+          3,
+          1.5,
+          6
+        ],
+        "yawClockwiseRadians": 0
+      },
+      "interaction": {
+        "kind": "swing",
+        "leaves": [
+          {
+            "id": "door:swing-door:leaf:0",
+            "colliderId": "door:swing-door:leaf:0",
+            "assetRef": "builtin:door-leaf-v1",
+            "size": [
+              1,
+              2.2,
+              0.04
+            ],
+            "closedPose": {
+              "center": [
+                3,
+                1.5,
+                6
+              ],
+              "yawClockwiseRadians": 0
+            },
+            "pivot": [
+              3.5,
+              0.4,
+              6
+            ],
+            "axis": [
+              0,
+              1,
+              0
+            ],
+            "openAngleRadians": 1.5707963267948966
+          }
+        ]
+      }
+    },
+    {
+      "id": "slide-door",
+      "floorId": "ground",
+      "kind": "door",
+      "hostWallId": "slide",
+      "pathPosition": 0.6,
+      "width": 1,
+      "height": 2.2,
+      "doorType": "sliding",
+      "swingDirection": "left",
+      "flipSide": false,
+      "closedPose": {
+        "center": [
+          3,
+          1.5,
+          4
+        ],
+        "yawClockwiseRadians": 0
+      },
+      "interaction": {
+        "kind": "slide",
+        "leaves": [
+          {
+            "id": "door:slide-door:leaf:0",
+            "colliderId": "door:slide-door:leaf:0",
+            "assetRef": "builtin:door-leaf-v1",
+            "size": [
+              1,
+              2.2,
+              0.04
+            ],
+            "closedPose": {
+              "center": [
+                3,
+                1.5,
+                4
+              ],
+              "yawClockwiseRadians": 0
+            },
+            "axis": [
+              1,
+              0,
+              0
+            ],
+            "travel": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "double-door",
+      "floorId": "ground",
+      "kind": "door",
+      "hostWallId": "double-wall",
+      "pathPosition": 0.5,
+      "width": 1.6,
+      "height": 2.2,
+      "doorType": "double",
+      "swingDirection": "left",
+      "flipSide": false,
+      "closedPose": {
+        "center": [
+          3,
+          1.5,
+          9
+        ],
+        "yawClockwiseRadians": 0
+      },
+      "interaction": {
+        "kind": "swing",
+        "leaves": [
+          {
+            "id": "door:double-door:leaf:0",
+            "colliderId": "door:double-door:leaf:0",
+            "assetRef": "builtin:door-leaf-v1",
+            "size": [
+              0.7999999999999998,
+              2.2,
+              0.04
+            ],
+            "closedPose": {
+              "center": [
+                2.6,
+                1.5,
+                9
+              ],
+              "yawClockwiseRadians": 0
+            },
+            "pivot": [
+              2.2,
+              0.4,
+              9
+            ],
+            "axis": [
+              0,
+              1,
+              0
+            ],
+            "openAngleRadians": -1.5707963267948966
+          },
+          {
+            "id": "door:double-door:leaf:1",
+            "colliderId": "door:double-door:leaf:1",
+            "assetRef": "builtin:door-leaf-v1",
+            "size": [
+              0.7999999999999998,
+              2.2,
+              0.04
+            ],
+            "closedPose": {
+              "center": [
+                3.4,
+                1.5,
+                9
+              ],
+              "yawClockwiseRadians": 0
+            },
+            "pivot": [
+              3.8,
+              0.4,
+              9
+            ],
+            "axis": [
+              0,
+              1,
+              0
+            ],
+            "openAngleRadians": 1.5707963267948966
+          }
+        ]
+      }
+    },
+    {
+      "id": "french-door",
+      "floorId": "ground",
+      "kind": "door",
+      "hostWallId": "french-wall",
+      "pathPosition": 0.5,
+      "width": 1.6,
+      "height": 2.2,
+      "doorType": "french",
+      "swingDirection": "left",
+      "flipSide": true,
+      "closedPose": {
+        "center": [
+          3,
+          1.5,
+          10.5
+        ],
+        "yawClockwiseRadians": 0
+      },
+      "interaction": {
+        "kind": "swing",
+        "leaves": [
+          {
+            "id": "door:french-door:leaf:0",
+            "colliderId": "door:french-door:leaf:0",
+            "assetRef": "builtin:door-leaf-v1",
+            "size": [
+              0.7999999999999998,
+              2.2,
+              0.04
+            ],
+            "closedPose": {
+              "center": [
+                2.6,
+                1.5,
+                10.5
+              ],
+              "yawClockwiseRadians": 0
+            },
+            "pivot": [
+              2.2,
+              0.4,
+              10.5
+            ],
+            "axis": [
+              0,
+              1,
+              0
+            ],
+            "openAngleRadians": 1.5707963267948966
+          },
+          {
+            "id": "door:french-door:leaf:1",
+            "colliderId": "door:french-door:leaf:1",
+            "assetRef": "builtin:door-leaf-v1",
+            "size": [
+              0.7999999999999998,
+              2.2,
+              0.04
+            ],
+            "closedPose": {
+              "center": [
+                3.4,
+                1.5,
+                10.5
+              ],
+              "yawClockwiseRadians": 0
+            },
+            "pivot": [
+              3.8,
+              0.4,
+              10.5
+            ],
+            "axis": [
+              0,
+              1,
+              0
+            ],
+            "openAngleRadians": -1.5707963267948966
+          }
+        ]
+      }
+    },
+    {
+      "id": "window",
+      "floorId": "ground",
+      "kind": "window",
+      "hostWallId": "ground-w3",
+      "pathPosition": 0.5,
+      "width": 1.2,
+      "height": 1.4000000000000001,
+      "sillHeight": 0.9,
+      "windowType": "fixed",
+      "center": [
+        0,
+        2,
+        6
+      ],
+      "yawClockwiseRadians": -1.5707963267948966
+    },
+    {
+      "id": "sofa",
+      "floorId": "ground",
+      "kind": "furniture",
+      "catalogId": "sofa",
+      "assetRef": "catalog:sofa",
+      "mirror": [
+        1,
+        1,
+        1
+      ],
+      "position": [
+        5,
+        0.9,
+        2
+      ],
+      "yawClockwiseRadians": 0,
+      "size": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "id": "custom",
+      "floorId": "ground",
+      "kind": "furniture",
+      "catalogId": "imported_object",
+      "assetRef": "custom-model:box",
+      "mirror": [
+        1,
+        1,
+        1
+      ],
+      "position": [
+        7,
+        0.65,
+        2
+      ],
+      "yawClockwiseRadians": 0.5235987755982988,
+      "size": [
+        1,
+        0.5,
+        0.75
+      ]
+    },
+    {
+      "id": "column",
+      "floorId": "ground",
+      "kind": "column",
+      "shape": "round",
+      "position": [
+        7,
+        1.9000000000000001,
+        7
+      ],
+      "yawClockwiseRadians": 0,
+      "diameter": 0.5,
+      "height": 3
+    },
+    {
+      "id": "stairs",
+      "floorId": "ground",
+      "kind": "stair",
+      "position": [
+        9,
+        0.4,
+        6
+      ],
+      "yawClockwiseRadians": 0,
+      "width": 1,
+      "depth": 6,
+      "riserCount": 18,
+      "direction": "up",
+      "stairType": "straight",
+      "traversal": {
+        "kind": "ramp",
+        "targetFloorId": "upper",
+        "startElevation": 0.4,
+        "endElevation": 3.4
+      }
+    },
+    {
+      "id": "upper-w0",
+      "floorId": "upper",
+      "kind": "wall",
+      "path": {
+        "start": [
+          0,
+          0
+        ],
+        "end": [
+          12,
+          0
+        ]
+      },
+      "thickness": 0.2,
+      "startHeight": 3,
+      "endHeight": 3,
+      "boundaryType": "solid",
+      "visible": true
+    },
+    {
+      "id": "upper-w1",
+      "floorId": "upper",
+      "kind": "wall",
+      "path": {
+        "start": [
+          12,
+          0
+        ],
+        "end": [
+          12,
+          12
+        ],
+        "control": [
+          13,
+          6
+        ]
+      },
+      "thickness": 0.2,
+      "startHeight": 3,
+      "endHeight": 3,
+      "boundaryType": "solid",
+      "visible": true
+    },
+    {
+      "id": "upper-w2",
+      "floorId": "upper",
+      "kind": "wall",
+      "path": {
+        "start": [
+          12,
+          12
+        ],
+        "end": [
+          0,
+          12
+        ]
+      },
+      "thickness": 0.2,
+      "startHeight": 3,
+      "endHeight": 3,
+      "boundaryType": "solid",
+      "visible": true
+    },
+    {
+      "id": "upper-w3",
+      "floorId": "upper",
+      "kind": "wall",
+      "path": {
+        "start": [
+          0,
+          12
+        ],
+        "end": [
+          0,
+          0
+        ]
+      },
+      "thickness": 0.2,
+      "startHeight": 3,
+      "endHeight": 3,
+      "boundaryType": "solid",
+      "visible": true
+    }
+  ],
+  "colliders": [
+    {
+      "id": "wall:ground-w0:0:0",
+      "ownerId": "ground-w0",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        6,
+        1.9000000000000001,
+        0
+      ],
+      "size": [
+        12,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": 0
+    },
+    {
+      "id": "wall:ground-w1:0:0",
+      "ownerId": "ground-w1",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        12.05859375,
+        1.9000000000000001,
+        0.375
+      ],
+      "size": [
+        0.7591000659703896,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": 1.4157995848709557
+    },
+    {
+      "id": "wall:ground-w1:1:0",
+      "ownerId": "ground-w1",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        12.16796875,
+        1.9000000000000001,
+        1.125
+      ],
+      "size": [
+        0.7568453880458347,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": 1.4361984126344298
+    },
+    {
+      "id": "wall:ground-w1:2:0",
+      "ownerId": "ground-w1",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        12.26171875,
+        1.9000000000000001,
+        1.875
+      ],
+      "size": [
+        0.7549074472451904,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": 1.456710547626737
+    },
+    {
+      "id": "wall:ground-w1:3:0",
+      "ownerId": "ground-w1",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        12.33984375,
+        1.9000000000000001,
+        2.625
+      ],
+      "size": [
+        0.7532886881244467,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": 1.477319545636307
+    },
+    {
+      "id": "wall:ground-w1:4:0",
+      "ownerId": "ground-w1",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        12.40234375,
+        1.9000000000000001,
+        3.375
+      ],
+      "size": [
+        0.7519911719270712,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": 1.4980084781909715
+    },
+    {
+      "id": "wall:ground-w1:5:0",
+      "ownerId": "ground-w1",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        12.44921875,
+        1.9000000000000001,
+        4.125
+      ],
+      "size": [
+        0.7510165636697037,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": 1.5187600119856803
+    },
+    {
+      "id": "wall:ground-w1:6:0",
+      "ownerId": "ground-w1",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        12.48046875,
+        1.9000000000000001,
+        4.875
+      ],
+      "size": [
+        0.7503661215741619,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": 1.5395564933646284
+    },
+    {
+      "id": "wall:ground-w1:7:0",
+      "ownerId": "ground-w1",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        12.49609375,
+        1.9000000000000001,
+        5.625
+      ],
+      "size": [
+        0.7500406890004367,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": 1.560380036863927
+    },
+    {
+      "id": "wall:ground-w1:8:0",
+      "ownerId": "ground-w1",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        12.49609375,
+        1.9000000000000001,
+        6.375
+      ],
+      "size": [
+        0.7500406890004367,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": 1.5812126167258664
+    },
+    {
+      "id": "wall:ground-w1:9:0",
+      "ownerId": "ground-w1",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        12.48046875,
+        1.9000000000000001,
+        7.125
+      ],
+      "size": [
+        0.7503661215741619,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": 1.602036160225165
+    },
+    {
+      "id": "wall:ground-w1:10:0",
+      "ownerId": "ground-w1",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        12.44921875,
+        1.9000000000000001,
+        7.875
+      ],
+      "size": [
+        0.7510165636697037,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": 1.622832641604113
+    },
+    {
+      "id": "wall:ground-w1:11:0",
+      "ownerId": "ground-w1",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        12.40234375,
+        1.9000000000000001,
+        8.625
+      ],
+      "size": [
+        0.7519911719270712,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": 1.6435841753988218
+    },
+    {
+      "id": "wall:ground-w1:12:0",
+      "ownerId": "ground-w1",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        12.33984375,
+        1.9000000000000001,
+        9.375
+      ],
+      "size": [
+        0.7532886881244467,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": 1.6642731079534863
+    },
+    {
+      "id": "wall:ground-w1:13:0",
+      "ownerId": "ground-w1",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        12.26171875,
+        1.9000000000000001,
+        10.125
+      ],
+      "size": [
+        0.7549074472451904,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": 1.6848821059630563
+    },
+    {
+      "id": "wall:ground-w1:14:0",
+      "ownerId": "ground-w1",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        12.16796875,
+        1.9000000000000001,
+        10.875
+      ],
+      "size": [
+        0.7568453880458347,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": 1.7053942409553635
+    },
+    {
+      "id": "wall:ground-w1:15:0",
+      "ownerId": "ground-w1",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        12.05859375,
+        1.9000000000000001,
+        11.625
+      ],
+      "size": [
+        0.7591000659703896,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": 1.7257930687188376
+    },
+    {
+      "id": "wall:ground-w2:0:0",
+      "ownerId": "ground-w2",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        6,
+        1.9000000000000001,
+        12
+      ],
+      "size": [
+        12,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": 3.141592653589793
+    },
+    {
+      "id": "wall:ground-w3:0:0",
+      "ownerId": "ground-w3",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        0,
+        1.9000000000000001,
+        6
+      ],
+      "size": [
+        12,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": -1.5707963267948966
+    },
+    {
+      "id": "wall:swing:0:0",
+      "ownerId": "swing",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        1.25,
+        1.9000000000000001,
+        6
+      ],
+      "size": [
+        2.5,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": 0
+    },
+    {
+      "id": "wall:swing:0:2",
+      "ownerId": "swing",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        4.25,
+        1.9000000000000001,
+        6
+      ],
+      "size": [
+        1.5,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": 0
+    },
+    {
+      "id": "wall:slide:0:0",
+      "ownerId": "slide",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        1.25,
+        1.9000000000000001,
+        4
+      ],
+      "size": [
+        2.5,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": 0
+    },
+    {
+      "id": "wall:slide:0:2",
+      "ownerId": "slide",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        4.25,
+        1.9000000000000001,
+        4
+      ],
+      "size": [
+        1.5,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": 0
+    },
+    {
+      "id": "wall:double-wall:0:0",
+      "ownerId": "double-wall",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        1.0999999999999999,
+        1.9000000000000001,
+        9
+      ],
+      "size": [
+        2.2,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": 0
+    },
+    {
+      "id": "wall:double-wall:0:2",
+      "ownerId": "double-wall",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        4.9,
+        1.9000000000000001,
+        9
+      ],
+      "size": [
+        2.2,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": 0
+    },
+    {
+      "id": "wall:french-wall:0:0",
+      "ownerId": "french-wall",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        1.0999999999999999,
+        1.9000000000000001,
+        10.5
+      ],
+      "size": [
+        2.2,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": 0
+    },
+    {
+      "id": "wall:french-wall:0:2",
+      "ownerId": "french-wall",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        4.9,
+        1.9000000000000001,
+        10.5
+      ],
+      "size": [
+        2.2,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": 0
+    },
+    {
+      "id": "wall:railing:0:0",
+      "ownerId": "railing",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        9,
+        0.9500000000000001,
+        11
+      ],
+      "size": [
+        4,
+        1.1,
+        0.15
+      ],
+      "yawClockwiseRadians": 0
+    },
+    {
+      "id": "wall:air:0:0",
+      "ownerId": "air",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        9,
+        1.9000000000000001,
+        10
+      ],
+      "size": [
+        4,
+        3,
+        0.15
+      ],
+      "yawClockwiseRadians": 0
+    },
+    {
+      "id": "door:swing-door:leaf:0",
+      "ownerId": "swing-door",
+      "floorId": "ground",
+      "dynamic": true,
+      "kind": "box",
+      "center": [
+        3,
+        1.5,
+        6
+      ],
+      "size": [
+        1,
+        2.2,
+        0.04
+      ],
+      "yawClockwiseRadians": 0
+    },
+    {
+      "id": "door:slide-door:leaf:0",
+      "ownerId": "slide-door",
+      "floorId": "ground",
+      "dynamic": true,
+      "kind": "box",
+      "center": [
+        3,
+        1.5,
+        4
+      ],
+      "size": [
+        1,
+        2.2,
+        0.04
+      ],
+      "yawClockwiseRadians": 0
+    },
+    {
+      "id": "door:double-door:leaf:0",
+      "ownerId": "double-door",
+      "floorId": "ground",
+      "dynamic": true,
+      "kind": "box",
+      "center": [
+        2.6,
+        1.5,
+        9
+      ],
+      "size": [
+        0.7999999999999998,
+        2.2,
+        0.04
+      ],
+      "yawClockwiseRadians": 0
+    },
+    {
+      "id": "door:double-door:leaf:1",
+      "ownerId": "double-door",
+      "floorId": "ground",
+      "dynamic": true,
+      "kind": "box",
+      "center": [
+        3.4,
+        1.5,
+        9
+      ],
+      "size": [
+        0.7999999999999998,
+        2.2,
+        0.04
+      ],
+      "yawClockwiseRadians": 0
+    },
+    {
+      "id": "door:french-door:leaf:0",
+      "ownerId": "french-door",
+      "floorId": "ground",
+      "dynamic": true,
+      "kind": "box",
+      "center": [
+        2.6,
+        1.5,
+        10.5
+      ],
+      "size": [
+        0.7999999999999998,
+        2.2,
+        0.04
+      ],
+      "yawClockwiseRadians": 0
+    },
+    {
+      "id": "door:french-door:leaf:1",
+      "ownerId": "french-door",
+      "floorId": "ground",
+      "dynamic": true,
+      "kind": "box",
+      "center": [
+        3.4,
+        1.5,
+        10.5
+      ],
+      "size": [
+        0.7999999999999998,
+        2.2,
+        0.04
+      ],
+      "yawClockwiseRadians": 0
+    },
+    {
+      "id": "furniture:sofa",
+      "ownerId": "sofa",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        5,
+        0.9,
+        2
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "yawClockwiseRadians": 0
+    },
+    {
+      "id": "furniture:custom",
+      "ownerId": "custom",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        7,
+        0.65,
+        2
+      ],
+      "size": [
+        1,
+        0.5,
+        0.75
+      ],
+      "yawClockwiseRadians": 0.5235987755982988
+    },
+    {
+      "id": "column:column",
+      "ownerId": "column",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "cylinder",
+      "center": [
+        7,
+        1.9000000000000001,
+        7
+      ],
+      "radius": 0.25,
+      "height": 3
+    },
+    {
+      "id": "stair:stairs:ramp",
+      "ownerId": "stairs",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "triangle-mesh",
+      "vertices": [
+        [
+          8.5,
+          0.4,
+          9
+        ],
+        [
+          9.5,
+          0.4,
+          9
+        ],
+        [
+          9.5,
+          3.4,
+          3
+        ],
+        [
+          8.5,
+          3.4,
+          3
+        ]
+      ],
+      "indices": [
+        0,
+        1,
+        2,
+        0,
+        2,
+        3
+      ]
+    },
+    {
+      "id": "floor:room:ground:double-wall,french-wall,ground-w0,ground-w1,ground-w2,ground-w3,slide,swing",
+      "ownerId": "room:ground:double-wall,french-wall,ground-w0,ground-w1,ground-w2,ground-w3,slide,swing",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "triangle-mesh",
+      "vertices": [
+        [
+          0,
+          0.4,
+          0
+        ],
+        [
+          12,
+          0.4,
+          0
+        ],
+        [
+          12.1171875,
+          0.4,
+          0.75
+        ],
+        [
+          12.21875,
+          0.4,
+          1.5
+        ],
+        [
+          12.3046875,
+          0.4,
+          2.25
+        ],
+        [
+          12.375,
+          0.4,
+          3
+        ],
+        [
+          10,
+          0.4,
+          3
+        ],
+        [
+          8,
+          0.4,
+          3
+        ],
+        [
+          8,
+          0.4,
+          9
+        ],
+        [
+          10,
+          0.4,
+          9
+        ],
+        [
+          10,
+          0.4,
+          3
+        ],
+        [
+          12.375,
+          0.4,
+          3
+        ],
+        [
+          12.4296875,
+          0.4,
+          3.75
+        ],
+        [
+          12.46875,
+          0.4,
+          4.5
+        ],
+        [
+          12.4921875,
+          0.4,
+          5.25
+        ],
+        [
+          12.5,
+          0.4,
+          6
+        ],
+        [
+          12.4921875,
+          0.4,
+          6.75
+        ],
+        [
+          12.46875,
+          0.4,
+          7.5
+        ],
+        [
+          12.4296875,
+          0.4,
+          8.25
+        ],
+        [
+          12.375,
+          0.4,
+          9
+        ],
+        [
+          12.3046875,
+          0.4,
+          9.75
+        ],
+        [
+          12.21875,
+          0.4,
+          10.5
+        ],
+        [
+          12.1171875,
+          0.4,
+          11.25
+        ],
+        [
+          12,
+          0.4,
+          12
+        ],
+        [
+          0,
+          0.4,
+          12
+        ]
+      ],
+      "indices": [
+        0,
+        2,
+        1,
+        0,
+        3,
+        2,
+        0,
+        4,
+        3,
+        0,
+        5,
+        4,
+        0,
+        6,
+        5,
+        0,
+        7,
+        6,
+        24,
+        7,
+        0,
+        24,
+        8,
+        7,
+        24,
+        9,
+        8,
+        9,
+        11,
+        10,
+        9,
+        12,
+        11,
+        9,
+        13,
+        12,
+        9,
+        14,
+        13,
+        9,
+        15,
+        14,
+        9,
+        16,
+        15,
+        9,
+        17,
+        16,
+        9,
+        18,
+        17,
+        9,
+        19,
+        18,
+        24,
+        19,
+        9,
+        24,
+        20,
+        19,
+        24,
+        21,
+        20,
+        24,
+        22,
+        21,
+        22,
+        24,
+        23
+      ]
+    },
+    {
+      "id": "wall:upper-w0:0:0",
+      "ownerId": "upper-w0",
+      "floorId": "upper",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        6,
+        4.9,
+        0
+      ],
+      "size": [
+        12,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": 0
+    },
+    {
+      "id": "wall:upper-w1:0:0",
+      "ownerId": "upper-w1",
+      "floorId": "upper",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        12.05859375,
+        4.9,
+        0.375
+      ],
+      "size": [
+        0.7591000659703896,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": 1.4157995848709557
+    },
+    {
+      "id": "wall:upper-w1:1:0",
+      "ownerId": "upper-w1",
+      "floorId": "upper",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        12.16796875,
+        4.9,
+        1.125
+      ],
+      "size": [
+        0.7568453880458347,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": 1.4361984126344298
+    },
+    {
+      "id": "wall:upper-w1:2:0",
+      "ownerId": "upper-w1",
+      "floorId": "upper",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        12.26171875,
+        4.9,
+        1.875
+      ],
+      "size": [
+        0.7549074472451904,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": 1.456710547626737
+    },
+    {
+      "id": "wall:upper-w1:3:0",
+      "ownerId": "upper-w1",
+      "floorId": "upper",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        12.33984375,
+        4.9,
+        2.625
+      ],
+      "size": [
+        0.7532886881244467,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": 1.477319545636307
+    },
+    {
+      "id": "wall:upper-w1:4:0",
+      "ownerId": "upper-w1",
+      "floorId": "upper",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        12.40234375,
+        4.9,
+        3.375
+      ],
+      "size": [
+        0.7519911719270712,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": 1.4980084781909715
+    },
+    {
+      "id": "wall:upper-w1:5:0",
+      "ownerId": "upper-w1",
+      "floorId": "upper",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        12.44921875,
+        4.9,
+        4.125
+      ],
+      "size": [
+        0.7510165636697037,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": 1.5187600119856803
+    },
+    {
+      "id": "wall:upper-w1:6:0",
+      "ownerId": "upper-w1",
+      "floorId": "upper",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        12.48046875,
+        4.9,
+        4.875
+      ],
+      "size": [
+        0.7503661215741619,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": 1.5395564933646284
+    },
+    {
+      "id": "wall:upper-w1:7:0",
+      "ownerId": "upper-w1",
+      "floorId": "upper",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        12.49609375,
+        4.9,
+        5.625
+      ],
+      "size": [
+        0.7500406890004367,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": 1.560380036863927
+    },
+    {
+      "id": "wall:upper-w1:8:0",
+      "ownerId": "upper-w1",
+      "floorId": "upper",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        12.49609375,
+        4.9,
+        6.375
+      ],
+      "size": [
+        0.7500406890004367,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": 1.5812126167258664
+    },
+    {
+      "id": "wall:upper-w1:9:0",
+      "ownerId": "upper-w1",
+      "floorId": "upper",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        12.48046875,
+        4.9,
+        7.125
+      ],
+      "size": [
+        0.7503661215741619,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": 1.602036160225165
+    },
+    {
+      "id": "wall:upper-w1:10:0",
+      "ownerId": "upper-w1",
+      "floorId": "upper",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        12.44921875,
+        4.9,
+        7.875
+      ],
+      "size": [
+        0.7510165636697037,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": 1.622832641604113
+    },
+    {
+      "id": "wall:upper-w1:11:0",
+      "ownerId": "upper-w1",
+      "floorId": "upper",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        12.40234375,
+        4.9,
+        8.625
+      ],
+      "size": [
+        0.7519911719270712,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": 1.6435841753988218
+    },
+    {
+      "id": "wall:upper-w1:12:0",
+      "ownerId": "upper-w1",
+      "floorId": "upper",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        12.33984375,
+        4.9,
+        9.375
+      ],
+      "size": [
+        0.7532886881244467,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": 1.6642731079534863
+    },
+    {
+      "id": "wall:upper-w1:13:0",
+      "ownerId": "upper-w1",
+      "floorId": "upper",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        12.26171875,
+        4.9,
+        10.125
+      ],
+      "size": [
+        0.7549074472451904,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": 1.6848821059630563
+    },
+    {
+      "id": "wall:upper-w1:14:0",
+      "ownerId": "upper-w1",
+      "floorId": "upper",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        12.16796875,
+        4.9,
+        10.875
+      ],
+      "size": [
+        0.7568453880458347,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": 1.7053942409553635
+    },
+    {
+      "id": "wall:upper-w1:15:0",
+      "ownerId": "upper-w1",
+      "floorId": "upper",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        12.05859375,
+        4.9,
+        11.625
+      ],
+      "size": [
+        0.7591000659703896,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": 1.7257930687188376
+    },
+    {
+      "id": "wall:upper-w2:0:0",
+      "ownerId": "upper-w2",
+      "floorId": "upper",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        6,
+        4.9,
+        12
+      ],
+      "size": [
+        12,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": 3.141592653589793
+    },
+    {
+      "id": "wall:upper-w3:0:0",
+      "ownerId": "upper-w3",
+      "floorId": "upper",
+      "dynamic": false,
+      "kind": "box",
+      "center": [
+        0,
+        4.9,
+        6
+      ],
+      "size": [
+        12,
+        3,
+        0.2
+      ],
+      "yawClockwiseRadians": -1.5707963267948966
+    },
+    {
+      "id": "floor:room:upper:upper-w0,upper-w1,upper-w2,upper-w3",
+      "ownerId": "room:upper:upper-w0,upper-w1,upper-w2,upper-w3",
+      "floorId": "upper",
+      "dynamic": false,
+      "kind": "triangle-mesh",
+      "vertices": [
+        [
+          0,
+          3.4,
+          0
+        ],
+        [
+          12,
+          3.4,
+          0
+        ],
+        [
+          12.1171875,
+          3.4,
+          0.75
+        ],
+        [
+          12.21875,
+          3.4,
+          1.5
+        ],
+        [
+          12.3046875,
+          3.4,
+          2.25
+        ],
+        [
+          12.375,
+          3.4,
+          3
+        ],
+        [
+          10,
+          3.4,
+          3
+        ],
+        [
+          8,
+          3.4,
+          3
+        ],
+        [
+          8,
+          3.4,
+          9
+        ],
+        [
+          10,
+          3.4,
+          9
+        ],
+        [
+          10,
+          3.4,
+          3
+        ],
+        [
+          12.375,
+          3.4,
+          3
+        ],
+        [
+          12.4296875,
+          3.4,
+          3.75
+        ],
+        [
+          12.46875,
+          3.4,
+          4.5
+        ],
+        [
+          12.4921875,
+          3.4,
+          5.25
+        ],
+        [
+          12.5,
+          3.4,
+          6
+        ],
+        [
+          12.4921875,
+          3.4,
+          6.75
+        ],
+        [
+          12.46875,
+          3.4,
+          7.5
+        ],
+        [
+          12.4296875,
+          3.4,
+          8.25
+        ],
+        [
+          12.375,
+          3.4,
+          9
+        ],
+        [
+          12.3046875,
+          3.4,
+          9.75
+        ],
+        [
+          12.21875,
+          3.4,
+          10.5
+        ],
+        [
+          12.1171875,
+          3.4,
+          11.25
+        ],
+        [
+          12,
+          3.4,
+          12
+        ],
+        [
+          0,
+          3.4,
+          12
+        ]
+      ],
+      "indices": [
+        0,
+        2,
+        1,
+        0,
+        3,
+        2,
+        0,
+        4,
+        3,
+        0,
+        5,
+        4,
+        0,
+        6,
+        5,
+        0,
+        7,
+        6,
+        24,
+        7,
+        0,
+        24,
+        8,
+        7,
+        24,
+        9,
+        8,
+        9,
+        11,
+        10,
+        9,
+        12,
+        11,
+        9,
+        13,
+        12,
+        9,
+        14,
+        13,
+        9,
+        15,
+        14,
+        9,
+        16,
+        15,
+        9,
+        17,
+        16,
+        9,
+        18,
+        17,
+        9,
+        19,
+        18,
+        24,
+        19,
+        9,
+        24,
+        20,
+        19,
+        24,
+        21,
+        20,
+        24,
+        22,
+        21,
+        22,
+        24,
+        23
+      ]
+    }
+  ]
+}

@@ -24,6 +24,8 @@
 		"benchmark:fixtures": "node tooling/render-fixtures.mjs",
 		"catalog:manifest": "node tooling/catalog-manifest.mjs",
 		"catalog:check": "node tooling/catalog-manifest.mjs --check",
+		"runtime:export": "node tooling/runtime-export.mjs",
+		"runtime:player": "node tooling/runtime-player-build.mjs",
 		"build:render-lab": "vite build --config tooling/render-lab-site/vite.config.ts"
 	},
 	"devDependencies": {
@@ -42,7 +44,7 @@
 		"three": "^0.182.0",
 		"typescript": "^5.9.3",
 		"vite": "^7.3.7",
-		"vitest": "^5.0.0"
+		"vitest": "^5.0.3"
 	},
 	"dependencies": {
 		"dxf-writer": "^1.18.4",
@@ -59,7 +61,7 @@
 		},
 		"@grpc/grpc-js": "1.14.5",
 		"devalue": "5.9.3",
-		"dompurify": "3.4.16",
+		"dompurify": "3.4.17",
 		"source-map-js": "1.2.2"
 	}
 }

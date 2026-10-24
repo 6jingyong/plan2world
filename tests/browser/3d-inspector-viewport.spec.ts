@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { resolve } from 'node:path';
 import { readFile } from 'node:fs/promises';
+import { inspectCanvas } from './canvas-pixels';
 
 for (const viewport of [{ width: 390, height: 900 }, { width: 1440, height: 900 }, { width: 844, height: 390 }]) {
   test(`3D inspection keeps the fitted home clear of its properties at ${viewport.width}px`, async ({ page }, testInfo) => {
@@ -37,36 +38,29 @@ for (const viewport of [{ width: 390, height: 900 }, { width: 1440, height: 900 
     }
     await expectUncoveredViewport();
     await page.getByRole('button', { name: 'Top-Down View', exact: true }).click();
-    await expect.poll(() => canvas.evaluate((node: HTMLCanvasElement) => {
-      const probe = document.createElement('canvas'); probe.width = node.width; probe.height = node.height;
-      const context = probe.getContext('2d')!; context.drawImage(node, 0, 0);
-      const { data, width, height } = context.getImageData(0, 0, probe.width, probe.height);
+    await expect.poll(() => inspectCanvas(canvas, ({ canvas: node, data, width, height }) => {
       const bounds = node.getBoundingClientRect(), counts = [0, 0, 0, 0];
-      let occluded = 0;
+      let occluded = 0, firstOccluder = '';
       for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
         const i = (y * width + x) * 4, r = data[i], g = data[i + 1], b = data[i + 2];
         if (r > 140 && b > 110 && r > g * 1.6 && b > g * 1.6) {
           counts[(y >= height / 2 ? 2 : 0) + (x >= width / 2 ? 1 : 0)]++;
           const screenX = bounds.x + (x + 0.5) / width * bounds.width;
           const screenY = bounds.y + (y + 0.5) / height * bounds.height;
-          if (document.elementFromPoint(screenX, screenY) !== node) occluded++;
+          const hit = document.elementFromPoint(screenX, screenY);
+          if (hit !== node) { occluded++; firstOccluder ||= hit?.outerHTML.slice(0, 160) ?? 'outside viewport'; }
         }
       }
-      return counts.every(count => count > 25) && occluded === 0;
-    })).toBe(true);
+      return { counts, visibleQuadrants: counts.filter(count => count > 25).length, occluded, firstOccluder };
+    })).toMatchObject({ visibleQuadrants: 4, occluded: 0 });
     await page.getByRole('button', { name: /1\.20 m/ }).click();
     await expect(canvas).toHaveAttribute('data-architectural-cut', '120');
     await expectUncoveredViewport();
     const picture = testInfo.outputPath('usable-3d-viewport.png');
     await page.screenshot({ path: picture });
     await testInfo.attach('usable-3d-viewport', { path: picture, contentType: 'image/png' });
-    await page.evaluate(() => {
-      HTMLCanvasElement.prototype.requestPointerLock = () => Promise.reject(new DOMException('Denied', 'NotAllowedError'));
-    });
-    await page.getByRole('button', { name: 'Enter Walkthrough Mode', exact: true }).click();
-    await expect(page.getByText('Walkthrough Controls', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Edit Mode', exact: true }).click();
     await expectUncoveredViewport();
-    await page.getByRole('button', { name: 'Exit Walkthrough Mode', exact: true }).click();
     await page.getByRole('button', { name: '2D', exact: true }).click();
     await expect(page.locator('[data-quick-wall-length]')).toHaveValue(originalLength);
     expect(await exportedFloors()).toEqual(original);

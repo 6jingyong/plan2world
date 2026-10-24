@@ -8,7 +8,7 @@
     placingFurnitureId,
     selectedTool,
   } from '$lib/stores/project';
-  import { clearWalkthroughStart, setWalkthroughStart } from '$lib/stores/walkthroughStart';
+  import { clearRuntimeStart, setRuntimeStart } from '$lib/stores/runtimeStart';
 
   let width = $state(0);
   let height = $state(0);
@@ -43,12 +43,12 @@
       x: (sx - width / 2) / $canvasZoom + $canvasCamX,
       y: (sy - height / 2) / $canvasZoom + $canvasCamY,
     };
-    setWalkthroughStart(requested);
+    setRuntimeStart(requested);
     armed = false;
   }
 
   function clear() {
-    clearWalkthroughStart();
+    clearRuntimeStart();
     armed = false;
   }
 </script>

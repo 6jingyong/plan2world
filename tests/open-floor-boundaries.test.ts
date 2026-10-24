@@ -10,8 +10,8 @@ import { calibratePlan2WorldDraft } from '$lib/plan2world/review';
 import { inspectProjectGeometry } from '$lib/plan2world/geometryHealth';
 import { planContentBounds, hasPlanContent } from '$lib/utils/planContentBounds';
 import { selectionContentBounds } from '$lib/utils/selectionContentBounds';
-import { automaticWalkthroughStart } from '$lib/utils/walkthroughEntry';
-import { createWalkthroughCollisionWorld } from '$lib/utils/walkthroughCollision';
+import { floorInteriorPoint } from '$lib/utils/floorInteriorPoint';
+import { buildFloorClearance } from '$lib/utils/floorClearance';
 import { focusReviewTarget } from '$lib/stores/editorFocus';
 import { activeFloorAnalysis, currentProject, loadProject, updateRoom, updateWall, reverseWall, splitWall, removeRoom, removeElement, undo, redo, selectedElementId, selectedRoomId } from '$lib/stores/project';
 import { roomProject } from './fixtures/project';
@@ -29,8 +29,8 @@ it('adds ground beside a room without adding partitions or collision barriers', 
   expect(area.area).toBe(8); expect(analysis.rooms).toHaveLength(2);
   expect(analysis.rooms.reduce((sum, room) => sum + room.area, 0)).toBe(20);
   expect(analysis.polygons.get(area.id)).toEqual([{ x: 400, y: 300 }, { x: 0, y: 300 }, { x: 0, y: 500 }, { x: 400, y: 500 }]);
-  expect(createWalkthroughCollisionWorld(floor)).toEqual(createWalkthroughCollisionWorld({ ...floor, rooms: [] }));
-  expect(automaticWalkthroughStart(analysis).y).toBeLessThan(300);
+  expect(buildFloorClearance(floor)).toEqual(buildFloorClearance({ ...floor, rooms: [] }));
+  expect(floorInteriorPoint(analysis).y).toBeLessThan(300);
   expect(project).toEqual(before);
 });
 
@@ -138,14 +138,14 @@ it('fits a free ground outline without walls and keeps unrelated selections loca
   expect(planContentBounds(floor, options)).toEqual(expected);
   expect(selectionContentBounds(floor, new Set(['balcony']), options)).toEqual(expected);
   expect(selectionContentBounds(floor, new Set(['missing']), options)).toBeNull();
-  expect(automaticWalkthroughStart(analyzeFloor(floor)).x).toBeGreaterThan(1000);
+  expect(floorInteriorPoint(analyzeFloor(floor)).x).toBeGreaterThan(1000);
 });
 
 it('starts indoors when the open terrace is larger than the enclosed home', () => {
   const project = balconyProject(), floor = project.floors[0];
   floor.rooms[0].boundary = [{ wallId: 'a-2' }, { point: { x: 0, y: 1500 } }, { point: { x: 400, y: 1500 } }];
   expect(analyzeFloor(floor).rooms.find(room => room.id === 'balcony')!.area).toBe(48);
-  expect(automaticWalkthroughStart(analyzeFloor(floor)).y).toBeLessThan(300);
+  expect(floorInteriorPoint(analyzeFloor(floor)).y).toBeLessThan(300);
 });
 
 it('retains walls referenced by an outdoor area when its adjoining enclosed room is deleted', () => {

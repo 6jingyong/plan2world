@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { captureCanvas, inspectCanvas } from './canvas-pixels';
 
 for (const width of [1440, 390]) test(`imported object can be selected and styled in the existing editor at ${width}px`, async ({ page }, testInfo) => {
   test.setTimeout(180_000);
@@ -33,24 +34,21 @@ for (const width of [1440, 390]) test(`imported object can be selected and style
   await viewer.getByRole('button', { name: 'Edit Mode', exact: true }).click();
   await viewer.getByRole('button', { name: 'Top-Down View', exact: true }).click();
   async function blockPoint() {
-    return canvas.evaluate((node: HTMLCanvasElement) => {
-      const probe = document.createElement('canvas'); probe.width = node.width; probe.height = node.height;
-      const ctx = probe.getContext('2d')!; ctx.drawImage(node, 0, 0);
-      const { data } = ctx.getImageData(0, 0, node.width, node.height);
+    return inspectCanvas(canvas, ({ canvas: node, data, width, height }) => {
       let x = 0, y = 0, count = 0;
       for (let i = 0; i < data.length; i += 4) if (data[i] > 110 && data[i + 2] > 110 && data[i] > data[i + 1] * 1.5 && data[i + 2] > data[i + 1] * 1.5) {
-        const pixel = i / 4; x += pixel % node.width; y += Math.floor(pixel / node.width); count++;
+        const pixel = i / 4; x += pixel % width; y += Math.floor(pixel / width); count++;
       }
-      return count > 100 ? { x: x / count * node.clientWidth / node.width, y: y / count * node.clientHeight / node.height } : null;
+      return count > 100 ? { x: x / count * node.clientWidth / width, y: y / count * node.clientHeight / height } : null;
     });
   }
   await expect.poll(blockPoint).not.toBeNull();
   await canvas.click({ position: (await blockPoint())! });
   await expect(styles).toHaveValue('imported_object');
-  const blockPixels = await canvas.evaluate((node: HTMLCanvasElement) => node.toDataURL());
+  const blockPixels = await captureCanvas(canvas);
   await styles.selectOption('sofa');
   await expect(styles).toHaveValue('sofa');
-  await expect.poll(() => canvas.evaluate((node: HTMLCanvasElement) => node.toDataURL())).not.toBe(blockPixels);
+  await expect.poll(() => captureCanvas(canvas)).not.toEqual(blockPixels);
   await testInfo.attach('styled-in-3d', { body: await page.screenshot(), contentType: 'image/png' });
   const styled = await exported();
   expect(styled.floors[0].furniture[0]).toEqual({ ...imported.floors[0].furniture[0], catalogId: 'sofa', renderStyle: 'model', color: '#ff00ff' });

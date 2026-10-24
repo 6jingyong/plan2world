@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { observeGPU, gpu } from './gpu';
+import { captureCanvas } from './canvas-pixels';
 
 for (const view of ['2D', '3D']) for (const kind of ['wall', 'floor']) {
   test(`${kind} photo texture recovers from an aborted request and wakes the ${view} canvas`, async ({ page }) => {
@@ -57,7 +58,7 @@ for (const view of ['2D', '3D']) for (const kind of ['wall', 'floor']) {
           expect((await gpu(page)).find((entry: any) => entry.connected && !entry.lost)?.draws).toBe(active.draws);
         }).toPass({ timeout: 15_000 });
       }
-      const pixels = async () => createHash('sha256').update(await canvas.evaluate((node: HTMLCanvasElement) => node.toDataURL())).digest('hex');
+      const pixels = async () => createHash('sha256').update(await captureCanvas(canvas)).digest('hex');
       const before = await pixels();
       release();
       // No pointer movement or further UI action supplies the redraw.

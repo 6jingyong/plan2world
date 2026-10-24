@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { benchmarkProject } from '../fixtures/render-benchmark';
+import { inspectCanvas } from './canvas-pixels';
 
 for (const width of [1440, 390]) test(`unknown furniture renders in 3D at ${width}px`, async ({ page }, testInfo) => {
   await page.setViewportSize({ width, height: 900 });
@@ -22,10 +23,7 @@ for (const width of [1440, 390]) test(`unknown furniture renders in 3D at ${widt
   await expect(hint).toBeHidden({ timeout: 15_000 });
   const canvas = page.getByRole('region', { name: '3D floor plan viewer' }).locator('canvas').last();
   await page.getByRole('button', { name: 'Top-Down View', exact: true }).click();
-  await expect.poll(() => canvas.evaluate((node: HTMLCanvasElement) => {
-    const probe = document.createElement('canvas'); probe.width = node.width; probe.height = node.height;
-    const ctx = probe.getContext('2d')!; ctx.drawImage(node, 0, 0);
-    const { data } = ctx.getImageData(0, 0, node.width, node.height);
+  await expect.poll(() => inspectCanvas(canvas, ({ data }) => {
     let magenta = 0, green = 0;
     for (let i = 0; i < data.length; i += 4) {
       const r=data[i], g=data[i+1], b=data[i+2];

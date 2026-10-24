@@ -6,24 +6,11 @@ import { validateLocalGLBExtensions } from '$lib/utils/localGLBExtensions';
 import { validateLocalGLBMaterials } from '$lib/utils/localGLBMaterials';
 import { repackLocalGLBGeometry } from '$lib/utils/localGLBRepack';
 import { decodeLocalGLBImages } from '$lib/utils/localGLBImages';
+import { validateStaticLocalGLBScene } from '$lib/utils/localGLBScene';
 import { readCustomModelSource } from './customModelSource';
 
 function canceled(signal?: AbortSignal) {
   if (signal?.aborted) throw new DOMException('Model import was canceled.', 'AbortError');
-}
-function staticScene(document: Record<string, any>) {
-  for (const field of ['animations', 'skins', 'cameras']) {
-    if (document[field] !== undefined && (!Array.isArray(document[field]) || document[field].length)) throw new Error(`Local furniture import does not support ${field} yet. Export a static mesh.`);
-  }
-  for (const node of document.nodes) {
-    if (node.skin !== undefined || node.camera !== undefined) throw new Error('Export static furniture without skins or cameras.');
-    if (node.rotation && Math.abs(Math.hypot(...node.rotation) - 1) > 0.001) throw new Error('A model rotation is not a unit quaternion.');
-    if (node.matrix && [3, 7, 11, 15].some((index, i) => node.matrix[index] !== (i === 3 ? 1 : 0))) throw new Error('A model transform is not affine.');
-    if (node.weights !== undefined) {
-      const count = document.meshes[node.mesh]?.primitives[0].targets?.length ?? 0;
-      if (!Array.isArray(node.weights) || node.weights.length !== count || node.weights.some((value: unknown) => typeof value !== 'number' || !Number.isFinite(value))) throw new Error('Invalid model morph weights.');
-    }
-  }
 }
 
 /** Load the supported static furniture profile into an owned, disposable scene.
@@ -36,7 +23,7 @@ export async function loadLocalGLBModel(input: Uint8Array, signal?: AbortSignal)
   validateLocalGLBExtensions(container.document);
   validateLocalGLBMaterials(container);
   const prepared = repackLocalGLBGeometry(container);
-  staticScene(container.document);
+  validateStaticLocalGLBScene(container.document);
   canceled(signal);
   const images = await decodeLocalGLBImages(container, signal);
   const textures = new Set<THREE.Texture>(), geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>();

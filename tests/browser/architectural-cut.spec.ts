@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { resolve } from 'node:path';
 import { readFile } from 'node:fs/promises';
+import { inspectCanvas } from './canvas-pixels';
 
 async function open3D(page: import('@playwright/test').Page) {
   await page.goto('/editor');
@@ -13,7 +14,7 @@ async function open3D(page: import('@playwright/test').Page) {
   await page.waitForLoadState('networkidle');
 }
 
-test('1.20 m architectural cut clips the live 3D canvas and yields to walkthrough', async ({ page }) => {
+test('1.20 m architectural cut clips the live 3D canvas and yields to the floor-stack review', async ({ page }) => {
   await open3D(page);
 
   const cut = page.getByRole('button', { name: /1\.20 m/ });
@@ -26,7 +27,7 @@ test('1.20 m architectural cut clips the live 3D canvas and yields to walkthroug
   await expect(cut).toHaveAttribute('aria-pressed', 'true');
   await expect(canvas).toHaveAttribute('data-architectural-cut', '120');
 
-  await page.getByRole('button', { name: 'Enter Walkthrough Mode', exact: true }).click();
+  await page.getByRole('button', { name: 'Show All Floors Stacked', exact: true }).click();
   await expect(cut).toHaveAttribute('aria-pressed', 'false');
   await expect(canvas).not.toHaveAttribute('data-architectural-cut', /.+/);
 });
@@ -51,10 +52,7 @@ test('architectural cut keeps low geometry and removes the upper side', async ({
   await page.getByRole('button', { name: '3D', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Got it', exact: true })).toBeHidden({ timeout: 15_000 });
   const canvas = page.getByRole('region', { name: '3D floor plan viewer' }).locator('canvas').last();
-  const markerPixels = () => canvas.evaluate((node: HTMLCanvasElement) => {
-    const probe = document.createElement('canvas'); probe.width = node.width; probe.height = node.height;
-    const context = probe.getContext('2d')!; context.drawImage(node, 0, 0);
-    const { data } = context.getImageData(0, 0, probe.width, probe.height);
+  const markerPixels = () => inspectCanvas(canvas, ({ data }) => {
     let low = 0, high = 0;
     for (let i = 0; i < data.length; i += 4) {
       const r = data[i], g = data[i + 1], b = data[i + 2];
