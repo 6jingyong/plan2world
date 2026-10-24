@@ -10,15 +10,22 @@ The editable Plan2World `Project` remains authoritative; this runtime only consu
 - Desktop Forward+ renderer
 - Windows is the first manual test target
 
-Core CI uses the pinned official Godot 4.7.2 Linux build, verifies its SHA-256 checksum, imports/parses this project headlessly, boots the built-in runtime demo, then checks native-export asset placement and a real grounded walkthrough. A runtime/GDScript change is not considered merge-ready if that gate fails.
+Core CI defines native Linux and Windows jobs with verified official Godot 4.7.2
+builds. They parse/import the project, boot the explicit demo, check native-export
+assets and a grounded walkthrough, then verify desktop delivery. A runtime/GDScript
+change is not considered merge-ready if these gates fail. Native Windows headless
+checks and Windows Forward+ hardware acceptance are distinct.
 
 ## Run the standalone player
 
 Extract the Windows/Linux player ZIP, start its executable and choose **Open
 runtime scene…**. Extract the editor's **Export runtime scene (.zip)** output
 and select `scene.runtime.json`. Keep its sibling GLB/assets directory together.
-F1 opens a paused scene menu with resume and scene switching; failed opens retain
-the current walkthrough. No Godot editor is required for delivered players.
+F1 opens a paused scene menu with resume, **Return to start** and scene switching;
+failed opens retain the current walkthrough. Desktop focus loss pauses and clears
+held controls; focus return waits for explicit resume. Return to start resets only
+the player to the compiled spawn, retaining door states and all scene geometry.
+No Godot editor is required for delivered players.
 See [offline delivery and build instructions](../../docs/runtime-delivery.md).
 
 ## Develop locally / run the built-in demo

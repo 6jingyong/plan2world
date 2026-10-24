@@ -8,6 +8,7 @@ const RUNTIME_LAUNCHER := preload("res://scripts/runtime_launcher.gd")
 
 var _world: Node3D
 var _launcher
+var _spawn: Vector3
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -15,6 +16,7 @@ func _ready() -> void:
 	add_child(_launcher)
 	_launcher.scene_selected.connect(_open_scene)
 	_launcher.resume_requested.connect(_resume)
+	_launcher.respawn_requested.connect(_return_to_start)
 	var artifacts := RUNTIME_ARTIFACTS.new()
 	var runtime_path := artifacts.runtime_path_from_args()
 	if runtime_path.is_empty():
@@ -34,6 +36,7 @@ func _open_scene(runtime_path: String, architecture_path: String = "") -> void:
 	if spawn == null:
 		_show_menu("Runtime scene has no compiled player spawn. Re-export after setting a valid spawn in the authoring project.")
 		return
+	_spawn = spawn
 
 	# Validate before replacing a running scene, so a failed open can be resumed.
 	if _world != null:
@@ -92,7 +95,19 @@ func _unhandled_key_input(event: InputEvent) -> void:
 
 func _show_menu(message: String = "") -> void:
 	get_tree().paused = true
+	# A key-up can be lost when the desktop switches windows. Clear action state
+	# here so explicit resume cannot replay movement from before the pause.
+	for action in InputMap.get_actions():
+		Input.action_release(action)
 	_launcher.show_menu(_world != null, message)
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_WINDOW_FOCUS_OUT and is_node_ready() and _world != null and not get_tree().paused:
+		_show_menu("Walkthrough paused while this window was inactive.")
+
+func _return_to_start() -> void:
+	_world.get_node("Player").respawn(_spawn)
+	_resume()
 
 func _resume() -> void:
 	_launcher.hide_menu()

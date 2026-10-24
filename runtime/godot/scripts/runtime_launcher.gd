@@ -2,9 +2,11 @@ extends CanvasLayer
 
 signal scene_selected(path: String)
 signal resume_requested
+signal respawn_requested
 
 var _screen: Control
 var _resume: Button
+var _return: Button
 var _message: Label
 var _dialog: FileDialog
 
@@ -52,6 +54,12 @@ func _ready() -> void:
 	_resume.custom_minimum_size.y = 44
 	_resume.pressed.connect(func(): resume_requested.emit())
 	content.add_child(_resume)
+	_return = Button.new()
+	_return.name = "ReturnToStart"
+	_return.text = "Return to start"
+	_return.custom_minimum_size.y = 44
+	_return.pressed.connect(func(): respawn_requested.emit())
+	content.add_child(_return)
 	_message = Label.new()
 	_message.name = "Message"
 	_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -74,6 +82,7 @@ func _ready() -> void:
 func show_menu(can_resume: bool, message: String = "") -> void:
 	_screen.show()
 	_resume.visible = can_resume
+	_return.visible = can_resume
 	_message.text = message
 	_message.visible = not message.is_empty()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE

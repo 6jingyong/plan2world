@@ -26,7 +26,12 @@ can be retried. Genuinely absent model sources retain the existing proxy policy.
 Controls: WASD move, Ctrl slow, Shift fast, mouse look, E door, Esc release/capture
 mouse, F1 scene menu. The menu pauses physics/input. Failed scene opens preserve
 the current world so it can be resumed. Opening another scene replaces the old
-world, player and HUD. Missing presentation and unsupported interactions are
+world, player and HUD. Losing desktop focus also pauses the walkthrough and
+clears held actions; returning focus waits for explicit resume. **Return to
+start** restores the compiler's spawn, clears falling velocity and resets the
+view, while preserving the current world and open doors. Recovery is manual;
+authored floor holes and collision geometry remain authoritative.
+Missing presentation and unsupported interactions are
 visible in the HUD as well as export notes.
 
 The renderer defaults to Forward+. For older hardware, start the player with
@@ -66,6 +71,19 @@ license notices. On Windows, set `$env:GODOT_BIN` to the installed Godot executa
 before running the same npm commands. Player building does not compile or bake
 user scenes; the player consumes any compatible separately exported scene.
 
+Windows also has a checksum-verified installer for the release templates:
+
+```powershell
+pwsh -File tooling/install-godot-templates.ps1
+$env:GODOT_BIN = 'C:\Godot\Godot_v4.7.2-stable_win64_console.exe'
+npm run runtime:player -- windows C:\build\plan2world-windows
+node tooling/runtime-delivery-test.mjs C:\build\plan2world-windows.zip C:\build\delivery-check
+```
+
+The installer defaults to `%APPDATA%/Godot/export_templates/4.7.2.stable`.
+`-Archive <downloaded.tpz>` reuses an existing official archive after verifying
+the same pinned checksum. `-Destination` can explicitly select the template directory.
+
 Optional direct launch:
 
 ```powershell
@@ -82,18 +100,25 @@ With `GODOT_BIN` pointing to the pinned editor, this gate starts from the author
 complex native Project fixture, runs the real scene ZIP exporter, extracts both
 ZIPs into relocated paths containing spaces/Chinese characters, then checks:
 
-- exact shipped PCK resources: picker startup, grounded spawn, menu pause/resume,
-  rejected native input, failed-open recovery and replacement-world cleanup;
+- exact shipped PCK resources: picker startup, grounded spawn, menu/focus
+  pause and held-action clearing, explicit resume, manual spawn recovery with
+  preserved door state, rejected native input, failed-open recovery and
+  replacement-world cleanup;
 - exact shipped PCK resources: real grounded walking, compiler collision, ray
   interaction with swing/slide/paired doors, furniture/column/wall blockers,
   railing/air and straight stair ascent/descent;
 - actual release executable startup with all eight dynamic presentations and no
-  missing-asset/static proxies; native source unchanged.
+  missing-asset/static proxies; native source unchanged. Assertions read the
+  engine's `--log-file` output so Windows GUI builds do not require console stdout.
 
 Official release templates disable `--script` and scene path overrides. Physics
 and launcher assertions therefore use the pinned Godot editor with the **exported
 PCK**, followed by a separate boot of the **release executable**. Tests do not ship
 inside the player and production code has no test execution switch. This gate
-does not claim Windows hardware acceptance. Core CI also builds the Windows
-release ZIP; Windows Forward+ graphics and manual input remain a target-machine
-acceptance step.
+does not claim Windows hardware acceptance. Core CI defines separate native
+Linux and Windows jobs, each with a verified official Godot binary. The Windows
+job parses/imports the project, tests native asset loading/doors/stairs and
+desktop lifecycle, builds the Windows release ZIP, and runs the relocated
+PCK/release gate on Windows itself. Local Linux checks of the PowerShell installer
+or Windows cross-build are not evidence that this native Windows job ran.
+Windows Forward+ graphics and manual input remain a target-machine acceptance step.

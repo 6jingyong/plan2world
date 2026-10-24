@@ -51,7 +51,11 @@ for (const filename of ['runtime_launcher_test.gd', 'runtime_walkthrough_test.gd
   execFileSync(godot, ['--headless', '--main-pack', path.join(playerDirectory, 'Plan2World.pck'), '--fixed-fps', '60', '--script', script, '--', ...args], { cwd: directory, stdio: 'inherit', timeout: 180_000 });
 }
 // Also boot the shipped application normally, without the external test script.
-const boot = execFileSync(executable, ['--headless', '--quit-after', '30', '--', '--scene', scene], { cwd: directory, encoding: 'utf8', timeout: 30_000 });
+// Windows GUI executables may have no console stdout. The engine's own log-file
+// option gives both platforms the same observable production load diagnostics.
+const bootLog = path.join(directory, 'release-boot.log');
+execFileSync(executable, ['--headless', '--log-file', bootLog, '--quit-after', '30', '--', '--scene', scene], { cwd: directory, stdio: ['ignore', 'ignore', 'inherit'], timeout: 30_000 });
+const boot = await readFile(bootLog, 'utf8');
 console.log(boot);
 if (!boot.includes('Plan2World runtime loaded:') || !boot.includes('assets=8') || !boot.includes('"collider_proxy_count": 0')) {
   throw new Error('Release executable failed to load the complete fixture presentation');

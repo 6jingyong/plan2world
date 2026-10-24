@@ -27,7 +27,9 @@ This is a current capability summary, not a development diary.
 
 - Browser **Export runtime scene (.zip)** and CLI `--package` share the deterministic compiler/serializer. ZIPs retain the existing JSON/GLB/assets artifacts, portable fixed paths and export notes; no alternate scene schema is introduced.
 - Standalone Windows/Linux Godot player builds include an offline scene picker, paused F1 menu, resume and scene replacement. No Godot editor or Node.js installation is required to run the delivered player.
-- Delivery checks build both desktop players, test the shipped PCK's launcher/physics from relocated UTF-8 paths, and boot the actual Linux release executable with full presentation. Windows hardware/manual acceptance remains separate.
+- Desktop focus loss pauses and releases held actions; focus return waits for explicit resume. The scene menu can return the player to the compiled spawn after a fall, resetting velocity/view while retaining door state and authored geometry.
+- CI defines native Linux and Windows engine/delivery jobs. Windows template installation verifies the official archive before extraction; release boot checks use engine log files rather than depending on GUI console output. Windows Forward+ hardware acceptance remains separate.
+- Delivery checks build both desktop players, test the shipped PCK's launcher/physics from relocated UTF-8 paths, and boot the release executable with full presentation through the same platform-aware gate.
 
 - Native railings compile to shared GLB boundary presentation at authored height/thickness. Air boundaries remain invisible and collidable.
 - `npm run runtime:export` reads an existing native Project without invoking AI or reopening the browser editor.

@@ -70,6 +70,8 @@ The editor's **Export → Export runtime scene (.zip)** uses the same compiler a
 Extract the scene ZIP and open its runtime JSON in the separate standalone
 Plan2World Runtime player. Windows/Linux player builds, offline use and delivery
 verification are described in [runtime delivery](docs/runtime-delivery.md).
+The player pauses on focus loss and provides manual return to its compiled spawn
+while preserving the current world's door state and geometry.
 See [`runtime/godot/README.md`](runtime/godot/README.md) for adapter details.
 
 ## Fresh validation

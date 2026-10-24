@@ -109,6 +109,56 @@ jobs:
       - name: Walk relocated release player and scene ZIPs
         run: node tooling/runtime-delivery-test.mjs /tmp/plan2world-linux.zip /tmp/plan2world-delivery
 
+  # Headless native Windows checks complement Linux; these do not substitute
+  # for Forward+ GPU/input acceptance on the user's actual Windows machine.
+  godot-windows:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install verified Godot 4.7.2 Windows build
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP 'godot-windows.zip'
+          Invoke-WebRequest -Uri 'https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_win64.exe.zip' -OutFile $archive
+          $expected = '83decd58fdf67b9d657958a1ae6bf1929c20785315a81effe245874cdc57acb709bf868e00778a96984338c1b29dafdb453c6847747694621c6ecf5da2259993'
+          if ((Get-FileHash -LiteralPath $archive -Algorithm SHA512).Hash.ToLowerInvariant() -ne $expected) { throw 'Godot Windows SHA-512 mismatch.' }
+          $destination = Join-Path $env:RUNNER_TEMP 'godot-windows'
+          Expand-Archive -LiteralPath $archive -DestinationPath $destination
+          "GODOT_BIN=$destination/Godot_v4.7.2-stable_win64_console.exe" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - run: npm ci
+        env:
+          NODE_ENV: production
+          NPM_CONFIG_INCLUDE: dev
+      - name: Parse project and boot explicit demo
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          & $env:GODOT_BIN --version
+          & $env:GODOT_BIN --headless --path runtime/godot --editor --quit
+          & $env:GODOT_BIN --headless --path runtime/godot --quit-after 5 -- --demo
+      - name: Check native Windows asset and traversal loading
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          node tooling/runtime-asset-fixture.mjs "$env:RUNNER_TEMP/runtime-assets"
+          & $env:GODOT_BIN --headless --path runtime/godot --script res://tests/runtime_assets_test.gd -- --scene "$env:RUNNER_TEMP/runtime-assets/assets.runtime.json"
+          node tooling/runtime-walkthrough-fixture.mjs "$env:RUNNER_TEMP/runtime-walkthrough"
+          & $env:GODOT_BIN --headless --fixed-fps 60 --path runtime/godot --script res://tests/runtime_walkthrough_test.gd -- --scene "$env:RUNNER_TEMP/runtime-walkthrough/walkthrough.runtime.json"
+          & $env:GODOT_BIN --headless --fixed-fps 60 --path runtime/godot --script res://tests/runtime_launcher_test.gd -- "$env:RUNNER_TEMP/runtime-walkthrough/walkthrough.runtime.json"
+      - name: Install verified Windows release templates
+        run: ./tooling/install-godot-templates.ps1
+      - name: Build and check relocated Windows release
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          npm run runtime:player -- windows "$env:RUNNER_TEMP/plan2world-windows"
+          node tooling/runtime-delivery-test.mjs "$env:RUNNER_TEMP/plan2world-windows.zip" "$env:RUNNER_TEMP/plan2world-delivery"
 
 
   # Full browser regression is useful after code reaches main, but it is too

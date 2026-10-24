@@ -19,11 +19,21 @@ func configure(profile: Dictionary, spawn: Vector3) -> void:
 	slow_speed = float(speeds.get("slow", 0.6))
 	walk_speed = float(speeds.get("walk", 1.2))
 	fast_speed = float(speeds.get("fast", 2.4))
-	position = spawn
 	up_direction = Vector3.UP
 	floor_snap_length = max(0.05, radius * 0.5)
 	_build_body()
+	respawn(spawn)
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+# Explicit user recovery only. The compiler's spawn is the entire authority;
+# holes remain holes and no floor/target elevation is inferred by the player.
+func respawn(spawn: Vector3) -> void:
+	position = spawn
+	velocity = Vector3.ZERO
+	rotation = Vector3.ZERO
+	_pitch = 0.0
+	_camera.rotation = Vector3.ZERO
+	reset_physics_interpolation()
 
 func _build_body() -> void:
 	if get_node_or_null("CollisionShape3D") == null:

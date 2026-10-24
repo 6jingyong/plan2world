@@ -61,6 +61,48 @@ func _run() -> void:
 	await _frames(30)
 	_check(main.get_node("RuntimeScene").get_instance_id() != world_id and not is_instance_valid(world), "Opening another scene must free the previous world")
 	_check(main.get_node("RuntimeScene/Player").is_on_floor(), "Replacement scene must have one grounded player")
+	world = main.get_node("RuntimeScene")
+	player = world.get_node("Player") as CharacterBody3D
+	pose = player.position
+	# Alt-tab while walking must pause and clear the held movement. Focus return
+	# alone must not recapture the pointer or resume a player the user cannot see.
+	Input.action_press("move_forward")
+	main.notification(Node.NOTIFICATION_WM_WINDOW_FOCUS_OUT)
+	_check(paused, "Losing desktop focus must pause the walkthrough")
+	_check(not Input.is_action_pressed("move_forward"), "Focus pause must release held movement")
+	await _frames(30)
+	_check(player.position.is_equal_approx(pose), "Unfocused player must not move or fall")
+	main.notification(Node.NOTIFICATION_WM_WINDOW_FOCUS_IN)
+	_check(paused, "Focus return must wait for explicit resume")
+	menu.resume_requested.emit()
+	await _frames(8)
+	_check(player.position.is_equal_approx(pose), "Resume must not replay a held key from before focus loss")
+	Input.action_release("move_forward")
+	# Manual recovery uses the exact compiled spawn. It must retain the current
+	# world and door state, rather than rebuilding or inventing a floor below it.
+	var return_button := menu.find_child("ReturnToStart", true, false)
+	_check(return_button != null, "The menu must provide Return to start")
+	if return_button != null:
+		var door := world.get_node("Door_swing-door")
+		door.interact()
+		await _frames(40)
+		var world_before_return := world.get_instance_id()
+		var look := InputEventMouseMotion.new()
+		look.relative = Vector2(100, -100)
+		root.push_input(look)
+		player.position = Vector3(3, -8, 8)
+		player.velocity = Vector3(0, -12, 0)
+		player.rotation.y = 1.3
+		main.notification(Node.NOTIFICATION_WM_WINDOW_FOCUS_OUT)
+		return_button.pressed.emit()
+		_check(player.velocity == Vector3.ZERO and player.rotation.is_zero_approx(), "Return to start must reset falling velocity and heading")
+		_check(player.get_node("Camera3D").rotation.is_zero_approx(), "Return to start must reset the view pitch")
+		look.relative = Vector2.ZERO
+		root.push_input(look)
+		_check(player.get_node("Camera3D").rotation.is_zero_approx(), "The next mouse event must not restore pre-return look state")
+		await _frames(30)
+		_check(not paused and player.is_on_floor() and player.position.is_equal_approx(pose), "Return to start must ground at the compiled spawn")
+		_check(world.get_instance_id() == world_before_return and door._opened, "Returning the player must retain the current world and open doors")
 	main.free()
 	paused = false
 	print("Runtime launcher integration: ", "PASS" if failures == 0 else "FAIL (%d)" % failures)

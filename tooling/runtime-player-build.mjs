@@ -35,6 +35,8 @@ try {
     'Scenes run offline; no account, AI or network service is used by the player.\n\n' +
     'WASD move | Ctrl slow | Shift fast | Mouse look | E door | Esc mouse | F1 scene menu\n' +
     'The scene menu pauses the current walkthrough. Failed scene opens can be dismissed by resuming it.\n\n' +
+    'Switching windows pauses and clears held controls. Resume explicitly when you return.\n' +
+    'Return to start restores the compiled player spawn and view without resetting open doors or scene geometry.\n\n' +
     'Default renderer: Forward+. Requires a compatible GPU/driver. For older hardware, run with --rendering-method gl_compatibility.\n' +
     'Windows builds are unsigned. Platform signing and Windows hardware acceptance are separate release steps.\n\n' +
     'Optional CLI: player -- --scene "path/to/scene.runtime.json"\n');
