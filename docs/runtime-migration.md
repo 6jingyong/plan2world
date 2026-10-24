@@ -1,123 +1,97 @@
-# Runtime migration status and verification
+# Runtime migration status
 
-The native Project is authoring truth. Browser: authoring, correction, review and
-quick previews. Shared deterministic compilation: runtime semantics/collision,
-architecture GLB and packaged dynamic assets. Godot: the actual runtime.
+The core architecture migration is implemented locally. Native Windows CI
+execution, Windows Forward+ hardware acceptance and the final publication checks
+remain outstanding. Complex stairs and unsupported door mechanisms are deferred.
 
-Offline delivery now uses the same compiler from the editor/CLI to produce
-portable scene ZIPs, plus separate standalone Windows/Linux player ZIPs. The
-player adds scene selection, paused menu/resume and world replacement. See
-[runtime delivery](runtime-delivery.md) for build commands, exported-PCK/release
-verification and the outstanding Windows hardware acceptance boundary.
+## Architecture and completed scope
 
-## Completed stages
+```text
+Floorplan raster → AI observations → deterministic reconstruction
+  → native editable Project → deterministic runtime compiler
+  → runtime JSON + architecture GLB + packaged dynamic assets → Godot
+```
 
-- Stage A (#78): content-addressed catalog/custom GLBs, stable asset identity,
-  compiler-owned fit transforms, dynamic door leaves, isolated missing-asset fallback.
-- Stage B: remove PointerLock/FPS input, browser motion/collision stepping and
-  walkthrough UI/tests. Preserve orbit, selection/editing, camera previews, floor
-  stacks/cuts and the native `walkthroughStart` authoring field. Retain only offline
-  floor clearance/segment sampling for native source/connectivity diagnostics.
-- Godot walkthrough prerequisite: convert CCW runtime triangles to Godot clockwise
-  winding for physics/fallback display; use engine input actions and actual grounded
-  motion. Compiler selects default interior spawn; engine does not infer it.
+The native `Project` is authoring truth. Runtime JSON owns semantics, explicit
+collision, interaction/traversal and player profile. Architecture GLB owns static
+presentation; content-addressed model assets own furniture and dynamic door-leaf
+presentation. Godot consumes these outputs without reconstructing topology,
+triangulating rooms, inferring stair targets or deriving collision from meshes.
+Godot scenes are adapter composition, never canonical authoring data.
 
-## Required local verification for this milestone
-
-1. `npm run check`, `npm test`, `NODE_ENV=production npm run build`, catalog check
-   and dependency audit. Compiler tests include deterministic automatic spawn;
-   native spawn edits remain undoable and never move review/photo cameras.
-2. Pinned SHA-verified Godot 4.7.2: project parse/import, built-in demo, asset gate,
-   and `runtime_walkthrough_test.gd` using `runtime-walkthrough-fixture.mjs`.
-   The walkthrough uses exported native geometry, loaded assets, real physics and
-   ray interaction, including nonzero elevations, a curved exterior wall, windows,
-   furniture, columns, an authored aperture, and stair ascent/descent.
-3. Browser regression: native opening selection/height edits in 3D at desktop/phone
-   sizes, cut/stack framing, live geometry edits and Undo/Redo, inspector viewport,
-   camera preview, import/save/reload, resources and idle rendering. Retired FPS
-   controls have no browser test substitute; actual gameplay belongs to Godot tests.
-4. Inspect captured browser screenshots separately from mechanical pass results.
-   Unit/engine assertions do not establish visual quality or a manually reviewed
-   real-project walkthrough.
-
-## Stage C native parity
-
-- L/U/spiral stairs stay unsupported. Native type/width/depth/riserCount/direction
-  alone do not specify turn handedness, landing geometry, U-gap or spiral inner
-  radius/turn angle. Extend the native/compiled semantic contract before generating
-  traversal geometry; do not copy a decorative mesh as physics truth.
-- Completed: all non-opening doors emit explicit leaf parts with stable IDs,
-  asset/collider references, closed poses, sizes and discriminated motion.
-  Double/french doors have two equal jamb-hinged leaves sharing one interaction
-  state. Either physical leaf routes ray interaction to that state. Single/slide/
-  pocket use the same part contract. Fold/overhead stay explicit closed blockers.
-- Completed: railing boundaries now have shared GLB extrusion at authored height
-  and thickness; they no longer disappear when static proxies are suppressed.
-  No baluster/handrail data is inferred. Air remains invisible and collidable.
-- Curved-host door leaves fit the physical opening endpoint chord while the wall
-  aperture retains native arc width. Collision and presentation remain separately
-  emitted; adapters do not split door geometry or infer pivots from model bounds.
-- Verification: deterministic compiler/unit/schema checks; pinned Godot asset fit,
-  independent physical leaves and shared state; actual ray opening/closing through
-  either paired leaf, closed collision and open passage, native railing/air blockers,
-  existing grounding/single/slide/stair traversal gates. The bundled demo is rebuilt
-  from the native walkthrough fixture and checked for exact compiler reproduction.
-- Re-export older runtime snapshots: the experimental v1 door interaction now
-  requires explicit leaf parts. Native saved Projects are unchanged. No legacy
-  single-leaf inference path is retained in the engine.
-
-## Stage D integration
-
-- The Wikimedia two-bedroom downstream baseline was imported, saved and downloaded
-  through the normal editor. That unchanged native Project then passed CLI export
-  and an actual Godot walkthrough: compiled spawn, grounding, paired door operation
-  and passage to the porch, and full-height window collision. All 47 static GLB
-  nodes resolve to native owners; dynamic leaves load separately with no proxies.
-  Repeated JSON/GLB exports and asset manifests are byte-stable and packaged asset
-  digests match. This is a saved real-house baseline, not an AI extraction result.
-- That house does not contain furniture, curved walls or stairs. The separately
-  authored native walkthrough scene covers catalog/custom furniture, curved walls,
-  windows, columns, floor apertures, straight stairs, nonzero multi-floor elevations
-  and railing/air boundaries through the same compiler and engine. Rendered views
-  were inspected alongside the grounded physics/interaction gates.
-- Integration exposed a compiler parity bug: uniform retained wall heights could
-  invent ceilings over outdoor rooms or explicit ground boundaries. Those now
-  retain native no-ceiling semantics, with deterministic tests preserving floor
-  and wall collision. The successful Godot HUD shows the Project name and controls;
-  artifact paths remain available in console diagnostics.
-- Browser verification uses the production build, isolated mock-provider ports
-  and composited canvas pixels for idle WebGL review. It retains the existing
-  viewport/color/occlusion requirements rather than requiring an idle renderer to
-  preserve its drawing buffer. The onboarding expectation follows the current
-  editor/review controls.
-
-Follow the [acceptance recipe](runtime-integration.md) for core/pinned-engine gates,
-complete browser and benchmark regressions, saved input, ownership/hash checks and
-local evidence. Render review was performed on Linux GL Compatibility with Mesa
-software rendering; Windows Forward+ and manual hardware checks remain separate.
-Publishing or preparing the final `runtime-v2 → main` PR requires an explicit user
-request; never merge implicitly.
-
-## Reference applied
-
-[img2threejs architecture](https://github.com/img2threejs/img2threejs/blob/main/docs/ARCHITECTURE.md)
-provides a useful verification pattern: measurable geometry/structure gates before
-render review, scoped passes and compact reusable evidence. Plan2World retains its
-own observation/compiler/engine ownership; generated Three.js runtime hierarchies
-and vision-based acceptance are not substituted for native semantic contracts.
-
-## Remaining native contracts
-
-The parity audit intentionally leaves these explicit limitations:
-
-| Native feature | Missing semantics / next prerequisite |
+| Area | Implemented behavior |
 | --- | --- |
-| L stair | Turn handedness, two flight lengths/widths, landing dimensions and travel endpoints |
-| U stair | Turn handedness, separate flights, landing and inner gap dimensions |
-| Spiral stair | Inner/outer walking radii, rotation direction, turn angle and entrance/exit bearings |
-| Bifold | Panel count/widths, fold direction, hinge chain and track constraints |
-| Garage / overhead | Section/track geometry and lifting mechanism; the native type alone does not select one |
+| Shared compiler | Stable IDs, floor/room semantics, explicit colliders and compiled spawn; deterministic JSON, GLB and asset packaging |
+| Architecture | Straight/quadratic walls, physical-width openings, junction miters, floor slabs, ceilings, authored holes, windows, columns, straight stair steps, native railing/air semantics and no-ceiling policy |
+| Dynamic presentation | Catalog/custom GLBs and shared door asset; compiler-owned fit/size/rotation/mirroring; independently owned collision; genuine missing-asset proxies |
+| Godot runtime | Grounded first-person movement, gravity, floor snap, collision, swing/slide/pocket doors, real double/french leaves and straight multi-floor stair traversal |
+| Browser boundary | Legacy PointerLock/FPS, movement collision and runtime door state removed; orbit, review/editing/selection, quick camera preview, floor stacks/cuts and native spawn editing retained |
+| Offline delivery | Shared browser/CLI scene ZIP export; Windows/Linux player builds; scene picker, pause/resume, scene replacement and failed-open recovery |
+| Desktop lifecycle | Focus-loss pause and held-action clearing; explicit resume; manual return to compiled spawn with reset velocity/view and preserved world/door state |
 
-Do not add runtime-specific guesses for these fields. Their next implementation
-must start with a native authoring/editing/persistence contract, followed by shared
-compiler semantics and deterministic geometry, then adapter motion/physics tests.
+See [runtime contracts](plan2world-runtime-v1.md), [assets](runtime-assets-v1.md),
+[delivery](runtime-delivery.md) and the [Godot guide](../runtime/godot/README.md).
+
+## Verification already performed
+
+- Latest desktop milestone: 1,622 unit tests, type checks and production build;
+  pinned Godot 4.7.2 exported-PCK lifecycle/grounded-walkthrough gates, actual Linux
+  release boot without console stdout, Linux/Windows cross-builds, and Linux
+  rendered input/focus/return-to-start inspection.
+- Delivery milestone: 22 focused browser cases, covering all three engines,
+  desktop/phone-sized scene export, exact browser/CLI ZIP equality and failed
+  asset-request retry, plus existing authoring/package regressions.
+- Integration milestone: 1,293 browser cases across Chromium/Firefox/WebKit and
+  six benchmark cases; normally saved real-house native Project → CLI export →
+  Godot walkthrough; byte stability, asset digests and GLB/native ownership.
+- The real house covers spawn, grounding, paired doors and full-height window
+  collision. A separate authored native scene covers curved walls, catalog/custom
+  furniture, columns, floor holes, straight stairs, multi-floor elevations and
+  railing/air. This validates downstream native-Project runtime behavior, not AI
+  image-extraction accuracy.
+- Rendered acceptance used Linux GL Compatibility/Mesa software rendering.
+  Windows native CI is defined; its workflow/PowerShell syntax and installer were
+  checked locally, but the Windows job itself has not run. The Windows player was
+  cross-built, not executed on Windows. Phone profiles are viewports, not hardware.
+
+These checks span the implementation milestones; they are not a claim that the
+entire main-level suite ran again on the latest commit. Follow the
+[integration acceptance recipe](runtime-integration.md) for the final revision.
+Local acceptance records and the current downloads are indexed under the ignored
+`.plan2world-validation/README.md`. Intermediate builds/traces are disposable;
+retain native inputs, canonical results, hashes and representative inspected views.
+
+## Next priorities
+
+1. Execute the native Windows CI gate after explicit authorization to publish.
+   Verify Windows asset loading, grounded traversal, desktop lifecycle and the
+   relocated player/scene package on Windows itself.
+2. Perform Windows Forward+ hardware/manual acceptance: renderer/driver startup,
+   mouse/focus behavior, doors, stairs and real-project presentation/collision.
+3. Run full main-level regression on the final revision, consolidate migration
+   review, then update umbrella PR #62 as the final architecture migration when
+   the user requests GitHub publication. No push, dispatch, PR update or merge is
+   implicit in local completion.
+4. Review the existing three low-severity audit findings in a separate dependency
+   upgrade pass. The configured high-severity audit gate passed.
+
+Furniture interaction/movement, richer authored model/material styling, lighting
+and other experience features are subsequent product work. Furniture currently
+supports presentation, transform and collision; it has no interaction/movement FSM.
+
+## Deferred native parity
+
+Unsupported semantics remain explicit. They must not be disguised as working
+straight ramps or swing doors, and do not block the agreed baseline migration.
+
+| Feature | Required upstream authoring/semantic contract |
+| --- | --- |
+| L stair | Turn handedness, separate flights, landing dimensions and travel endpoints |
+| U stair | Turn handedness, separate flights, landing and inner gap dimensions |
+| Spiral stair | Inner/outer walking radii, rotation direction, turn angle and entry/exit bearings |
+| Bifold door | Panel count/widths, fold direction, hinge chain and track constraints |
+| Garage/overhead | Section/track geometry and lifting mechanism |
+
+Add these native editing/persistence fields before compiler geometry or engine
+behavior. Re-export older derived runtime snapshots that predate the explicit
+leaf contract; native saved Projects remain unchanged.
