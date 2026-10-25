@@ -1,6 +1,8 @@
 import { chromium } from '@playwright/test';
 
-/** Local decoder only. Never opens the app, network or a model provider. */
+/** Local decoder only. Never opens the app, network or a model provider.
+ * @param {Buffer} bytes
+ */
 export async function readSourceRaster(bytes) {
   const browser = await chromium.launch({ headless: true });
   try {
@@ -9,7 +11,8 @@ export async function readSourceRaster(bytes) {
     const decoded = await page.evaluate(async url => {
       const image = new Image(); image.src = url; await image.decode();
       if (image.naturalWidth * image.naturalHeight > 24_000_000) throw new Error('Source raster exceeds pixel budget.');
-      const canvas = new OffscreenCanvas(image.naturalWidth, image.naturalHeight), context = canvas.getContext('2d', { willReadFrequently: true });
+      const canvas = new OffscreenCanvas(image.naturalWidth, image.naturalHeight);
+      const context = /** @type {OffscreenCanvasRenderingContext2D} */ (canvas.getContext('2d', { willReadFrequently: true }));
       context.drawImage(image, 0, 0);
       const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data, chunks = [];
       for (let i = 0; i < pixels.length; i += 8192) chunks.push(String.fromCharCode(...pixels.subarray(i, i + 8192)));

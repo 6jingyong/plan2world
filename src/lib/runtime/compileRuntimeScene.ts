@@ -70,9 +70,11 @@ function compileWallColliders(floor: Floor, elevationCm: number, wall: Wall): Ru
   });
 }
 
-function compileRoomFloorCollider(room: RuntimeRoomSurface, floorId: string, elevation: number): RuntimeTriangleMeshCollider | null {
+function compileRoomFloorCollider(room: RuntimeRoomSurface, floorId: string, elevation: number): RuntimeTriangleMeshCollider {
   const triangulated = triangulatePolygonWithHoles(room.polygon, room.holes);
-  if (!triangulated || triangulated.vertices.length < 3 || triangulated.triangles.length === 0) return null;
+  if (!triangulated || triangulated.vertices.length < 3 || triangulated.triangles.length === 0) {
+    throw new Error(`Cannot compile runtime floor "${floorId}" room "${room.id}": native surface cannot be triangulated into floor collision. Correct its boundary/holes in the native Project.`);
+  }
 
   // Runtime coordinates map the 2D plan's Y axis to +Z. A conventional CCW
   // plan triangle therefore points toward -Y after projection into X/Y/Z.
@@ -103,6 +105,14 @@ function compileFloor(
   customModels: Project['customModels'],
 ): { floor: RuntimeFloor; entities: RuntimeEntity[]; colliders: RuntimeCollider[] } {
   const analysis = analyzeFloor(floor);
+  // Invalid explicit boundaries remain editable in the native Project. Export
+  // must reject them, including apertures that would otherwise be omitted and
+  // silently filled by a parent floor. Keep native topology and source intact.
+  for (const { room, polygon } of analysis.geometry) {
+    if (room.boundary && polygon.length < 3) {
+      throw new Error(`Cannot compile runtime floor "${floor.id}" room "${room.id}": invalid or unresolved native boundary. Correct it in the native Project.`);
+    }
+  }
   const entities: RuntimeEntity[] = [];
   const colliders: RuntimeCollider[] = [];
 
@@ -212,8 +222,7 @@ function compileFloor(
       })(),
     }));
   for (const room of rooms) {
-    const floorCollider = compileRoomFloorCollider(room, floor.id, elevation);
-    if (floorCollider) colliders.push(floorCollider);
+    colliders.push(compileRoomFloorCollider(room, floor.id, elevation));
   }
 
   return {

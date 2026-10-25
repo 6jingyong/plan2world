@@ -1,4 +1,5 @@
-import type { Project } from '$lib/models/types';
+import type { Project, ReconstructionObservationReview } from '$lib/models/types';
+import type { prepareArchitectureStage } from './architecture';
 import type { FloorAnalysis } from '$lib/utils/floorAnalysis';
 import { parsePlan2WorldDraft, type DraftWall, type Plan2WorldDraft } from './draft';
 import {
@@ -10,6 +11,26 @@ import {
 export interface DraftPlanExtent {
   width: number;
   depth: number;
+}
+
+/** Preserve source-zone findings without changing the draft or storing geometry. */
+export function summarizeArchitectureObservation(stage: ReturnType<typeof prepareArchitectureStage>): ReconstructionObservationReview {
+  const review = stage.functionalZoneReview;
+  const messages: Record<string, string> = {
+    'unclosed': 'No closed boundary was found.',
+    'overlapping-native-regions': 'The observed outline overlaps several reconstructed regions.',
+    'merged-functional-zones': 'Shares a reconstructed region with another observed zone.',
+    'outline-area-conflict': 'The reconstructed boundary differs substantially from the observed outline.',
+    'unknown-boundary-construction': 'Some boundary construction is uncertain.',
+    'unsupported-functional-boundary': 'Part of the observed boundary is missing from the reconstruction.',
+  };
+  return {
+    version: 1,
+    acceptedZoneCount: review?.acceptedZoneCount ?? 0,
+    supportedZoneCount: review?.finalMetrics.resolvedZoneCount ?? 0,
+    zoneFindings: review?.finalMetrics.zones.filter(zone => !zone.resolved)
+      .map(zone => ({ label: zone.label, message: messages[zone.status] })) ?? [],
+  };
 }
 
 export interface DraftReviewSummary {

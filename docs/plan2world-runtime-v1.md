@@ -36,6 +36,15 @@ Each floor contains its resolved elevation, compiled walkthrough start and room 
 
 A native room with `floorOpening: true` is an aperture, not a walkable surface. It still participates in native nesting so an enclosing room receives that polygon as a hole, but the runtime compiler does not emit the opening as a second room surface. This prevents presentation or collision code from filling a stairwell/shaft after the hole was correctly detected.
 
+Every emitted room surface must produce its compiler-owned floor collider.
+An untriangulatable surface fails compilation with its floor and room IDs;
+it is never silently omitted. Invalid or unresolved explicit native boundaries
+also block export, including `floorOpening` boundaries whose omission would fill
+an aperture. Native editing/JSON backup remains available so the author can
+correct the source. Browser and CLI share this gate; the CLI fails before writing
+artifacts and the browser reports the error without downloading a scene ZIP.
+The compiler does not repair topology, fill holes or move spawn to hide a failure.
+
 A room has `ceilingHeight: null` when the native boundary does not establish one uniform ceiling, when its native type is outdoor, or when it is an explicitly bounded ground surface. These follow native authoring presentation policy; matching heights on retained walls do not invent a roof over open ground. Backends must not invent a ceiling from that null value.
 
 ## Entities

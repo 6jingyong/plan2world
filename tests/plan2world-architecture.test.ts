@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { prepareArchitectureStage, assembleFrozenArchitecture } from '$lib/plan2world/architecture';
+import { preflightArchitectureObservation, prepareArchitectureStage, assembleFrozenArchitecture } from '$lib/plan2world/architecture';
 
 function evidence() {
   const decision = { decision: 'accept', decisionBasis: 'Visible source stroke.', evidence: 'Architectural line.' };
@@ -21,6 +21,32 @@ function evidence() {
 const context = { sourceWidthPx: 100, sourceHeightPx: 100 };
 
 describe('single architectural observation with frozen opening evidence', () => {
+  it('preflights immutable observations without accepting opening hosts or final geometry', () => {
+    const input = evidence(); input.openings[0].endpoints = [{ x: 30, y: 50 }, { x: 70, y: 50 }];
+    const before = JSON.stringify(input);
+    const checked = preflightArchitectureObservation(input, context);
+    expect(checked.walls).toEqual(input.walls);
+    expect(checked.openings[0].endpoints).toEqual(input.openings[0].endpoints);
+    expect(checked).not.toHaveProperty('bareHouse');
+    expect(checked).not.toHaveProperty('architectureDraft');
+    expect(prepareArchitectureStage(checked, context).openingAudit[0].programStatus).toBe('unresolved-host');
+    expect(JSON.stringify(input)).toBe(before);
+  });
+
+  it('CLI preflight writes only a scoped read-only receipt and refuses overwrites', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'plan2world-preflight-'));
+    try {
+      const input = join(directory, 'architecture.json'), output = join(directory, 'preflight');
+      await writeFile(input, JSON.stringify(evidence()));
+      const args = ['tooling/plan2world-architecture.mjs', 'preflight', '--input', input, '--output', output, '--source-width', '100', '--source-height', '100'];
+      execFileSync(process.execPath, args, { env: { ...process.env, NODE_ENV: 'production' }, stdio: 'pipe' });
+      const receipt = await readFile(join(output, 'observation-preflight.json'), 'utf8');
+      expect(JSON.parse(receipt)).toMatchObject({ scope: 'source-consistency-before-furnishing', observationsChanged: false,
+        openingHostsEvaluated: false, finalClosureEvaluated: false, acceptedWallCount: 4 });
+      expect(() => execFileSync(process.execPath, args, { env: { ...process.env, NODE_ENV: 'production' }, stdio: 'pipe' })).toThrow();
+      expect(await readFile(join(output, 'observation-preflight.json'), 'utf8')).toBe(receipt);
+    } finally { await rm(directory, { recursive: true, force: true }); }
+  });
   it('retains an observed aperture when operation is unknown and keeps architecture unchanged during furnishing', () => {
     const input = evidence(), before = JSON.stringify(input);
     const stage = prepareArchitectureStage(input, context), saved = JSON.stringify(stage);

@@ -26,6 +26,10 @@ jobs:
           NPM_CONFIG_INCLUDE: dev
       - run: npm run catalog:check
       - run: npm run check
+      # The source-raster CLI test decodes original pixels through Canvas.
+      # Install its pinned headless decoder; full app browser tests stay below.
+      - name: Install source-raster test decoder
+        run: npx playwright install --with-deps --only-shell chromium
       - run: npm test
       - run: npm run build
       - name: Production build for browser regressions

@@ -1,7 +1,7 @@
 import { createServer } from 'node:http';
 
 export interface FloorPlanProviderRequest { path: string; method: string; body: Record<string, any> }
-export interface FloorPlanProviderFixtureOptions { sourceWidthPx?: number; sourceHeightPx?: number }
+export interface FloorPlanProviderFixtureOptions { sourceWidthPx?: number; sourceHeightPx?: number; functionalZones?: object[] }
 type Point = { x: number; y: number };
 type Wall = { id: string; start: Point; end: Point; curvePoint?: Point };
 
@@ -112,6 +112,7 @@ export function createFloorPlanAIProvider(onRequest: (request: FloorPlanProvider
   const architecture = { schemaVersion: 'source-architecture-v1', scaleEvidence: annotation.scaleEvidence,
     ...(fixtureDraft === defaultFixtureDraft ? { functionalZones: [{ ...decision, label: 'Mock living area', category: 'living', environment: 'indoor',
       position: { x: 200, y: 150 }, boundary: evidence.walls.map((wall: Wall) => ({ point: wall.start, kind: 'wall', evidence: 'Declared synthetic perimeter.' })) }] } : {}),
+    ...(options.functionalZones ? { functionalZones: options.functionalZones } : {}),
     walls: evidence.walls.map(({ id: _id, ...wall }: Wall, index: number) => ({ ...wall, ...decision, label: `boundary ${index + 1}` })),
     openings: annotation.openings.map((opening, index) => ({ ...opening, ...decision, label: `opening ${index + 1}` })),
     assumptions: annotation.assumptions, doorGaps: [] };

@@ -89,6 +89,13 @@ No AI service is invoked. The editor's runtime ZIP entry uses this same compiler
 it does not introduce browser runtime behavior or a separate export pipeline.
 Add `--package house.runtime.zip` to the CLI to emit the identical portable scene ZIP.
 
+Invalid/unresolved native ground or floor-opening boundaries, and room surfaces
+that cannot produce floor collision, block export with the floor and room IDs.
+The CLI writes no artifacts for that failed compilation; the browser reports the
+same failure and retains native JSON export for correction. Fix the native
+boundary/holes and re-export. Godot must not supply a replacement floor or move
+spawn to conceal missing compiler collision.
+
 ## Load an external runtime scene
 
 From a terminal, pass the compiled runtime JSON after Godot's `--` separator:

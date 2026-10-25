@@ -39,6 +39,7 @@ test('image upload reaches the provider, pauses for review, then opens the edita
   await expect(page.getByText('Reconstruction ready for review.', { exact: true })).toBeVisible();
   await expect(page.getByText('Mock provider test dimensions', { exact: false })).toBeVisible();
   await expect(page.getByText('Browser smoke-test response.', { exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Source boundary review', exact: true })).toContainText('1 of 1 observed zones');
   await expect(page.getByText('walls', { exact: true }).locator('..')).toContainText('4');
   await expect(page.getByText('doors', { exact: true }).locator('..')).toContainText('1');
   await expect(page.getByText('windows', { exact: true }).locator('..')).toContainText('1');
@@ -85,6 +86,7 @@ test('image upload reaches the provider, pauses for review, then opens the edita
   await expect(review).toContainText('480 cm actual');
   await expect(review).toContainText('100% confidence');
   await expect(review).toContainText('Browser smoke-test response.');
+  await expect(review.getByRole('region', { name: 'Source boundary review', exact: true })).toContainText('1 of 1 observed zones');
   await expect(review.getByRole('img', { name: 'Source floor plan', exact: true })).toBeVisible();
   expect(requests).toHaveLength(2);
   await review.getByRole('button', { name: 'Close reconstruction review', exact: true }).click();

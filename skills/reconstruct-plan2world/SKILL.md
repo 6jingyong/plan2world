@@ -59,11 +59,22 @@ baseline in this same observation, including the aperture interval. Observe the
 baseline; do not calculate topology, IDs, host matching, units or final geometry.
 All initial doors/windows extend from floor to host wall height by program policy;
 height and sill height are not image extraction tasks.
+Rounded outlines may use a concise polygon approximation under the stage guide;
+native curves are optional, and authored Project geometry remains authoritative.
 
 Freeze and hash `source-architecture.json` before furniture observation. This
 freezes visual observations, not the final normalized geometry. Do not run final
 closure before furniture anchors are available. Functional zones are collected in this same architectural observation; no third
 model call is added. Furniture extraction still owns semantics/position only.
+
+Before the furniture pass, run the shared source-consistency preflight:
+
+`NODE_ENV=production node tooling/plan2world-architecture.mjs preflight --input "$RUN_DIR/source-architecture.json" --source original.jpg --output "$RUN_DIR/preflight"`
+
+It checks source bounds and rejects duplicate/overlapping observed wall geometry
+without altering observations or freezing a final graph. Stop this execution if
+it fails; preserve the input and error. A pass does not accept opening hosts or
+zone closure: those still require furniture and the final preparation below.
 
 Separate aperture presence, extent and operation. Keep a visibly established
 aperture when its operation is unclear; retain uncertain/rejected candidates in

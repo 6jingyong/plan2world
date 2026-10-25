@@ -41,7 +41,8 @@
       {#if !background}
         <p class="mb-4 rounded-lg bg-slate-50 p-3 text-sm text-gray-600">The source image is not attached to this floor. Geometry checks and import assumptions remain available.</p>
       {/if}
-      <ReconstructionReview {review} {trace} sourceUrl={background?.dataUrl} sourceName={background?.reconstructionSource?.name} live bind:focusedIssueKey />
+      <ReconstructionReview {review} {trace} observationReview={$currentProject?.reconstruction?.observationReview}
+        sourceUrl={background?.dataUrl} sourceName={background?.reconstructionSource?.name} live bind:focusedIssueKey />
       {#if issue}
         <button type="button" onclick={editFinding} class="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">{focusMode === 'inspect' ? 'Inspect finding in plan' : 'Edit finding in plan'}</button>
       {/if}

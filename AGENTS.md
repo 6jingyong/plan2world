@@ -11,6 +11,9 @@ Plan2World turns a floor-plan raster into an editable browser home and an engine
 - The direct Skill records `source-architecture-v1` in original image pixels,
   including concise visual evidence, decisions and uncertain/rejected candidates.
 - Wall evidence `source-wall-trace-v1` is projected from that observation by code.
+- User geometry policy: source observation may prefer modest polygon approximations
+  of rounded outlines for walkthrough presentation. Preserve openings, recesses
+  and connectivity; never flatten already-authored native Project curves.
 - The normalizer owns intersections, splitting, snapping and evidenced door-gap connectivity.
 - Optional visible junction points remain source-pixel evidence without wall IDs.
   Source-topology review reports near misses beyond conservative snapping; it
@@ -21,6 +24,9 @@ Plan2World turns a floor-plan raster into an editable browser home and an engine
   Furniture positions reach the program BEFORE final closure. Programs select
   bounded continuations of observed wall endpoints using furnished closed
   regions and existing entrances, then freeze final geometry and those anchors.
+- Before furnishing, shared observation preflight rejects invalid source bounds
+  and duplicate/overlapping walls. Its temporary graph is discarded; it never
+  accepts opening hosts or final zone closure and never repairs observations.
 - Programs project accepted evidence into the existing `source-annotation-v1`
   assembler contract. Browser, CLI and portable Skill share this order; the
   architecture prompt includes functionalZones in the same observation. Direct Skill tests do not
@@ -29,6 +35,10 @@ Plan2World turns a floor-plan raster into an editable browser home and an engine
 - Centerline correction is DISABLED in browser and CLI generation. Whole-image ridge/furniture-weight/fit diagnostics run only through the explicit read-only review command; their unapproved candidates never enter closure or assembly. Do not re-enable correction, project openings with candidate lines, or move junctions from a review. See `docs/raster-centerlines.md`. Independent relative geometry uses one divisor for both axes; native centimetre calibration remains uniform.
 - The assembler owns IDs, host matching, cm conversion, opening width/position, furniture catalog IDs, source registration and `plan2world-draft-v1`.
 - The native application owns room derivation, editing, persistence and browser review/preview. The deterministic runtime compiler derives `plan2world-runtime-v1` plus `architecture.glb` from that same native Project. Godot consumes those artifacts for runtime collision and interaction; it must not redo reconstruction, room detection or topology repair.
+- Hand source-zone review to the browser separately from draft geometry. Optional
+  native `reconstruction.observationReview` records historical import counts and
+  findings, never a second geometry or live correctness verdict. Keep current
+  native geometry checks separate; runtime artifacts must ignore this metadata.
 
 Core rule: **LLM observes; programs calculate and assemble.**
 
@@ -114,6 +124,14 @@ Do not use an older run as input. Do not write generated wall traces, annotation
 `tests/fixtures/real-floorplans/reconstruction-corpus/manifest.json` contains source identity only. Human source references live separately under `tests/evaluation/plan2world/source-references/` and may be read only after the fresh wall evidence, Bare House, annotations, draft and source overlay are generated and frozen.
 
 Historical runs and development diaries belong in Git history, not the active tree.
+Per user instruction, retain the compact versioned experiment ledger at
+`docs/observation-experiment-results.md`. Each round records its question, declared
+variables (label combined workflow trials), source/code identity, actual results,
+failures, conclusion and next decision, with links to frozen ignored evidence.
+Keep bulk diaries/artifacts out
+of the active tree; do not erase negative results when later fixes pass.
+Use the ledger's effectiveness table for orientation; read individual historical
+rounds when their variable or failure is relevant.
 
 ## Draft invariants
 
@@ -145,6 +163,7 @@ Use `schemas/plan2world-draft-v1.schema.json` and `docs/plan2world-draft-v1.md`.
 - Preserve native no-ceiling policy for outdoor rooms and explicit ground boundaries in the compiler; do not infer a roof merely from uniform wall heights.
 
 - The native `Project` is authoring truth. `plan2world-runtime-v1` and `architecture.glb` are deterministic derived artifacts; a Godot `.tscn` is never canonical.
+- Every emitted room surface must compile floor collision. Untriangulatable surfaces and invalid/unresolved explicit native ground or `floorOpening` boundaries block shared browser/CLI export before output; never silently skip the floor/aperture, fill a hole or move spawn to hide failure. Preserve native editing and JSON backup for source correction.
 - Runtime JSON owns engine-neutral semantics, colliders, interaction contracts and player profile. It may contain explicit collision geometry such as triangulated walkable room floors, but never presentation-mesh data. `architecture.glb` owns architectural presentation geometry. Never infer runtime collision from GLB.
 - The Godot runtime loader owns scene semantics, collision bodies and interaction nodes only. Presentation proxies are an isolated fallback adapter and must not leak back into loader logic.
 - Missing presentation GLB may use proxy visuals for compatibility, but proxy geometry must not become a second source of architectural truth.

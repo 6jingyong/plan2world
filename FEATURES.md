@@ -7,12 +7,13 @@ This is a current capability summary, not a development diary.
 | Capability | Current behavior |
 | --- | --- |
 | Image reconstruction | `source-architecture-v1` + `source-furnishing-v1` → deterministic refinement/closure → `plan2world-draft-v1`. |
+| Source preflight | Shared browser/CLI bounds and wall-overlap checks run before furniture. Opening hosts and zone closure are still evaluated after furnishing. |
 | Walls | Zero-width straight or quadratic centrelines; topology normalization is deterministic. |
 | Doors/windows | Source endpoints are projected onto normalized walls; host IDs, width and position are program-derived. |
 | Scale/registration | Scale evidence is converted deterministically; source registration comes from the same source-pixel transform and is strict when present. |
 | Furniture | Current reconstruction uses the fixed `plan2world-furniture-v1` vocabulary and native `imported_object` blocks. |
 | Open ground | `floorAreas` can represent visible open ground without fake closure walls. |
-| Balcony policy | Recognized balconies/terraces default to independent enclosed glazed rooms unless source evidence triggers the guard. |
+| Balcony policy | Independent logical regions use source-supported glazing/railings or explicit air boundaries; enclosure construction is not guessed. |
 
 ## Review and editing
 
@@ -20,6 +21,7 @@ This is a current capability summary, not a development diary.
 - Native wall/opening/furniture correction, Undo/Redo and persistence remain available.
 - Imported-object blocks can be styled/replaced while retaining native identity.
 - Rooms/areas are derived from live native geometry.
+- Source-boundary review shows unsupported or merged observed zones before opening the home. Its compact import-time findings survive native save/package return; live geometry checks remain separate after edits.
 - Browser 2D, 1.20 m architectural cut and 3D review all consume the same native Project.
 - Browser FPS/PointerLock movement has been removed. Orbit, 3D selection/editing, camera previews, floor stacks, cuts and native runtime-spawn editing remain available.
 

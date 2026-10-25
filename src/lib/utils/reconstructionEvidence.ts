@@ -10,6 +10,16 @@ export function validateReconstructionEvidence(value: unknown) {
     || evidence.scale.basis !== undefined && typeof evidence.scale.basis !== 'string'
     || !Array.isArray(evidence.assumptions) || !evidence.assumptions.every((value: any) => typeof value === 'string')
     || !Array.isArray(evidence.floors)) fail();
+  if (evidence.observationReview !== undefined) {
+    const review = evidence.observationReview;
+    if (!object(review) || review.version !== 1
+      || !Number.isSafeInteger(review.acceptedZoneCount) || review.acceptedZoneCount < 0
+      || !Number.isSafeInteger(review.supportedZoneCount) || review.supportedZoneCount < 0
+      || review.supportedZoneCount > review.acceptedZoneCount
+      || !Array.isArray(review.zoneFindings)
+      || review.zoneFindings.length !== review.acceptedZoneCount - review.supportedZoneCount
+      || !review.zoneFindings.every((finding: any) => object(finding) && text(finding.label) && text(finding.message))) fail();
+  }
   const floors = new Set<string>();
   for (const floor of evidence.floors) {
     if (!object(floor) || !text(floor.floorId) || floors.has(floor.floorId)) fail();

@@ -279,9 +279,18 @@ export interface CustomModelDef {
   sourceUrl?: string;
 }
 
-/** Import evidence only. Coordinates and findings are always read from live Floor geometry. */
+/** Historical source-boundary checks, not live geometry or a second scene. */
+export interface ReconstructionObservationReview {
+  version: 1;
+  acceptedZoneCount: number;
+  supportedZoneCount: number;
+  zoneFindings: { label: string; message: string }[];
+}
+
+/** Import evidence only. Current geometry findings are read from live Floors. */
 export interface ReconstructionEvidence {
   version: 1;
+  observationReview?: ReconstructionObservationReview;
   scale: { mode: 'measured' | 'provided' | 'estimated'; confidence: number; basis?: string };
   assumptions: string[];
   floors: {

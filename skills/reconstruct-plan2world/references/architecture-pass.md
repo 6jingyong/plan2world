@@ -115,9 +115,18 @@ chosen editable starting state, not a measurement inferred from the image. Do
 not output height, sillHeight, wall height or derived opening widths. Users can
 adjust opening height and window sill later in the native walkthrough editor.
 
-Optional quadratic `curvePoint` remains a source-pixel observation. Door swing
-arcs, furniture outlines, floor seams, sanitary edges and dimension chains are
-not walls. Keep plausible rejected examples in the audit where confusion occurs.
+For rounded architectural outlines, prefer a modest piecewise-straight trace in
+source pixels. Follow visible changes of direction; preserve recesses, opening
+jambs and shared junctions. Do not replace a rounded footprint with its bounding
+box. Keep jambs on their observed host segments; disclose any polygon segmentation
+of continuous glazing rather than claiming visible piers. Polygon approximation
+is an intentional walkthrough presentation choice, not a claim of surveyed
+accuracy. Record it once in `assumptions`; no duplicate detail inventory is needed.
+Optional quadratic `curvePoint` remains available when a curve is clearly
+supported and useful. This observation policy never flattens curves already
+authored in a native Project. Door swing arcs, furniture outlines, floor seams,
+sanitary edges and dimension chains are not walls. Keep plausible rejected
+examples in the audit where confusion occurs.
 
 If visible door symbols break a logical host stroke into two source segments,
 `doorGaps` may contain only `from`, `to`, and a factual `evidence` string. Programs

@@ -1,4 +1,4 @@
-import { buildBareHouse, SOURCE_WALL_TRACE_VERSION } from './bareHouse';
+import { buildBareHouse, SOURCE_WALL_TRACE_VERSION, type SourceWallTraceV1 } from './bareHouse';
 import type { DraftPoint } from './draft';
 import { reviewSourceTopology } from './sourceTopologyReview';
 import { closeWallsWithFurniture } from './furnitureGuidedClosure';
@@ -114,12 +114,7 @@ export function parseSourceFurnishing(input: unknown, scaleEvidence: SourceAnnot
   return { schemaVersion: SOURCE_FURNISHING_VERSION, furniture: parsed.furniture ?? [], assumptions: parsed.assumptions ?? [] };
 }
 
-export function prepareArchitectureStage(input: unknown, context: ReconstructionAssemblyContext = {}, furnishingInput?: unknown, rasterInput?: SourceRasterInput) {
-  const architecture = parseSourceArchitecture(input);
-  const furnishingEvidence = furnishingInput === undefined ? undefined : parseSourceFurnishing(furnishingInput, architecture.scaleEvidence);
-  const sourceContext = { ...context };
-  if (architecture.functionalZones) sourceContext.functionalZoneLabels = architecture.functionalZones.filter(zone => zone.decision === 'accept')
-    .map(({ label, category, environment, position }) => ({ label, category, environment, position }));
+function assertSourceBounds(architecture: SourceArchitectureV1, context: ReconstructionAssemblyContext, furniturePositions: DraftPoint[] = []) {
   if (context.sourceWidthPx !== undefined || context.sourceHeightPx !== undefined) {
     const width = context.sourceWidthPx, height = context.sourceHeightPx;
     if (typeof width !== 'number' || typeof height !== 'number' || !Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) throw new Error('Architecture requires both positive source dimensions.');
@@ -127,13 +122,35 @@ export function prepareArchitectureStage(input: unknown, context: Reconstruction
       ...architecture.openings.flatMap(opening => opening.endpoints), ...architecture.scaleEvidence.endpoints,
       ...architecture.doorGaps.flatMap(gap => [gap.from, gap.to]), ...architecture.junctions.map(junction => junction.position),
       ...(architecture.functionalZones ?? []).flatMap(zone => [zone.position, ...zone.boundary.flatMap(b => [b.point, ...(b.curvePoint ? [b.curvePoint] : [])])]),
-      ...(furnishingEvidence?.furniture.map(item => item.position) ?? [])];
+      ...furniturePositions];
     if (points.some(point => point.x < 0 || point.y < 0 || point.x > width || point.y > height)) throw new Error('Architecture evidence lies outside the original source raster.');
   }
-  const acceptedWalls = architecture.walls.filter(wall => wall.decision === 'accept');
-  const wallTrace = { schemaVersion: SOURCE_WALL_TRACE_VERSION,
-    walls: acceptedWalls.map(({ start, end, curvePoint }) => ({ start, end, ...(curvePoint ? { curvePoint } : {}) })),
+}
+
+function architectureWallTrace(architecture: SourceArchitectureV1): SourceWallTraceV1 {
+  return { schemaVersion: SOURCE_WALL_TRACE_VERSION,
+    walls: architecture.walls.filter(wall => wall.decision === 'accept')
+      .map(({ start, end, curvePoint }) => ({ start, end, ...(curvePoint ? { curvePoint } : {}) })),
     doorGaps: architecture.doorGaps.map(({ from, to }) => ({ from, to })) };
+}
+
+/** Reject source inconsistencies before furnishing, without final closure or
+ * host acceptance. Return observations only; the temporary graph is discarded. */
+export function preflightArchitectureObservation(input: unknown, context: ReconstructionAssemblyContext = {}): SourceArchitectureV1 {
+  const architecture = parseSourceArchitecture(input);
+  assertSourceBounds(architecture, context);
+  buildBareHouse(architectureWallTrace(architecture));
+  return architecture;
+}
+
+export function prepareArchitectureStage(input: unknown, context: ReconstructionAssemblyContext = {}, furnishingInput?: unknown, rasterInput?: SourceRasterInput) {
+  const architecture = parseSourceArchitecture(input);
+  const furnishingEvidence = furnishingInput === undefined ? undefined : parseSourceFurnishing(furnishingInput, architecture.scaleEvidence);
+  const sourceContext = { ...context };
+  if (architecture.functionalZones) sourceContext.functionalZoneLabels = architecture.functionalZones.filter(zone => zone.decision === 'accept')
+    .map(({ label, category, environment, position }) => ({ label, category, environment, position }));
+  assertSourceBounds(architecture, context, furnishingEvidence?.furniture.map(item => item.position));
+  const wallTrace = architectureWallTrace(architecture);
   const acceptedOpenings = architecture.openings.filter(opening => opening.decision === 'accept');
   const summaries = [...architecture.walls, ...architecture.openings].flatMap(item => item.decision !== 'accept'
     ? [`${item.label}: ${item.decision}. ${item.decisionBasis}${item.uncertainty ? ` ${item.uncertainty}` : ''}`]
