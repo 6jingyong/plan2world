@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import JSZip from 'jszip';
 import { runtimeAssetProject } from '../../tooling/runtime-asset-fixture.mjs';
+import { runtimeProductProject } from '../../tooling/runtime-product-fixture.mjs';
 
 async function importFixture(page: Page, supplied?: { name: string }) {
   await page.goto('/editor');
@@ -90,4 +91,26 @@ test('invalid native floor blocks runtime download while preserving editable JSO
   const zip = await JSZip.loadAsync(await download(page, 'Export runtime scene (.zip)'));
   expect(JSON.parse(await zip.file('scene.runtime.json')!.async('text')).source.projectId).toBe(recovered.id);
   await expect(page.getByRole('alert')).toHaveCount(0);
+});
+
+
+for (const width of [1440,390]) test(`explicit main entrance saves native identity and compiles an inward-facing start at ${width}px`, async ({ page }) => {
+  await page.setViewportSize({width,height:900});
+  const project: Record<string, any> & { name: string }={...await runtimeProductProject(),name:'Main entrance authoring'};
+  delete project.floors[0].entrance;
+  project.floors[0].walkthroughStart={x:300,y:800};
+  await importFixture(page,project);
+  await page.getByLabel('Main entrance door',{exact:true}).selectOption('main-entry');
+  await expect(page.getByLabel('Entrance inward side',{exact:true})).toHaveValue('left');
+  const bounds=await page.getByLabel('Entrance inward side',{exact:true}).boundingBox();
+  expect(bounds).not.toBeNull(); expect(bounds!.x).toBeGreaterThanOrEqual(0); expect(bounds!.x+bounds!.width).toBeLessThanOrEqual(width);
+  const saved=JSON.parse((await download(page,'Download JSON')).toString());
+  expect(saved.floors[0].entrance).toEqual({doorId:'main-entry',side:'left'});
+  expect(saved.floors[0].walkthroughStart).toBeUndefined();
+  const zip=await JSZip.loadAsync(await download(page,'Export runtime scene (.zip)'));
+  const runtime=JSON.parse(await zip.file('scene.runtime.json')!.async('text'));
+  expect(runtime.floors[0]).toMatchObject({entranceDoorId:'main-entry',walkthroughStart:[3,.4,.5],walkthroughYawClockwiseRadians:Math.PI/2});
+  await page.getByLabel('Clear first-person walkthrough start',{exact:true}).click();
+  await expect(page.getByLabel('Entrance inward side',{exact:true})).toHaveCount(0);
+  expect(JSON.parse((await download(page,'Download JSON')).toString()).floors[0].entrance).toBeUndefined();
 });

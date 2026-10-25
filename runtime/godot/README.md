@@ -25,8 +25,20 @@ F1 opens a paused scene menu with resume, **Return to start** and scene switchin
 failed opens retain the current walkthrough. Desktop focus loss pauses and clears
 held controls; focus return waits for explicit resume. Return to start resets only
 the player to the compiled spawn, retaining door states and all scene geometry.
-F2 smoothly switches to top view in the same 3D world. Top view uses visible-pointer furniture selection, middle/right pan and wheel zoom, with first-person controls disabled. **Open editable Project…** enables furniture add/move/rotate/replace/remove, undo/redo, native save and runtime export; architecture stays fixed. No browser, Godot editor or Node installation is required for delivered players. See [native layout scope, ownership and development](../../docs/godot-furniture-layout.md).
+F2 smoothly switches to top view in the same 3D world. Top view uses visible-pointer furniture selection, middle/right pan and wheel zoom, with first-person controls disabled. **Open editable Project…** enables furniture add/move/rotate/replace/remove, native save and runtime export, with no undo/history; architecture stays fixed. No browser, Godot editor or Node installation is required for delivered players. See [native layout scope, ownership and development](../../docs/godot-furniture-layout.md).
 See [offline delivery and build instructions](../../docs/runtime-delivery.md).
+
+F / gamepad X focuses nearby furniture in an editable Project. Arrow taps move
+1cm; held arrows or the left stick move gradually. F / Enter / A places; Esc / B
+cancels the preview. Movement stops while adjusting; mouse/right stick only
+looks. Floor furniture stays in its plan plane. Mounted objects use the explicit
+wall/side/height chosen in top view, and move only along that wall or vertically.
+Curved-wall mounting is currently unsupported.
+
+Default entrance/facing comes from the author-selected main door and inward
+side. Unmarked legacy Projects retain their previous start. Export rejects
+blocked/unsupported starts. The loader validates candidate semantics and matching
+GLB digest before replacing the active world; a failure retains the old scene.
 
 ## Develop locally / run the built-in demo
 
@@ -136,7 +148,7 @@ The scripts are intentionally split by responsibility:
 - `player.gd` / `door.gd`: engine-side runtime behavior;
 - `layout_camera.gd`: same-world camera transition, native layout input, selection and placement queries;
 - `runtime_plan_view.gd`: native Godot layout toolbar;
-- `layout_session.gd`: offline shared Project/compiler core, revision history, save/export;
+- `layout_session.gd`: offline shared Project/compiler core, accepted current state, atomic save/export;
 - `main.gd`: scene/editor composition and mode lifecycle.
 
 The adapter delegates engine work to Godot:

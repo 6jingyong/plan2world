@@ -19,7 +19,7 @@
     },
     "source": {
       "type": "object", "additionalProperties": false, "required": ["projectId", "projectName"],
-      "properties": { "projectId": { "$ref": "#/$defs/id" }, "projectName": { "type": "string" } }
+      "properties": { "projectId": { "$ref": "#/$defs/id" }, "projectName": { "type": "string" }, "architectureSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" } }
     },
     "playerProfile": { "$ref": "#/$defs/playerProfile" },
     "floors": { "type": "array", "items": { "$ref": "#/$defs/floor" } },
@@ -55,6 +55,7 @@
       "required": ["id", "name", "level", "elevation", "walkthroughStart", "rooms"],
       "properties": {
         "id": { "$ref": "#/$defs/id" }, "name": { "type": "string" }, "level": { "type": "integer" }, "elevation": { "type": "number" },
+        "entranceDoorId": { "$ref": "#/$defs/id" }, "walkthroughYawClockwiseRadians": { "type": "number" },
         "walkthroughStart": { "anyOf": [{ "$ref": "#/$defs/vec3" }, { "type": "null" }] },
         "rooms": { "type": "array", "items": { "$ref": "#/$defs/room" } }
       }
@@ -179,10 +180,21 @@
         "center": { "$ref": "#/$defs/vec3" }, "yawClockwiseRadians": { "type": "number" }
       }
     },
+    "furnitureMovement": {
+      "oneOf": [
+        { "type": "object", "additionalProperties": false, "required": ["kind", "elevation"], "properties": { "kind": { "const": "floor" }, "elevation": { "type": "number" } } },
+        { "type": "object", "additionalProperties": false, "required": ["kind", "wallId", "side", "blocked", "origin", "tangent", "along", "bottom"], "properties": {
+          "kind": { "const": "wall" }, "wallId": { "$ref": "#/$defs/id" }, "side": { "enum": ["left", "right"] },
+          "blocked": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["along", "bottom"], "properties": { "along": { "$ref": "#/$defs/vec2" }, "bottom": { "$ref": "#/$defs/vec2" } } } }, "origin": { "$ref": "#/$defs/vec3" }, "tangent": { "$ref": "#/$defs/vec3" }, "along": { "$ref": "#/$defs/vec2" }, "bottom": { "$ref": "#/$defs/vec2" }
+        } },
+        { "type": "object", "additionalProperties": false, "required": ["kind"], "properties": { "kind": { "const": "unbound-wall" } } }
+      ]
+    },
     "furnitureEntity": {
       "type": "object", "additionalProperties": false,
-      "required": ["id", "floorId", "kind", "catalogId", "assetRef", "position", "yawClockwiseRadians", "size"],
+      "required": ["id", "floorId", "kind", "catalogId", "assetRef", "position", "yawClockwiseRadians", "size", "locked", "movement"],
       "properties": {
+        "locked": { "type": "boolean" }, "movement": { "$ref": "#/$defs/furnitureMovement" },
         "id": { "$ref": "#/$defs/id" }, "floorId": { "$ref": "#/$defs/id" }, "kind": { "const": "furniture" },
         "catalogId": { "$ref": "#/$defs/id" }, "sourceCategory": { "type": "string" }, "assetRef": { "type": "string", "minLength": 1 },
         "mirror": { "type": "array", "prefixItems": [{ "enum": [-1, 1] }, { "const": 1 }, { "enum": [-1, 1] }], "minItems": 3, "maxItems": 3 },

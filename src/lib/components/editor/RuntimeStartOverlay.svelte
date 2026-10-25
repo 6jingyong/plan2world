@@ -8,14 +8,19 @@
     placingFurnitureId,
     selectedTool,
   } from '$lib/stores/project';
-  import { clearRuntimeStart, setRuntimeStart } from '$lib/stores/runtimeStart';
+  import { clearRuntimeStart, setRuntimeStart, setRuntimeEntrance } from '$lib/stores/runtimeStart';
+
+  import { wallPointAt } from '$lib/utils/wallPath';
 
   let width = $state(0);
   let height = $state(0);
   let armed = $state(false);
 
   const marker = $derived.by(() => {
-    const point = $activeFloor?.walkthroughStart;
+    const entrance = $activeFloor?.entrance;
+    const door = $activeFloor?.doors.find(item => item.id === entrance?.doorId);
+    const wall = $activeFloor?.walls.find(item => item.id === door?.wallId);
+    const point = door && wall ? wallPointAt(wall, door.position) : $activeFloor?.walkthroughStart;
     if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y) || width <= 0 || height <= 0) return null;
     return {
       left: (point.x - $canvasCamX) * $canvasZoom + width / 2,
@@ -81,7 +86,20 @@
     </div>
   {/if}
 
-  <div class="absolute top-3 right-3 z-30 flex items-center gap-1.5 pointer-events-auto">
+  <div class="absolute top-3 right-3 z-30 flex flex-wrap justify-end items-center gap-1.5 pointer-events-auto" style="max-width:calc(100% - 1.5rem)">
+    {#if $activeFloor?.doors.length}
+      <select aria-label="Main entrance door" class="h-9 rounded-lg border bg-white/95 text-xs px-2 max-w-36" value={$activeFloor.entrance?.doorId ?? ''}
+        onchange={(event) => { if (event.currentTarget.value) setRuntimeEntrance(event.currentTarget.value, $activeFloor?.entrance?.side ?? 'left'); }}>
+        <option value="" disabled>Main entrance…</option>
+        {#each $activeFloor.doors as door}<option value={door.id}>{door.id}</option>{/each}
+      </select>
+      {#if $activeFloor.entrance}
+        <select aria-label="Entrance inward side" class="h-9 rounded-lg border bg-white/95 text-xs px-2" value={$activeFloor.entrance.side}
+          onchange={(event) => setRuntimeEntrance($activeFloor!.entrance!.doorId, event.currentTarget.value as 'left' | 'right')}>
+          <option value="left">Interior: left of wall</option><option value="right">Interior: right of wall</option>
+        </select>
+      {/if}
+    {/if}
     <button
       type="button"
       onclick={arm}
@@ -93,7 +111,7 @@
     >
       {$activeFloor?.walkthroughStart ? 'Move first-person start' : 'Set first-person start'}
     </button>
-    {#if $activeFloor?.walkthroughStart}
+    {#if $activeFloor?.walkthroughStart || $activeFloor?.entrance}
       <button
         type="button"
         onclick={clear}

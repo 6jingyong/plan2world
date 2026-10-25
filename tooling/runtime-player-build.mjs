@@ -37,12 +37,13 @@ try {
     'For furniture layout, choose Open editable Project and select native Project JSON or a Project package ZIP.\n' +
     'F2 switches smoothly between first-person and top view in the same Godot world.\n' +
     'Top view: middle/right drag pans, wheel zooms, left drag moves furniture, Esc cancels a drag.\n' +
-    'Add, rotate, replace or delete furniture; undo/redo; save native Project and export a runtime scene ZIP. Architecture stays fixed.\n' +
+    'Add, rotate, replace or delete furniture; save native Project and export a runtime scene ZIP. No undo or operation history. Architecture stays fixed.\n' +
     'Scenes run offline; no account, AI or network service is used by the player.\n\n' +
     'WASD move | Ctrl slow | Shift fast | Mouse look | E door | Esc mouse | F1 scene menu\n' +
     'The scene menu pauses the current walkthrough. Failed scene opens can be dismissed by resuming it.\n\n' +
     'Switching windows pauses and clears held controls. Resume explicitly when you return.\n' +
     'Return to start restores the compiled player spawn and view without resetting open doors or scene geometry.\n\n' +
+    'First person: F / gamepad X selects furniture; arrows / left stick nudge; F / Enter / A places; Esc / B cancels preview. Floor furniture stays on its floor; mounted items stay on their authored wall.\n\n' +
     'Default renderer: Forward+. Requires a compatible GPU/driver. For older hardware, run with --rendering-method gl_compatibility.\n' +
     'Windows builds are unsigned. Platform signing and Windows hardware acceptance are separate release steps.\n\n' +
     'Optional CLI: player -- --scene "path/to/scene.runtime.json"\n');

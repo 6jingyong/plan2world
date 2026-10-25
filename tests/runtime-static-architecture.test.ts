@@ -36,7 +36,7 @@ function scene(): Plan2WorldRuntimeSceneV1 {
         traversal: { kind: 'unsupported', reason: 'non-straight' },
       },
       {
-        id: 'furniture-1', floorId: 'floor-0', kind: 'furniture', catalogId: 'sofa', assetRef: 'catalog:sofa',
+        id: 'furniture-1', floorId: 'floor-0', kind: 'furniture', locked: false, movement: { kind: 'floor', elevation: 0 }, catalogId: 'sofa', assetRef: 'catalog:sofa',
         position: [2, 0.4, 2], yawClockwiseRadians: 0, size: [2, 0.8, 0.9],
       },
     ],

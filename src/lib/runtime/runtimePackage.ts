@@ -26,6 +26,10 @@ export function runtimePackageFiles(artifacts: RuntimeArtifacts): Map<string, Ui
       'Start the separate Plan2World Runtime player, choose Open runtime scene, and select scene.runtime.json.\n' +
       'The scene runs offline. Move or share this whole directory, not just the JSON.\n\n' +
       'WASD move | Ctrl slow | Shift fast | Mouse look | E door | Esc mouse | F1 scene menu\n\n' +
+      'F2 / gamepad Y switches first person and native top view.\n' +
+      'Open editable Project enables furniture layout from your native Project JSON/package.\n' +
+      'First person: F / X focuses furniture; arrows / left stick nudge; F / Enter / A places; Esc / B cancels preview.\n' +
+      'Top view: left drag moves furniture, middle/right drag pans, wheel zooms. No undo/history.\n\n' +
       'This is a compiled scene. Keep the native Project JSON/project package for editing.\n' +
       (notes.length ? `\nExport notes\n${notes.join('\n')}\n` : ''),
     )],

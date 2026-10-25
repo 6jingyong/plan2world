@@ -66,8 +66,11 @@ retain native inputs, canonical results, hashes and representative inspected vie
 
 ## Next priorities
 
-1. Complete local product-editor checks and inspect native top-view/first-person
-   input and rendering; see [layout ownership and scope](godot-furniture-layout.md).
+1. Continue real-house acceptance and product hardening: resolve saved layouts
+   against default closed-door poses, measure large-scene import/edit latency and
+   improve wall-picking/HUD clarity. Native mode separation, no-history editing,
+   entrance contracts and transactional loading have local engine coverage; see
+   [layout ownership and results](godot-furniture-layout.md).
 2. On explicit publication, run the updated native Linux/Windows CI and full
    main-level regressions for this new milestone. Do not push or merge by default.
 3. Perform Windows Forward+ hardware/manual acceptance on the target machine.

@@ -13,7 +13,7 @@ export function setRuntimeStart(point: Point): Point | undefined {
   const floor = get(activeFloor);
   if (!floor) return undefined;
   const resolved = resolveClearancePoint(point, buildFloorClearance(floor));
-  if (floor.walkthroughStart?.x === resolved.x && floor.walkthroughStart?.y === resolved.y) return resolved;
+  if (!floor.entrance && floor.walkthroughStart?.x === resolved.x && floor.walkthroughStart?.y === resolved.y) return resolved;
 
   beginUndoGroup();
   try {
@@ -21,6 +21,7 @@ export function setRuntimeStart(point: Point): Point | undefined {
       if (!project) return project;
       const target = project.floors.find(item => item.id === project.activeFloorId);
       if (!target) return project;
+      delete target.entrance;
       target.walkthroughStart = { ...resolved };
       project.updatedAt = new Date();
       return { ...project };
@@ -34,18 +35,37 @@ export function setRuntimeStart(point: Point): Point | undefined {
 /** Remove the explicit start so the compiler chooses an automatic interior spawn. */
 export function clearRuntimeStart() {
   const floor = get(activeFloor);
-  if (!floor?.walkthroughStart) return;
+  if (!floor || (!floor.walkthroughStart && !floor.entrance)) return;
   beginUndoGroup();
   try {
     currentProject.update(project => {
       if (!project) return project;
       const target = project.floors.find(item => item.id === project.activeFloorId);
-      if (!target?.walkthroughStart) return project;
+      if (!target) return project;
       delete target.walkthroughStart;
+      delete target.entrance;
       project.updatedAt = new Date();
       return { ...project };
     });
   } finally {
     endUndoGroup('Cleared walkthrough start');
   }
+}
+
+/** Main door and inward side are author-supplied evidence, never engine guesses. */
+export function setRuntimeEntrance(doorId: string, side: 'left' | 'right') {
+  const floor = get(activeFloor);
+  if (!floor?.doors.some(door => door.id === doorId)) return;
+  beginUndoGroup();
+  try {
+    currentProject.update(project => {
+      if (!project) return project;
+      for (const item of project.floors) delete item.entrance;
+      const target = project.floors.find(item => item.id === floor.id)!;
+      target.entrance = { doorId, side };
+      delete target.walkthroughStart;
+      project.updatedAt = new Date();
+      return { ...project };
+    });
+  } finally { endUndoGroup('Set main entrance'); }
 }

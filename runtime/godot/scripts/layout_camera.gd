@@ -3,7 +3,8 @@ extends Node3D
 signal view_settled
 signal view_started
 signal furniture_selected(id: String)
-signal furniture_moved(id: String, point: Vector2)
+signal furniture_moved(id: String, point: Vector3)
+signal preview_cancelled
 signal placement_blocked
 
 var camera: Camera3D
@@ -28,9 +29,9 @@ var _building_height := 0.0
 var _tween: Tween
 var _panning := false
 var _moving := false
-var _origin := Vector2.ZERO
-var _preview := Vector2.ZERO
-var _grab_offset := Vector2.ZERO
+var _origin := Vector3.ZERO
+var _preview := Vector3.ZERO
+var _grab_offset := Vector3.ZERO
 var _model: Node3D
 var _model_pose := Transform3D.IDENTITY
 var _visibility: Array = []
@@ -65,7 +66,7 @@ func refresh(scene: Dictionary, nodes: Dictionary, models: Dictionary) -> void:
 		if entity["kind"] != "furniture":
 			continue
 		var area := Area3D.new()
-		area.collision_layer = 2 if entity["floorId"] == floor_id else 0
+		area.collision_layer = 2 if not active or entity["floorId"] == floor_id else 0
 		area.collision_mask = 0
 		area.set_meta("furniture_id", entity["id"])
 		area.set_meta("floor_id", entity["floorId"])
@@ -99,8 +100,6 @@ func select_floor(id: String) -> void:
 	_bounds = Rect2(points[0], Vector2.ZERO) if not points.is_empty() else Rect2(-1, -1, 2, 2)
 	for point in points:
 		_bounds = _bounds.expand(point)
-	for area in _areas.get_children():
-		area.collision_layer = 2 if area.get_meta("floor_id") == id else 0
 	fit_floor()
 	update_floor_visibility()
 
@@ -108,6 +107,7 @@ func view_center() -> Vector2:
 	return _center
 
 func fit_floor() -> void:
+	cancel_drag()
 	_center = _bounds.get_center()
 	var viewport := get_viewport().get_visible_rect().size
 	var aspect := maxf(viewport.x, 1) / maxf(viewport.y, 1)
@@ -150,6 +150,8 @@ func _animate(target: Transform3D) -> void:
 		view_settled.emit())
 
 func update_floor_visibility() -> void:
+	for area in _areas.get_children():
+		area.collision_layer = 2 if not active or area.get_meta("floor_id") == floor_id else 0
 	for saved in _visibility:
 		if is_instance_valid(saved[0]):
 			saved[0].visible = saved[1]
@@ -209,21 +211,13 @@ func _unhandled_input(event: InputEvent) -> void:
 			if event.pressed:
 				_pick(event.position)
 			elif _moving:
-				_moving = false
-				if _preview.distance_to(_origin) > 0.0001:
-					if _preview_allowed():
-						furniture_moved.emit(selected_id, _preview)
-					else:
-						cancel_drag()
-						placement_blocked.emit()
+				commit_move()
 		get_viewport().set_input_as_handled()
 	elif event is InputEventMouseMotion:
 		var point = _plane_point(event.position)
 		if _moving and point != null:
-			_preview = Vector2(point.x, point.z) - _grab_offset
-			if is_instance_valid(_model):
-				_model.global_position = _model_pose.origin + Vector3(_preview.x - _origin.x, 0, _preview.y - _origin.y)
-			_highlight_selected(Color.GREEN if _preview_allowed() else Color.RED)
+			_preview = constrained_position(point - _grab_offset)
+			_show_preview()
 		elif _panning and point != null:
 			var previous = _plane_point(event.position - event.relative)
 			if previous != null:
@@ -237,22 +231,73 @@ func _pick(screen: Vector2) -> void:
 	query.collide_with_bodies = false
 	query.collide_with_areas = true
 	var hit := get_world_3d().direct_space_state.intersect_ray(query)
-	selected_id = "" if hit.is_empty() else str(hit["collider"].get_meta("furniture_id"))
+	var id := "" if hit.is_empty() else str(hit["collider"].get_meta("furniture_id"))
+	if begin_adjust(id):
+		var point = _plane_point(screen)
+		_grab_offset = point - _origin
+
+func begin_adjust(id: String) -> bool:
+	cancel_drag()
+	if _entities.has(id) and _entities[id]["floorId"] != floor_id:
+		select_floor(_entities[id]["floorId"])
+	selected_id = id if _entities.has(id) and _entities[id]["kind"] == "furniture" else ""
 	furniture_selected.emit(selected_id)
-	if selected_id.is_empty():
-		return
-	var entity: Dictionary = _entities[selected_id]
-	_origin = Vector2(entity["position"][0], entity["position"][2])
+	if not editing or not _entities.has(id) or _entities[id]["kind"] != "furniture": return false
+	var entity: Dictionary = _entities[id]
+	if entity.get("locked", false) or entity["movement"]["kind"] == "unbound-wall": return false
+	_origin = _vec3(entity["position"])
 	_preview = _origin
-	var point = _plane_point(screen)
-	_grab_offset = Vector2(point.x, point.z) - _origin
-	_model = _models.get(selected_id)
+	_model = _models.get(id)
 	if _model != null:
 		_model_pose = _model.global_transform
 	_moving = true
 	_highlight_selected(Color.GREEN)
+	return true
+
+func constrained_position(point: Vector3) -> Vector3:
+	var entity: Dictionary = _entities[selected_id]
+	var motion: Dictionary = entity["movement"]
+	if motion["kind"] == "floor":
+		return Vector3(point.x, _origin.y, point.z)
+	var origin := _vec3(motion["origin"])
+	var tangent := _vec3(motion["tangent"])
+	var along := clampf((point - origin).dot(tangent), motion["along"][0], motion["along"][1])
+	var half_height := float(entity["size"][1]) / 2
+	var bottom := clampf(point.y - origin.y - half_height, motion["bottom"][0], motion["bottom"][1])
+	return origin + tangent * along + Vector3.UP * (bottom + half_height)
+
+func preview_delta(delta: Vector3) -> bool:
+	var next := constrained_position(_preview + delta)
+	if not placement_allowed(data, selected_id, next - _origin): return false
+	_preview = next
+	_show_preview()
+	return true
+
+func _show_preview() -> void:
+	if is_instance_valid(_model):
+		_model.global_position = _model_pose.origin + _preview - _origin
+	_highlight_selected(Color.GREEN if _preview_allowed() else Color.RED)
+
+func commit_move() -> void:
+	_moving = false
+	if _preview.distance_to(_origin) <= 0.00001:
+		cancel_drag()
+		return
+	if _preview_allowed():
+		furniture_moved.emit(selected_id, _preview)
+	else:
+		cancel_drag()
+		placement_blocked.emit()
+
+func move_command(id: String, point: Vector3) -> Dictionary:
+	var entity: Dictionary = _entities[id]
+	var command := { "type": "move", "id": id, "floorId": entity["floorId"], "position": { "x": point.x * 100, "y": point.z * 100 } }
+	if entity["movement"]["kind"] == "wall":
+		command["elevation"] = (point.y - float(entity["size"][1]) / 2 - float(entity["movement"]["origin"][1])) * 100
+	return command
 
 func cancel_drag() -> void:
+	var was_moving := _moving
 	_panning = false
 	_moving = false
 	if is_instance_valid(_model):
@@ -260,31 +305,63 @@ func cancel_drag() -> void:
 	_model = null
 	if _highlight != null:
 		_highlight.hide()
+	if was_moving: preview_cancelled.emit()
 
 func _preview_allowed() -> bool:
-	return placement_allowed(data, selected_id, Vector3(_preview.x - _origin.x, 0, _preview.y - _origin.y))
+	return placement_allowed(data, selected_id, (_preview - _origin))
 
 func placement_allowed(scene: Dictionary, id: String, offset := Vector3.ZERO) -> bool:
-	var rooms := {}
+	var entity: Dictionary = {}
+	for item in scene["entities"]:
+		if item["id"] == id: entity = item; break
+	if entity.is_empty() or entity.get("locked", false) or entity["movement"]["kind"] == "unbound-wall": return false
+	var pose := _vec3(entity["position"]) + offset
+	var movement: Dictionary = entity["movement"]
+	if movement["kind"] == "floor" and not _floor_support(entity, pose): return false
+	if movement["kind"] == "wall":
+		var origin := _vec3(movement["origin"])
+		var along := (pose-origin).dot(_vec3(movement["tangent"]))
+		var half_width := float(entity["size"][0])/2
+		var bottom := pose.y-origin.y-float(entity["size"][1])/2
+		for opening in movement["blocked"]:
+			if along+half_width > opening["along"][0]+0.00001 and along-half_width < opening["along"][1]-0.00001 and bottom+float(entity["size"][1]) > opening["bottom"][0]+0.00001 and bottom < opening["bottom"][1]-0.00001: return false
+	var exclusions: Array[RID] = []
+	var room_ids := {}
 	for floor in data["floors"]:
-		for room in floor["rooms"]:
-			rooms[room["id"]] = true
+		for room in floor["rooms"]: room_ids[room["id"]] = true
+	for collider in data["colliders"]:
+		if (room_ids.has(collider["ownerId"]) or collider["ownerId"] == id) and _nodes.has(collider["id"]):
+			exclusions.append(_nodes[collider["id"]].get_rid())
+	# The semantic size also constrains placement of rugs/non-walking markers;
+	# it does not add any collider to the runtime world.
+	var shape := BoxShape3D.new()
+	shape.size = _vec3(entity["size"]).max(Vector3(0.001,0.001,0.001)) * 0.999
+	var query := PhysicsShapeQueryParameters3D.new()
+	query.shape = shape
+	query.transform = Transform3D(Basis(Vector3.UP, -float(entity["yawClockwiseRadians"])), pose)
+	query.collision_mask = 1
+	query.exclude = exclusions
+	query.margin = 0.0
+	return get_world_3d().direct_space_state.intersect_shape(query, 1).is_empty()
+
+func _floor_support(entity: Dictionary, pose: Vector3) -> bool:
+	var angle := -float(entity["yawClockwiseRadians"])
+	var frame := Basis(Vector3.UP, angle)
+	var size := _vec3(entity["size"])
+	var elevation := float(entity["movement"]["elevation"])
+	var floor_owners := {}
+	for floor in data["floors"]:
+		if floor["id"] == entity["floorId"]:
+			for room in floor["rooms"]: floor_owners[room["id"]] = true
 	var exclusions: Array[RID] = []
 	for collider in data["colliders"]:
-		if (rooms.has(collider["ownerId"]) or collider["ownerId"] == id) and _nodes.has(collider["id"]):
-			exclusions.append(_nodes[collider["id"]].get_rid())
-	for collider in scene["colliders"]:
-		if collider["ownerId"] != id or collider["kind"] != "box":
-			continue
-		var shape := BoxShape3D.new()
-		shape.size = _vec3(collider["size"])
-		var query := PhysicsShapeQueryParameters3D.new()
-		query.shape = shape
-		query.transform = Transform3D(Basis(Vector3.UP, -float(collider["yawClockwiseRadians"])), _vec3(collider["center"]) + offset)
-		query.collision_mask = 1
-		query.exclude = exclusions
-		query.margin = 0.001
-		return get_world_3d().direct_space_state.intersect_shape(query, 1).is_empty()
+		if collider["ownerId"] == entity["id"] and _nodes.has(collider["id"]): exclusions.append(_nodes[collider["id"]].get_rid())
+	for corner in [Vector3.ZERO, Vector3(-0.49,0,-0.49), Vector3(-0.49,0,0.49), Vector3(0.49,0,-0.49), Vector3(0.49,0,0.49)]:
+		var point: Vector3 = Vector3(pose.x, elevation, pose.z) + frame * (corner * size)
+		var ray := PhysicsRayQueryParameters3D.create(point + Vector3.UP * 0.01, point - Vector3.UP * 0.02, 1)
+		ray.exclude = exclusions
+		var hit := get_world_3d().direct_space_state.intersect_ray(ray)
+		if hit.is_empty() or not floor_owners.has(hit["collider"].get_meta("p2w_owner_id", "")): return false
 	return true
 
 func _highlight_selected(color: Color) -> void:
@@ -297,7 +374,7 @@ func _highlight_selected(color: Color) -> void:
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	material.albedo_color = Color(color, 0.2)
 	_highlight.material_override = material
-	_highlight.global_transform = Transform3D(Basis(Vector3.UP, -float(entity["yawClockwiseRadians"])), _vec3(entity["position"]) + Vector3(_preview.x - _origin.x, 0, _preview.y - _origin.y))
+	_highlight.global_transform = Transform3D(Basis(Vector3.UP, -float(entity["yawClockwiseRadians"])), _vec3(entity["position"]) + (_preview - _origin))
 	_highlight.show()
 
 func _vec3(value: Array) -> Vector3:

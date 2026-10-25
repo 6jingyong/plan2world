@@ -12,20 +12,20 @@ func render(data: Dictionary, root: Node3D, build_result: Dictionary, assets: Di
 		var owner_id := str(entity["id"])
 		if kind == "furniture":
 			var pose := { "center": entity["position"], "yawClockwiseRadians": entity["yawClockwiseRadians"] }
-			var instance := _instance(owner_id, owner_id, entity["assetRef"], pose, _vec3(entity["size"]), _vec3(entity.get("mirror", [1, 1, 1])), root, root.global_transform, assets)
+			var instance := _instance(owner_id, owner_id, entity["assetRef"], pose, _vec3(entity["size"]), _vec3(entity.get("mirror", [1, 1, 1])), root, root, assets)
 			if instance != null:
 				instances[owner_id] = instance
 				presented[owner_id] = true
 		elif kind == "door":
 			for leaf in entity["interaction"].get("leaves", []):
 				var id := str(leaf["id"])
-				var instance := _instance(id, owner_id, leaf["assetRef"], leaf["closedPose"], _vec3(leaf["size"]), Vector3.ONE, leaf_nodes[id], root.global_transform, assets)
+				var instance := _instance(id, owner_id, leaf["assetRef"], leaf["closedPose"], _vec3(leaf["size"]), Vector3.ONE, leaf_nodes[id], root, assets)
 				if instance != null:
 					instances[id] = instance
 					presented[id] = true
 	return { "presented": presented, "instances": instances }
 
-func _instance(id: String, owner_id: String, ref: String, pose: Dictionary, size: Vector3, mirror: Vector3, parent: Node3D, runtime_frame: Transform3D, assets: Dictionary) -> Node3D:
+func _instance(id: String, owner_id: String, ref: String, pose: Dictionary, size: Vector3, mirror: Vector3, parent: Node3D, runtime_root: Node3D, assets: Dictionary) -> Node3D:
 	if not assets.has(ref):
 		return null
 	var asset: Dictionary = assets[ref]
@@ -37,7 +37,12 @@ func _instance(id: String, owner_id: String, ref: String, pose: Dictionary, size
 	var closed_transform := Transform3D(Basis(Vector3.UP, -float(pose["yawClockwiseRadians"])).scaled_local(size * mirror), _vec3(pose["center"]))
 	parent.add_child(instance)
 	# Leaf parents are loader-owned bodies at their explicit closed transforms.
-	instance.global_transform = runtime_frame * closed_transform
+	var parent_pose := Transform3D.IDENTITY
+	var ancestor := parent
+	while ancestor != runtime_root:
+		parent_pose = ancestor.transform * parent_pose
+		ancestor = ancestor.get_parent() as Node3D
+	instance.transform = parent_pose.affine_inverse() * closed_transform
 	var normalization: Dictionary = asset["normalization"]
 	var fit := Node3D.new()
 	fit.name = "Normalization"

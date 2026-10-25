@@ -7,6 +7,7 @@ const RUNTIME_PROXY_RENDERER := preload("res://scripts/runtime_proxy_renderer.gd
 const RUNTIME_LAUNCHER := preload("res://scripts/runtime_launcher.gd")
 const RUNTIME_PLAN_VIEW := preload("res://scripts/runtime_plan_view.gd")
 const LAYOUT_SESSION := preload("res://scripts/layout_session.gd")
+const FURNITURE_ADJUSTMENT := preload("res://scripts/furniture_adjustment.gd")
 const LAYOUT_CAMERA := preload("res://scripts/layout_camera.gd")
 
 enum ViewMode { WALKTHROUGH, PLAN }
@@ -14,6 +15,9 @@ enum ViewMode { WALKTHROUGH, PLAN }
 var _world: Node3D
 var _launcher
 var _spawn: Vector3
+var _spawn_yaw = null
+var _adjustment
+var _editing := false
 var _plan_view
 var _view_mode := ViewMode.WALKTHROUGH
 var _menu_open := false
@@ -39,10 +43,7 @@ func _ready() -> void:
 	add_child(_discard)
 	_launcher = RUNTIME_LAUNCHER.new()
 	add_child(_launcher)
-	_launcher.scene_selected.connect(func(path: String): _request_action(func():
-		if _open_scene(path):
-			_session.clear()
-			_sync_editor()))
+	_launcher.scene_selected.connect(func(path: String): _request_action(_open_scene.bind(path)))
 	_launcher.project_selected.connect(func(path: String): _request_action(_open_project.bind(path)))
 	_launcher.resume_requested.connect(_resume)
 	_launcher.respawn_requested.connect(_return_to_start)
@@ -53,7 +54,7 @@ func _ready() -> void:
 	else:
 		_open_scene(runtime_path, artifacts.architecture_path_from_args(runtime_path))
 
-func _open_scene(runtime_path: String, architecture_path: String = "") -> bool:
+func _open_scene(runtime_path: String, architecture_path: String = "", editor_state: Dictionary = {}) -> bool:
 	var artifacts := RUNTIME_ARTIFACTS.new()
 	if architecture_path.is_empty():
 		architecture_path = artifacts.default_architecture_path(runtime_path)
@@ -61,59 +62,49 @@ func _open_scene(runtime_path: String, architecture_path: String = "") -> bool:
 	if data.is_empty():
 		_show_menu("Could not open this compiled runtime scene.\nExport a runtime scene from Plan2World and select its runtime JSON.\n%s" % runtime_path)
 		return false
+	if not artifacts.architecture_matches(data, architecture_path):
+		_show_menu("The architecture GLB belongs to a different export. Open the complete matching scene package.")
+		return false
 	var spawn = _choose_spawn(data)
 	if spawn == null:
 		_show_menu("Runtime scene has no compiled player spawn. Re-export after setting a valid spawn in the authoring project.")
 		return false
-	_spawn = spawn
-	_runtime_data = data
-	_collider_nodes = {}
-	_furniture_collider_ids = []
-	_furniture_root = null
-	_layout_camera = null
-
-	# Validate before replacing a running scene, so a failed open can be resumed.
-	if _world != null:
-		remove_child(_world)
-		_world.queue_free()
-	_world = Node3D.new()
+	# Resources and node construction stay outside the active SceneTree. A
+	# candidate cannot render, collide or consume input before this commit.
+	var stage := _stage_world(data, artifacts, runtime_path, architecture_path)
+	if stage.is_empty():
+		_show_menu("Could not build the runtime scene; the previous world is retained.")
+		return false
+	var previous := _world
+	if previous != null:
+		remove_child(previous)
+	_world = stage["world"]
 	_world.name = "RuntimeScene"
 	_world.process_mode = Node.PROCESS_MODE_PAUSABLE
+	_spawn = spawn
+	_spawn_yaw = _spawn_floor(data).get("walkthroughYawClockwiseRadians")
+	_runtime_data = data
+	_collider_nodes = stage["colliders"]
+	_furniture_root = stage["furniture"]["root"]
+	_furniture_models = stage["furniture"]["models"]
+	_furniture_collider_ids = stage["furniture"]["colliders"].keys()
 	add_child(_world)
-	_build_environment()
-
-	var architecture_scene = artifacts.load_architecture(architecture_path)
-	var presentation_loaded := architecture_scene != null
-	if presentation_loaded:
-		_world.add_child(architecture_scene)
-
-	var loader := RUNTIME_LOADER.new()
-	var furniture_ids := {}
-	for entity in data["entities"]:
-		if entity["kind"] == "furniture":
-			furniture_ids[entity["id"]] = true
-	var static_data := data.duplicate()
-	static_data["entities"] = data["entities"].filter(func(entity): return entity["kind"] != "furniture")
-	static_data["colliders"] = data["colliders"].filter(func(collider): return not furniture_ids.has(collider["ownerId"]))
-	var build_result := loader.build(static_data, _world)
-	_collider_nodes = build_result["collider_nodes"]
-	var assets := artifacts.load_assets(runtime_path)
-	var asset_renderer := RUNTIME_ASSET_RENDERER.new()
-	var asset_result := asset_renderer.render(static_data, _world, build_result, assets)
-	var proxy_renderer := RUNTIME_PROXY_RENDERER.new()
-	var presentation_stats := proxy_renderer.render(static_data, _world, build_result, presentation_loaded, asset_result.get("presented", {}))
-	var runtime_stats: Dictionary = build_result.get("stats", {})
-	var furniture_result := _render_furniture(data, assets)
-	runtime_stats["entity_count"] += furniture_ids.size()
-	runtime_stats["static_collider_count"] += _furniture_collider_ids.size()
-
+	var presentation_loaded: bool = stage["presentation_loaded"]
+	var presentation_stats: Dictionary = stage["presentation_stats"]
+	var runtime_stats: Dictionary = stage["runtime_stats"]
+	var asset_count: int = stage["asset_count"]
 	var player := P2WPlayer.new()
 	player.name = "Player"
 	_world.add_child(player)
-	player.configure(data.get("playerProfile", {}), spawn)
+	player.configure(data.get("playerProfile", {}), spawn, _spawn_yaw)
 	_layout_camera = LAYOUT_CAMERA.new()
 	_world.add_child(_layout_camera)
 	_layout_camera.configure(data, _collider_nodes, _furniture_models, player)
+	_adjustment = FURNITURE_ADJUSTMENT.new()
+	_world.add_child(_adjustment)
+	_adjustment.configure(_layout_camera, player)
+	_adjustment.state_changed.connect(_sync_controls)
+	_adjustment.message.connect(_layout_message)
 	_plan_view = RUNTIME_PLAN_VIEW.new()
 	_world.add_child(_plan_view)
 	_plan_view.configure(data, _layout_camera)
@@ -121,8 +112,6 @@ func _open_scene(runtime_path: String, architecture_path: String = "") -> bool:
 	_layout_camera.view_settled.connect(_sync_controls)
 	_plan_view.walkthrough_requested.connect(_show_walkthrough)
 	_plan_view.command_requested.connect(_edit_layout)
-	_plan_view.undo_requested.connect(func(): _apply_layout_revision(_session.undo()))
-	_plan_view.redo_requested.connect(func(): _apply_layout_revision(_session.redo()))
 	_plan_view.save_requested.connect(_save_layout)
 	_plan_view.export_requested.connect(func(path: String):
 		var error: Error = _session.export_runtime(path)
@@ -141,12 +130,16 @@ func _open_scene(runtime_path: String, architecture_path: String = "") -> bool:
 	if unsupported > 0:
 		notes.append("%d unsupported door/stair interaction(s); see scene export notes." % unsupported)
 	_show_status(
-		"WASD move · Ctrl slow · Shift fast · E door · F2 top view · F1 menu\nProject: %s" % str(data["source"]["projectName"]) + ("\n" + "\n".join(notes) if not notes.is_empty() else ""),
+		"WASD move · Ctrl slow · Shift fast · E door · F furniture · F2 top view · F1 menu\nProject: %s" % str(data["source"]["projectName"]) + ("\n" + "\n".join(notes) if not notes.is_empty() else ""),
 	)
+	if editor_state.is_empty(): _session.clear()
+	else: _session.accept(editor_state, true)
+	if previous != null:
+		previous.queue_free()
 	_resume()
 	_sync_editor()
 	print("Plan2World runtime loaded: ", runtime_path, " architecture=", presentation_status,
-		" runtime=", runtime_stats, " assets=", asset_result.get("presented", {}).size() + int(furniture_result["asset_count"]), " presentation=", presentation_stats)
+		" runtime=", runtime_stats, " assets=", asset_count, " presentation=", presentation_stats)
 	return true
 
 func _request_action(action: Callable) -> void:
@@ -167,80 +160,119 @@ func _open_project(path: String) -> void:
 	if not result.get("ok", false):
 		_show_menu(str(result["error"]))
 		return
-	_open_scene(str(result["runtimePath"]))
+	if not _open_scene(str(result["runtimePath"]), "", result):
+		_session.discard_candidate(result)
+		return
 	_view_mode = ViewMode.PLAN
 	_resume()
 	_sync_editor()
 
 func _edit_layout(command: Dictionary) -> void:
-	if _session.busy:
+	if _session.busy or _editing:
 		return
-	_plan_view.set_editor(_session.current(), true, false, false, _session.is_dirty())
+	_editing = true
+	_sync_controls()
+	_plan_view.set_editor(_session.current(), true, _session.is_dirty())
 	_launcher.set_busy(true)
 	var result: Dictionary = await _session.apply_command(command)
 	_launcher.set_busy(false)
+	_editing = false
 	if result.get("ok", false):
 		var candidate: Dictionary = RUNTIME_ARTIFACTS.new().load_runtime(str(result["runtimePath"]))
 		var id := "" if result.get("selectedId") == null else str(result["selectedId"])
-		if not id.is_empty() and not _layout_camera.placement_allowed(candidate, id):
+		if candidate.is_empty() or (not id.is_empty() and not _layout_camera.placement_allowed(candidate, id)):
 			_layout_camera.cancel_drag()
-			_session.discard_revision(result)
-			_sync_editor()
-			_plan_view.show_message("Furniture overlaps an obstacle.")
+			_session.discard_candidate(result)
+			_sync_controls()
+			_layout_message("Furniture overlaps an obstacle.")
 			return
-		_session.commit_revision(result)
-		_apply_layout_revision(result)
+		_apply_layout_state(result, candidate)
+		_session.accept(result)
+		_sync_controls()
 	else:
 		_layout_camera.cancel_drag()
-		_sync_editor()
-		_plan_view.show_message(str(result["error"]))
+		_sync_controls()
+		_layout_message(str(result["error"]))
 
-func _apply_layout_revision(revision: Dictionary) -> void:
-	if revision.is_empty():
-		return
+func _apply_layout_state(state: Dictionary, data: Dictionary) -> void:
 	var artifacts := RUNTIME_ARTIFACTS.new()
-	var data: Dictionary = artifacts.load_runtime(str(revision["runtimePath"]))
-	_render_furniture(data, artifacts.load_assets(str(revision["runtimePath"])))
+	_render_furniture(data, artifacts.load_assets(str(state["runtimePath"])))
 	_runtime_data = data
 	_spawn = _choose_spawn(data)
+	_spawn_yaw = _spawn_floor(data).get("walkthroughYawClockwiseRadians")
 	_layout_camera.refresh(data, _collider_nodes, _furniture_models)
-	_layout_camera.selected_id = "" if revision.get("selectedId") == null else str(revision["selectedId"])
+	_layout_camera.selected_id = "" if state.get("selectedId") == null else str(state["selectedId"])
 	_sync_editor()
 
-func _render_furniture(data: Dictionary, assets: Dictionary) -> Dictionary:
-	if _furniture_root != null:
-		_world.remove_child(_furniture_root)
-		_furniture_root.queue_free()
-	for id in _furniture_collider_ids:
-		_collider_nodes.erase(id)
-	_furniture_root = Node3D.new()
-	_furniture_root.name = "FurnitureLayout"
-	_world.add_child(_furniture_root)
+func _stage_world(data: Dictionary, artifacts, runtime_path: String, architecture_path: String) -> Dictionary:
+	var world := Node3D.new()
+	_build_environment(world)
+	var architecture = artifacts.load_architecture(architecture_path)
+	if architecture != null:
+		world.add_child(architecture)
+	var ids := {}
+	for entity in data["entities"]:
+		if entity["kind"] == "furniture": ids[entity["id"]] = true
+	var static_data := data.duplicate()
+	static_data["entities"] = data["entities"].filter(func(entity): return entity["kind"] != "furniture")
+	static_data["colliders"] = data["colliders"].filter(func(collider): return not ids.has(collider["ownerId"]))
+	var built: Dictionary = RUNTIME_LOADER.new().build(static_data, world)
+	var assets: Dictionary = artifacts.load_assets(runtime_path)
+	var presented: Dictionary = RUNTIME_ASSET_RENDERER.new().render(static_data, world, built, assets)
+	var stats: Dictionary = RUNTIME_PROXY_RENDERER.new().render(static_data, world, built, architecture != null, presented["presented"])
+	var furniture := _build_furniture(data, assets, world)
+	var colliders: Dictionary = built["collider_nodes"]
+	colliders.merge(furniture["colliders"])
+	if colliders.size() != data["colliders"].size():
+		world.free()
+		return {}
+	stats["collider_proxy_count"] += furniture["proxy_count"]
+	built["stats"]["entity_count"] += ids.size()
+	built["stats"]["static_collider_count"] += furniture["colliders"].size()
+	return { "world": world, "colliders": colliders, "furniture": furniture, "presentation_loaded": architecture != null, "presentation_stats": stats, "runtime_stats": built["stats"], "asset_count": presented["presented"].size() + furniture["asset_count"] }
+
+func _build_furniture(data: Dictionary, assets: Dictionary, world: Node3D) -> Dictionary:
+	var group := Node3D.new()
+	group.name = "FurnitureLayout"
+	world.add_child(group)
 	var entities: Array = data["entities"].filter(func(entity): return entity["kind"] == "furniture")
 	var ids := {}
 	for entity in entities:
 		ids[entity["id"]] = true
 	var furniture := { "entities": entities, "colliders": data["colliders"].filter(func(collider): return ids.has(collider["ownerId"])), "floors": [] }
-	var built: Dictionary = RUNTIME_LOADER.new().build(furniture, _furniture_root)
-	var presented: Dictionary = RUNTIME_ASSET_RENDERER.new().render(furniture, _furniture_root, built, assets)
-	var proxy: Dictionary = RUNTIME_PROXY_RENDERER.new().render(furniture, _furniture_root, built, true, presented["presented"])
-	_furniture_models = presented["instances"].duplicate()
-	_furniture_models.merge(proxy["instances"])
-	_furniture_collider_ids = built["collider_nodes"].keys()
-	_collider_nodes.merge(built["collider_nodes"], true)
-	return { "asset_count": presented["presented"].size() }
+	var built: Dictionary = RUNTIME_LOADER.new().build(furniture, group)
+	var presented: Dictionary = RUNTIME_ASSET_RENDERER.new().render(furniture, group, built, assets)
+	var proxy: Dictionary = RUNTIME_PROXY_RENDERER.new().render(furniture, group, built, true, presented["presented"])
+	var models: Dictionary = presented["instances"].duplicate()
+	models.merge(proxy["instances"])
+	return { "root": group, "colliders": built["collider_nodes"], "models": models, "asset_count": presented["presented"].size(), "proxy_count": proxy["collider_proxy_count"] }
+
+func _render_furniture(data: Dictionary, assets: Dictionary) -> void:
+	var next := _build_furniture(data, assets, _world)
+	if _furniture_root != null:
+		_world.remove_child(_furniture_root)
+		_furniture_root.queue_free()
+	for id in _furniture_collider_ids:
+		_collider_nodes.erase(id)
+	_furniture_root = next["root"]
+	_furniture_root.name = "FurnitureLayout"
+	_furniture_models = next["models"]
+	_furniture_collider_ids = next["colliders"].keys()
+	_collider_nodes.merge(next["colliders"], true)
 
 func _sync_editor() -> void:
-	_plan_view.set_editor(_session.current(), _session.busy or _layout_camera.transitioning, _session.index > 0, _session.index + 1 < _session.history.size(), _session.is_dirty())
+	_plan_view.set_editor(_session.current(), _session.busy or _editing or _layout_camera.transitioning, _session.is_dirty())
 
 func _sync_controls() -> void:
-	var walking: bool = not _menu_open and _view_mode == ViewMode.WALKTHROUGH and not _layout_camera.transitioning
+	var walking: bool = not _menu_open and _view_mode == ViewMode.WALKTHROUGH and not _layout_camera.transitioning and not _adjustment.active and not _editing
 	var player := _world.get_node("Player") as P2WPlayer
 	player.set_physics_process(walking)
-	player.set_process_unhandled_input(walking)
+	player.set_process_unhandled_input(not _menu_open and _view_mode == ViewMode.WALKTHROUGH and not _layout_camera.transitioning)
+	player.interaction_enabled = walking
+	_adjustment.set_process_unhandled_input(not _menu_open and not _editing)
 	_layout_camera.set_process_unhandled_input(not _menu_open)
 	if not _menu_open:
-		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED if walking else Input.MOUSE_MODE_VISIBLE
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED if _view_mode == ViewMode.WALKTHROUGH and not _layout_camera.transitioning else Input.MOUSE_MODE_VISIBLE
 	_sync_editor()
 
 func _save_layout(path: String) -> void:
@@ -282,6 +314,7 @@ func _show_menu(message: String = "") -> void:
 	# here so explicit resume cannot replay movement from before the pause.
 	_release_actions()
 	if _world != null:
+		_adjustment.cancel()
 		_plan_view.cancel_drag()
 		_plan_view.hide()
 		_sync_controls()
@@ -297,7 +330,7 @@ func _notification(what: int) -> void:
 		_show_menu("Session paused while this window was inactive.")
 
 func _return_to_start() -> void:
-	_world.get_node("Player").respawn(_spawn)
+	_world.get_node("Player").respawn(_spawn, _spawn_yaw)
 	_show_walkthrough()
 
 func _resume() -> void:
@@ -305,6 +338,7 @@ func _resume() -> void:
 		return
 	_launcher.hide_menu()
 	_menu_open = false
+	_adjustment.cancel()
 	var plan := _view_mode == ViewMode.PLAN
 	_plan_view.visible = plan
 	_world.get_node("HUD").visible = not plan
@@ -312,14 +346,35 @@ func _resume() -> void:
 	_layout_camera.set_plan_mode(plan)
 	_sync_controls()
 
-func _choose_spawn(data: Dictionary):
-	for floor in data.get("floors", []):
-		var point = floor.get("walkthroughStart", null)
-		if typeof(point) == TYPE_ARRAY and point.size() == 3:
-			return Vector3(float(point[0]), float(point[1]), float(point[2]))
-	return null
+func _spawn_floor(data: Dictionary) -> Dictionary:
+	for floor in data["floors"]:
+		if floor.has("entranceDoorId"): return floor
+	for floor in data["floors"]:
+		if floor["walkthroughStart"] != null: return floor
+	return {}
 
-func _build_environment() -> void:
+func _choose_spawn(data: Dictionary):
+	var floor := _spawn_floor(data)
+	if floor.is_empty(): return null
+	var point: Array = floor["walkthroughStart"]
+	return Vector3(point[0],point[1],point[2])
+
+func _layout_message(text: String) -> void:
+	if _plan_view != null: _plan_view.show_message(text)
+	if _world != null:
+		var label := _world.get_node_or_null("HUD/LayoutStatus") as Label
+		if label != null: label.text = text
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventJoypadButton and event.is_action_pressed("view_toggle") and not _menu_open and _world != null and not _editing:
+		if _view_mode == ViewMode.PLAN: _show_walkthrough()
+		else:
+			_view_mode = ViewMode.PLAN
+			_release_actions()
+			_resume()
+		get_viewport().set_input_as_handled()
+
+func _build_environment(target: Node3D) -> void:
 	var world := WorldEnvironment.new()
 	world.name = "WorldEnvironment"
 	var environment := Environment.new()
@@ -333,7 +388,7 @@ func _build_environment() -> void:
 	environment.ssao_radius = 1.2
 	environment.ssao_intensity = 2.0
 	world.environment = environment
-	_world.add_child(world)
+	target.add_child(world)
 
 	var sun := DirectionalLight3D.new()
 	sun.name = "Sun"
@@ -341,7 +396,7 @@ func _build_environment() -> void:
 	sun.light_energy = 1.15
 	sun.shadow_enabled = true
 	sun.directional_shadow_max_distance = 40.0
-	_world.add_child(sun)
+	target.add_child(sun)
 
 func _show_status(text: String) -> void:
 	var layer := CanvasLayer.new()
@@ -375,6 +430,13 @@ func _show_status(text: String) -> void:
 	crosshair.size = Vector2(20, 24)
 	crosshair.modulate = Color(1, 1, 1, 0.9)
 	layer.add_child(crosshair)
+	var status := Label.new()
+	status.name = "LayoutStatus"
+	status.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	status.offset_top = -48
+	status.offset_bottom = -16
+	status.offset_left = 24
+	layer.add_child(status)
 	var top_view := Button.new()
 	top_view.name = "TopView"
 	top_view.text = "Top view (F2)"

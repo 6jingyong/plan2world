@@ -65,6 +65,7 @@ export function readProject(value: unknown): Project {
   const floors = list(project!, 'floors', 'document', false);
   if (floors.length === 0) fail('floors', 'must contain at least one floor');
   const floorIds = new Set<string>();
+  let entranceCount = 0;
   for (const [index, floor] of floors.entries()) {
     const path = `floors[${index}]`;
     record(floor, path); text(floor.id, `${path}.id`, true);
@@ -76,6 +77,12 @@ export function readProject(value: unknown): Project {
     if (floor.elevation !== undefined) number(floor.elevation, `${path}.elevation`);
     if (floor.slabThickness !== undefined) positive(floor.slabThickness, `${path}.slabThickness`);
     if (floor.walkthroughStart !== undefined) point(floor.walkthroughStart, `${path}.walkthroughStart`);
+    if (floor.entrance !== undefined) {
+      if (++entranceCount > 1) fail(`${path}.entrance`, 'duplicates the project main entrance');
+      record(floor.entrance, `${path}.entrance`); text(floor.entrance.doorId, `${path}.entrance.doorId`, true);
+      choice(floor.entrance.side, ['left', 'right'], `${path}.entrance.side`);
+      if (!floor.doors?.some((door: any) => door?.id === floor.entrance.doorId)) fail(`${path}.entrance.doorId`, 'must reference an existing door on this floor');
+    }
     const seen = new Set<string>();
     const elements = (key: string, validate: (item: Record<string, any>, path: string) => void, optional = true) => {
       for (const [i, item] of list(floor, key, path, optional).entries()) {
@@ -122,6 +129,11 @@ export function readProject(value: unknown): Project {
     elements('furniture', (item, path) => {
       if (item.customModelId !== undefined && (typeof item.customModelId !== 'string' || !customModelIds.has(item.customModelId))) fail(`${path}.customModelId`, 'must refer to a model in this project');
       text(item.catalogId, `${path}.catalogId`, true); positioned(item, path);
+      if (item.wallMount !== undefined) {
+        record(item.wallMount, `${path}.wallMount`); text(item.wallMount.wallId, `${path}.wallMount.wallId`, true);
+        choice(item.wallMount.side, ['left', 'right'], `${path}.wallMount.side`); number(item.wallMount.elevation, `${path}.wallMount.elevation`, 0);
+        if (!floor.walls.some((wall: any) => wall.id === item.wallMount.wallId)) fail(`${path}.wallMount.wallId`, 'must reference an existing wall on this floor');
+      }
       defaults(item, { scale: { x: 1, y: 1, z: 1 } }); record(item.scale, `${path}.scale`);
       // Mirroring uses negative scale. Do not normalize signs or round dimensions.
       for (const key of ['x', 'y', 'z']) number(item.scale[key], `${path}.scale.${key}`);

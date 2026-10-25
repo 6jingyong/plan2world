@@ -768,6 +768,11 @@
       "yawClockwiseRadians": -1.5707963267948966
     },
     {
+      "locked": false,
+      "movement": {
+        "kind": "floor",
+        "elevation": 0.4
+      },
       "id": "sofa",
       "floorId": "ground",
       "kind": "furniture",
@@ -791,6 +796,11 @@
       ]
     },
     {
+      "locked": false,
+      "movement": {
+        "kind": "floor",
+        "elevation": 0.4
+      },
       "id": "custom",
       "floorId": "ground",
       "kind": "furniture",

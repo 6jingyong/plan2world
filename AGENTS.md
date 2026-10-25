@@ -156,6 +156,21 @@ Use `schemas/plan2world-draft-v1.schema.json` and `docs/plan2world-draft-v1.md`.
 - The runtime scene picker/loader accepts compiled JSON with sibling GLB/assets only. A separate native Godot furniture editor may open a canonical Project through the packaged shared data/compiler core. Never duplicate native validation, IDs, asset fitting or runtime compilation in GDScript.
 - Godot owns both first-person and top-view cameras/input/animation, ray picking and placement queries. Use the same 3D world; do not embed browser HTML or a flattened plan renderer. Furniture-only commands preserve architecture and Project attachments; static world/player/door state survive layout updates. The browser remains internal authoring/review tooling and is not required in delivered players. See [furniture layout](docs/godot-furniture-layout.md).
 - Scene-menu pause, failed-open recovery and world replacement must preserve engine ownership.
+- Product furniture editing has no Undo/Redo or retained operation history. Keep
+  only the accepted current Project plus an in-flight candidate; save current
+  native coordinates/rotation/assets atomically. Internal browser authoring undo
+  is separate and remains available.
+- Main entrance identity and inward side are native authoring metadata. Compile
+  its spawn/facing and reject blocked/unsupported starts; Godot never guesses a
+  main door or relocates the player to hide a bad anchor.
+- First-person furniture adjustment uses keyboard/gamepad micro-movement only.
+  Ground items move in the plan plane at fixed elevation; wall items use explicit
+  compiler-owned wall frames, height bounds and opening exclusions. Do not infer
+  attachment from asset meshes or nearest walls. Curved attachment is unsupported.
+- Validate/load a candidate outside the active SceneTree before swapping worlds
+  and editable source. Reject mismatched present GLBs using the compiler digest;
+  failed loads must retain the previous scene. Missing assets remain explicit
+  presentation fallbacks and never become physics truth.
 - Desktop focus loss pauses and clears held controls; focus return requires explicit resume. Manual return to start uses only the compiled spawn, resets player motion/view, and preserves world/door state. Never invent a floor, infer a safe target or silently repair an authored aperture for recovery.
 - Distinguish native Windows CI execution from Windows cross-builds and PowerShell installer checks on Linux; neither proves Windows Forward+ hardware/input acceptance. Release boot assertions use the engine log file so Windows GUI binaries do not require console stdout.
 - Verify delivery from relocated player/scene ZIPs. Official release templates disable script/path overrides: assert launcher/physics against the exact exported PCK with the pinned editor, then separately boot the actual release executable. Do not add production test execution hooks or claim this proves Windows hardware behavior. See [runtime delivery](docs/runtime-delivery.md).

@@ -26,6 +26,8 @@ export interface RuntimeFloor {
   level: number;
   elevation: number;
   walkthroughStart: RuntimeVec3 | null;
+  entranceDoorId?: string;
+  walkthroughYawClockwiseRadians?: number;
   rooms: RuntimeRoomSurface[];
 }
 
@@ -101,6 +103,8 @@ export interface RuntimeWindowEntity extends RuntimeEntityBase {
 
 export interface RuntimeFurnitureEntity extends RuntimeEntityBase {
   kind: 'furniture';
+  locked: boolean;
+  movement: { kind: 'floor'; elevation: number } | { kind: 'wall'; wallId: string; side: 'left' | 'right'; blocked: { along: RuntimeVec2; bottom: RuntimeVec2 }[]; origin: RuntimeVec3; tangent: RuntimeVec3; along: RuntimeVec2; bottom: RuntimeVec2 } | { kind: 'unbound-wall' };
   catalogId: string;
   sourceCategory?: string;
   assetRef: string;
@@ -191,7 +195,7 @@ export interface Plan2WorldRuntimeSceneV1 {
     planY: '+Z';
     yaw: 'clockwise-from-+X';
   };
-  source: { projectId: string; projectName: string };
+  source: { projectId: string; projectName: string; architectureSha256?: string };
   playerProfile: RuntimePlayerProfile;
   floors: RuntimeFloor[];
   entities: RuntimeEntity[];

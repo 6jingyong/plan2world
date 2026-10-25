@@ -120,21 +120,22 @@ func _run() -> void:
 	_check(_item(_project(main), added_id)["catalogId"] == "chair", "Replace must retain identity and use the selected catalog item")
 	var collider := main._collider_nodes["furniture:" + added_id] as StaticBody3D
 	_check(collider.position.is_equal_approx(Vector3(target.x, 0.85, target.y)), "Furniture collision must use compiler output after replacement")
-	plan.find_child("UndoLayout", true, false).pressed.emit()
-	_check(_item(_project(main), added_id)["catalogId"] == "sofa", "Undo must restore the previous native revision")
-	plan.find_child("RedoLayout", true, false).pressed.emit()
-	_check(_item(_project(main), added_id)["catalogId"] == "chair", "Redo must restore the compiled replacement")
+	_check(plan.find_child("UndoLayout", true, false) == null and not main._session.has_method("undo"), "The product must not expose undo or store an operation history")
 	for i in range(catalog.size()):
 		if catalog[i]["asset"].get("customModelId") == "box": palette.select(i)
 	plan.find_child("ReplaceFurniture", true, false).pressed.emit()
 	await _idle(main)
 	_check(_item(_project(main), added_id).get("customModelId") == "box" and world.get_node("FurnitureLayout").find_child("Asset_" + added_id, true, false) != null, "Custom replacement must load the retained Project GLB through the shared core")
-	plan.find_child("UndoLayout", true, false).pressed.emit()
-	_check(_item(_project(main), added_id)["catalogId"] == "chair", "Undo custom replacement must restore catalog furniture")
+	for i in range(catalog.size()):
+		if catalog[i]["asset"].get("catalogId") == "chair": palette.select(i)
+	plan.find_child("ReplaceFurniture", true, false).pressed.emit()
+	await _idle(main)
 	plan.find_child("DeleteFurniture", true, false).pressed.emit()
 	await _idle(main)
 	_check(_item(_project(main), added_id).is_empty() and not main._collider_nodes.has("furniture:" + added_id), "Delete must remove native furniture and its collider")
-	plan.find_child("UndoLayout", true, false).pressed.emit()
+	main._edit_layout({ "type": "add", "floorId": plan.controller.floor_id, "position": { "x": target.x * 100, "y": target.y * 100 }, "asset": { "catalogId": "chair" } })
+	await _idle(main)
+	added_id = str(main._session.current()["selectedId"])
 	var saved := str(args[1]).path_join("saved.project.json")
 	plan.save_requested.emit(saved)
 	_check(FileAccess.file_exists(saved) and not main._session.is_dirty(), "Save must create a reusable native Project and clear dirty state")
@@ -147,25 +148,26 @@ func _run() -> void:
 			_check(JSON.stringify(before["floors"][i][key]) == JSON.stringify(after["floors"][i][key]), "Furniture editing must preserve native architecture: " + key)
 	_check(world.get_instance_id() == world_id and world.get_node("Architecture").get_instance_id() == architecture_id and player.position.is_equal_approx(pose), "Furniture edits must preserve world, architecture and player nodes/pose")
 	# Physics rejects compiler commands intersecting a wall or another furniture.
-	var revision: int = main._session.index
+	var revision: String = main._session.current()["projectPath"]
+	var state_hash := FileAccess.get_sha256(revision)
 	for blocked in [{ "x": 5, "y": 500 }, { "x": 500, "y": 200 }]:
 		main._edit_layout({ "type": "move", "floorId": plan.controller.floor_id, "id": added_id, "position": blocked })
 		await _idle(main)
-		_check(main._session.index == revision and _item(_project(main), added_id)["position"] == moved["position"], "Native physics must reject overlaps without changing the Project or history")
+		_check(main._session.current()["projectPath"] == revision and FileAccess.get_sha256(revision) == state_hash, "Native physics must reject overlaps without changing the Project state")
 	main._edit_layout({ "type": "add", "floorId": plan.controller.floor_id, "position": { "x": 10, "y": 10 }, "asset": { "catalogId": "not-a-model" } })
 	await _idle(main)
-	_check(main._session.index == revision and world.get_instance_id() == world_id, "Invalid edits must retain the last valid Project and runtime")
+	_check(main._session.current()["projectPath"] == revision and world.get_instance_id() == world_id, "Invalid edits must retain the last valid Project and runtime")
 	_check(FileAccess.get_sha256(args[0]) == source_hash, "Opening and editing must never overwrite the original input")
 	# Dirty navigation must be explicitly discardable; cancelling retains editor.
 	main._edit_layout({ "type": "rotate", "floorId": plan.controller.floor_id, "id": added_id, "rotation": 180 })
 	await _idle(main)
-	revision = main._session.index
+	revision = main._session.current()["projectPath"]
 	main.get_node("SceneMenu/ProjectPicker").file_selected.emit(saved)
 	_check(main._discard.visible and paused, "Switching Project with unsaved edits must ask before discarding")
 	main._discard.hide()
 	main._discard.canceled.emit()
 	main._resume()
-	_check(main._session.index == revision and main._session.is_dirty(), "Cancel discard must preserve the active layout")
+	_check(main._session.current()["projectPath"] == revision and main._session.is_dirty(), "Cancel discard must preserve the active layout")
 	# Reopen the saved Project through the same public picker entry point.
 	main.get_node("SceneMenu/ProjectPicker").file_selected.emit(saved)
 	main._discard.hide()
@@ -177,6 +179,7 @@ func _run() -> void:
 	await _capture(args[1], "camera-transition")
 	await _idle(main)
 	await _capture(args[1], "first-person")
+	_check(DirAccess.open(main._session._directory).get_directories().size() == 1, "Only the accepted current state may remain on disk; superseded candidates must be deleted")
 	var session_directory: String = main._session._directory
 	main.free(); paused = false
 	_check(not DirAccess.dir_exists_absolute(session_directory) and FileAccess.file_exists(saved) and FileAccess.get_sha256(args[0]) == source_hash, "Closing must clean private revisions while retaining saved/source Projects")

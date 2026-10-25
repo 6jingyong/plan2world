@@ -7,12 +7,13 @@ var slow_speed := 0.6
 var walk_speed := 1.2
 var fast_speed := 2.4
 var mouse_sensitivity := 0.0022
+var interaction_enabled := true
 var _pitch := 0.0
 var _gravity := float(ProjectSettings.get_setting("physics/3d/default_gravity", 9.8))
 var _camera: Camera3D
 var _interaction_ray: RayCast3D
 
-func configure(profile: Dictionary, spawn: Vector3) -> void:
+func configure(profile: Dictionary, spawn: Vector3, yaw = null) -> void:
 	eye_height = float(profile.get("eyeHeight", 1.6))
 	radius = float(profile.get("radius", 0.28))
 	var speeds: Dictionary = profile.get("speeds", {})
@@ -22,15 +23,15 @@ func configure(profile: Dictionary, spawn: Vector3) -> void:
 	up_direction = Vector3.UP
 	floor_snap_length = max(0.05, radius * 0.5)
 	_build_body()
-	respawn(spawn)
+	respawn(spawn, yaw)
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 # Explicit user recovery only. The compiler's spawn is the entire authority;
 # holes remain holes and no floor/target elevation is inferred by the player.
-func respawn(spawn: Vector3) -> void:
+func respawn(spawn: Vector3, yaw = null) -> void:
 	position = spawn
 	velocity = Vector3.ZERO
-	rotation = Vector3.ZERO
+	rotation = Vector3(0, -float(yaw) - PI / 2, 0) if yaw != null else Vector3.ZERO
 	_pitch = 0.0
 	_camera.rotation = Vector3.ZERO
 	reset_physics_interpolation()
@@ -69,8 +70,18 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_ESCAPE:
 			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED else Input.MOUSE_MODE_CAPTURED
-		elif event.physical_keycode == KEY_E:
+		elif event.physical_keycode == KEY_E and interaction_enabled:
 			interact()
+
+	elif event is InputEventJoypadButton and event.is_action_pressed("layout_confirm") and interaction_enabled:
+		interact()
+
+func _process(delta: float) -> void:
+	if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED or not is_processing_unhandled_input(): return
+	var look := Input.get_vector("look_left", "look_right", "look_up", "look_down", 0.2)
+	rotate_y(-look.x * 1.8 * delta)
+	_pitch = clampf(_pitch - look.y * 1.8 * delta, deg_to_rad(-85), deg_to_rad(85))
+	_camera.rotation.x = _pitch
 
 func _physics_process(delta: float) -> void:
 	var input_2d := Input.get_vector("move_left", "move_right", "move_forward", "move_back")

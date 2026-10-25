@@ -5,6 +5,7 @@ const DEFAULT_RUNTIME_PATH := "res://demo/runtime-scene.json"
 const RUNTIME_SUFFIX := ".runtime.json"
 const JSON_SUFFIX := ".json"
 const ARCHITECTURE_SUFFIX := ".architecture.glb"
+const CONTRACT := preload("res://scripts/runtime_contract.gd")
 static var _mesh_converter: GLTFDocumentExtensionConvertImporterMesh
 
 func _init() -> void:
@@ -52,52 +53,17 @@ func load_runtime(path: String) -> Dictionary:
 		push_error("Plan2World runtime scene is not a JSON object: %s" % path)
 		return {}
 	var data: Dictionary = parsed
-	if data.get("schema", "") != "plan2world-runtime-v1" or int(data.get("version", 0)) != 1:
-		push_error("Unsupported Plan2World runtime schema in %s" % path)
-		return {}
-	if not has_door_leaf_contract(data):
-		push_error("Runtime door leaf contract is missing or unsupported; re-export the native Project: %s" % path)
+	if not CONTRACT.valid(data):
+		push_error("Invalid Plan2World runtime contract; re-export the native Project: %s" % path)
 		return {}
 	return data
 
-# The experimental v1 door contract now requires explicit parts. Do not guess
-# a single leaf from older artifacts or silently drop their door collision.
 func has_door_leaf_contract(data: Dictionary) -> bool:
-	var colliders := {}
-	for collider in data.get("colliders", []):
-		colliders[str(collider.get("id", ""))] = collider
-	var leaf_ids := {}
-	for entity in data.get("entities", []):
-		if entity.get("kind", "") != "door":
-			continue
-		var interaction: Dictionary = entity.get("interaction", {})
-		var kind := str(interaction.get("kind", ""))
-		if kind == "none":
-			continue
-		if kind not in ["swing", "slide", "unsupported"]:
-			return false
-		var leaves = interaction.get("leaves")
-		if typeof(leaves) != TYPE_ARRAY or leaves.is_empty():
-			return false
-		for leaf in leaves:
-			if typeof(leaf) != TYPE_DICTIONARY:
-				return false
-			for field in ["id", "colliderId", "assetRef", "size", "closedPose"]:
-				if not leaf.has(field):
-					return false
-			var id := str(leaf["id"])
-			if id.is_empty() or leaf_ids.has(id):
-				return false
-			leaf_ids[id] = true
-			var collider: Dictionary = colliders.get(str(leaf["colliderId"]), {})
-			if collider.get("ownerId") != entity["id"] or collider.get("kind") != "box" or not collider.get("dynamic", false):
-				return false
-			var axis = leaf.get("axis", [])
-			if kind == "swing" and (typeof(axis) != TYPE_ARRAY or axis.size() != 3 or Vector3(axis[0], axis[1], axis[2]) != Vector3.UP or not leaf.has("pivot") or not leaf.has("openAngleRadians")):
-				return false
-			if kind == "slide" and (not leaf.has("axis") or not leaf.has("travel")):
-				return false
-	return true
+	return CONTRACT.valid_doors(data)
+
+func architecture_matches(data: Dictionary, path: String) -> bool:
+	var digest: String = data["source"].get("architectureSha256", "")
+	return digest.is_empty() or not FileAccess.file_exists(path) or FileAccess.get_sha256(path) == digest
 
 func load_architecture(path: String) -> Node:
 	var scene := _load_glb(path)
@@ -144,7 +110,13 @@ func load_assets(runtime_path: String) -> Dictionary:
 	var scenes := {}
 	var filename_pattern := RegEx.create_from_string("^[a-f0-9]{64}\\.glb$")
 	for raw_asset in parsed.get("assets", []):
+		if not raw_asset is Dictionary:
+			continue
 		var asset: Dictionary = raw_asset
+		var normalization = asset.get("normalization")
+		if not normalization is Dictionary or not CONTRACT.vector(normalization.get("translation"), 3) or not CONTRACT.vector(normalization.get("scale"), 3) or normalization["scale"].any(func(value): return value <= 0):
+			push_warning("Invalid asset normalization; using missing-asset fallback")
+			continue
 		var id := str(asset.get("id", ""))
 		var uri := str(asset.get("uri", ""))
 		var digest := str(asset.get("sha256", ""))

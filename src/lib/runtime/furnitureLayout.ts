@@ -1,13 +1,15 @@
-import type { Project, FurnitureItem } from '../models/types';
+import type { Project, FurnitureItem, FurnitureWallMount } from '../models/types';
 import { readProject } from '../utils/projectValidation';
 import { furnitureCatalog, getCatalogItem } from '../utils/furnitureCatalog';
 
+import { needsWallMount, placeOnWall } from '../utils/furniturePlacement';
+
 type Asset = { catalogId: string; customModelId?: string };
 export type FurnitureLayoutCommand =
-  | { type: 'add'; floorId: string; position: { x: number; y: number }; asset: Asset }
-  | { type: 'move'; floorId: string; id: string; position: { x: number; y: number } }
+  | { type: 'add'; floorId: string; position: { x: number; y: number }; asset: Asset; wallMount?: FurnitureWallMount }
+  | { type: 'move'; floorId: string; id: string; position: { x: number; y: number }; elevation?: number }
   | { type: 'rotate'; floorId: string; id: string; rotation: number }
-  | { type: 'replace'; floorId: string; id: string; asset: Asset }
+  | { type: 'replace'; floorId: string; id: string; asset: Asset; wallMount?: FurnitureWallMount }
   | { type: 'remove'; floorId: string; id: string };
 
 /** Engine-neutral native furniture edits. Architecture and input stay untouched.
@@ -30,12 +32,21 @@ export function applyFurnitureLayoutCommand(input: unknown, command: FurnitureLa
     if (!p || ![p.x, p.y].every(v => typeof v === 'number' && Number.isFinite(v) && Math.abs(v) <= 1_000_000)) throw new Error('Furniture position must be finite native centimetres.');
     return { x: p.x, y: p.y };
   };
+  const attach = (item: FurnitureItem, mount?: FurnitureWallMount) => {
+    if (mount) item.wallMount = { ...mount };
+    if (needsWallMount(item.catalogId) && !item.wallMount) throw new Error('Choose an authored wall and installation height for this item.');
+    if (item.wallMount) {
+      const placed = placeOnWall(floor, item, item.position, item.wallMount.elevation);
+      item.position = placed.position; item.rotation = placed.rotation; item.wallMount.elevation = placed.elevation;
+    }
+  };
   let selectedId: string | null = null;
   if (command.type === 'add') {
-    const ids = new Set(project.floors.flatMap(f => [f.id, ...[f.walls, f.rooms, f.doors, f.windows, f.furniture, f.columns, f.stairs].flatMap(items => items.map(i => i.id))]));
+    const ids = new Set(project.floors.flatMap(f => [f.id, ...Object.values(f).flatMap(value => Array.isArray(value) ? value.flatMap(item => item && typeof item.id === 'string' ? [item.id] : []) : [])]));
     let index = 1;
     while (ids.has(`layout-furniture-${index}`)) index++;
     const item = { id: `layout-furniture-${index}`, position: position(command.position), rotation: 0, scale: { x: 1, y: 1, z: 1 }, ...assetFields(command.asset) } as FurnitureItem;
+    attach(item, command.wallMount);
     floor.furniture.push(item);
     selectedId = item.id;
   } else {
@@ -44,8 +55,13 @@ export function applyFurnitureLayoutCommand(input: unknown, command: FurnitureLa
     if (item.locked) throw new Error('This furniture is locked.');
     selectedId = item.id;
     switch (command.type) {
-      case 'move': item.position = position(command.position); break;
+      case 'move':
+        item.position = position(command.position);
+        if (item.wallMount) { item.wallMount.elevation = command.elevation ?? item.wallMount.elevation; attach(item); }
+        else if (command.elevation !== undefined) throw new Error('Floor furniture cannot change elevation.');
+        break;
       case 'rotate':
+        if (item.wallMount || needsWallMount(item.catalogId)) throw new Error('Wall furniture orientation follows its authored wall.');
         if (typeof command.rotation !== 'number' || !Number.isFinite(command.rotation)) throw new Error('Furniture rotation must be finite native degrees.');
         item.rotation = command.rotation; break;
       case 'replace': {
@@ -53,6 +69,7 @@ export function applyFurnitureLayoutCommand(input: unknown, command: FurnitureLa
         for (const key of ['customModelId', 'width', 'depth', 'height', 'renderStyle'] as const) delete item[key];
         item.scale = { x: 1, y: 1, z: 1 };
         Object.assign(item, fields);
+        attach(item, command.wallMount);
         break;
       }
       case 'remove':
@@ -70,7 +87,7 @@ export function applyFurnitureLayoutCommand(input: unknown, command: FurnitureLa
 /** Small UI projection; the native Project file remains canonical. */
 export function furnitureLayoutCatalog(project: Project) {
   return [
-    ...furnitureCatalog.filter(item => !item.symbol).map(item => ({ label: item.name, asset: { catalogId: item.id } as Asset })),
+    ...furnitureCatalog.filter(item => !item.symbol).map(item => ({ label: item.name, mounting: needsWallMount(item.id) ? 'wall' : 'floor', asset: { catalogId: item.id } as Asset })),
     ...(project.customModels ?? []).map(model => ({ label: model.name, asset: { catalogId: 'custom-model', customModelId: model.id } as Asset })),
   ];
 }

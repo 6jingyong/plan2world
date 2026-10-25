@@ -189,6 +189,26 @@ JSON Schema cannot express all cross-object references, so compiler tests also a
 
 ## Rendering boundary
 
+Native `floor.entrance` records one main door ID and its inward side. The runtime
+floor carries `entranceDoorId`, `walkthroughStart` and optional clockwise view yaw.
+The shared artifact compiler validates floor support and closed-pose clearance;
+it never moves a blocked authored start. Legacy unmarked Projects retain their
+explicit/automatic start, subject to the same export validation.
+
+Furniture carries required `locked` and discriminated `movement` fields:
+`floor` fixes elevation; `wall` supplies host ID, side, origin, tangent, along/
+height limits and door/window exclusion rectangles; `unbound-wall` is visible but
+not movable until explicitly attached. All values use runtime metres. Native
+`wallMount` retains host ID, side and bottom height in centimetres; position and
+rotation remain on the furniture item. Straight solid hosts are supported;
+curved attachment is rejected. Re-export earlier derived furniture snapshots.
+
+Final shared exports include `source.architectureSha256`, the deterministic
+presentation GLB digest. Consumers reject a mismatched present file before world
+replacement. The optional field preserves old snapshot/demo compatibility;
+missing GLBs may still use explicit presentation fallback. This pairing check
+never makes the GLB a source of runtime collision or semantics.
+
 `plan2world-runtime-v1` owns semantics, interaction and physics geometry; it is not the canonical presentation mesh. `architecture.glb` is the sibling compiler-owned static presentation artifact shared by runtime backends.
 
 The current package is:

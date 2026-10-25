@@ -72,7 +72,7 @@ Plan2World Runtime player. Windows/Linux player builds, offline use and delivery
 verification are described in [runtime delivery](docs/runtime-delivery.md).
 The player pauses on focus loss and provides manual return to its compiled spawn
 while preserving the current world's door state and geometry.
-Godot now switches smoothly between first person and top view in the same 3D world. Its native furniture layout tools support add/move/rotate/replace/remove, undo/redo, native Project save and runtime export; architecture stays fixed. Delivered players include the offline shared data/compiler core and need no browser. See [native furniture layout](docs/godot-furniture-layout.md) and [`runtime/godot/README.md`](runtime/godot/README.md).
+Godot now switches smoothly between first person and top view in the same 3D world. Its native furniture layout tools support add/move/rotate/replace/remove, native Project save and runtime export, without undo/history. First-person furniture adjustment uses small keyboard/gamepad nudges; floor furniture stays on its floor and mounted objects stay on their explicit wall; architecture stays fixed. Delivered players include the offline shared data/compiler core and need no browser. See [native furniture layout](docs/godot-furniture-layout.md) and [`runtime/godot/README.md`](runtime/godot/README.md).
 
 ## Fresh validation
 

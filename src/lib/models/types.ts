@@ -112,7 +112,11 @@ export interface Window {
   type: 'standard' | 'fixed' | 'casement' | 'sliding' | 'bay';
 }
 
+export interface FurnitureWallMount { wallId: string; side: 'left' | 'right'; elevation: number }
+
 export interface FurnitureItem {
+  /** Explicit host constraint; elevation is bottom above the authored floor, cm. */
+  wallMount?: FurnitureWallMount;
   /** Project-owned model; catalogId remains a portable procedural fallback. */
   customModelId?: string;
   details?: ItemDetails;
@@ -248,6 +252,8 @@ export interface Floor {
   slabThickness?: number;
   /** Preferred first-person entry point in plan coordinates. Missing means automatic placement. */
   walkthroughStart?: Point;
+  /** Author-selected main door and inward side relative to its directed host wall. */
+  entrance?: { doorId: string; side: 'left' | 'right' };
   walls: Wall[];
   rooms: Room[];
   doors: Door[];

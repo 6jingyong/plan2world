@@ -1,72 +1,60 @@
 extends Node
 
 var busy := false
-var history: Array[Dictionary] = []
-var index := -1
-var _saved_revision := ""
+var _current: Dictionary = {}
+var _dirty := false
 var _sequence := 0
 var _worker: Thread
 var _directory := ""
 
 func current() -> Dictionary:
-	return history[index] if index >= 0 else {}
+	return _current
 
 func is_dirty() -> bool:
-	return not current().is_empty() and current()["projectPath"] != _saved_revision
+	return _dirty
 
 func clear() -> void:
-	history.clear()
-	index = -1
-	_saved_revision = ""
+	_current = {}
+	_dirty = false
 	_remove_directory(_directory)
 	_directory = ""
 
+# Open/edit results are candidates until the composition root accepts them.
 func open_project(path: String) -> Dictionary:
-	var result: Dictionary = await _execute(path, {})
-	if result.get("ok", false):
-		for revision in history:
-			discard_revision(revision)
-		history = [result]
-		index = 0
-		_saved_revision = result["projectPath"]
-	return result
+	return await _execute(path, {})
 
 func apply_command(command: Dictionary) -> Dictionary:
-	if current().is_empty():
+	if _current.is_empty():
 		return { "ok": false, "error": "Open an editable Project first." }
-	var result: Dictionary = await _execute(current()["projectPath"], command)
-	return result
+	return await _execute(_current["projectPath"], command)
 
-func commit_revision(result: Dictionary) -> void:
-	for revision in history.slice(index + 1):
-		discard_revision(revision)
-	history.resize(index + 1)
-	history.append(result)
-	if history.size() > 50:
-		discard_revision(history.pop_front())
-	index = history.size() - 1
+func accept(candidate: Dictionary, opened := false) -> void:
+	var previous := _current
+	_current = candidate
+	_dirty = not opened
+	if not previous.is_empty():
+		discard_candidate(previous)
 
-func discard_revision(revision: Dictionary) -> void:
-	_remove_directory(str(revision["projectPath"]).get_base_dir())
-
-func undo() -> Dictionary:
-	if not busy and index > 0:
-		index -= 1
-	return current()
-
-func redo() -> Dictionary:
-	if not busy and index + 1 < history.size():
-		index += 1
-	return current()
+func discard_candidate(candidate: Dictionary) -> void:
+	_remove_directory(str(candidate["projectPath"]).get_base_dir())
 
 func save_project(path: String) -> Error:
-	var error := DirAccess.copy_absolute(current()["projectPath"], path)
+	var error := _copy_atomic(_current["projectPath"], path)
 	if error == OK:
-		_saved_revision = current()["projectPath"]
+		_dirty = false
 	return error
 
 func export_runtime(path: String) -> Error:
-	return DirAccess.copy_absolute(current()["packagePath"], path)
+	return _copy_atomic(_current["packagePath"], path)
+
+func _copy_atomic(source: String, destination: String) -> Error:
+	var temporary := destination + ".p2w-%s-%s.tmp" % [OS.get_process_id(), Time.get_ticks_usec()]
+	var error := DirAccess.copy_absolute(source, temporary)
+	if error == OK:
+		error = DirAccess.rename_absolute(temporary, destination)
+	if error != OK:
+		DirAccess.remove_absolute(temporary)
+	return error
 
 func _execute(project_path: String, command: Dictionary) -> Dictionary:
 	if busy:

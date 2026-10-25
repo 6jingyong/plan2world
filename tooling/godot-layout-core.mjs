@@ -25,7 +25,7 @@ async function run() {
     const zip = await serializeRuntimePackage(artifacts);
     if (!artifacts.runtime.floors.some(floor => floor.walkthroughStart)) throw new Error('The Project has no valid compiled player start.');
     const output = path.resolve(request.outputDirectory);
-    // Compile completely before creating the new immutable revision. Never write
+    // Compile completely before creating the isolated candidate. Never write
     // into the source Project or replace the active scene on an invalid command.
     await mkdir(output);
     for (const [name, content] of runtimePackageFiles(artifacts)) {
