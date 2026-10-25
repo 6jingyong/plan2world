@@ -283,44 +283,22 @@ GLB recovery, unsupported floor/hole placement, interrupted drag, actual keyboar
 and virtual-gamepad input, wall-bound movement, obstruction and save-failure tests.
 It runs against the shipped PCK/core in both platform delivery jobs.
 
-## Local verification record
+## Acceptance
 
-Merged foundation: PR #80 (`1c4ec13` on main). Layout follow-up branch:
-`godot-layout-flow`, kept local until publication is requested. Keep the scope at native house
-walkthrough and furniture arrangement; these controls do not introduce a general
-scene editor, scripting system or alternative canonical data model.
+The native layout gates run through the exact shipped PCK and shared core after
+moving the player and scene ZIPs to paths with spaces and Chinese characters.
+They cover camera/input separation, furniture edits, native persistence, doorway
+clearance, optional desktop authoring with a mocked provider, snapping, plan
+presentation and ceiling lighting. See [delivery verification](runtime-delivery.md)
+and the [current validation scope](runtime-validation.md).
 
-| Milestone | Evidence and conclusion |
-| --- | --- |
-| `ab865c3`: native cameras/layout | [Original results](../.plan2world-validation/runs/20261025-godot-plan-view/RESULTS.md). 1,665 unit tests, native mode separation/CRUD, packaged Linux and rendered inspection passed. The flat canvas prototype was removed. |
-| `2582099`: entrance, loading and controls | [Product-control results](../.plan2world-validation/runs/20261025-product-controls/RESULTS.md). 1,670 unit tests; entrance/facing, transactions, no history and constrained controls passed. Frozen real-house replay retained all architecture/input bytes. Closed-pose doorway placement remained explicitly unresolved. |
-| `30964ba`: door/layout lifecycle | [Door/layout results](../.plan2world-validation/runs/20261025-door-layout-lifecycle/RESULTS.md). 1,684 unit tests passed. Shared export/CLI checks and native pointer/micro-adjustment reserve default closed poses; save/export/reopen and real walking are covered by the shipped-PCK gate. |
-| `a09a0d8`: cleanup/readiness | [Review results](../.plan2world-validation/runs/20261025-stability-review/RESULTS.md). 1,684 units, type/build/catalog checks, high-threshold audit, rebuilt Linux/Windows packages and Linux shipped-PCK delivery/asset gates passed. Snapping status is documented; no snapping behavior was added. |
-| PR #80: snapping/UI | 1,685 units, 42 focused cross-browser cases and shipped Linux PCK/core gates pass. Native magnetic/grid controls, atomic pose, compact UI and live missing-model notices; see [validation record](../.plan2world-validation/runs/20261025-snapping-ui/RESULTS.md). |
-| Local arrangement flow | 1,686 unit tests; packaged Linux UI/input/data gates and rendered inspection pass. On-demand catalog, contextual actions, secondary file commands and preserved view framing; see [local results](../.plan2world-validation/runs/20261025-layout-flow/RESULTS.md). |
-| Local orthographic / desktop creation | 1,700 unit tests, six focused Chromium regressions, packaged Linux controls and rendered inspection pass. Native OpenRouter account/image flow uses a mocked provider; real account/model and Windows hardware acceptance remain separate. See [verification record](../.plan2world-validation/runs/20261026-ortho-desktop/RESULTS.md). |
-| Local plan presentation / ceiling lighting | 1,713 unit tests, six focused Chromium cases, nine Linux shipped-PCK gates and actual rendered lighting checks; all four lamp GLBs and the recessed beam direction are covered. Frozen house replay retains 114 existing entities and 127 colliders. See [results and retained failures](../.plan2world-validation/runs/20261026-plan-lighting/RESULTS.md). |
+Inspect actual displayed lighting separately from headless physics. Linux Mesa
+and Windows cross-builds do not establish native Windows Forward+ or physical
+controller quality. CI runs native Linux and Windows gates; browser/benchmark
+jobs retain the main-push policy. Keep generated inputs, failures and screenshots
+in ignored validation runs; use Git history for implementation diaries.
 
-## Publication and acceptance
-
-PR #80 merged the native cameras, furniture editor, snapping, entrance/loading
-and door-clearance foundation. Local follow-ups cover arrangement UI, orthographic
-projection, optional desktop authoring, unlit plan presentation and ceiling lights;
-their evidence is linked above. No GitHub push or formal release is implied.
-Linux/Windows native Godot
-jobs are both required by the aggregate CI gate. PR browser/benchmark skips
-remain as before; full browser/benchmark jobs run on main push.
-
-The merged foundation evidence is
-[snapping/UI validation](../.plan2world-validation/runs/20261025-snapping-ui/RESULTS.md).
-Linux packaged acceptance and rendered Compatibility inspection do not establish
-native Windows Forward+ hardware or physical-controller quality. Retain those
-platform/manual checks before a general desktop release. No fresh external-model
-reconstruction-quality result is claimed by these display/editing checks.
-Historical implementation diaries stay in Git history; linked evidence retains
-the original failures and their subsequent fixes.
-
-### Remaining acceptance and limits
+## Remaining acceptance and limits
 
 - GLB staging is synchronous; each accepted edit still recompiles a complete
   package in a new offline process and rebuilds furniture. Measure large-scene

@@ -5,8 +5,6 @@ extends Node
 const PRESETS := ["Day", "Night", "Sunrise", "Sunset"]
 var daylight := 0
 var plan := false
-var _data: Dictionary
-var _models: Dictionary
 var _environment: Environment
 var _sun: DirectionalLight3D
 var _lights: Node3D
@@ -26,7 +24,7 @@ func configure(data: Dictionary, mode: int) -> void:
 
 func refresh(data: Dictionary, models: Dictionary) -> void:
 	_restore()
-	_data=data;_models=models;_entities.clear();_sources.clear();_source_contracts.clear()
+	_entities.clear();_sources.clear();_source_contracts.clear()
 	for child in _lights.get_children():_lights.remove_child(child);child.queue_free()
 	for entity in data["entities"]:
 		_entities[entity["id"]]=entity
