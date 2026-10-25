@@ -64,6 +64,10 @@ func _run() -> void:
 	_check(architecture != null, "Export must include architecture GLB")
 	if architecture != null:
 		world.add_child(architecture)
+		var meshes := architecture.find_children("*", "MeshInstance3D", true, false)
+		_check(not meshes.is_empty(), "Architecture GLB must instantiate actual renderable meshes, not import-only nodes")
+		for mesh in meshes:
+			_check(not mesh.get_meta("extras", {}).get("plan2world", {}).is_empty(), "Renderable architecture must retain compiler ownership metadata")
 	var built := LOADER.new().build(data, world)
 	var result := RENDERER.new().render(data, world, built, assets)
 	var instances: Dictionary = result["instances"]

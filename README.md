@@ -20,7 +20,7 @@ floor-plan JPG / PNG / WebP
       ├─ plan2world-runtime-v1       (semantics / collision / interaction)
       ├─ architecture.glb            (static architectural presentation)
       └─ assets manifest + GLBs        (furniture / dynamic door leaves)
-  → Godot runtime
+  → Godot runtime + native top-view furniture layout
 ```
 
 The model observes source evidence. Programs own topology, calculations, IDs, host matching, conversion, room analysis, collision contracts and runtime compilation.
@@ -72,7 +72,7 @@ Plan2World Runtime player. Windows/Linux player builds, offline use and delivery
 verification are described in [runtime delivery](docs/runtime-delivery.md).
 The player pauses on focus loss and provides manual return to its compiled spawn
 while preserving the current world's door state and geometry.
-See [`runtime/godot/README.md`](runtime/godot/README.md) for adapter details.
+Godot now switches smoothly between first person and top view in the same 3D world. Its native furniture layout tools support add/move/rotate/replace/remove, undo/redo, native Project save and runtime export; architecture stays fixed. Delivered players include the offline shared data/compiler core and need no browser. See [native furniture layout](docs/godot-furniture-layout.md) and [`runtime/godot/README.md`](runtime/godot/README.md).
 
 ## Fresh validation
 

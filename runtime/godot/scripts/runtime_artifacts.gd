@@ -5,6 +5,12 @@ const DEFAULT_RUNTIME_PATH := "res://demo/runtime-scene.json"
 const RUNTIME_SUFFIX := ".runtime.json"
 const JSON_SUFFIX := ".json"
 const ARCHITECTURE_SUFFIX := ".architecture.glb"
+static var _mesh_converter: GLTFDocumentExtensionConvertImporterMesh
+
+func _init() -> void:
+	if _mesh_converter == null:
+		_mesh_converter = GLTFDocumentExtensionConvertImporterMesh.new()
+		GLTFDocument.register_gltf_document_extension(_mesh_converter)
 
 func runtime_path_from_args() -> String:
 	var args := OS.get_cmdline_user_args()

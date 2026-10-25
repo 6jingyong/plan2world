@@ -1,5 +1,5 @@
 import type { Project, DetailKind, PackageMapping } from '$lib/models/types';
-import { createDefaultFloor, createDefaultProject } from '$lib/stores/project';
+import { createDefaultFloor, createDefaultProject } from '$lib/models/projectDefaults';
 import { readProject } from './projectValidation';
 import { detectRooms, getRoomPolygon, roomCentroid } from './roomDetection';
 import { getFurnitureSize } from './furnitureCatalog';

@@ -1,6 +1,7 @@
 extends CanvasLayer
 
 signal scene_selected(path: String)
+signal project_selected(path: String)
 signal resume_requested
 signal respawn_requested
 
@@ -39,7 +40,7 @@ func _ready() -> void:
 	title.add_theme_font_size_override("font_size", 28)
 	content.add_child(title)
 	var help := Label.new()
-	help.text = "Extract your runtime scene ZIP, then open scene.runtime.json.\nKeep its GLB and assets folder beside it. Scenes run offline."
+	help.text = "Open a compiled runtime scene to explore, or a native Project to arrange furniture.\nFor runtime ZIPs, extract and keep the JSON, GLB and assets together."
 	help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(help)
 	var open := Button.new()
@@ -48,9 +49,24 @@ func _ready() -> void:
 	open.custom_minimum_size.y = 44
 	open.pressed.connect(func(): _dialog.popup_centered_ratio(0.8))
 	content.add_child(open)
+	var edit := Button.new()
+	edit.name = "OpenProject"
+	edit.text = "Open editable Project…"
+	edit.custom_minimum_size.y = 44
+	content.add_child(edit)
+	var project_dialog := FileDialog.new()
+	project_dialog.name = "ProjectPicker"
+	project_dialog.title = "Open Project for furniture layout"
+	project_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	project_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	project_dialog.filters = PackedStringArray(["*.json ; Native Project", "*.zip ; Project package"])
+	project_dialog.use_native_dialog = true
+	project_dialog.file_selected.connect(func(path: String): project_selected.emit(path))
+	add_child(project_dialog)
+	edit.pressed.connect(func(): project_dialog.popup_centered_ratio(0.8))
 	_resume = Button.new()
 	_resume.name = "Resume"
-	_resume.text = "Resume walkthrough"
+	_resume.text = "Resume"
 	_resume.custom_minimum_size.y = 44
 	_resume.pressed.connect(func(): resume_requested.emit())
 	content.add_child(_resume)
@@ -66,7 +82,7 @@ func _ready() -> void:
 	_message.modulate = Color("fecaca")
 	content.add_child(_message)
 	var controls := Label.new()
-	controls.text = "WASD move · E door · Esc mouse · F1 scene menu"
+	controls.text = "WASD move · E door · Esc mouse · F2 top view · F1 scene menu"
 	controls.add_theme_font_size_override("font_size", 14)
 	content.add_child(controls)
 	_dialog = FileDialog.new()
@@ -90,3 +106,7 @@ func show_menu(can_resume: bool, message: String = "") -> void:
 func hide_menu() -> void:
 	_screen.hide()
 	_dialog.hide()
+
+func set_busy(busy: bool) -> void:
+	for name in ["OpenScene", "OpenProject", "Resume", "ReturnToStart"]:
+		find_child(name, true, false).disabled = busy

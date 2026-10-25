@@ -1,8 +1,9 @@
 # Runtime migration status
 
-The core architecture migration is implemented locally. Native Windows CI
-execution, Windows Forward+ hardware acceptance and the final publication checks
-remain outstanding. Complex stairs and unsupported door mechanisms are deferred.
+The baseline architecture/delivery migration reached main in PR #79. Native Godot
+top-view and furniture-only editing are the current local product milestone.
+Windows Forward+ hardware acceptance, richer presentation and deferred native
+mechanisms remain separate work.
 
 ## Architecture and completed scope
 
@@ -27,6 +28,7 @@ Godot scenes are adapter composition, never canonical authoring data.
 | Godot runtime | Grounded first-person movement, gravity, floor snap, collision, swing/slide/pocket doors, real double/french leaves and straight multi-floor stair traversal |
 | Browser boundary | Legacy PointerLock/FPS, movement collision and runtime door state removed; orbit, review/editing/selection, quick camera preview, floor stacks/cuts and native spawn editing retained |
 | Offline delivery | Shared browser/CLI scene ZIP export; Windows/Linux player builds; scene picker, pause/resume, scene replacement and failed-open recovery |
+| Native layout | Same-world camera transition, top-view input, native picking/placement, furniture-only Project commands, undo/redo, save/export through the bundled shared core |
 | Desktop lifecycle | Focus-loss pause and held-action clearing; explicit resume; manual return to compiled spawn with reset velocity/view and preserved world/door state |
 
 See [runtime contracts](plan2world-runtime-v1.md), [assets](runtime-assets-v1.md),
@@ -50,9 +52,10 @@ See [runtime contracts](plan2world-runtime-v1.md), [assets](runtime-assets-v1.md
   railing/air. This validates downstream native-Project runtime behavior, not AI
   image-extraction accuracy.
 - Rendered acceptance used Linux GL Compatibility/Mesa software rendering.
-  Windows native CI is defined; its workflow/PowerShell syntax and installer were
-  checked locally, but the Windows job itself has not run. The Windows player was
-  cross-built, not executed on Windows. Phone profiles are viewports, not hardware.
+  Those earlier local Windows checks were cross-builds and installer checks.
+  Baseline PR #79 subsequently passed native Windows/Linux headless main CI;
+  this new unpublished furniture-editor milestone still needs its own remote run.
+  Phone profiles are viewports, not hardware.
 
 These checks span the implementation milestones; they are not a claim that the
 entire main-level suite ran again on the latest commit. Follow the
@@ -63,21 +66,19 @@ retain native inputs, canonical results, hashes and representative inspected vie
 
 ## Next priorities
 
-1. Execute the native Windows CI gate after explicit authorization to publish.
-   Verify Windows asset loading, grounded traversal, desktop lifecycle and the
-   relocated player/scene package on Windows itself.
-2. Perform Windows Forward+ hardware/manual acceptance: renderer/driver startup,
-   mouse/focus behavior, doors, stairs and real-project presentation/collision.
-3. Run full main-level regression on the final revision, consolidate migration
-   review, then update umbrella PR #62 as the final architecture migration when
-   the user requests GitHub publication. No push, dispatch, PR update or merge is
-   implicit in local completion.
-4. Review the existing three low-severity audit findings in a separate dependency
-   upgrade pass. The configured high-severity audit gate passed.
+1. Complete local product-editor checks and inspect native top-view/first-person
+   input and rendering; see [layout ownership and scope](godot-furniture-layout.md).
+2. On explicit publication, run the updated native Linux/Windows CI and full
+   main-level regressions for this new milestone. Do not push or merge by default.
+3. Perform Windows Forward+ hardware/manual acceptance on the target machine.
+4. Improve materials, lighting and layout usability using real-house feedback.
+   Complex stairs remain low priority; furniture gameplay/animation and new custom
+   model import are not part of the current furniture arrangement scope.
 
-Furniture interaction/movement, richer authored model/material styling, lighting
-and other experience features are subsequent product work. Furniture currently
-supports presentation, transform and collision; it has no interaction/movement FSM.
+Earlier milestone verification above is historical. The baseline main CI passed
+Linux/Windows headless checks; it does not validate this unpublished editor change
+or Windows graphics/input hardware. PR #62 is no longer the current migration
+handoff; use the completed baseline and the new product milestone scope.
 
 ## Deferred native parity
 

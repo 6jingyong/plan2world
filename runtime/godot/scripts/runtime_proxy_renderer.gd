@@ -17,6 +17,7 @@ func render(
 	presented_assets: Dictionary = {},
 ) -> Dictionary:
 	var entities_by_id := {}
+	var instances := {}
 	for raw_entity in data.get("entities", []):
 		if typeof(raw_entity) == TYPE_DICTIONARY:
 			entities_by_id[str(raw_entity.get("id", ""))] = raw_entity
@@ -42,7 +43,10 @@ func render(
 		if architecture_presentation_loaded and _glb_owns(owner_kind, is_floor_surface):
 			static_proxy_suppressed_count += 1
 			continue
-		if _add_collider_proxy(node as Node3D, owner, collider):
+		var instance := _add_collider_proxy(node as Node3D, owner, collider)
+		if instance != null:
+			if owner_kind == "furniture":
+				instances[str(collider["ownerId"])] = instance
 			collider_proxy_count += 1
 			if is_floor_surface:
 				floor_surface_count += 1
@@ -53,12 +57,13 @@ func render(
 		var id := str(entity.get("id", ""))
 		var kind := str(entity.get("kind", ""))
 		if kind == "furniture" and not presented_assets.has(id) and not collider_nodes.has("furniture:" + id):
-			_add_box_marker(id, _vec3(entity["position"]), _vec3(entity["size"]), float(entity["yawClockwiseRadians"]), "furniture", root)
+			instances[id] = _add_box_marker(id, _vec3(entity["position"]), _vec3(entity["size"]), float(entity["yawClockwiseRadians"]), "furniture", root)
 		if kind == "window" and not architecture_presentation_loaded:
 			_add_box_marker(id, _vec3(entity["center"]), Vector3(entity["width"], entity["height"], 0.025), float(entity["yawClockwiseRadians"]), "window", root)
 			window_marker_count += 1
 
 	return {
+		"instances": instances,
 		"architecture_presentation_loaded": architecture_presentation_loaded,
 		"floor_surface_count": floor_surface_count,
 		"collider_proxy_count": collider_proxy_count,
@@ -72,20 +77,20 @@ func _glb_owns(owner_kind: String, is_floor_surface: bool) -> bool:
 func _is_floor_surface(collider: Dictionary) -> bool:
 	return str(collider.get("kind", "")) == "triangle-mesh" and str(collider.get("id", "")).begins_with("floor:")
 
-func _add_collider_proxy(body: Node3D, owner: Dictionary, collider: Dictionary) -> bool:
+func _add_collider_proxy(body: Node3D, owner: Dictionary, collider: Dictionary) -> MeshInstance3D:
 	var mesh := MeshInstance3D.new()
 	if str(collider.get("kind", "")) == "triangle-mesh":
 		var triangle_mesh := _triangle_mesh(collider)
 		if triangle_mesh == null:
-			return false
+			return null
 		mesh.mesh = triangle_mesh
 		mesh.material_override = _material_for_owner(owner, collider)
 		body.add_child(mesh)
-		return true
+		return mesh
 
 	var collision_shape := _direct_collision_shape(body)
 	if collision_shape == null or collision_shape.shape == null:
-		return false
+		return null
 	var shape_resource := collision_shape.shape
 	if shape_resource is BoxShape3D:
 		var box := BoxMesh.new()
@@ -99,11 +104,11 @@ func _add_collider_proxy(body: Node3D, owner: Dictionary, collider: Dictionary) 
 		cylinder.height = cylinder_shape.height
 		mesh.mesh = cylinder
 	else:
-		return false
+		return null
 	mesh.transform = collision_shape.transform
 	mesh.material_override = _material_for_owner(owner, collider)
 	body.add_child(mesh)
-	return true
+	return mesh
 
 func _triangle_mesh(collider: Dictionary) -> ArrayMesh:
 	var vertices: Array = collider.get("vertices", [])
@@ -128,9 +133,10 @@ func _direct_collision_shape(body: Node3D) -> CollisionShape3D:
 			return child as CollisionShape3D
 	return null
 
-func _add_box_marker(id: String, center: Vector3, size: Vector3, yaw: float, kind: String, root: Node3D) -> void:
+func _add_box_marker(id: String, center: Vector3, size: Vector3, yaw: float, kind: String, root: Node3D) -> MeshInstance3D:
 	var mesh := MeshInstance3D.new()
 	mesh.name = "MissingAsset_%s" % id.validate_node_name()
+	mesh.set_meta("p2w_owner_id", id)
 	var box := BoxMesh.new()
 	box.size = size
 	mesh.mesh = box
@@ -138,6 +144,7 @@ func _add_box_marker(id: String, center: Vector3, size: Vector3, yaw: float, kin
 	mesh.position = center
 	mesh.rotation.y = _yaw(yaw)
 	root.add_child(mesh)
+	return mesh
 
 func _material_for_owner(owner: Dictionary, collider: Dictionary) -> Material:
 	var kind := "floor" if _is_floor_surface(collider) else str(owner.get("kind", "wall"))
