@@ -5,8 +5,32 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import JSZip from 'jszip';
 import { runtimeAssetProject } from '../tooling/runtime-asset-fixture.mjs';
+import { runtimeProductProject } from '../tooling/runtime-product-fixture.mjs';
 
 describe('runtime export CLI', () => {
+  it.each([false,true])('rejects door-clipping furniture before writing outputs (existing outputs: %s)', async existing => {
+    const directory=await mkdtemp(path.join(tmpdir(),'plan2world-door-clearance-'));
+    try {
+      const source=await runtimeProductProject();
+      source.floors[0].furniture.find((item:{id:string})=>item.id==='sofa').position={x:300,y:600};
+      const input=path.join(directory,'input.json'), bytes=JSON.stringify(source);
+      await writeFile(input,bytes);
+      const retained=['scene.runtime.json','scene.architecture.glb','scene.assets/manifest.json','scene.assets/model.glb','scene.zip'];
+      if(existing) {
+        await mkdir(path.join(directory,'scene.assets'));
+        for(const file of retained) await writeFile(path.join(directory,file),`preserve ${file}`);
+      }
+      const result=spawnSync(process.execPath,['tooling/runtime-export.mjs',input,path.join(directory,'scene.runtime.json'),'--package',path.join(directory,'scene.zip')],{
+        encoding:'utf8',env:{...process.env,NODE_ENV:'production'},
+      });
+      expect(result.status).toBe(1);expect(result.stdout).not.toContain('Wrote');
+      expect(result.stderr).toContain('Furniture "sofa" overlaps the closed pose of door "swing-door"');
+      expect(await readFile(input,'utf8')).toBe(bytes);
+      if(existing) for(const file of retained) expect(await readFile(path.join(directory,file),'utf8')).toBe(`preserve ${file}`);
+      else expect(await readdir(directory)).toEqual(['input.json']);
+    } finally { await rm(directory,{recursive:true,force:true}); }
+  },15_000);
+
   it.each([false, true])('rejects an invalid native floor before writing outputs (existing outputs: %s)', async existing => {
     const directory = await mkdtemp(path.join(tmpdir(), 'plan2world-invalid-floor-'));
     try {

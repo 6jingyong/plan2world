@@ -84,7 +84,7 @@ a completed suite; retain its evidence and rerun the remaining or failed cases.
 Linux software GL screenshots establish a rendered integration check, not Windows
 Forward+ acceptance, native finish/material fidelity or photorealistic quality.
 Keep platform/manual checks explicit. L/U/spiral traversal and fold/overhead motion
-remain unsupported pending the native contracts in [migration status](runtime-migration.md).
+remain unsupported pending the [native semantic contracts](plan2world-runtime-v1.md#deferred-native-contracts).
 
 Publish or prepare the final migration PR only when the user requests it. Local
 validation and commits do not authorize a push, PR update or merge.

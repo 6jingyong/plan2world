@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import JSZip from 'jszip';
 import { runtimeWalkthroughProject } from './runtime-walkthrough-fixture.mjs';
+import { runtimeProductProject } from './runtime-product-fixture.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const [playerZip, output] = process.argv.slice(2);
@@ -41,14 +42,22 @@ await extract(path.resolve(playerZip), playerDirectory);
 await extract(sceneZip, sceneDirectory);
 const executable = path.join(playerDirectory, process.platform === 'win32' ? 'Plan2World.exe' : 'Plan2World.x86_64');
 const scene = path.join(sceneDirectory, 'scene.runtime.json');
+const productInput = path.join(directory, 'product.project.json');
+const productSource = JSON.stringify(await runtimeProductProject());
+await writeFile(productInput, productSource);
 const godot = process.env.GODOT_BIN || 'godot';
-for (const filename of ['runtime_launcher_test.gd', 'runtime_walkthrough_test.gd']) {
+for (const filename of ['runtime_launcher_test.gd', 'runtime_walkthrough_test.gd', 'runtime_layout_test.gd', 'runtime_product_controls_test.gd', 'runtime_snapping_test.gd', 'runtime_snapping_controls_test.gd']) {
   const script = path.join(directory, filename);
   await copyFile(path.join(root, 'runtime/godot/tests', filename), script);
-  const args = filename === 'runtime_launcher_test.gd' ? [scene, '--require-packed'] : ['--scene', scene];
+  const args = filename === 'runtime_launcher_test.gd' ? [scene, '--require-packed']
+    : filename === 'runtime_layout_test.gd' ? [input, path.join(directory, 'layout')]
+    : filename === 'runtime_product_controls_test.gd' ? [productInput, path.join(directory, 'controls'), path.join(sceneDirectory, 'scene.architecture.glb')]
+    : filename === 'runtime_snapping_controls_test.gd' ? [productInput, path.join(directory, 'snapping')]
+    : filename === 'runtime_snapping_test.gd' ? []
+    : ['--scene', scene];
   // Official release templates disable --script/path overrides. Use the pinned
   // editor to exercise the exact shipped PCK; do not add test hooks to the game.
-  execFileSync(godot, ['--headless', '--main-pack', path.join(playerDirectory, 'Plan2World.pck'), '--fixed-fps', '60', '--script', script, '--', ...args], { cwd: directory, stdio: 'inherit', timeout: 180_000 });
+  execFileSync(godot, ['--headless', '--main-pack', path.join(playerDirectory, 'Plan2World.pck'), '--fixed-fps', '60', '--script', script, '--', ...args], { cwd: directory, stdio: 'inherit', timeout: 180_000, env: { ...process.env, P2W_AUTHORING_CORE: path.join(playerDirectory, 'core') } });
 }
 // Also boot the shipped application normally, without the external test script.
 // Windows GUI executables may have no console stdout. The engine's own log-file
@@ -61,4 +70,5 @@ if (!boot.includes('Plan2World runtime loaded:') || !boot.includes('assets=8') |
   throw new Error('Release executable failed to load the complete fixture presentation');
 }
 if (await readFile(input, 'utf8') !== source) throw new Error('Native source changed during export');
-console.log('Relocated player/scene ZIPs: shipped PCK physics/launcher + release executable boot: PASS');
+if (await readFile(productInput, 'utf8') !== productSource) throw new Error('Native product source changed during editing');
+console.log('Relocated player/scene ZIPs: shipped PCK physics/launcher/layout/product controls/snapping + offline shared core + release executable boot: PASS');

@@ -2,7 +2,7 @@ import { expect, it } from 'vitest';
 import { get } from 'svelte/store';
 import { PerspectiveCamera } from 'three';
 import { activeFloor, createDefaultProject, loadProject, undo } from '$lib/stores/project';
-import { clearRuntimeStart, setRuntimeStart } from '$lib/stores/runtimeStart';
+import { clearRuntimeStart, setRuntimeStart, setRuntimeEntrance } from '$lib/stores/runtimeStart';
 import { setFloorCameraPose } from '$lib/utils/floorCamera';
 
 it('keeps native runtime spawn editing and clearing undoable', () => {
@@ -26,4 +26,16 @@ it('rejects invalid spawn edits without changing native Project', () => {
   loadProject(createDefaultProject('Invalid spawn'));
   expect(setRuntimeStart({x:NaN,y:0})).toBeUndefined();
   expect(get(activeFloor)?.walkthroughStart).toBeUndefined();
+});
+
+it('persists an explicitly selected entrance and clears or overrides it through authoring', () => {
+  const project=createDefaultProject('Entrance');
+  project.floors[0].walls.push({id:'host',start:{x:0,y:0},end:{x:500,y:0},thickness:20,height:280,color:'#ccc'});
+  project.floors[0].doors.push({id:'entry',wallId:'host',position:.5,width:100,height:210,type:'single',swingDirection:'left',flipSide:false});
+  loadProject(project);
+  setRuntimeEntrance('entry','right');
+  expect(get(activeFloor)?.entrance).toEqual({doorId:'entry',side:'right'});
+  clearRuntimeStart(); expect(get(activeFloor)?.entrance).toBeUndefined();
+  undo(); expect(get(activeFloor)?.entrance?.doorId).toBe('entry');
+  setRuntimeStart({x:100,y:100}); expect(get(activeFloor)?.entrance).toBeUndefined();
 });

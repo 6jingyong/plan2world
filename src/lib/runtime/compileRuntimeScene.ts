@@ -3,10 +3,12 @@ import { getWallEndHeight, getWallStartHeight } from '$lib/models/types';
 import { floorInteriorPoint } from '$lib/utils/floorInteriorPoint';
 import { analyzeFloor } from '$lib/utils/floorAnalysis';
 import { floorElevations } from '$lib/utils/floors';
+import { needsWallMount, validateWallPlacement } from '../utils/furniturePlacement';
 import { getCatalogItem, getFurnitureSize } from '$lib/utils/furnitureCatalog';
 import { roomCeilingHeight, wallProfileSpans } from '$lib/utils/wallProfiles';
 import { wallPointAt, wallTangentAt } from '$lib/utils/wallPath';
 import { triangulatePolygonWithHoles } from './polygonTriangulation';
+import { entranceSpawn } from './playerSpawn';
 import { compileRuntimeStair, type RuntimeStairTarget } from './stairTraversal';
 import { compileRuntimeDoor } from './doorCompilation';
 import type {
@@ -157,9 +159,16 @@ function compileFloor(
     if (catalog?.symbol && !item.customModelId) continue;
     const custom = customModels?.find(model => model.id === item.customModelId);
     const size = getFurnitureSize({ ...item, width: item.width ?? custom?.width, depth: item.depth ?? custom?.depth, height: item.height ?? custom?.height });
-    const position = point3(item.position, elevationCm + size.height / 2);
+    const position = point3(item.position, elevationCm + (item.wallMount?.elevation ?? 0) + size.height / 2);
     const yaw = item.rotation * Math.PI / 180;
+    const frame = item.wallMount ? validateWallPlacement(floor, { ...item, width: item.width ?? custom?.width, depth: item.depth ?? custom?.depth, height: item.height ?? custom?.height }) : null;
     entities.push({
+      locked: !!item.locked,
+      movement: frame ? { kind: 'wall', wallId: item.wallMount!.wallId, side: item.wallMount!.side,
+        blocked: frame.blocked.map(opening => ({ along: [m(opening.along[0]),m(opening.along[1])], bottom: [m(opening.bottom[0]),m(opening.bottom[1])] })),
+        origin: point3(frame.origin, elevationCm), tangent: [frame.tangent.x, 0, frame.tangent.y],
+        along: [m(frame.along[0]), m(frame.along[1])], bottom: [m(frame.bottom[0]), m(frame.bottom[1])] }
+        : needsWallMount(item.catalogId) ? { kind: 'unbound-wall' } : { kind: 'floor', elevation: m(elevationCm) },
       id: item.id, floorId: floor.id, kind: 'furniture', catalogId: item.catalogId,
       ...(item.sourceCategory ? { sourceCategory: item.sourceCategory } : {}),
       assetRef: item.customModelId ? `custom-model:${item.customModelId}` : `catalog:${item.catalogId}`,
@@ -231,6 +240,7 @@ function compileFloor(
       walkthroughStart: floor.walkthroughStart ? point3(floor.walkthroughStart, elevationCm) :
         rooms.length ? point3(floorInteriorPoint(analysis), elevationCm) : null,
       rooms,
+      ...entranceSpawn(floor, entities, elevation),
     },
     entities,
     colliders,

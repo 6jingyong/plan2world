@@ -179,6 +179,16 @@ Collision is compiler-owned output rather than something each backend infers fro
 - non-flat furniture gets a conservative box collider;
 - columns get box/cylinder primitives.
 
+Shared artifact compilation rejects furniture effective boxes that overlap a
+door's explicit closed-pose collider. This includes flat selectable furniture and
+both leaves of paired doors, independently of model availability or current
+engine animation. Height and authored rotations matter; touching faces are
+allowed. A leafless opening has no reserved door volume. This does not reserve a
+guessed swing envelope: live opening/closing still stops on native physics
+obstructions. No runtime fields or presentation geometry are added for this rule.
+Old compiled snapshots should be re-exported to run the current check; native
+authoring/JSON backup can retain an invalid layout for correction.
+
 Runtime backends translate these colliders into native physics types. Runtime triangles use right-handed CCW winding with +Y normals for walkable surfaces; Godot reverses triangle winding at its adapter boundary to match clockwise front faces. This conversion applies to physics and missing-GLB fallback presentation. They do not triangulate rooms, carve floor openings or infer stair ramps themselves.
 
 ## Schema and references
@@ -188,6 +198,26 @@ Runtime backends translate these colliders into native physics types. Runtime tr
 JSON Schema cannot express all cross-object references, so compiler tests also assert that emitted floor IDs, entity IDs and collider IDs are unique and that door/collider references resolve to objects on the same floor. Stair compiler tests additionally cover adjacent-floor targets, authored elevations, upward triangle winding and unsupported cases.
 
 ## Rendering boundary
+
+Native `floor.entrance` records one main door ID and its inward side. The runtime
+floor carries `entranceDoorId`, `walkthroughStart` and optional clockwise view yaw.
+The shared artifact compiler validates floor support and closed-pose clearance;
+it never moves a blocked authored start. Legacy unmarked Projects retain their
+explicit/automatic start, subject to the same export validation.
+
+Furniture carries required `locked` and discriminated `movement` fields:
+`floor` fixes elevation; `wall` supplies host ID, side, origin, tangent, along/
+height limits and door/window exclusion rectangles; `unbound-wall` is visible but
+not movable until explicitly attached. All values use runtime metres. Native
+`wallMount` retains host ID, side and bottom height in centimetres; position and
+rotation remain on the furniture item. Straight solid hosts are supported;
+curved attachment is rejected. Re-export earlier derived furniture snapshots.
+
+Final shared exports include `source.architectureSha256`, the deterministic
+presentation GLB digest. Consumers reject a mismatched present file before world
+replacement. The optional field preserves old snapshot/demo compatibility;
+missing GLBs may still use explicit presentation fallback. This pairing check
+never makes the GLB a source of runtime collision or semantics.
 
 `plan2world-runtime-v1` owns semantics, interaction and physics geometry; it is not the canonical presentation mesh. `architecture.glb` is the sibling compiler-owned static presentation artifact shared by runtime backends.
 
@@ -215,3 +245,19 @@ leaves, window panes and collision remain independently compiled.
 Dynamic door leaves and replaceable furniture remain outside `architecture.glb`. Their `assetRef` resolves through the sibling asset manifest, so model choice and transforms can change at runtime without rebuilding static architecture. See [Runtime assets](runtime-assets-v1.md). L/U/spiral stairs also remain outside shared presentation until their traversal semantics are intentionally specified; they are not faked as straight stairs.
 
 Do not put Godot `.tscn`, Unity prefab or Unreal Actor details into the contract.
+
+## Deferred native contracts
+
+These mechanisms stay explicitly unsupported until native authoring retains
+enough information to determine their real geometry and motion.
+
+| Feature | Required upstream authoring/semantic contract |
+| --- | --- |
+| L stair | Turn handedness, separate flights, landing dimensions and travel endpoints |
+| U stair | Turn handedness, separate flights, landing and inner gap dimensions |
+| Spiral stair | Inner/outer walking radii, rotation direction, turn angle and entry/exit bearings |
+| Bifold door | Panel count/widths, fold direction, hinge chain and track constraints |
+| Garage/overhead | Section/track geometry and lifting mechanism |
+
+Implement native editing/persistence before compiler geometry or engine behavior.
+Never substitute straight ramps or swing doors to conceal missing semantics.

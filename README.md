@@ -20,7 +20,7 @@ floor-plan JPG / PNG / WebP
       ├─ plan2world-runtime-v1       (semantics / collision / interaction)
       ├─ architecture.glb            (static architectural presentation)
       └─ assets manifest + GLBs        (furniture / dynamic door leaves)
-  → Godot runtime
+  → Godot runtime + native top-view furniture layout
 ```
 
 The model observes source evidence. Programs own topology, calculations, IDs, host matching, conversion, room analysis, collision contracts and runtime compilation.
@@ -72,7 +72,11 @@ Plan2World Runtime player. Windows/Linux player builds, offline use and delivery
 verification are described in [runtime delivery](docs/runtime-delivery.md).
 The player pauses on focus loss and provides manual return to its compiled spawn
 while preserving the current world's door state and geometry.
-See [`runtime/godot/README.md`](runtime/godot/README.md) for adapter details.
+Godot now switches smoothly between first person and top view in the same 3D world. Its native furniture layout tools support add/move/rotate/replace/remove, native Project save and runtime export, without undo/history. Top-view dragging offers a 10cm grid, straight-wall flush/orientation and furniture guides, with visible toggles and Alt to release. The native interface uses warm rounded panels and a compact walking HUD. First-person furniture adjustment uses small keyboard/gamepad nudges; floor furniture stays on its floor and mounted objects stay on their explicit wall; architecture stays fixed. Delivered players include the offline shared data/compiler core and need no browser. See [native furniture layout](docs/godot-furniture-layout.md) and [`runtime/godot/README.md`](runtime/godot/README.md).
+
+Furniture must leave the compiled closed-door volumes clear, including when a
+door is currently open. Shared export validation and native placement preview
+enforce this rule so saved layouts reopen without door/furniture clipping.
 
 ## Fresh validation
 
@@ -119,4 +123,4 @@ npm run build
 - Keep local/manual JSON import and offline runtime export available; AI must not be mandatory.
 - Preserve upstream MIT attribution.
 
-Migration status is tracked in [`docs/runtime-migration.md`](docs/runtime-migration.md). The [integration acceptance recipe](docs/runtime-integration.md) covers a normally saved real-house Project, complementary complex geometry, full browser regressions and rendering benchmarks.
+Current product scope, snapping controls and publication readiness are tracked in [native Godot layout](docs/godot-furniture-layout.md). The [integration acceptance recipe](docs/runtime-integration.md) covers a normally saved real-house Project, complementary complex geometry, full browser regressions and rendering benchmarks.

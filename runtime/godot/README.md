@@ -2,7 +2,7 @@
 
 This directory is a deliberately small consumer of `plan2world-runtime-v1` plus its sibling `architecture.glb` presentation artifact.
 It is **not** a second authoring model and must never become the source of truth for a house.
-The editable Plan2World `Project` remains authoritative; this runtime only consumes compiled artifacts.
+The editable Plan2World `Project` remains authoritative. Runtime loaders consume compiled artifacts; a separate native furniture editor delegates Project edits/compilation to the packaged shared core. All UI, cameras, picking, drag and collision checks run in Godot.
 
 ## Target
 
@@ -18,15 +18,33 @@ checks and Windows Forward+ hardware acceptance are distinct.
 
 ## Run the standalone player
 
-Extract the Windows/Linux player ZIP, start its executable and choose **Open
-runtime scene…**. Extract the editor's **Export runtime scene (.zip)** output
+Extract the Windows/Linux player ZIP, start its executable and choose **Explore
+a scene…**. Extract the editor's **Export runtime scene (.zip)** output
 and select `scene.runtime.json`. Keep its sibling GLB/assets directory together.
 F1 opens a paused scene menu with resume, **Return to start** and scene switching;
 failed opens retain the current walkthrough. Desktop focus loss pauses and clears
 held controls; focus return waits for explicit resume. Return to start resets only
 the player to the compiled spawn, retaining door states and all scene geometry.
-No Godot editor is required for delivered players.
+F2 smoothly switches to top view in the same 3D world. Top view uses visible-pointer furniture selection, middle/right pan and wheel zoom, with first-person controls disabled. **Arrange a Project…** enables furniture add/move/rotate/replace/remove, native save and runtime export, with no undo/history; architecture stays fixed. No browser, Godot editor or Node installation is required for delivered players. See [native layout scope, ownership and development](../../docs/godot-furniture-layout.md).
 See [offline delivery and build instructions](../../docs/runtime-delivery.md).
+
+F / gamepad X focuses nearby furniture in an editable Project. Arrow taps move
+1cm; held arrows or the left stick move gradually. F / Enter / A places; Esc / B
+cancels the preview. Movement stops while adjusting; mouse/right stick only
+looks. Floor furniture stays in its plan plane. Mounted objects use the explicit
+wall/side/height chosen in top view, and move only along that wall or vertically.
+Curved-wall mounting is currently unsupported. Top-view dragging supports a 10cm grid, straight-wall flush/orientation and furniture alignment guides; use the visible switches or hold Alt for free placement. Magnetic assistance never affects first-person micro-adjustment.
+
+Furniture placement reserves the explicit closed-door volumes even while doors
+are open. The shared compiler checks the same poses before accepting/exporting
+layout data. Near-door furniture may still stop live swing motion; saved layouts
+reopen with closed doors clear of furniture. These reservations affect placement
+only, so an open doorway stays walkable. Re-export older compiled snapshots.
+
+Default entrance/facing comes from the author-selected main door and inward
+side. Unmarked legacy Projects retain their previous start. Export rejects
+blocked/unsupported starts. The loader validates candidate semantics and matching
+GLB digest before replacing the active world; a failure retains the old scene.
 
 ## Develop locally / run the built-in demo
 
@@ -44,6 +62,7 @@ See [offline delivery and build instructions](../../docs/runtime-delivery.md).
    - `E`: interact with a swing or sliding door
    - `Esc`: release/capture mouse
    - `F1`: pause and open the scene menu
+   - `F2`: first-person/top-view camera transition
 
 The explicit `--demo` scene is `demo/runtime-scene.json`, so compatibility can
 still be tested without the web app, AI service or external GLB. It includes
@@ -133,7 +152,10 @@ The scripts are intentionally split by responsibility:
 - `runtime_loader.gd`: runtime semantics -> Godot collision and interaction nodes;
 - `runtime_proxy_renderer.gd`: compatibility presentation only for missing architecture GLB or missing assets;
 - `player.gd` / `door.gd`: engine-side runtime behavior;
-- `main.gd`: thin orchestration, spawn and demo shell.
+- `layout_camera.gd`: same-world camera transition, native layout input, selection and placement queries;
+- `runtime_plan_view.gd`: native Godot layout toolbar;
+- `layout_session.gd`: offline shared Project/compiler core, accepted current state, atomic save/export;
+- `main.gd`: scene/editor composition and mode lifecycle.
 
 The adapter delegates engine work to Godot:
 
@@ -163,7 +185,7 @@ This is still an architecture/runtime milestone, not a rendering-quality milesto
 ## Adapter boundary
 
 The authoring source of truth is still the native Plan2World `Project`.
-Godot must not import native `Project`, `plan2world-draft-v1`, LLM observations, Three.js nodes, or Godot scene data back into the core model.
+The runtime loader must not parse native `Project`, `plan2world-draft-v1`, LLM observations or Three.js nodes. The separate furniture editor opens Project files through the shared core and saves native revisions. Godot scene data never becomes the core model.
 
 Future backends (Unity/Unreal/Web) should consume the same runtime JSON + presentation geometry boundary rather than translating from this Godot project.
 

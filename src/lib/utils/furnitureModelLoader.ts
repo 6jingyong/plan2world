@@ -119,7 +119,7 @@ export function createPlacedFurnitureModel(item: FurnitureItem, onLoaded?: (mode
     : createFurnitureModelWithGLB(item.catalogId, definition, onLoaded, {
       color: item.color, material: item.material,
     });
-  model.position.set(item.position.x, 1.5, item.position.y);
+  model.position.set(item.position.x, (item.wallMount?.elevation ?? 0) + 1.5, item.position.y);
   model.rotation.y = -item.rotation * Math.PI / 180;
   // The plan's Y scale is world Z; height uses the saved Z magnitude.
   model.scale.set(item.scale?.x ?? 1, Math.abs(item.scale?.z ?? 1), item.scale?.y ?? 1);

@@ -137,6 +137,12 @@ func _build_door(entity: Dictionary, colliders: Dictionary, collider_nodes: Dict
 	assembly.name = "Door_%s" % str(entity["id"]).validate_node_name()
 	assembly.set_meta("p2w_owner_id", str(entity["id"]))
 	root.add_child(assembly)
+	if supported:
+		# A leaf is joined to its explicit host. Ignore that connected wall in
+		# obstruction queries (including pocket/slide travel inside the host).
+		for node in collider_nodes.values():
+			if node.get_meta("p2w_owner_id", "") == entity["hostWallId"]:
+				assembly.host_exclusions.append(node.get_rid())
 	for leaf in interaction["leaves"]:
 		var collider: Dictionary = colliders[str(leaf["colliderId"])]
 		var body: PhysicsBody3D = AnimatableBody3D.new() if supported else StaticBody3D.new()

@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import JSZip from 'jszip';
 import { runtimeAssetProject } from '../../tooling/runtime-asset-fixture.mjs';
+import { runtimeProductProject } from '../../tooling/runtime-product-fixture.mjs';
 
 async function importFixture(page: Page, supplied?: { name: string }) {
   await page.goto('/editor');
@@ -90,4 +91,45 @@ test('invalid native floor blocks runtime download while preserving editable JSO
   const zip = await JSZip.loadAsync(await download(page, 'Export runtime scene (.zip)'));
   expect(JSON.parse(await zip.file('scene.runtime.json')!.async('text')).source.projectId).toBe(recovered.id);
   await expect(page.getByRole('alert')).toHaveCount(0);
+});
+
+test('doorway furniture blocks runtime export while preserving native data for correction', async ({ page }) => {
+  const project=await runtimeProductProject();
+  project.floors[0].furniture.find((item: {id:string})=>item.id==='sofa').position={x:300,y:600};
+  await importFixture(page,{...project,name:'Doorway conflict'});
+  const before=await download(page,'Download JSON'), downloads: string[]=[];
+  page.on('download',download=>downloads.push(download.suggestedFilename()));
+  await page.getByRole('button',{name:'Export',exact:true}).click();
+  await page.getByRole('button',{name:'Export runtime scene (.zip)',exact:true}).click();
+  await expect(page.getByRole('alert')).toContainText('Furniture "sofa" overlaps the closed pose of door "swing-door"');
+  expect(downloads).toEqual([]);
+  expect(JSON.parse((await download(page,'Download JSON')).toString())).toEqual(JSON.parse(before.toString()));
+  await page.getByRole('button',{name:'Dismiss runtime export error',exact:true}).click();
+  const corrected={...await runtimeProductProject(),id:'runtime-doorway-corrected',name:'Doorway corrected in native authoring'};
+  await importFixture(page,corrected);
+  const zip=await JSZip.loadAsync(await download(page,'Export runtime scene (.zip)'));
+  expect(zip.file('scene.runtime.json')).not.toBeNull();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+});
+
+
+for (const width of [1440,390]) test(`explicit main entrance saves native identity and compiles an inward-facing start at ${width}px`, async ({ page }) => {
+  await page.setViewportSize({width,height:900});
+  const project: Record<string, any> & { name: string }={...await runtimeProductProject(),name:'Main entrance authoring'};
+  delete project.floors[0].entrance;
+  project.floors[0].walkthroughStart={x:300,y:800};
+  await importFixture(page,project);
+  await page.getByLabel('Main entrance door',{exact:true}).selectOption('main-entry');
+  await expect(page.getByLabel('Entrance inward side',{exact:true})).toHaveValue('left');
+  const bounds=await page.getByLabel('Entrance inward side',{exact:true}).boundingBox();
+  expect(bounds).not.toBeNull(); expect(bounds!.x).toBeGreaterThanOrEqual(0); expect(bounds!.x+bounds!.width).toBeLessThanOrEqual(width);
+  const saved=JSON.parse((await download(page,'Download JSON')).toString());
+  expect(saved.floors[0].entrance).toEqual({doorId:'main-entry',side:'left'});
+  expect(saved.floors[0].walkthroughStart).toBeUndefined();
+  const zip=await JSZip.loadAsync(await download(page,'Export runtime scene (.zip)'));
+  const runtime=JSON.parse(await zip.file('scene.runtime.json')!.async('text'));
+  expect(runtime.floors[0]).toMatchObject({entranceDoorId:'main-entry',walkthroughStart:[3,.4,.5],walkthroughYawClockwiseRadians:Math.PI/2});
+  await page.getByLabel('Clear first-person walkthrough start',{exact:true}).click();
+  await expect(page.getByLabel('Entrance inward side',{exact:true})).toHaveCount(0);
+  expect(JSON.parse((await download(page,'Download JSON')).toString()).floors[0].entrance).toBeUndefined();
 });

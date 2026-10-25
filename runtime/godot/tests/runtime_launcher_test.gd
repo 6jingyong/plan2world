@@ -16,6 +16,11 @@ func _frames(count: int) -> void:
 		await physics_frame
 
 func _run() -> void:
+	# Dummy headless windows expose a 64px viewport. Give UI gates a real
+	# desktop canvas; rendered tests retain native pixels and actual resizing.
+	if DisplayServer.get_name() == "headless":
+		root.content_scale_size = Vector2i(1280, 720)
+		root.content_scale_mode = Window.CONTENT_SCALE_MODE_CANVAS_ITEMS
 	var args := OS.get_cmdline_user_args()
 	if args.is_empty():
 		quit(2)
@@ -36,6 +41,79 @@ func _run() -> void:
 	_check(not paused and player.is_on_floor(), "Picker must load a scene and ground its player")
 	_check(world.get_node_or_null("Architecture") != null, "Relocated runtime must load its sibling architecture GLB")
 	var pose := player.position
+	# Plan mode is a view of the same compiled scene. It must not teleport the
+	# player, rebuild physics, reset doors, or resume movement behind the UI.
+	var door_for_plan := world.get_node("Door_swing-door")
+	door_for_plan.interact()
+	await _frames(40)
+	var heading := player.rotation
+	var pitch: Vector3 = player.get_node("Camera3D").rotation
+	pose = player.position
+	var mode_key := InputEventKey.new()
+	mode_key.keycode = KEY_F2
+	mode_key.pressed = true
+	Input.action_press("move_forward")
+	root.push_input(mode_key)
+	var camera := world.get_node("LayoutCamera/Camera3D") as Camera3D
+	var initial_view := camera.global_transform
+	_check(world.get_node("LayoutCamera").transitioning and not player.is_physics_processing(), "The camera transition must suspend locomotion immediately")
+	await _frames(12)
+	_check(not camera.global_transform.is_equal_approx(initial_view) and world.get_node("LayoutCamera").transitioning, "Top view must interpolate the camera over time")
+	await _frames(28)
+	var plan := world.get_node("PlanView")
+	_check(not paused and not player.is_physics_processing() and plan.visible and not world.get_node("HUD").visible, "F2 must enter a native top view with suspended player controls with no first-person HUD")
+	_check(not Input.is_action_pressed("move_forward"), "Entering top view must release held locomotion")
+	Input.action_press("move_forward")
+	var look_in_plan := InputEventMouseMotion.new()
+	look_in_plan.relative = Vector2(80, -30)
+	root.push_input(look_in_plan)
+	var door_key := InputEventKey.new()
+	door_key.physical_keycode = KEY_E
+	door_key.pressed = true
+	root.push_input(door_key)
+	await _frames(20)
+	_check(player.position.is_equal_approx(pose), "Top view must freeze the player while its UI remains active")
+	_check(player.rotation.is_equal_approx(heading) and player.get_node("Camera3D").rotation.is_equal_approx(pitch) and door_for_plan._opened, "Top-view mouse motion and E must not look or interact through the first-person controller")
+	Input.action_release("move_forward")
+	var selector := plan.find_child("FloorSelector", true, false) as OptionButton
+	_check(selector.item_count == 2, "Top view must expose both authored floors")
+	selector.select(1)
+	selector.item_selected.emit(1)
+	await _frames(40)
+	_check(plan.controller.floor_id == "upper", "Floor selection must change only the displayed authored floor")
+	var height_before: float = plan.controller._height
+	var wheel := InputEventMouseButton.new()
+	wheel.button_index = MOUSE_BUTTON_WHEEL_UP
+	wheel.pressed = true
+	wheel.position = root.get_visible_rect().size * 0.5
+	plan.controller._unhandled_input(wheel)
+	_check(plan.controller._height < height_before, "Plan view must zoom without changing runtime geometry")
+	var pan_release := InputEventMouseButton.new()
+	pan_release.button_index = MOUSE_BUTTON_MIDDLE
+	plan.controller._panning = true
+	plan.controller._input(pan_release)
+	_check(not plan.controller._panning, "Pan release must end the gesture even when a toolbar consumes the event")
+	var pan := InputEventMouseButton.new()
+	pan.button_index = MOUSE_BUTTON_MIDDLE
+	pan.pressed = true
+	plan.controller._unhandled_input(pan)
+	var center_before: Vector2 = plan.controller._center
+	var drag := InputEventMouseMotion.new()
+	drag.relative = Vector2(20, 10)
+	plan.controller._unhandled_input(drag)
+	_check(not plan.controller._center.is_equal_approx(center_before), "Plan view must pan independently of the player")
+	main.notification(Node.NOTIFICATION_WM_WINDOW_FOCUS_OUT)
+	_check(paused and not plan.visible and not plan.controller._panning, "Focus loss in top view must open the menu and cancel a held drag")
+	menu.resume_requested.emit()
+	await process_frame
+	_check(not paused and not player.is_physics_processing() and plan.visible, "Resume from the menu must return to top view without enabling locomotion")
+	root.push_input(mode_key)
+	await _frames(40)
+	_check(not paused and not plan.visible and world.get_node("HUD").visible, "F2 must restore first person")
+	_check(player.position.is_equal_approx(pose) and player.rotation.is_equal_approx(heading) and player.get_node("Camera3D").rotation.is_equal_approx(pitch), "View switching must retain player pose and look")
+	_check(world.get_instance_id() == world_id and door_for_plan._opened, "View switching must retain the world and open door state")
+	door_for_plan.interact()
+	await _frames(40)
 	var menu_key := InputEventKey.new()
 	menu_key.keycode = KEY_F1
 	menu_key.pressed = true

@@ -36,7 +36,7 @@ export async function runtimeAssetProject() {
       sha256, byteLength: bytes.length, width: 100, depth: 75, height: 50 })),
     projectPackage: { version: 1, furnitureCategoriesVersion: 1, native: { version: 1, title: 'Asset fixture', rooms: [], walls: [], furniture: [] },
       mapping: [], assets: { 'assets/box.glb': bytes.toString('base64') } },
-    floors: [{ id: 'ground', name: 'Ground', level: 0, elevation: 40, walkthroughStart: { x: 400, y: 400 }, walls, doors,
+    floors: [{ id: 'ground', name: 'Ground', level: 0, elevation: 40, walkthroughStart: { x: 700, y: 500 }, walls, doors,
       furniture, windows: [], stairs: [], columns: [], rooms: [], guides: [], measurements: [], annotations: [], textAnnotations: [], groups: [] }],
   };
 }

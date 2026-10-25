@@ -251,7 +251,7 @@ jobs:
 
   check:
     if: ${{ always() }}
-    needs: [build, audit, godot, browser, benchmark]
+    needs: [build, audit, godot, godot-windows, browser, benchmark]
     runs-on: ubuntu-latest
     timeout-minutes: 1
     steps:
@@ -261,12 +261,14 @@ jobs:
           BUILD_RESULT: ${{ needs.build.result }}
           AUDIT_RESULT: ${{ needs.audit.result }}
           GODOT_RESULT: ${{ needs.godot.result }}
+          GODOT_WINDOWS_RESULT: ${{ needs.godot-windows.result }}
           BROWSER_RESULT: ${{ needs.browser.result }}
           BENCHMARK_RESULT: ${{ needs.benchmark.result }}
         run: |
           test "$BUILD_RESULT" = success
           test "$AUDIT_RESULT" = success
           test "$GODOT_RESULT" = success
+          test "$GODOT_WINDOWS_RESULT" = success
           if [ "$EVENT_NAME" = push ]; then
             test "$BROWSER_RESULT" = success
             test "$BENCHMARK_RESULT" = success
