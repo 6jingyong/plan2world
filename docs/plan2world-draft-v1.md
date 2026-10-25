@@ -52,6 +52,17 @@ Machine validation is defined by `schemas/plan2world-draft-v1.schema.json`. The 
 
 ## Reconstruction ownership
 
-The image model does not author this final structure directly in the active pipeline. It emits source-space wall evidence, then source-space semantic annotations. Deterministic programs assign IDs, normalize topology, resolve opening hosts, calculate scale/centimetres, attach source registration and assemble the final draft.
+The image model does not author this final structure directly in the active pipeline.
+It observes architecture, openings, functional zones and scale together, followed
+by furniture semantics/positions only. Deterministic programs assign IDs, normalize
+topology, resolve hosts, calculate centimetres, attach registration and assemble the draft.
+
+The browser generation result returns the draft alongside a compact source-zone
+review. The review is not a draft field or another scene: it holds observed/supported
+zone counts and human-readable unresolved-zone findings. Opening a home retains it
+as optional `Project.reconstruction.observationReview` import evidence, version 1.
+Saved Review labels these findings historical; edits are checked separately against
+live native geometry. Native JSON and project packages preserve the evidence, while
+runtime JSON/GLB/assets ignore it.
 
 See `skills/reconstruct-plan2world/SKILL.md` for the active pipeline. Generated benchmark artifacts belong only in a new ignored `.plan2world-validation/runs/<run-id>/<sample-id>/` directory. Human benchmark references under `tests/evaluation/plan2world/source-references/` are post-hoc truth and must not be read before a fresh draft and source overlay are frozen.

@@ -2,6 +2,8 @@ import type { OpenAIConfig } from '$lib/utils/openaiClient';
 import { generateOpenAIJsonFromImage } from '$lib/utils/openaiClient';
 import type { Plan2WorldDraft } from './draft';
 import { parseSourceArchitecture, prepareArchitectureStage, assembleFrozenArchitecture, assertArchitectureHostsResolved } from './architecture';
+import { summarizeArchitectureObservation } from './review';
+import type { ReconstructionObservationReview } from '$lib/models/types';
 import { decodeSourceFloorPlanImage } from './sourceBackground';
 import type { SourceRasterPixels } from './rasterWallContinuation';
 import { buildArchitectureInstructions, buildReconstructionInstructions, PLAN2WORLD_RECONSTRUCTION_INSTRUCTIONS_VERSION, type ReconstructionOptions } from './reconstructionInstructions';
@@ -63,13 +65,18 @@ async function sourceForAssembly(image: EncodedFloorPlanImage, options: FloorPla
   return { context: {} };
 }
 
+export interface FloorPlanReconstructionResult {
+  draft: Plan2WorldDraft;
+  observationReview: ReconstructionObservationReview;
+}
+
 export async function reconstructFloorPlanImage(
   config: OpenAIConfig,
   image: EncodedFloorPlanImage,
   options: FloorPlanVisionOptions = {},
   customFetch: typeof fetch = fetch,
   signal?: AbortSignal,
-): Promise<Plan2WorldDraft> {
+): Promise<FloorPlanReconstructionResult> {
   const { sourceWidthPx: _sourceWidthPx, sourceHeightPx: _sourceHeightPx, ...instructionOptions } = options;
   const architecture = parseSourceArchitecture(await generateOpenAIJsonFromImage(config, image.base64, image.mimeType,
     buildArchitectureInstructions(instructionOptions), customFetch, signal));
@@ -84,5 +91,6 @@ export async function reconstructFloorPlanImage(
   const source = await sourceForAssembly(image, options);
   const stage = prepareArchitectureStage(architecture, source.context, furnishing, source.raster);
   assertArchitectureHostsResolved(stage);
-  return assembleFrozenArchitecture(stage, furnishing).draft;
+  return { draft: assembleFrozenArchitecture(stage, furnishing).draft,
+    observationReview: summarizeArchitectureObservation(stage) };
 }

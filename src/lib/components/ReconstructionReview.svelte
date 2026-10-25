@@ -1,12 +1,14 @@
 <script lang="ts">
   import type { DraftReviewSummary } from '$lib/plan2world/review';
+  import type { ReconstructionObservationReview } from '$lib/models/types';
   import type { NormalizedImagePoint } from '$lib/plan2world/sourceBackground';
   import { geometryIssueKey, type DraftGeometryIssue } from '$lib/plan2world/geometryHealth';
   import { traceElementMatchesIssue, type ReconstructionTrace } from '$lib/plan2world/reconstructionTrace';
 
-  let { review, trace = null, sourceUrl = '', sourceName = '', live = false, calibrationPoints = [], onpick, busy = false,
+  let { review, trace = null, observationReview = null, sourceUrl = '', sourceName = '', live = false, calibrationPoints = [], onpick, busy = false,
     showTrace = $bindable(true), focusedIssueKey = $bindable('') }: {
     review: DraftReviewSummary; trace?: ReconstructionTrace | null; sourceUrl?: string; sourceName?: string;
+    observationReview?: ReconstructionObservationReview | null;
     live?: boolean; calibrationPoints?: NormalizedImagePoint[]; onpick?: (event: MouseEvent) => void; busy?: boolean;
     showTrace?: boolean; focusedIssueKey?: string;
   } = $props();
@@ -47,6 +49,28 @@
 
 </script>
 
+{#if observationReview}
+  <section aria-label="Source boundary review" class={`mb-5 rounded-xl border p-4 text-sm ${observationReview.zoneFindings.length || !observationReview.acceptedZoneCount
+    ? 'border-amber-200 bg-amber-50 text-amber-950' : 'border-slate-200 bg-slate-50 text-slate-900'}`}>
+    <h3 class="font-semibold">{live ? 'Source boundary review at import' : 'Source boundary review'}</h3>
+    {#if observationReview.acceptedZoneCount > 0}
+      <p class="mt-1">{observationReview.supportedZoneCount} of {observationReview.acceptedZoneCount} observed zones {live
+        ? 'were supported by the boundaries at import.' : 'are supported by the reconstructed boundaries.'}</p>
+      {#if observationReview.zoneFindings.length}
+        <ul class="mt-2 space-y-1">
+          {#each observationReview.zoneFindings as finding}
+            <li><strong>{finding.label}:</strong> {finding.message}</li>
+          {/each}
+        </ul>
+      {/if}
+    {:else}
+      <p class="mt-1">No functional-zone outlines were supplied for these checks.</p>
+    {/if}
+    <p class="mt-2 text-xs">{live
+      ? 'These findings describe the original import and are retained after edits. Current geometry is checked separately below.'
+      : 'These checks compare observed zones with the reconstruction; they do not certify source-image accuracy. You can open the editable home to inspect and correct it.'}</p>
+  </section>
+{/if}
 
 {#if sourceUrl}
   <div class="rounded-xl border border-gray-200 bg-gray-50 overflow-hidden mb-5">

@@ -10,6 +10,7 @@ import { projectPackageBytes, readProjectPackage } from '$lib/services/projectPa
 import { jsonBytes, packageJSON, readPackageZip, writePackageZip } from '$lib/utils/projectPackageZip';
 import { activeFloorAnalysis, currentProject, loadProject, removeElement, setBackgroundImage, undo, updateBackgroundImage, updateDoor } from '$lib/stores/project';
 import { rectangleWalls } from './fixtures/project';
+import { compileRuntimeScene } from '$lib/runtime/compileRuntimeScene';
 
 const pixel = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a6WQAAAAASUVORK5CYII=';
 const source = { dataUrl: `data:image/png;base64,${pixel}`, width: 1, height: 1, name: 'synthetic.png' };
@@ -29,6 +30,29 @@ function draft(): Plan2WorldDraft {
   };
 }
 const candidate = () => draftToProjectWithSourceBackground(draft(), source);
+
+it('retains historical zone findings through native JSON and packages without changing runtime geometry', () => {
+  const project = candidate(); project.floors[0].doors[0].width = 90;
+  const runtime = compileRuntimeScene(project);
+  const observationReview = { version: 1 as const, acceptedZoneCount: 2, supportedZoneCount: 0,
+    zoneFindings: ['Bathroom', 'Study'].map(label => ({ label, message: 'Shares a reconstructed region with another observed zone.' })) };
+  project.reconstruction!.observationReview = observationReview;
+  expect(compileRuntimeScene(project)).toEqual(runtime);
+  expect(readProject(JSON.parse(JSON.stringify(project))).reconstruction?.observationReview).toEqual(observationReview);
+  expect(readProjectPackage(projectPackageBytes(project)).project.reconstruction?.observationReview).toEqual(observationReview);
+  project.floors[0].walls[0].end.x += 20;
+  expect(project.reconstruction?.observationReview).toEqual(observationReview);
+});
+
+it.each([
+  { version: 2, acceptedZoneCount: 0, supportedZoneCount: 0, zoneFindings: [] },
+  { version: 1, acceptedZoneCount: 2, supportedZoneCount: 3, zoneFindings: [] },
+  { version: 1, acceptedZoneCount: 2, supportedZoneCount: 0, zoneFindings: [] },
+  { version: 1, acceptedZoneCount: 1, supportedZoneCount: 0, zoneFindings: [{ label: 'Study', message: 3 }] },
+])('rejects malformed historical zone review: %j', observationReview => {
+  const project = candidate(); (project.reconstruction as any).observationReview = observationReview;
+  expect(() => readProject(project)).toThrow(/reconstruction evidence/);
+});
 
 it('keeps calibrated provider-neutral evidence through native JSON without storing a second geometry or raster', () => {
   const calibrated = calibratePlan2WorldDraft(draft(), 400, 800);

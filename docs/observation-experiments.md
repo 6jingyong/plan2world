@@ -19,9 +19,10 @@ E6–E9 test polygon approximation and shorter observation bookkeeping as a comb
 workflow; their results cannot isolate either change's effect. E9 reaches real
 Godot with polygons, but only 17/19 accepted zones are supported. The recessed-home
 trial stays strictly failed. See R1 in the ledger for the responsibility analysis.
-Next, preserve per-zone observation findings through the review handoff, then test
-an early read-only consistency check separately before another expensive diagonal
-execution. Keep provisional host warnings distinct from final closure failures.
+P2 now preserves per-zone findings in preview and historical native import evidence,
+with live geometry checks kept separate. Next, test an early read-only consistency
+check separately before another expensive diagonal execution. Keep provisional host
+warnings distinct from final closure failures.
 Do not combine selected runs into a five-image score or claim external-provider
 quality from direct Codex runs.
 

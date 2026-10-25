@@ -27,8 +27,9 @@ as the feature inventory; a separate full list and mapping report are unnecessar
 
 E6–E9 are recorded in the results ledger. The recessed-home execution remains
 strictly failed; the fresh rounded-source execution reaches Godot but still merges
-two accepted zones. Preserve both outcomes. The next milestone is the read-only
-review handoff described in R1, before another heavy image execution. These are combined
+two accepted zones. Preserve both outcomes. P2 completes the read-only review handoff;
+the next isolated milestone is early consistency review, before another heavy image
+execution. These are combined
 **polygon + compact-observation workflow** trials, not single-variable ablations
 or blind tests. The model has seen these images before. Do not reuse earlier
 observations or compare the result as if only curves changed.

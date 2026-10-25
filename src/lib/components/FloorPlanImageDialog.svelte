@@ -7,6 +7,7 @@
   import { openAISettings } from '$lib/stores/aiKeys';
   import { openProject } from '$lib/services/projectOpening';
   import type { Plan2WorldDraft } from '$lib/plan2world/draft';
+  import type { ReconstructionObservationReview } from '$lib/models/types';
   import { geometryIssueKey } from '$lib/plan2world/geometryHealth';
   import { reviewIssueFocusMode } from '$lib/plan2world/reviewFocus';
   import ReconstructionReview from './ReconstructionReview.svelte';
@@ -42,6 +43,7 @@
   let focusedIssueKey = $state('');
   let controller: AbortController | null = null;
   let draft = $state<Plan2WorldDraft | null>(null);
+  let observationReview = $state<ReconstructionObservationReview | null>(null);
   let sourceImage = $state<SourceFloorPlanImage | null>(null);
   let calibrationPoints = $state<NormalizedImagePoint[]>([]);
   let actualReference = $state('');
@@ -82,6 +84,7 @@
 
   function resetReview() {
     draft = null;
+    observationReview = null;
     sourceImage = null;
     showTrace = true;
     focusedIssueKey = '';
@@ -130,13 +133,15 @@
       sourceImage = { ...await decodeSourceFloorPlanImage(image.dataUrl), name: file.name };
       if (controller.signal.aborted) return;
       status = 'Reconstructing walls, doors, and windows…';
-      draft = await reconstructFloorPlanImage(
+      const result = await reconstructFloorPlanImage(
         get(openAISettings),
         image,
         { scaleHint },
         fetch,
         controller.signal,
       );
+      draft = result.draft;
+      observationReview = result.observationReview;
       status = 'Reconstruction ready for review.';
     } catch (cause) {
       if (!controller?.signal.aborted) {
@@ -186,6 +191,9 @@
     controller = new AbortController();
     try {
       const candidate = draftToProjectWithSourceBackground(draft, sourceImage);
+      if (candidate.reconstruction && observationReview) {
+        candidate.reconstruction.observationReview = structuredClone($state.snapshot(observationReview));
+      }
       const project = await openProject(() => candidate, 'import', controller.signal);
       if (!project) return;
       oncreated();
@@ -225,7 +233,7 @@
       <p class="text-sm text-gray-500 mt-1">
         {draft
           ? 'Compare the reconstructed trace with the source image, then check scale and assumptions before opening the editable home.'
-          : 'Upload a normal floor-plan image. AI extracts the architecture; Plan2World turns it into the existing editable Three.js scene.'}
+          : 'Upload a floor-plan image. AI observes architecture and furnishing; Plan2World builds an editable home for review.'}
       </p>
     </div>
     <button type="button" onclick={close} disabled={busy} aria-label="Close"
@@ -235,7 +243,7 @@
   <input bind:this={fileInput} class="hidden" type="file" accept="image/png,image/jpeg,image/webp" onchange={onFileSelected} />
 
   {#if draft && review}
-    <ReconstructionReview {review} {trace} sourceUrl={previewUrl} sourceName={file?.name}
+    <ReconstructionReview {review} {trace} {observationReview} sourceUrl={previewUrl} sourceName={file?.name}
       {calibrationPoints} onpick={pickCalibrationPoint} {busy} bind:showTrace bind:focusedIssueKey />
 
     <div class="mt-4 rounded-xl border border-blue-200 bg-blue-50/60 p-4">
@@ -328,7 +336,7 @@
     </div>
 
     <div class="mt-4 rounded-xl border border-gray-200 px-4 py-3 text-xs text-gray-500">
-      Furniture is intentionally not inferred in v1. Reconstruct the walls and openings first, then use the existing furniture catalog to furnish the editable plan.
+      Furniture is imported as editable semantic placeholders. Use the catalog to choose models and adjust placement.
     </div>
   {/if}
 

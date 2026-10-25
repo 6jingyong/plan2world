@@ -32,6 +32,10 @@ Plan2World turns a floor-plan raster into an editable browser home and an engine
 - Centerline correction is DISABLED in browser and CLI generation. Whole-image ridge/furniture-weight/fit diagnostics run only through the explicit read-only review command; their unapproved candidates never enter closure or assembly. Do not re-enable correction, project openings with candidate lines, or move junctions from a review. See `docs/raster-centerlines.md`. Independent relative geometry uses one divisor for both axes; native centimetre calibration remains uniform.
 - The assembler owns IDs, host matching, cm conversion, opening width/position, furniture catalog IDs, source registration and `plan2world-draft-v1`.
 - The native application owns room derivation, editing, persistence and browser review/preview. The deterministic runtime compiler derives `plan2world-runtime-v1` plus `architecture.glb` from that same native Project. Godot consumes those artifacts for runtime collision and interaction; it must not redo reconstruction, room detection or topology repair.
+- Hand source-zone review to the browser separately from draft geometry. Optional
+  native `reconstruction.observationReview` records historical import counts and
+  findings, never a second geometry or live correctness verdict. Keep current
+  native geometry checks separate; runtime artifacts must ignore this metadata.
 
 Core rule: **LLM observes; programs calculate and assemble.**
 
@@ -123,6 +127,8 @@ variables (label combined workflow trials), source/code identity, actual results
 failures, conclusion and next decision, with links to frozen ignored evidence.
 Keep bulk diaries/artifacts out
 of the active tree; do not erase negative results when later fixes pass.
+Use the ledger's effectiveness table for orientation; read individual historical
+rounds when their variable or failure is relevant.
 
 ## Draft invariants
 
