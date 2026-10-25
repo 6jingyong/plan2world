@@ -285,3 +285,13 @@
   证明预检未阻断此完整有效执行，不证明新提示更准；不能与选取的历史成功组成五图得分。
 - **证据**：[E10报告](../.plan2world-validation/runs/20261025-preflight-fresh-conventional/README.md)、
   [原图叠加](../.plan2world-validation/runs/20261025-preflight-fresh-conventional/index.html)。
+
+## 合并验收 — PR #79（2026-10-25）
+
+- **首轮远端问题**：1,660项单测通过，原像素工具的真实解码测试因build任务未安装
+  Playwright Chromium而失败；本地已有浏览器，未暴露这项环境依赖。其他断言未报错。
+- **修正**：在单测前安装锁定Playwright版本的Chromium headless shell及系统依赖，
+  保留真实像素测试和原断言，不改图片观察、几何程序或PR浏览器/benchmark策略。
+- **验收状态**：以[PR #79](https://github.com/6jingyong/plan2world/pull/79)最终提交的
+  core检查（包含原生Windows）和合并后的main完整CI为准；过程与结果保存在
+  [本地整合记录](../.plan2world-validation/runs/20261025-main-integration/README.md)。
