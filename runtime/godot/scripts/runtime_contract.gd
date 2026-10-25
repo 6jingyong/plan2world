@@ -100,17 +100,14 @@ static func valid(data: Dictionary) -> bool:
 			_: return false
 	for room in rooms:
 		if not surfaces.has(room): return false
-	return valid_doors(data)
+	return _valid_doors(data)
 
-static func valid_doors(data: Dictionary) -> bool:
-	if not data.get("entities") is Array or not data.get("colliders") is Array: return false
+static func _valid_doors(data: Dictionary) -> bool:
 	var colliders := {}
 	for collider in data["colliders"]:
-		if not collider is Dictionary: return false
-		colliders[collider.get("id")] = collider
+		colliders[collider["id"]] = collider
 	var ids := {}
 	for entity in data["entities"]:
-		if not entity is Dictionary: return false
 		if entity.get("kind") != "door": continue
 		if not _pose(entity.get("closedPose")): return false
 		var motion = entity.get("interaction")

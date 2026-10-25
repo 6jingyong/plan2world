@@ -245,3 +245,19 @@ leaves, window panes and collision remain independently compiled.
 Dynamic door leaves and replaceable furniture remain outside `architecture.glb`. Their `assetRef` resolves through the sibling asset manifest, so model choice and transforms can change at runtime without rebuilding static architecture. See [Runtime assets](runtime-assets-v1.md). L/U/spiral stairs also remain outside shared presentation until their traversal semantics are intentionally specified; they are not faked as straight stairs.
 
 Do not put Godot `.tscn`, Unity prefab or Unreal Actor details into the contract.
+
+## Deferred native contracts
+
+These mechanisms stay explicitly unsupported until native authoring retains
+enough information to determine their real geometry and motion.
+
+| Feature | Required upstream authoring/semantic contract |
+| --- | --- |
+| L stair | Turn handedness, separate flights, landing dimensions and travel endpoints |
+| U stair | Turn handedness, separate flights, landing and inner gap dimensions |
+| Spiral stair | Inner/outer walking radii, rotation direction, turn angle and entry/exit bearings |
+| Bifold door | Panel count/widths, fold direction, hinge chain and track constraints |
+| Garage/overhead | Section/track geometry and lifting mechanism |
+
+Implement native editing/persistence before compiler geometry or engine behavior.
+Never substitute straight ramps or swing doors to conceal missing semantics.

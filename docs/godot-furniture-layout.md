@@ -46,6 +46,34 @@ Wall-mounted catalog items require a chosen straight solid wall, side and bottom
 height. Curved-wall attachment is explicitly unsupported; existing unbound wall
 items stay visible/selectable but cannot be moved until explicitly attached.
 
+## Snapping status
+
+Godot currently provides constrained placement and collision rejection. Automatic
+magnetic placement is not implemented in this product milestone.
+
+| Native Godot behavior | Status |
+| --- | --- |
+| Ground furniture stays at authored floor height | Implemented constraint |
+| Mounted furniture follows a chosen straight wall and height range | Implemented explicit binding; wall is selected by the user |
+| Obstacles, floor holes and closed-door volumes reject placement | Implemented validation |
+| Keyboard 1cm steps / gradual gamepad movement | Implemented micro-adjustment, not grid snapping |
+| Nearby-wall auto-attachment, flush position and automatic orientation | Not implemented |
+| Optional grid snapping | Not implemented |
+| Furniture edge/center magnetic alignment | Not implemented |
+| Snap capture/release feedback and tolerances | Not implemented |
+
+The internal browser authoring canvas already has coordinate/grid snapping,
+straight-wall furniture alignment and guide-line snapping. Its wall helper uses
+effective furniture sizes, skips curved/too-short walls and keeps wall clearance
+exact when applying the grid. That helper currently persists position/rotation,
+not an explicit `wallMount`; browser auto-alignment and Godot wall binding are not
+yet a unified editing feature. Browser wall endpoint/segment and drawing-angle
+assistance is architecture authoring, outside Godot's furniture-only scope.
+
+Future product snapping should retain a clear on/off/release interaction and the
+current collision/door validation. First-person micro-adjustment must keep its
+small keyboard/gamepad steps; adding snapping must not force coarse grid jumps.
+
 ## Ownership
 
 `layout_camera.gd` owns a native Camera3D transition, ray picking, pan/zoom, drag
@@ -175,9 +203,34 @@ scene editor, scripting system or alternative canonical data model.
 | --- | --- |
 | `ab865c3`: native cameras/layout | [Original results](../.plan2world-validation/runs/20261025-godot-plan-view/RESULTS.md). 1,665 unit tests, native mode separation/CRUD, packaged Linux and rendered inspection passed. The flat canvas prototype was removed. |
 | `2582099`: entrance, loading and controls | [Product-control results](../.plan2world-validation/runs/20261025-product-controls/RESULTS.md). 1,670 unit tests; entrance/facing, transactions, no history and constrained controls passed. Frozen real-house replay retained all architecture/input bytes. Closed-pose doorway placement remained explicitly unresolved. |
-| Current: door/layout lifecycle | [Current results](../.plan2world-validation/runs/20261025-door-layout-lifecycle/RESULTS.md). 1,684 unit tests passed. Shared export/CLI checks and native pointer/micro-adjustment reserve default closed poses; save/export/reopen and real walking are covered by the updated shipped-PCK gate. |
+| `30964ba`: door/layout lifecycle | [Door/layout results](../.plan2world-validation/runs/20261025-door-layout-lifecycle/RESULTS.md). 1,684 unit tests passed. Shared export/CLI checks and native pointer/micro-adjustment reserve default closed poses; save/export/reopen and real walking are covered by the shipped-PCK gate. |
+| Current: cleanup/readiness | [Review results](../.plan2world-validation/runs/20261025-stability-review/RESULTS.md). 1,684 units, type/build/catalog checks, high-threshold audit, rebuilt Linux/Windows packages and Linux shipped-PCK delivery/asset gates passed. Snapping status is documented; no snapping behavior was added. |
 
-The latest round additionally fixes notice ownership: camera/toolbar refresh must
+## Publication assessment — 2026-10-25
+
+Read-only fetch confirmed remote main remains `89a4fab`; the three local product
+milestones through `30964ba` are ahead of that main with no divergent main
+commits. Cleanup follows those milestones and adds no snapping behavior.
+
+This is worth publishing as a **product-editor milestone / release candidate**
+for review and reproducible regression, with the supported scope above. It is
+not yet evidence for a finished, generally stable desktop product. Native
+snapping is incomplete, the current editor has no native Windows/Forward+
+hardware acceptance, and its full three-engine browser/benchmark suites have not
+been rerun. Large-scene load/edit time and subprocess cancellation remain limits;
+neither has been misreported as an observed failure.
+
+Publication should run the exact candidate's unit/type/build/audit and native
+Linux/Windows Godot CI. The existing workflow runs on pull requests or main push;
+pushing an isolated feature branch does not trigger it. Keep that policy.
+Existing policy keeps full browser/benchmark jobs on main
+push; final stable acceptance also needs those main-level results and target
+device/input checks. A branch push and a stable release are separate decisions.
+See [release acceptance](release-checklist.md). This review performs no GitHub
+write, PR, tag or merge. Current cleanup evidence lives in
+[the local review](../.plan2world-validation/runs/20261025-stability-review/RESULTS.md).
+
+Door/layout milestone `30964ba` additionally fixed notice ownership: camera/toolbar refresh must
 retain an operation's explanation until the next edit. A hidden top-view toolbar
 must not reframe the world or cancel first-person adjustment. Its first negative
 run caught the overwritten explanation. A second test waited for a camera tween

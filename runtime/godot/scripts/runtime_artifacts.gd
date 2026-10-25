@@ -58,9 +58,6 @@ func load_runtime(path: String) -> Dictionary:
 		return {}
 	return data
 
-func has_door_leaf_contract(data: Dictionary) -> bool:
-	return CONTRACT.valid_doors(data)
-
 func architecture_matches(data: Dictionary, path: String) -> bool:
 	var digest: String = data["source"].get("architectureSha256", "")
 	return digest.is_empty() or not FileAccess.file_exists(path) or FileAccess.get_sha256(path) == digest

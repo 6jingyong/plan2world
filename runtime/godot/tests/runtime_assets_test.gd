@@ -1,6 +1,7 @@
 extends SceneTree
 
 const ARTIFACTS := preload("res://scripts/runtime_artifacts.gd")
+const CONTRACT := preload("res://scripts/runtime_contract.gd")
 const LOADER := preload("res://scripts/runtime_loader.gd")
 const RENDERER := preload("res://scripts/runtime_asset_renderer.gd")
 const PROXIES := preload("res://scripts/runtime_proxy_renderer.gd")
@@ -50,10 +51,10 @@ func _run() -> void:
 		return
 	var legacy := data.duplicate(true)
 	legacy["entities"].filter(func(e): return e["kind"] == "door")[0]["interaction"].erase("leaves")
-	_check(not artifacts.has_door_leaf_contract(legacy), "Older single-leaf artifacts must require re-export, never inferred motion")
+	_check(not CONTRACT.valid(legacy), "Older single-leaf artifacts must require re-export, never inferred motion")
 	var wrong_owner := data.duplicate(true)
 	wrong_owner["colliders"].filter(func(c): return c["dynamic"])[0]["ownerId"] = "unrelated"
-	_check(not artifacts.has_door_leaf_contract(wrong_owner), "Leaf collider ownership must be explicit and valid")
+	_check(not CONTRACT.valid(wrong_owner), "Leaf collider ownership must be explicit and valid")
 	var assets := artifacts.load_assets(runtime_path)
 	_check(assets.size() == 5, "Expected catalog, custom aliases and shared door leaf assets")
 	var world := Node3D.new()
