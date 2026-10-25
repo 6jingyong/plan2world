@@ -1,7 +1,7 @@
 import type { OpenAIConfig } from '$lib/utils/openaiClient';
 import { generateOpenAIJsonFromImage } from '$lib/utils/openaiClient';
 import type { Plan2WorldDraft } from './draft';
-import { parseSourceArchitecture, prepareArchitectureStage, assembleFrozenArchitecture, assertArchitectureHostsResolved } from './architecture';
+import { preflightArchitectureObservation, prepareArchitectureStage, assembleFrozenArchitecture, assertArchitectureHostsResolved } from './architecture';
 import { summarizeArchitectureObservation } from './review';
 import type { ReconstructionObservationReview } from '$lib/models/types';
 import { decodeSourceFloorPlanImage } from './sourceBackground';
@@ -78,8 +78,10 @@ export async function reconstructFloorPlanImage(
   signal?: AbortSignal,
 ): Promise<FloorPlanReconstructionResult> {
   const { sourceWidthPx: _sourceWidthPx, sourceHeightPx: _sourceHeightPx, ...instructionOptions } = options;
-  const architecture = parseSourceArchitecture(await generateOpenAIJsonFromImage(config, image.base64, image.mimeType,
-    buildArchitectureInstructions(instructionOptions), customFetch, signal));
+  const architectureInput = await generateOpenAIJsonFromImage(config, image.base64, image.mimeType,
+    buildArchitectureInstructions(instructionOptions), customFetch, signal);
+  const source = await sourceForAssembly(image, options);
+  const architecture = preflightArchitectureObservation(architectureInput, source.context);
   const furnishing = await generateOpenAIJsonFromImage(
     config,
     image.base64,
@@ -88,7 +90,6 @@ export async function reconstructFloorPlanImage(
     customFetch,
     signal,
   );
-  const source = await sourceForAssembly(image, options);
   const stage = prepareArchitectureStage(architecture, source.context, furnishing, source.raster);
   assertArchitectureHostsResolved(stage);
   return { draft: assembleFrozenArchitecture(stage, furnishing).draft,

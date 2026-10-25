@@ -68,6 +68,40 @@ describe('Plan2World architecture-first vision reconstruction', () => {
     expect(customFetch).toHaveBeenCalledTimes(2);
   });
 
+  it.each(['duplicate', 'partial-overlap', 'outside-raster'])('rejects %s wall evidence before requesting furniture', async kind => {
+    const input = structuredClone(architecture);
+    if (kind === 'outside-raster') input.walls[0].start.x = -1;
+    else input.walls.push({ ...input.walls[0], label: 'Repeated shared stroke',
+      ...(kind === 'partial-overlap' ? { start: { x: 40, y: 0 }, end: { x: 200, y: 0 } } : {}) });
+    const before = JSON.stringify(input);
+    const fetchMock = vi.fn(async () => responseJson(input));
+    await expect(reconstructFloorPlanImage(config, image, { sourceWidthPx: 360, sourceHeightPx: 300 }, fetchMock as typeof fetch))
+      .rejects.toThrow(kind === 'outside-raster' ? /outside the original source raster/
+        : kind === 'duplicate' ? /Duplicate normalized wall geometry/ : /Overlapping normalized wall geometry/);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(input)).toBe(before);
+  });
+
+  it('permits a source-supported passage whose logical host is added only after furnishing', async () => {
+    const point = (x: number, y: number) => ({ x, y });
+    const zone = (label: string, seedX: number, points: [number, number, string][]) => ({ ...decision, label,
+      category: 'room', environment: 'indoor', position: point(seedX, 150),
+      boundary: points.map(([x, y, kind]) => ({ point: point(x, y), kind, evidence: 'Declared source partition ends.' })) });
+    const input = { ...structuredClone(architecture), walls: [...architecture.walls,
+      { ...decision, label: 'Upper divider', start: point(180, 0), end: point(180, 100) },
+      { ...decision, label: 'Lower divider', start: point(180, 200), end: point(180, 300) },
+    ], openings: [{ ...architecture.openings[0], endpoints: [point(0, 100), point(0, 190)] }], functionalZones: [
+      zone('Left', 90, [[0, 0, 'wall'], [180, 0, 'wall'], [180, 100, 'passage'], [180, 200, 'wall'], [180, 300, 'wall'], [0, 300, 'wall']]),
+      zone('Right', 270, [[180, 0, 'wall'], [360, 0, 'wall'], [360, 300, 'wall'], [180, 300, 'wall'], [180, 200, 'passage'], [180, 100, 'wall']]),
+    ] };
+    let calls = 0;
+    const fetchMock = vi.fn(async () => responseJson(calls++ === 0 ? input : furnishing));
+    const result = await reconstructFloorPlanImage(config, image, { sourceWidthPx: 360, sourceHeightPx: 300 }, fetchMock as typeof fetch);
+    expect(result.observationReview).toMatchObject({ acceptedZoneCount: 2, supportedZoneCount: 2, zoneFindings: [] });
+    expect(result.draft.floors[0].doors?.filter(door => door.type === 'opening')).toMatchObject([{ width: 100 }]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it('feeds the early furniture response into program closure before producing the final draft', async () => {
     const input = structuredClone(architecture);
     input.scaleEvidence.realLengthCm = 720;

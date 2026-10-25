@@ -1,6 +1,7 @@
 # Observation workflow experiments
 
-Work remains local on `observation-v2`; do not push or merge without a user request.
+Work is on `observation-v2`. On 2026-10-25 the user authorized merging the validated
+milestone to main once checks pass; do not promote failed source observations.
 The runtime migration is merged through PR #62 at main `a2b5dd6`, with
 [full main CI](https://github.com/6jingyong/plan2world/actions/runs/40077540331).
 Maintain the [results ledger](observation-experiment-results.md) after every round,
@@ -19,12 +20,29 @@ E6–E9 test polygon approximation and shorter observation bookkeeping as a comb
 workflow; their results cannot isolate either change's effect. E9 reaches real
 Godot with polygons, but only 17/19 accepted zones are supported. The recessed-home
 trial stays strictly failed. See R1 in the ledger for the responsibility analysis.
-P2 now preserves per-zone findings in preview and historical native import evidence,
-with live geometry checks kept separate. Next, test an early read-only consistency
-check separately before another expensive diagonal execution. Keep provisional host
-warnings distinct from final closure failures.
+P2 preserves per-zone findings in preview and historical native import evidence,
+with live geometry checks kept separate. P3 now rejects source bounds and repeated
+or overlapping walls before furnishing, without accepting opening hosts or
+replacing final furniture-guided closure. Its fresh E10 execution supports 12/12
+accepted zones and reaches Godot; this is one workflow check, not a recognition
+quality comparison.
+The current step is merge-level regression of floor acceptance, explicit semantics,
+polygon support and review handoff. Local checks pass: 1,661 unit tests, type/build,
+27 targeted browser cases across three engines and eight Godot commands. Require
+remote core checks, including native Windows, before merging; then verify the full
+main browser and benchmark run. Keep platform/manual and source-quality limits
+explicit in the integration receipt.
 Do not combine selected runs into a five-image score or claim external-provider
 quality from direct Codex runs.
+
+## Deferred validation (low priority)
+
+Per user instruction, E1/E2 source-region views and E3/E4 full inventories are not
+short-term priorities. Retain their evidence and optional tools, without making
+them a default requirement. Revisit views only for a specific unresolved source
+detail or a controlled provider comparison; revisit a larger inventory only if
+there is a concrete coverage failure it could address. No new whole-corpus reruns
+or larger ledgers are justified by their current evidence.
 
 Every run starts from the original raster in a fresh ignored directory. Freeze
 architecture before furniture and both before preparation. Preserve generated

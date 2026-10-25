@@ -1,5 +1,9 @@
 # Compact observation pilot
 
+E1–E4 view/full-inventory investigations are now low-priority follow-ups by user
+instruction (2026-10-25). Keep the compact contract and existing evidence; do not
+expand source-view tooling or full inventories during the current merge milestone.
+
 The full global-inventory trials are retained in the [results ledger](observation-experiment-results.md)
 (E3–E5). Complete label bookkeeping did not establish source fidelity and added
 substantial duplicate output. The next trial uses the existing observation records

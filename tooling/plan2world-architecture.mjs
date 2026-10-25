@@ -11,15 +11,16 @@ for (let i = 0; i < args.length; i += 2) {
   if (!['--input', '--stage', '--furnishing', '--output', '--source', '--source-width', '--source-height'].includes(args[i]) || !args[i + 1]) throw new Error('Invalid architecture command arguments.');
   options[args[i].slice(2)] = args[i + 1];
 }
-if (!['prepare', 'assemble', 'assemble-diagnostic'].includes(command) || !options.output) throw new Error('Usage: prepare --input architecture.json [--furnishing furnishing.json] --output new-dir [--source original.jpg | --source-width W --source-height H] | assemble[‑diagnostic] --stage architecture-stage.json --furnishing furnishing.json --output new-dir');
+if (!['preflight', 'prepare', 'assemble', 'assemble-diagnostic'].includes(command) || !options.output) throw new Error('Usage: preflight|prepare --input architecture.json [--furnishing furnishing.json (prepare only)] --output new-dir [--source original.jpg | --source-width W --source-height H] | assemble[‑diagnostic] --stage architecture-stage.json --furnishing furnishing.json --output new-dir');
+if (command === 'preflight' && options.furnishing) throw new Error('Observation preflight runs before furnishing and does not consume furniture.');
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const server = await createServer({ root, configFile: false, logLevel: 'error', resolve: { alias: { '$lib': resolve(root, 'src/lib') } }, optimizeDeps: { noDiscovery: true, include: [] }, server: { middlewareMode: true, watch: null, ws: false }, appType: 'custom' });
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const input = async path => { if (!path) throw new Error('Missing required input path.'); const bytes = await readFile(resolve(path)); return { value: JSON.parse(bytes), sha256: hash(bytes), path: resolve(path) }; };
 try {
-  const { prepareArchitectureStage, assembleFrozenArchitecture } = await server.ssrLoadModule('/src/lib/plan2world/architecture.ts');
+  const { preflightArchitectureObservation, prepareArchitectureStage, assembleFrozenArchitecture } = await server.ssrLoadModule('/src/lib/plan2world/architecture.ts');
   let outputs, provenance;
-  if (command === 'prepare') {
+  if (command === 'prepare' || command === 'preflight') {
     const source = await input(options.input);
     const width = options['source-width'], height = options['source-height'];
     if ((width === undefined) !== (height === undefined)) throw new Error('Source width and height must be supplied together.');
@@ -29,35 +30,45 @@ try {
     if (raster && width !== undefined && (raster.width !== Number(width) || raster.height !== Number(height))) throw new Error('Source dimensions disagree with decoded original.');
     const context = raster ? { sourceWidthPx: raster.width, sourceHeightPx: raster.height }
       : width === undefined ? {} : { sourceWidthPx: Number(width), sourceHeightPx: Number(height) };
-    const stage = prepareArchitectureStage(source.value, context, furnishing?.value, raster);
-    outputs = { 'architecture-stage.json': stage, 'wall-trace.json': stage.wallTrace, 'bare-house.json': stage.bareHouse,
-      'architecture-annotation.json': stage.annotationBase, 'architecture-draft.json': stage.architectureDraft,
-      'decision-audit.json': { walls: stage.wallAudit, openings: stage.openingAudit, junctions: stage.architecture.junctions, functionalZones: stage.architecture.functionalZones ?? [] },
-      'source-topology-review.json': stage.sourceTopologyReview,
-      'centerline-policy.json': { mode: stage.centerlinePolicy, diagnostics: 'explicit-read-only-command' } };
-    if (stage.relativeGeometry) outputs['relative-geometry.json'] = stage.relativeGeometry;
-    if (stage.closureReview) outputs['furniture-closure-review.json'] = stage.closureReview;
-    if (stage.functionalZoneReview) outputs['functional-zone-review.json'] = stage.functionalZoneReview;
-    if (stage.rasterEvidence) {
-      outputs['source-ink-mask.json'] = stage.rasterEvidence;
-      outputs['window-refinement-review.json'] = stage.windowRefinementReview;
-      outputs['normalized-window-review.json'] = stage.normalizedWindowReview;
-      if (stage.rasterContinuationReview) outputs['raster-continuation-review.json'] = stage.rasterContinuationReview;
+    if (command === 'preflight') {
+      const architecture = preflightArchitectureObservation(source.value, context);
+      outputs = { 'observation-preflight.json': { scope: 'source-consistency-before-furnishing',
+        observationsChanged: false, openingHostsEvaluated: false, finalClosureEvaluated: false,
+        acceptedWallCount: architecture.walls.filter(item => item.decision === 'accept').length,
+        acceptedOpeningCount: architecture.openings.filter(item => item.decision === 'accept').length } };
+      provenance = { command, architecture: { path: source.path, sha256: source.sha256 },
+        ...(raster ? { sourceRaster: { path: resolve(options.source), sha256: hash(sourceBytes) } } : {}), sourceContext: context };
+    } else {
+      const stage = prepareArchitectureStage(source.value, context, furnishing?.value, raster);
+      outputs = { 'architecture-stage.json': stage, 'wall-trace.json': stage.wallTrace, 'bare-house.json': stage.bareHouse,
+        'architecture-annotation.json': stage.annotationBase, 'architecture-draft.json': stage.architectureDraft,
+        'decision-audit.json': { walls: stage.wallAudit, openings: stage.openingAudit, junctions: stage.architecture.junctions, functionalZones: stage.architecture.functionalZones ?? [] },
+        'source-topology-review.json': stage.sourceTopologyReview,
+        'centerline-policy.json': { mode: stage.centerlinePolicy, diagnostics: 'explicit-read-only-command' } };
+      if (stage.relativeGeometry) outputs['relative-geometry.json'] = stage.relativeGeometry;
+      if (stage.closureReview) outputs['furniture-closure-review.json'] = stage.closureReview;
+      if (stage.functionalZoneReview) outputs['functional-zone-review.json'] = stage.functionalZoneReview;
+      if (stage.rasterEvidence) {
+        outputs['source-ink-mask.json'] = stage.rasterEvidence;
+        outputs['window-refinement-review.json'] = stage.windowRefinementReview;
+        outputs['normalized-window-review.json'] = stage.normalizedWindowReview;
+        if (stage.rasterContinuationReview) outputs['raster-continuation-review.json'] = stage.rasterContinuationReview;
+      }
+      provenance = { command, centerlinePolicy: stage.centerlinePolicy, architecture: { path: source.path, sha256: source.sha256 },
+        ...(raster ? { sourceRaster: { path: resolve(options.source), sha256: hash(sourceBytes), rgbaSha256: hash(raster.data) }, deterministicRasterEnabled: true } : { deterministicRasterEnabled: false }),
+        appliedOpenings: stage.openingAudit.filter(item => item.programStatus === 'assembled').length,
+        unresolvedAcceptedOpenings: stage.openingAudit.filter(item => item.programStatus === 'unresolved-host').length,
+        uncertainCandidates: [...stage.wallAudit, ...stage.openingAudit, ...stage.architecture.junctions, ...(stage.architecture.functionalZones ?? [])].filter(item => item.decision === 'uncertain').length,
+        sourceNearMissCount: stage.sourceTopologyReview.nearMisses.length,
+        sourceReviewRequired: stage.sourceTopologyReview.reviewRequired,
+        ...(furnishing ? { furnishing: { path: furnishing.path, sha256: furnishing.sha256 },
+          closurePolicy: stage.functionalZoneReview?.policy ?? stage.closureReview?.policy,
+          acceptedFurnitureGuidedConnections: stage.closureReview?.accepted.length ?? 0,
+          functionalZones: stage.functionalZoneReview?.acceptedZoneCount ?? 0,
+          uniquelyClosedFunctionalZones: stage.functionalZoneReview?.finalMetrics.uniqueClosedZoneCount ?? 0,
+          supportedFunctionalZones: stage.functionalZoneReview?.finalMetrics.resolvedZoneCount ?? 0,
+          acceptedFunctionalConnections: stage.functionalZoneReview?.accepted.length ?? 0 } : {}) };
     }
-    provenance = { command, centerlinePolicy: stage.centerlinePolicy, architecture: { path: source.path, sha256: source.sha256 },
-      ...(raster ? { sourceRaster: { path: resolve(options.source), sha256: hash(sourceBytes), rgbaSha256: hash(raster.data) }, deterministicRasterEnabled: true } : { deterministicRasterEnabled: false }),
-      appliedOpenings: stage.openingAudit.filter(item => item.programStatus === 'assembled').length,
-      unresolvedAcceptedOpenings: stage.openingAudit.filter(item => item.programStatus === 'unresolved-host').length,
-      uncertainCandidates: [...stage.wallAudit, ...stage.openingAudit, ...stage.architecture.junctions, ...(stage.architecture.functionalZones ?? [])].filter(item => item.decision === 'uncertain').length,
-      sourceNearMissCount: stage.sourceTopologyReview.nearMisses.length,
-      sourceReviewRequired: stage.sourceTopologyReview.reviewRequired,
-      ...(furnishing ? { furnishing: { path: furnishing.path, sha256: furnishing.sha256 },
-        closurePolicy: stage.functionalZoneReview?.policy ?? stage.closureReview?.policy,
-        acceptedFurnitureGuidedConnections: stage.closureReview?.accepted.length ?? 0,
-        functionalZones: stage.functionalZoneReview?.acceptedZoneCount ?? 0,
-        uniquelyClosedFunctionalZones: stage.functionalZoneReview?.finalMetrics.uniqueClosedZoneCount ?? 0,
-        supportedFunctionalZones: stage.functionalZoneReview?.finalMetrics.resolvedZoneCount ?? 0,
-        acceptedFunctionalConnections: stage.functionalZoneReview?.accepted.length ?? 0 } : {}) };
   } else {
     const stage = await input(options.stage), furnishing = await input(options.furnishing);
     const result = assembleFrozenArchitecture(stage.value, furnishing.value, { allowUnresolvedOpenings: command === 'assemble-diagnostic' });

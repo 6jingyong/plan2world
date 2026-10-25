@@ -7,6 +7,7 @@ This is a current capability summary, not a development diary.
 | Capability | Current behavior |
 | --- | --- |
 | Image reconstruction | `source-architecture-v1` + `source-furnishing-v1` → deterministic refinement/closure → `plan2world-draft-v1`. |
+| Source preflight | Shared browser/CLI bounds and wall-overlap checks run before furniture. Opening hosts and zone closure are still evaluated after furnishing. |
 | Walls | Zero-width straight or quadratic centrelines; topology normalization is deterministic. |
 | Doors/windows | Source endpoints are projected onto normalized walls; host IDs, width and position are program-derived. |
 | Scale/registration | Scale evidence is converted deterministically; source registration comes from the same source-pixel transform and is strict when present. |

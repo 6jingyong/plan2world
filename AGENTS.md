@@ -24,6 +24,9 @@ Plan2World turns a floor-plan raster into an editable browser home and an engine
   Furniture positions reach the program BEFORE final closure. Programs select
   bounded continuations of observed wall endpoints using furnished closed
   regions and existing entrances, then freeze final geometry and those anchors.
+- Before furnishing, shared observation preflight rejects invalid source bounds
+  and duplicate/overlapping walls. Its temporary graph is discarded; it never
+  accepts opening hosts or final zone closure and never repairs observations.
 - Programs project accepted evidence into the existing `source-annotation-v1`
   assembler contract. Browser, CLI and portable Skill share this order; the
   architecture prompt includes functionalZones in the same observation. Direct Skill tests do not
