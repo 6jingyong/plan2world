@@ -69,7 +69,8 @@
         "polygon": { "type": "array", "items": { "$ref": "#/$defs/vec2" }, "minItems": 3 },
         "holes": { "type": "array", "items": { "type": "array", "items": { "$ref": "#/$defs/vec2" }, "minItems": 3 } },
         "slabThickness": { "$ref": "#/$defs/positive" },
-        "ceilingHeight": { "anyOf": [{ "$ref": "#/$defs/nonnegative" }, { "type": "null" }] }
+        "ceilingHeight": { "anyOf": [{ "$ref": "#/$defs/nonnegative" }, { "type": "null" }] },
+        "ceilingWallIds": { "type": "array", "items": { "$ref": "#/$defs/id" }, "minItems": 1, "uniqueItems": true }
       }
     },
     "wallPath": {
@@ -183,6 +184,7 @@
     "furnitureMovement": {
       "oneOf": [
         { "type": "object", "additionalProperties": false, "required": ["kind", "elevation"], "properties": { "kind": { "const": "floor" }, "elevation": { "type": "number" } } },
+        { "type": "object", "additionalProperties": false, "required": ["kind", "roomId", "elevation"], "properties": { "kind": { "const": "ceiling" }, "roomId": { "$ref": "#/$defs/id" }, "elevation": { "type": "number" } } },
         { "type": "object", "additionalProperties": false, "required": ["kind", "wallId", "side", "blocked", "origin", "tangent", "along", "bottom"], "properties": {
           "kind": { "const": "wall" }, "wallId": { "$ref": "#/$defs/id" }, "side": { "enum": ["left", "right"] },
           "blocked": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["along", "bottom"], "properties": { "along": { "$ref": "#/$defs/vec2" }, "bottom": { "$ref": "#/$defs/vec2" } } } }, "origin": { "$ref": "#/$defs/vec3" }, "tangent": { "$ref": "#/$defs/vec3" }, "along": { "$ref": "#/$defs/vec2" }, "bottom": { "$ref": "#/$defs/vec2" }
@@ -195,10 +197,22 @@
       "required": ["id", "floorId", "kind", "catalogId", "assetRef", "position", "yawClockwiseRadians", "size", "locked", "movement"],
       "properties": {
         "locked": { "type": "boolean" }, "movement": { "$ref": "#/$defs/furnitureMovement" },
+        "light": { "$ref": "#/$defs/furnitureLight" },
         "id": { "$ref": "#/$defs/id" }, "floorId": { "$ref": "#/$defs/id" }, "kind": { "const": "furniture" },
         "catalogId": { "$ref": "#/$defs/id" }, "sourceCategory": { "type": "string" }, "assetRef": { "type": "string", "minLength": 1 },
         "mirror": { "type": "array", "prefixItems": [{ "enum": [-1, 1] }, { "const": 1 }, { "enum": [-1, 1] }], "minItems": 3, "maxItems": 3 },
         "position": { "$ref": "#/$defs/vec3" }, "yawClockwiseRadians": { "type": "number" }, "size": { "$ref": "#/$defs/positiveVec3" }
+      }
+    },
+    "furnitureLight": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "enabled", "lumens", "temperatureKelvin", "color", "range", "spotAngleDegrees", "localPosition", "direction"],
+      "properties": {
+        "kind": { "enum": ["omni", "spot"] }, "enabled": { "type": "boolean" },
+        "lumens": { "type": "number", "minimum": 0, "maximum": 20000 },
+        "temperatureKelvin": { "type": "number", "minimum": 2000, "maximum": 10000 },
+        "color": { "$ref": "#/$defs/vec3" }, "localPosition": { "$ref": "#/$defs/vec3" }, "direction": { "$ref": "#/$defs/vec3" },
+        "range": { "$ref": "#/$defs/positive" }, "spotAngleDegrees": { "type": "number", "exclusiveMinimum": 0, "maximum": 90 }
       }
     },
     "columnEntity": {

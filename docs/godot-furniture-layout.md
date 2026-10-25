@@ -235,6 +235,14 @@ runtime GLBs instantiate renderable MeshInstance3D nodes with ownership extras.
 
 ## Develop and verify
 
+Plan mode now uses unlit dark walls and orange/blue opening bands in the same
+orthographic world. The Furniture / Ceiling lights selector isolates the editing
+layer. Ceiling fixtures require an explicit enclosure, preserve height during
+dragging/nudging and save real light settings through the native edit core.
+L opens light settings; T / the walkthrough HUD chooses natural light. See
+[plan presentation and ceiling lights](runtime-plan-lighting.md) for ownership,
+controls and limits.
+
 Build the offline core once, then point the development Godot process at it:
 
 ```bash
@@ -264,6 +272,12 @@ contextual shortcuts, Tab/focus/gamepad-B closure, 800×540 catalog bounds, pres
 plan centre/zoom and unchanged source/architecture. It runs through the relocated
 PCK/core delivery gate.
 
+`runtime_plan_lighting_test.gd` covers layer isolation, explicit ceiling setup,
+pointer/key movement, collision/hole rejection, light preview/cancel/settings,
+native persistence, natural presets and plan/walk restoration. Its displayed
+run additionally samples actual lit floor pixels and captures all four presets;
+headless assertions cannot establish visual lighting quality.
+
 `runtime_product_controls_test.gd` adds entrance/facing, malformed JSON and wrong
 GLB recovery, unsupported floor/hole placement, interrupted drag, actual keyboard
 and virtual-gamepad input, wall-bound movement, obstruction and save-failure tests.
@@ -285,14 +299,15 @@ scene editor, scripting system or alternative canonical data model.
 | PR #80: snapping/UI | 1,685 units, 42 focused cross-browser cases and shipped Linux PCK/core gates pass. Native magnetic/grid controls, atomic pose, compact UI and live missing-model notices; see [validation record](../.plan2world-validation/runs/20261025-snapping-ui/RESULTS.md). |
 | Local arrangement flow | 1,686 unit tests; packaged Linux UI/input/data gates and rendered inspection pass. On-demand catalog, contextual actions, secondary file commands and preserved view framing; see [local results](../.plan2world-validation/runs/20261025-layout-flow/RESULTS.md). |
 | Local orthographic / desktop creation | 1,700 unit tests, six focused Chromium regressions, packaged Linux controls and rendered inspection pass. Native OpenRouter account/image flow uses a mocked provider; real account/model and Windows hardware acceptance remain separate. See [verification record](../.plan2world-validation/runs/20261026-ortho-desktop/RESULTS.md). |
+| Local plan presentation / ceiling lighting | 1,713 unit tests, six focused Chromium cases, nine Linux shipped-PCK gates and actual rendered lighting checks; all four lamp GLBs and the recessed beam direction are covered. Frozen house replay retains 114 existing entities and 127 colliders. See [results and retained failures](../.plan2world-validation/runs/20261026-plan-lighting/RESULTS.md). |
 
 ## Publication and acceptance
 
 PR #80 merged the native cameras, furniture editor, snapping, entrance/loading
-and door-clearance foundation. The follow-up changes the furnishing UI layout
-and catalog projection; local evidence lives in
-[layout-flow validation](../.plan2world-validation/runs/20261025-layout-flow/RESULTS.md).
-No new GitHub push or formal release is implied by this local follow-up. Linux/Windows native Godot
+and door-clearance foundation. Local follow-ups cover arrangement UI, orthographic
+projection, optional desktop authoring, unlit plan presentation and ceiling lights;
+their evidence is linked above. No GitHub push or formal release is implied.
+Linux/Windows native Godot
 jobs are both required by the aggregate CI gate. PR browser/benchmark skips
 remain as before; full browser/benchmark jobs run on main push.
 
@@ -300,20 +315,10 @@ The merged foundation evidence is
 [snapping/UI validation](../.plan2world-validation/runs/20261025-snapping-ui/RESULTS.md).
 Linux packaged acceptance and rendered Compatibility inspection do not establish
 native Windows Forward+ hardware or physical-controller quality. Retain those
-platform/manual checks before a general desktop release. No new reconstruction
-observations, geometry correction, lighting or source-image results are part of
-this UI/editing change.
-
-Door/layout milestone `30964ba` additionally fixed notice ownership: camera/toolbar refresh must
-retain an operation's explanation until the next edit. A hidden top-view toolbar
-must not reframe the world or cancel first-person adjustment. Its first negative
-run caught the overwritten explanation. A second test waited for a camera tween
-while the failed-open menu intentionally paused it; that test now waits for data,
-asserts the paused retained world, explicitly resumes, then checks the animation
-settles within the unchanged deadline. Negative logs remain in the run directory.
-Historical implementation diaries stay in Git history; evidence and negative
-results linked above remain available. No extraction prompt, source observation,
-geometry correction, material or lighting change is part of this round.
+platform/manual checks before a general desktop release. No fresh external-model
+reconstruction-quality result is claimed by these display/editing checks.
+Historical implementation diaries stay in Git history; linked evidence retains
+the original failures and their subsequent fixes.
 
 ### Remaining acceptance and limits
 
@@ -325,12 +330,17 @@ geometry correction, material or lighting change is part of this round.
   motion. Native physics may stop it on a player or nearby furniture. Old
   compiled snapshots require re-export; the engine does not rerun authoring
   validation or repair their source data.
-- Floor support samples the center/corners of furniture against emitted floor
+- Ground-furniture support samples the center/corners against emitted floor
   collision; it does not certify continuous support under every footprint point.
+  Ceiling commands additionally validate the full footprint against their native
+  enclosure and holes in the shared core.
 - Wall attachment supports straight solid walls only. Legacy unbound items need
   explicit attachment; new model-file import is outside this scope.
-- Wall selection uses an explicit wall list; in-world wall picking and material/lighting
-  polish remain future work. Initial load and furniture edits refresh the native
+- Ceiling fixtures currently support four built-in asset types on horizontal
+  native ceilings. Unbound legacy lights need explicit attachment; custom-model
+  ceiling capability, slope mounting and calibrated photometry are not provided.
+- Wall selection uses an explicit wall list; in-world wall picking and richer
+  materials remain future work. Initial load and furniture edits refresh the native
   missing-asset notice. Target-device usability still needs manual acceptance.
 - Linux headless/Mesa inspection and Windows cross-builds do not establish native
   Windows Forward+, physical controller, file-dialog or OS resize/DPI acceptance.

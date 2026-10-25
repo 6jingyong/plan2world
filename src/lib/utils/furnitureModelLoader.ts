@@ -1,12 +1,13 @@
 /** Lightweight built-in furniture plus optional custom project models. */
 import * as THREE from 'three';
-import { createGamePieceFurnitureModel } from './gamePieceFurniture3d';
+import { createGamePieceFurnitureModel, gamePieceHeight } from './gamePieceFurniture3d';
 import { createSemanticFurnitureBlock } from './semanticFurniture3d';
 import { createFurnitureModel } from './furnitureModels3d';
-import { getCatalogItem, type FurnitureDef } from './furnitureCatalog';
+import { getCatalogItem, getFurnitureSize, type FurnitureDef } from './furnitureCatalog';
 import type { FurnitureItem, Project } from '$lib/models/types';
 import { furnitureFinishes } from './furnitureFinishes';
 import { disposeModel, isModelDisposed, releaseWithModel } from './furnitureModelResources';
+import { ceilingHosts } from './ceilingFurniture';
 
 export interface FurnitureAppearance { color?: string; material?: string; ghost?: boolean }
 
@@ -119,7 +120,15 @@ export function createPlacedFurnitureModel(item: FurnitureItem, onLoaded?: (mode
     : createFurnitureModelWithGLB(item.catalogId, definition, onLoaded, {
       color: item.color, material: item.material,
     });
-  model.position.set(item.position.x, (item.wallMount?.elevation ?? 0) + 1.5, item.position.y);
+  let bottom=(item.wallMount?.elevation ?? 0)+1.5;
+  if(item.ceilingMount) {
+    const floor=project?.floors.find(f=>f.furniture.some(i=>i.id===item.id));
+    const host=floor && ceilingHosts(floor).find(h=>JSON.stringify(h.wallIds)===JSON.stringify([...item.ceilingMount!.wallIds].sort()));
+    if(!host) { disposeModel(model);return null; }
+    const height=item.renderStyle==='model' || item.customModelId ? getFurnitureSize(item).height : gamePieceHeight(definition)*Math.abs(item.scale?.z ?? 1);
+    bottom=host.height-height;
+  }
+  model.position.set(item.position.x,bottom,item.position.y);
   model.rotation.y = -item.rotation * Math.PI / 180;
   // The plan's Y scale is world Z; height uses the saved Z magnitude.
   model.scale.set(item.scale?.x ?? 1, Math.abs(item.scale?.z ?? 1), item.scale?.y ?? 1);

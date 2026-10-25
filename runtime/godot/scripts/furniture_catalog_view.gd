@@ -17,6 +17,7 @@ var _title: Label
 var _description: Label
 var _empty: Label
 var _enabled := false
+var _ceiling := false
 
 func _ready() -> void:
 	name = "FurnitureCatalog"
@@ -74,12 +75,19 @@ func _ready() -> void:
 
 func configure(catalog: Array) -> void:
 	items = catalog
+	set_ceiling_layer(_ceiling)
+
+func set_ceiling_layer(value:bool) -> void:
+	_ceiling=value;_search.clear();_categories=["All"];_tabs.set_block_signals(true)
+	while _tabs.tab_count>0:_tabs.remove_tab(_tabs.tab_count-1)
+	_tabs.add_tab("All")
 	for item in items:
+		if (item.get("mounting")=="ceiling")!=_ceiling:continue
 		var category := str(item["category"])
 		if not _categories.has(category):
 			_categories.append(category)
 			_tabs.add_tab(category)
-	_filter()
+	_tabs.set_block_signals(false);_filter()
 
 func set_editable(enabled: bool) -> void:
 	_enabled = enabled
@@ -102,6 +110,7 @@ func _filter() -> void:
 	var text := _search.text.strip_edges().to_lower()
 	for index in range(items.size()):
 		var item: Dictionary = items[index]
+		if (item.get("mounting")=="ceiling")!=_ceiling:continue
 		if _tabs.current_tab > 0 and item["category"] != _categories[_tabs.current_tab]: continue
 		if not text.is_empty() and not str(item["label"]).to_lower().contains(text): continue
 		_visible_indices.append(index)

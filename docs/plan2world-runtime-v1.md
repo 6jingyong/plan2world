@@ -213,6 +213,16 @@ not movable until explicitly attached. All values use runtime metres. Native
 rotation remain on the furniture item. Straight solid hosts are supported;
 curved attachment is rejected. Re-export earlier derived furniture snapshots.
 
+Ceiling fixtures require native `ceilingMount.wallIds` identifying an existing
+horizontal enclosure. Runtime `movement: { kind: "ceiling", roomId, elevation }`
+names that room and its absolute ceiling elevation; the entity centre sits half
+its effective height below it. Rooms expose `ceilingWallIds` for explicit host
+selection. Shared code rejects footprints crossing boundaries/holes and does
+not guess or move an invalid attachment. `light` retains engine-neutral kind,
+enabled state, lumens, Kelvin, RGB, range, cone angle and local source position /
+direction. Neither model meshes nor colliders define the light source. See
+[plan presentation and ceiling lights](runtime-plan-lighting.md).
+
 Final shared exports include `source.architectureSha256`, the deterministic
 presentation GLB digest. Consumers reject a mismatched present file before world
 replacement. The optional field preserves old snapshot/demo compatibility;
@@ -235,6 +245,11 @@ review. The native model does not specify balusters, handrails or infill; the
 compiler does not invent them. Air boundaries emit no presentation mesh.
 
 The presentation compiler composes the wall/room shell with static window panes, square/round columns and supported straight-stair step geometry. The GLB writer assigns a deterministic basic material palette and carries stable Plan2World ownership in node extras. Physics remains independent: engines must still use runtime JSON colliders rather than deriving collision from GLB.
+
+Compiler-owned `plan-door` / `plan-window` aperture bands have `view: "plan"`
+in their node ownership extras. Consumers show them only in plan mode. They do
+not add collision or replace door motion semantics. Godot applies unlit plan
+materials to the same world; it never builds a second plan geometry.
 
 A full-width, full-height aperture may consume its entire host wall. The wall
 and opening keep their runtime IDs and semantics, but the mesher emits no wall

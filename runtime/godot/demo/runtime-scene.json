@@ -153,6 +153,16 @@
             ]
           ],
           "slabThickness": 0.05,
+          "ceilingWallIds": [
+            "double-wall",
+            "french-wall",
+            "ground-w0",
+            "ground-w1",
+            "ground-w2",
+            "ground-w3",
+            "slide",
+            "swing"
+          ],
           "ceilingHeight": 3
         }
       ]
@@ -271,6 +281,12 @@
             ]
           ],
           "slabThickness": 0.05,
+          "ceilingWallIds": [
+            "upper-w0",
+            "upper-w1",
+            "upper-w2",
+            "upper-w3"
+          ],
           "ceilingHeight": 3
         }
       ]

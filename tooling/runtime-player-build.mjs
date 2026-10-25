@@ -38,6 +38,7 @@ try {
     'Read README.zh-CN.md for the plugin/Skill and standalone desktop workflows.\n' +
     'Optional Create from a floor plan: connect your OpenRouter account/API key, choose a vision model and explicitly confirm two paid image observations. Credentials are session-only; no automatic paid retries. Choose the main entrance and inward side before opening the generated Project.\n' +
     'F2 switches between first-person perspective and orthographic top view in the same Godot world.\n' +
+    'Top view is an unlit plan: dark walls, orange doors and blue windows. Choose Furniture or Ceiling lights in the layer selector.\n' +
     'Top view: middle/right drag pans, wheel zooms, left drag moves furniture, Esc cancels a drag.\n' +
     'Top-view dragging: optional 10 cm grid, straight-wall alignment and nearby furniture guides. Hold Alt for free placement; first-person micro-adjustment never snaps.\n' +
     'Add, rotate, replace or delete furniture; save native Project and export a runtime scene ZIP. No undo or operation history. Architecture stays fixed.\n' +
@@ -47,6 +48,7 @@ try {
     'Switching windows pauses and clears held controls. Resume explicitly when you return.\n' +
     'Return to start restores the compiled player spawn and view without resetting open doors or scene geometry.\n\n' +
     'First person: F / gamepad X selects furniture; arrows / left stick nudge; F / Enter / A places; Esc / B cancels preview. Floor furniture stays on its floor; mounted items stay on their authored wall.\n\n' +
+    'Ceiling lights require an explicit supported ceiling and stay at its height. L adjusts the selected/aimed light (on/off, lumens, colour temperature). T / the HUD selects Day, Night, Sunrise or Sunset; natural lighting is session view state.\n\n' +
     'Default renderer: Forward+. Requires a compatible GPU/driver. For older hardware, run with --rendering-method gl_compatibility.\n' +
     'Windows builds are unsigned. Platform signing and Windows hardware acceptance are separate release steps.\n\n' +
     'Optional CLI: player -- --scene "path/to/scene.runtime.json"\n');

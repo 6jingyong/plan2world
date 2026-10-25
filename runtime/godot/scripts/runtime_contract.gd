@@ -30,6 +30,7 @@ static func valid(data: Dictionary) -> bool:
 			rooms[room["id"]] = true
 			if not room.get("name") is String or room.get("roomType") not in ["indoor", "outdoor", "garage", "utility"] or not _polygon(room.get("polygon")) or not room.get("holes") is Array or not _positive(room.get("slabThickness")): return false
 			if not room.has("ceilingHeight") or (room["ceilingHeight"] != null and not _nonnegative(room["ceilingHeight"])): return false
+			if room.has("ceilingWallIds") and (not room["ceilingWallIds"] is Array or room["ceilingWallIds"].is_empty()):return false
 			for hole in room["holes"]:
 				if not _polygon(hole): return false
 	var entities := {}
@@ -48,6 +49,8 @@ static func valid(data: Dictionary) -> bool:
 				if not entity.get("locked") is bool or not motion is Dictionary: return false
 				if motion.get("kind") == "floor":
 					if not _number(motion.get("elevation")): return false
+				elif motion.get("kind")=="ceiling":
+					if not _id(motion.get("roomId")) or not _number(motion.get("elevation")):return false
 				elif motion.get("kind") == "wall":
 					if not _id(motion.get("wallId")) or not vector(motion.get("origin"),3) or not vector(motion.get("tangent"),3) or not vector(motion.get("along"),2) or not vector(motion.get("bottom"),2): return false
 					if motion.get("side") not in ["left", "right"] or not motion.get("blocked") is Array: return false
@@ -56,6 +59,14 @@ static func valid(data: Dictionary) -> bool:
 					if motion["along"][0] > motion["along"][1] or motion["bottom"][0] > motion["bottom"][1]: return false
 				elif motion.get("kind") != "unbound-wall": return false
 				if entity.has("mirror") and not vector(entity["mirror"], 3): return false
+				if entity.has("light"):
+					var light=entity["light"]
+					if motion.get("kind")!="ceiling" or not light is Dictionary or light.get("kind") not in ["omni","spot"] or not light.get("enabled") is bool:return false
+					if not _nonnegative(light.get("lumens")) or not _positive(light.get("temperatureKelvin")) or not vector(light.get("color"),3) or not vector(light.get("localPosition"),3) or not _positive(light.get("range")) or not _positive(light.get("spotAngleDegrees")):return false
+					if light["lumens"]>20000 or light["temperatureKelvin"]<2000 or light["temperatureKelvin"]>10000 or light["spotAngleDegrees"]>90:return false
+					if not vector(light.get("direction"),3) or Vector3(light["direction"][0],light["direction"][1],light["direction"][2]).length_squared()<.000001:return false
+					for component in light["color"]:
+						if component<0 or component>1:return false
 			"column":
 				if entity.get("shape") not in ["square", "round"] or not vector(entity.get("position"), 3) or not _number(entity.get("yawClockwiseRadians")) or not _positive(entity.get("diameter")) or not _positive(entity.get("height")): return false
 			"door", "window":
@@ -70,6 +81,14 @@ static func valid(data: Dictionary) -> bool:
 				elif traversal.get("kind") != "unsupported" or traversal.get("reason") not in ["missing-target-floor", "invalid-target-elevation", "invalid-geometry", "non-straight"]: return false
 			_: return false
 	for entity in data["entities"]:
+		if entity["kind"]=="furniture" and entity["movement"]["kind"]=="ceiling":
+			var found:=false
+			for floor in data["floors"]:
+				if floor["id"]!=entity["floorId"]:continue
+				for room in floor["rooms"]:
+					if room["id"]==entity["movement"]["roomId"] and room["ceilingHeight"]!=null:
+						found=absf(entity["movement"]["elevation"]-floor["elevation"]-room["ceilingHeight"])<.00001 and absf(entity["position"][1]+entity["size"][1]/2-entity["movement"]["elevation"])<.00001
+			if not found:return false
 		if entity["kind"] == "furniture" and entity["movement"]["kind"] == "wall":
 			var wall: Dictionary = entities.get(entity["movement"]["wallId"], {})
 			if wall.get("kind") != "wall" or wall.get("floorId") != entity["floorId"]: return false

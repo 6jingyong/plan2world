@@ -57,6 +57,16 @@ GLB digest before replacing the active world; a failure retains the old scene.
 
 ## Develop locally / run the built-in demo
 
+Top view is an unlit plan profile over the same world: dark wall outlines,
+orange doors and blue windows, with lights/shadows disabled. The Furniture /
+Ceiling lights selector isolates the editing layer. Four ceiling fixtures require
+an explicit horizontal ceiling and stay at its height in both editing modes.
+Use **L** for light on/off, lumens and temperature; **T** / the walking HUD changes
+Day, Night, Sunrise or Sunset. Natural light is session view state; fixture pose
+and settings save in the native Project. Re-export older scenes for the plan
+opening bands and bind older unmounted fixtures explicitly. See
+[plan presentation and ceiling lighting](../../docs/runtime-plan-lighting.md).
+
 1. Install Godot 4.7.2.
 2. Open `runtime/godot/project.godot`.
 3. Press **F6/F5** to run the project.
@@ -163,6 +173,8 @@ The scripts are intentionally split by responsibility:
 - `player.gd` / `door.gd`: engine-side runtime behavior;
 - `layout_camera.gd`: same-world camera transition, native layout input, selection and placement queries;
 - `runtime_plan_view.gd`: native Godot layout toolbar;
+- `runtime_view_style.gd`: same-world unlit plan profile, natural-light presets and explicit runtime light instances;
+- `light_settings.gd`: native fixture settings dialog using shared edit commands;
 - `layout_session.gd`: offline shared Project/compiler core, accepted current state, atomic save/export;
 - `main.gd`: scene/editor composition and mode lifecycle.
 

@@ -113,10 +113,15 @@ export interface Window {
 }
 
 export interface FurnitureWallMount { wallId: string; side: 'left' | 'right'; elevation: number }
+/** Explicit native wall-boundary identity of one supported horizontal ceiling. */
+export interface FurnitureCeilingMount { wallIds: string[] }
+export interface FurnitureLightSettings { enabled: boolean; lumens: number; temperatureKelvin: number }
 
 export interface FurnitureItem {
   /** Explicit host constraint; elevation is bottom above the authored floor, cm. */
   wallMount?: FurnitureWallMount;
+  ceilingMount?: FurnitureCeilingMount;
+  light?: FurnitureLightSettings;
   /** Project-owned model; catalogId remains a portable procedural fallback. */
   customModelId?: string;
   details?: ItemDetails;

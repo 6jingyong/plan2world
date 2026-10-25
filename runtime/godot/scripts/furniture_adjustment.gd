@@ -26,18 +26,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		state_changed.emit()
 		get_viewport().set_input_as_handled()
 	elif not active and event.is_action_pressed("layout_adjust"):
-		var camera := player.get_node("Camera3D") as Camera3D
-		var query := PhysicsRayQueryParameters3D.create(camera.global_position, camera.global_position - camera.global_basis.z * 2.5, 3)
-		query.collide_with_areas = true
-		query.exclude = [player.get_rid()]
-		var hit := player.get_world_3d().direct_space_state.intersect_ray(query)
-		var id := "" if hit.is_empty() else str(hit["collider"].get_meta("furniture_id", hit["collider"].get_meta("p2w_owner_id", "")))
+		var id:=aimed_id()
 		if controller.begin_adjust(id):
 			active = true
 			_held = 0
 			_analog = false
 			state_changed.emit()
-			message.emit("Adjust furniture · Arrows / left stick · F / A place · Esc / B cancel")
+			message.emit("Ceiling light · Arrows / left stick move along ceiling · L light settings · F / A place" if controller._entities[id].has("light") else "Adjust furniture · Arrows / left stick · F / A place · Esc / B cancel")
 		else:
 			message.emit("Aim at an unlocked placed item in an editable Project.")
 		get_viewport().set_input_as_handled()
@@ -83,3 +78,10 @@ func cancel() -> void:
 	controller.cancel_drag()
 	message.emit("")
 	state_changed.emit()
+
+func aimed_id() -> String:
+	var camera:=player.get_node("Camera3D") as Camera3D
+	var query:=PhysicsRayQueryParameters3D.create(camera.global_position,camera.global_position-camera.global_basis.z*2.5,3)
+	query.collide_with_areas=true;query.exclude=[player.get_rid()]
+	var hit:=player.get_world_3d().direct_space_state.intersect_ray(query)
+	return "" if hit.is_empty() else str(hit["collider"].get_meta("furniture_id",hit["collider"].get_meta("p2w_owner_id","")))

@@ -88,6 +88,7 @@ Historical model outputs and validation diaries are intentionally absent from th
 
 ## Important references
 
+- [平面图显示、吸顶灯与自然光](docs/runtime-plan-lighting.md) — 同一 Godot 世界中的显示模式、分层编辑与数据边界；
 - [中文使用说明书：插件 / Skill 与独立桌面工具](docs/user-guide.zh-CN.md) — 账户、原图重建、正交俯视、布置与保存；
 - [`AGENTS.md`](AGENTS.md) — project invariants and validation rules;
 - [`skills/reconstruct-plan2world/SKILL.md`](skills/reconstruct-plan2world/SKILL.md) — active reconstruction procedure;

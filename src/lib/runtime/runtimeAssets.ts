@@ -5,6 +5,7 @@ import { compileAssetNormalization, type AssetNormalization } from './assetNorma
 import { appendBox, type MeshBuilder } from './presentationGeometry';
 import { serializePresentationGlb } from './architectureGlb';
 import type { Plan2WorldRuntimeSceneV1 } from './types';
+import { needsCeilingMount } from '../utils/ceilingFurniture';
 
 export interface RuntimeAsset {
   id: string;
@@ -31,6 +32,24 @@ export function compileDefaultDoorAsset() {
   });
 }
 
+/** Reusable compiler-owned luminaire assets. Normalization/fitting stays shared;
+ * light emission, mounting and physics are separate runtime contracts. */
+export function compileCeilingLightAsset(id: string) {
+  const body: MeshBuilder={positions:[],normals:[],uvs:[],indices:[]};
+  const emitter: MeshBuilder={positions:[],normals:[],uvs:[],indices:[]};
+  const hanging=id==='chandelier'||id==='pendant_light';
+  appendBox(body,[0,.45,0],[hanging?.4:1,.1,hanging?.4:1],0);
+  if(hanging) appendBox(body,[0,.1,0],[.05,.6,.05],0);
+  if(id==='chandelier') {
+    appendBox(body,[0,-.2,0],[1,.08,.1],0);
+    appendBox(body,[0,-.2,0],[.1,.08,1],0);
+    for(const [x,z] of [[-.35,-.35],[-.35,.35],[.35,-.35],[.35,.35]])appendBox(emitter,[x,-.35,z],[.3,.3,.3],0);
+  } else appendBox(emitter,[0,hanging?-.3:-.05,0],[id==='recessed_light'?.75:1,hanging?.4:.9,id==='recessed_light'?.75:1],0);
+  const ref=`builtin:${id}-v1`;
+  return serializePresentationGlb([{...body,id:ref+':body',kind:'furniture',material:'lamp-body'},
+    {...emitter,id:ref+':emitter',kind:'furniture',material:'lamp-emitter'}],{artifact:'runtime-asset',assetId:ref});
+}
+
 /** Resolve only referenced assets. Source bytes remain immutable and are shared
  * by digest; native identity is preserved separately from storage filenames.
  * Missing sources are explicit diagnostics. Invalid retained sources fail export. */
@@ -46,6 +65,7 @@ export async function compileRuntimeAssets(project: Project, runtime: Plan2World
     let bytes: Uint8Array | null = null;
     let reason: RuntimeAssetDiagnostic['reason'] = 'missing-source';
     if (id === 'builtin:door-leaf-v1') bytes = compileDefaultDoorAsset();
+    else if (id.startsWith('builtin:') && id.endsWith('-v1') && needsCeilingMount(id.slice(8,-3))) bytes = compileCeilingLightAsset(id.slice(8,-3));
     else if (id.startsWith('custom-model:')) {
       const modelId = id.slice('custom-model:'.length);
       const model = project.customModels?.find(model => model.id === modelId);

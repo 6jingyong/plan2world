@@ -11,12 +11,16 @@ const LAYOUT_SESSION := preload("res://scripts/layout_session.gd")
 const FURNITURE_ADJUSTMENT := preload("res://scripts/furniture_adjustment.gd")
 const LAYOUT_CAMERA := preload("res://scripts/layout_camera.gd")
 const DESKTOP_AUTHORING := preload("res://scripts/desktop_authoring.gd")
+const VIEW_STYLE:=preload("res://scripts/runtime_view_style.gd")
+const LIGHT_SETTINGS:=preload("res://scripts/light_settings.gd")
 
 enum ViewMode { WALKTHROUGH, PLAN }
 
 var _world: Node3D
 var _launcher
 var _authoring
+var _light_settings
+var _daylight:=0
 var _spawn: Vector3
 var _spawn_yaw = null
 var _adjustment
@@ -52,6 +56,11 @@ func _ready() -> void:
 	add_child(_launcher)
 	_authoring=DESKTOP_AUTHORING.new()
 	add_child(_authoring)
+	_light_settings=LIGHT_SETTINGS.new();add_child(_light_settings)
+	_light_settings.command_requested.connect(_edit_layout)
+	_light_settings.closed.connect(func():
+		while _editing or _session.busy:await get_tree().process_frame
+		if _world!=null and not _menu_open:_resume())
 	_authoring.project_ready.connect(func(path:String):_request_action(_open_project.bind(path)))
 	_launcher.authoring_requested.connect(func(page:int):_authoring.show_page(page))
 	_launcher.scene_selected.connect(func(path: String): _request_action(_open_scene.bind(path)))
@@ -111,6 +120,9 @@ func _open_scene(runtime_path: String, architecture_path: String = "", editor_st
 	_layout_camera = LAYOUT_CAMERA.new()
 	_world.add_child(_layout_camera)
 	_layout_camera.configure(data, _collider_nodes, _furniture_models, player)
+	_layout_camera.display=_world.get_node("ViewStyle")
+	_layout_camera.display.refresh(data,_furniture_models)
+	_layout_camera.pose_previewed.connect(_layout_camera.display.preview_light)
 	_adjustment = FURNITURE_ADJUSTMENT.new()
 	_world.add_child(_adjustment)
 	_adjustment.configure(_layout_camera, player)
@@ -124,6 +136,7 @@ func _open_scene(runtime_path: String, architecture_path: String = "", editor_st
 	_plan_view.walkthrough_requested.connect(_show_walkthrough)
 	_plan_view.menu_requested.connect(_show_menu)
 	_plan_view.command_requested.connect(_edit_layout)
+	_plan_view.light_requested.connect(_show_light_settings)
 	_plan_view.save_requested.connect(_save_layout)
 	_plan_view.export_requested.connect(func(path: String):
 		var error: Error = _session.export_runtime(path)
@@ -210,17 +223,19 @@ func _edit_layout(command: Dictionary) -> void:
 
 func _apply_layout_state(state: Dictionary, data: Dictionary) -> void:
 	var artifacts := RUNTIME_ARTIFACTS.new()
+	_layout_camera.cancel_drag()
 	_render_furniture(data, artifacts.load_assets(str(state["runtimePath"])))
 	_runtime_data = data
 	_spawn = _choose_spawn(data)
 	_spawn_yaw = _spawn_floor(data).get("walkthroughYawClockwiseRadians")
+	_layout_camera.display.refresh(data,_furniture_models)
 	_layout_camera.refresh(data, _collider_nodes, _furniture_models)
 	_layout_camera.selected_id = "" if state.get("selectedId") == null else str(state["selectedId"])
 	_sync_editor()
 
 func _stage_world(data: Dictionary, artifacts, runtime_path: String, architecture_path: String) -> Dictionary:
 	var world := Node3D.new()
-	_build_environment(world)
+	var style:=VIEW_STYLE.new();world.add_child(style);style.configure(data,_daylight)
 	var architecture = artifacts.load_architecture(architecture_path)
 	if architecture != null:
 		world.add_child(architecture)
@@ -280,7 +295,7 @@ func _sync_editor() -> void:
 	_plan_view.set_editor(_session.current(), _session.busy or _editing or _layout_camera.transitioning, _session.is_dirty())
 
 func _sync_controls() -> void:
-	var walking: bool = not _menu_open and _view_mode == ViewMode.WALKTHROUGH and not _layout_camera.transitioning and not _adjustment.active and not _editing
+	var walking: bool = not _menu_open and not _light_settings.dialog.visible and _view_mode == ViewMode.WALKTHROUGH and not _layout_camera.transitioning and not _adjustment.active and not _editing
 	var player := _world.get_node("Player") as P2WPlayer
 	player.set_physics_process(walking)
 	player.set_process_unhandled_input(not _menu_open and _view_mode == ViewMode.WALKTHROUGH and not _layout_camera.transitioning)
@@ -298,6 +313,13 @@ func _save_layout(path: String) -> void:
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if _authoring._screen.visible:return
+	if _light_settings.dialog.visible:return
+	if event is InputEventKey and event.pressed and not event.echo and not _menu_open and _world!=null:
+		if event.keycode==KEY_T and _view_mode==ViewMode.WALKTHROUGH:
+			_set_daylight((_daylight+1)%4);get_viewport().set_input_as_handled();return
+		if event.keycode==KEY_L and not _session.current().is_empty():
+			_show_light_settings(_layout_camera.selected_id if _view_mode==ViewMode.PLAN or _adjustment.active else _adjustment.aimed_id())
+			get_viewport().set_input_as_handled();return
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F1:
 		if _menu_open and _world != null:
 			_resume()
@@ -342,7 +364,7 @@ func _notification(what: int) -> void:
 		_request_action(func(): get_tree().quit())
 		return
 	if what == NOTIFICATION_WM_WINDOW_FOCUS_OUT and is_node_ready() and _world != null and not _menu_open:
-		if _plan_view.has_open_dialog():
+		if _plan_view.has_open_dialog() or _light_settings.dialog.visible:
 			return
 		_show_menu("Session paused while this window was inactive.")
 
@@ -393,29 +415,15 @@ func _unhandled_input(event: InputEvent) -> void:
 			_resume()
 		get_viewport().set_input_as_handled()
 
-func _build_environment(target: Node3D) -> void:
-	var world := WorldEnvironment.new()
-	world.name = "WorldEnvironment"
-	var environment := Environment.new()
-	environment.background_mode = Environment.BG_COLOR
-	environment.background_color = Color("dce6ee")
-	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	environment.ambient_light_color = Color("fff4e6")
-	environment.ambient_light_energy = 0.72
-	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	environment.ssao_enabled = true
-	environment.ssao_radius = 1.2
-	environment.ssao_intensity = 2.0
-	world.environment = environment
-	target.add_child(world)
+func _set_daylight(mode:int) -> void:
+	_daylight=mode%4;_world.get_node("ViewStyle").set_daylight(_daylight)
+	_world.get_node("HUD/ViewControls/Daylight").select(_daylight)
 
-	var sun := DirectionalLight3D.new()
-	sun.name = "Sun"
-	sun.rotation_degrees = Vector3(-55, -35, 0)
-	sun.light_energy = 1.15
-	sun.shadow_enabled = true
-	sun.directional_shadow_max_distance = 40.0
-	target.add_child(sun)
+func _show_light_settings(id:String) -> void:
+	if _editing or _session.busy or _session.current().is_empty() or not _layout_camera._entities.has(id) or not _layout_camera._entities[id].has("light"):return
+	if _layout_camera._entities[id].get("locked",false):return
+	_adjustment.cancel();_layout_camera.cancel_drag();_release_actions()
+	_light_settings.show_light(_layout_camera._entities[id]);get_tree().paused=true;Input.mouse_mode=Input.MOUSE_MODE_VISIBLE;_sync_controls()
 
 func _update_asset_notice() -> void:
 	var notes := _scene_notes.duplicate()
@@ -460,7 +468,7 @@ func _show_status(project_name: String) -> void:
 	crosshair.add_theme_constant_override("shadow_outline_size", 3)
 	crosshair.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(crosshair)
-	var help := UI.label("WASD  Wander     E  Open door     F  Adjust a piece     F2  Arrange     F1  Pause", 14)
+	var help := UI.label("WASD  Wander   E  Door   F  Adjust   L  Light   T  Daylight   F2  Arrange   F1  Pause", 14)
 	help.add_theme_stylebox_override("normal", UI.box(UI.PAPER, 16, 14, true))
 	help.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
 	help.offset_left = 20; help.offset_top = -64; help.offset_bottom = -20
@@ -481,7 +489,10 @@ func _show_status(project_name: String) -> void:
 		_release_actions()
 		_resume(), true)
 	top_view.theme = UI.theme()
-	top_view.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
-	top_view.offset_left = -192; top_view.offset_right = -20
-	top_view.offset_top = 20; top_view.offset_bottom = 68
-	layer.add_child(top_view)
+	top_view.custom_minimum_size=Vector2(172,48)
+	var view_controls:=HBoxContainer.new();view_controls.name="ViewControls";view_controls.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	view_controls.offset_left=-354;view_controls.offset_right=-20;view_controls.offset_top=20;view_controls.offset_bottom=68;view_controls.theme=UI.theme();layer.add_child(view_controls)
+	var daylight:=OptionButton.new();daylight.name="Daylight";daylight.custom_minimum_size=Vector2(150,48)
+	for text in VIEW_STYLE.PRESETS:daylight.add_item(text)
+	daylight.select(_daylight);daylight.item_selected.connect(_set_daylight);daylight.tooltip_text="Natural light · T cycles modes · Esc frees pointer"
+	view_controls.add_child(daylight);view_controls.add_child(top_view)

@@ -1,16 +1,18 @@
-import type { Project, FurnitureItem, FurnitureWallMount } from '../models/types';
+import type { Project, FurnitureItem, FurnitureWallMount, FurnitureCeilingMount, FurnitureLightSettings } from '../models/types';
 import { readProject } from '../utils/projectValidation';
 import { furnitureCatalog, getCatalogItem } from '../utils/furnitureCatalog';
 import { furnitureSvg } from '../utils/furnitureSvg';
 
 import { needsWallMount, placeOnWall } from '../utils/furniturePlacement';
+import { needsCeilingMount, furnitureCeilingFrame, ceilingLightProfile } from '../utils/ceilingFurniture';
 
 type Asset = { catalogId: string; customModelId?: string };
 export type FurnitureLayoutCommand =
-  | { type: 'add'; floorId: string; position: { x: number; y: number }; asset: Asset; wallMount?: FurnitureWallMount }
+  | { type: 'add'; floorId: string; position: { x: number; y: number }; asset: Asset; wallMount?: FurnitureWallMount; ceilingMount?: FurnitureCeilingMount }
   | { type: 'move'; floorId: string; id: string; position: { x: number; y: number }; elevation?: number; rotation?: number }
   | { type: 'rotate'; floorId: string; id: string; rotation: number }
-  | { type: 'replace'; floorId: string; id: string; asset: Asset; wallMount?: FurnitureWallMount }
+  | { type: 'replace'; floorId: string; id: string; asset: Asset; wallMount?: FurnitureWallMount; ceilingMount?: FurnitureCeilingMount }
+  | { type: 'light'; floorId: string; id: string; light: FurnitureLightSettings }
   | { type: 'remove'; floorId: string; id: string };
 
 /** Engine-neutral native furniture edits. Architecture and input stay untouched.
@@ -33,8 +35,15 @@ export function applyFurnitureLayoutCommand(input: unknown, command: FurnitureLa
     if (!p || ![p.x, p.y].every(v => typeof v === 'number' && Number.isFinite(v) && Math.abs(v) <= 1_000_000)) throw new Error('Furniture position must be finite native centimetres.');
     return { x: p.x, y: p.y };
   };
-  const attach = (item: FurnitureItem, mount?: FurnitureWallMount) => {
+  const attach = (item: FurnitureItem, mount?: FurnitureWallMount, ceiling?: FurnitureCeilingMount) => {
     if (mount) item.wallMount = { ...mount };
+    if (ceiling) item.ceilingMount = { wallIds: [...ceiling.wallIds] };
+    if (needsCeilingMount(item.catalogId)) {
+      furnitureCeilingFrame(floor,item);
+      item.light ??= { ...ceilingLightProfile(item.catalogId)!.defaults };
+      return;
+    }
+    if (item.ceilingMount) throw new Error('Choose ceiling-mounted furniture for this ceiling binding.');
     if (needsWallMount(item.catalogId) && !item.wallMount) throw new Error('Choose an authored wall and installation height for this item.');
     if (item.wallMount) {
       const placed = placeOnWall(floor, item, item.position, item.wallMount.elevation);
@@ -45,6 +54,7 @@ export function applyFurnitureLayoutCommand(input: unknown, command: FurnitureLa
     if (item.wallMount || needsWallMount(item.catalogId)) throw new Error('Wall furniture orientation follows its authored wall.');
     if (typeof rotation !== 'number' || !Number.isFinite(rotation)) throw new Error('Furniture rotation must be finite native degrees.');
     item.rotation = rotation;
+    if (item.ceilingMount) furnitureCeilingFrame(floor,item);
   };
   let selectedId: string | null = null;
   if (command.type === 'add') {
@@ -52,7 +62,7 @@ export function applyFurnitureLayoutCommand(input: unknown, command: FurnitureLa
     let index = 1;
     while (ids.has(`layout-furniture-${index}`)) index++;
     const item = { id: `layout-furniture-${index}`, position: position(command.position), rotation: 0, scale: { x: 1, y: 1, z: 1 }, ...assetFields(command.asset) } as FurnitureItem;
-    attach(item, command.wallMount);
+    attach(item, command.wallMount, command.ceilingMount);
     floor.furniture.push(item);
     selectedId = item.id;
   } else {
@@ -66,6 +76,7 @@ export function applyFurnitureLayoutCommand(input: unknown, command: FurnitureLa
         if (command.rotation !== undefined) rotate(item, command.rotation);
         if (item.wallMount) { item.wallMount.elevation = command.elevation ?? item.wallMount.elevation; attach(item); }
         else if (command.elevation !== undefined) throw new Error('Floor furniture cannot change elevation.');
+        else if (item.ceilingMount) attach(item);
         break;
       case 'rotate':
         rotate(item, command.rotation); break;
@@ -74,9 +85,14 @@ export function applyFurnitureLayoutCommand(input: unknown, command: FurnitureLa
         for (const key of ['customModelId', 'width', 'depth', 'height', 'renderStyle'] as const) delete item[key];
         item.scale = { x: 1, y: 1, z: 1 };
         Object.assign(item, fields);
-        attach(item, command.wallMount);
+        if (needsCeilingMount(item.catalogId)) delete item.wallMount;
+        else { delete item.ceilingMount; delete item.light; }
+        attach(item, command.wallMount, command.ceilingMount);
         break;
       }
+      case 'light':
+        if (!item.ceilingMount || !ceilingLightProfile(item.catalogId)) throw new Error('Select an attached ceiling light.');
+        item.light = { ...command.light }; attach(item); break;
       case 'remove':
         floor.furniture = floor.furniture.filter(i => i.id !== item.id);
         floor.groups = floor.groups.map(group => ({ ...group, elementIds: group.elementIds.filter(id => id !== item.id) })).filter(group => group.elementIds.length >= 2);
@@ -106,10 +122,11 @@ export function furnitureLayoutCatalog(project: Project) {
     ...furnitureCatalog.filter(item => !item.symbol).map(item => ({
       label: item.name, category: item.category, dimensions: [item.width, item.depth, item.height],
       symbolSvg: illustration(item.id, item.width, item.depth, item.color),
-      mounting: needsWallMount(item.id) ? 'wall' : 'floor', asset: { catalogId: item.id } as Asset,
+      mounting: needsCeilingMount(item.id) ? 'ceiling' : needsWallMount(item.id) ? 'wall' : 'floor', asset: { catalogId: item.id } as Asset,
     })),
     ...(project.customModels ?? []).map(model => ({
       label: model.name, category: 'Custom models', dimensions: [model.width, model.depth, model.height],
+      mounting: 'floor' as const,
       symbolSvg: illustration('imported_object', model.width, model.depth, '#63756c'),
       asset: { catalogId: 'custom-model', customModelId: model.id } as Asset,
     })),

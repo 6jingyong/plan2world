@@ -13,7 +13,7 @@ const UNSIGNED_SHORT = 5123;
 const UNSIGNED_INT = 5125;
 const TRIANGLES = 4;
 
-type ArchitectureMaterialKey = 'wall' | 'floor' | 'ceiling' | 'glass' | 'column' | 'stair' | 'door';
+type ArchitectureMaterialKey = 'wall' | 'floor' | 'ceiling' | 'glass' | 'column' | 'stair' | 'door' | 'plan-door' | 'plan-window' | 'lamp-body' | 'lamp-emitter';
 
 interface GltfBufferView {
   buffer: number;
@@ -134,7 +134,7 @@ function materialKey(primitive: PresentationGlbPrimitive): ArchitectureMaterialK
   return 'wall';
 }
 
-const materialOrder: ArchitectureMaterialKey[] = ['wall', 'floor', 'ceiling', 'glass', 'column', 'stair', 'door'];
+const materialOrder: ArchitectureMaterialKey[] = ['wall', 'floor', 'ceiling', 'glass', 'column', 'stair', 'door', 'plan-door', 'plan-window', 'lamp-body', 'lamp-emitter'];
 
 const gltfMaterials: Record<string, unknown>[] = [
   { name: 'p2w-wall', pbrMetallicRoughness: { baseColorFactor: [0.82, 0.81, 0.79, 1], metallicFactor: 0, roughnessFactor: 0.86 } },
@@ -149,6 +149,10 @@ const gltfMaterials: Record<string, unknown>[] = [
   { name: 'p2w-column', pbrMetallicRoughness: { baseColorFactor: [0.70, 0.67, 0.62, 1], metallicFactor: 0, roughnessFactor: 0.82 } },
   { name: 'p2w-stair', pbrMetallicRoughness: { baseColorFactor: [0.77, 0.60, 0.42, 1], metallicFactor: 0, roughnessFactor: 0.82 } },
   { name: 'p2w-door', pbrMetallicRoughness: { baseColorFactor: [0.55, 0.39, 0.28, 1], metallicFactor: 0, roughnessFactor: 0.72 } },
+  { name: 'p2w-plan-door', pbrMetallicRoughness: { baseColorFactor: [0.94,0.43,0.12,1],metallicFactor:0,roughnessFactor:1 } },
+  { name: 'p2w-plan-window', pbrMetallicRoughness: { baseColorFactor: [0.05,0.52,0.78,1],metallicFactor:0,roughnessFactor:1 } },
+  { name: 'p2w-lamp-body', pbrMetallicRoughness: { baseColorFactor: [.38,.40,.42,1],metallicFactor:.15,roughnessFactor:.5 } },
+  { name: 'p2w-lamp-emitter', pbrMetallicRoughness: { baseColorFactor: [.98,.97,.86,1],metallicFactor:0,roughnessFactor:.7 } },
 ];
 
 function padChunk(bytes: Uint8Array, paddingByte: number) {
@@ -179,6 +183,7 @@ export function serializeArchitectureGlb(mesh: ArchitecturePresentationMesh | Ar
 export interface PresentationGlbPrimitive {
   id: string; kind: string; ownerId?: string; floorId?: string;
   material?: ArchitectureMaterialKey;
+  view?: 'plan';
   positions: RuntimeVec3[]; normals: RuntimeVec3[]; uvs: RuntimeVec2[]; indices: number[];
 }
 
@@ -265,6 +270,7 @@ export function serializePresentationGlb(primitives: readonly PresentationGlbPri
           kind: primitive.kind,
           ownerId: primitive.ownerId,
           floorId: primitive.floorId,
+          ...(primitive.view ? {view:primitive.view} : {}),
         },
       },
     });
@@ -278,7 +284,7 @@ export function serializePresentationGlb(primitives: readonly PresentationGlbPri
     scenes: [{ nodes: nodes.map((_, index) => index) }],
     nodes,
     meshes: gltfMeshes,
-    materials: gltfMaterials.slice(0, primitives.some(primitive => primitive.material === 'door') ? 7 : 6),
+    materials: gltfMaterials.slice(0,Math.max(5,...primitives.map(p=>materialOrder.indexOf(materialKey(p))))+1),
     accessors,
     bufferViews,
     buffers: [{ byteLength: binaryChunk.byteLength }],
