@@ -1,6 +1,7 @@
 import type { Project, FurnitureItem, FurnitureWallMount } from '../models/types';
 import { readProject } from '../utils/projectValidation';
 import { furnitureCatalog, getCatalogItem } from '../utils/furnitureCatalog';
+import { furnitureSvg } from '../utils/furnitureSvg';
 
 import { needsWallMount, placeOnWall } from '../utils/furniturePlacement';
 
@@ -88,10 +89,29 @@ export function applyFurnitureLayoutCommand(input: unknown, command: FurnitureLa
   return { project: readProject(project), selectedId };
 }
 
-/** Small UI projection; the native Project file remains canonical. */
+/** Read-only editor catalog projection, separate from runtime scene artifacts.
+ * Reuse native authoring symbols; these are 2D inventory illustrations, not model
+ * bounds, presentation assets or collision. All dimensions remain native cm. */
 export function furnitureLayoutCatalog(project: Project) {
+  const illustration = (id: string, width: number, depth: number, color: string) => {
+    const scale = 58 / Math.max(width, depth, 1);
+    // SVG 1.1 alpha attributes work consistently in native SVG rasterizers.
+    const symbol = furnitureSvg(id, width * scale, depth * scale, color).replace(
+      /(fill|stroke)="#([0-9a-f]{6})([0-9a-f]{2})"/gi,
+      (_, paint: string, rgb: string, alpha: string) => `${paint}="#${rgb}" ${paint}-opacity="${parseInt(alpha, 16) / 255}"`,
+    );
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="72" height="72" viewBox="-36 -36 72 72">${symbol}</svg>`;
+  };
   return [
-    ...furnitureCatalog.filter(item => !item.symbol).map(item => ({ label: item.name, mounting: needsWallMount(item.id) ? 'wall' : 'floor', asset: { catalogId: item.id } as Asset })),
-    ...(project.customModels ?? []).map(model => ({ label: model.name, asset: { catalogId: 'custom-model', customModelId: model.id } as Asset })),
+    ...furnitureCatalog.filter(item => !item.symbol).map(item => ({
+      label: item.name, category: item.category, dimensions: [item.width, item.depth, item.height],
+      symbolSvg: illustration(item.id, item.width, item.depth, item.color),
+      mounting: needsWallMount(item.id) ? 'wall' : 'floor', asset: { catalogId: item.id } as Asset,
+    })),
+    ...(project.customModels ?? []).map(model => ({
+      label: model.name, category: 'Custom models', dimensions: [model.width, model.depth, model.height],
+      symbolSvg: illustration('imported_object', model.width, model.depth, '#63756c'),
+      asset: { catalogId: 'custom-model', customModelId: model.id } as Asset,
+    })),
   ];
 }

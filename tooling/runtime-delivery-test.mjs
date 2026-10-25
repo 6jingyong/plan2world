@@ -46,13 +46,14 @@ const productInput = path.join(directory, 'product.project.json');
 const productSource = JSON.stringify(await runtimeProductProject());
 await writeFile(productInput, productSource);
 const godot = process.env.GODOT_BIN || 'godot';
-for (const filename of ['runtime_launcher_test.gd', 'runtime_walkthrough_test.gd', 'runtime_layout_test.gd', 'runtime_product_controls_test.gd', 'runtime_snapping_test.gd', 'runtime_snapping_controls_test.gd']) {
+for (const filename of ['runtime_launcher_test.gd', 'runtime_walkthrough_test.gd', 'runtime_layout_test.gd', 'runtime_product_controls_test.gd', 'runtime_snapping_test.gd', 'runtime_snapping_controls_test.gd', 'runtime_layout_ui_test.gd']) {
   const script = path.join(directory, filename);
   await copyFile(path.join(root, 'runtime/godot/tests', filename), script);
   const args = filename === 'runtime_launcher_test.gd' ? [scene, '--require-packed']
     : filename === 'runtime_layout_test.gd' ? [input, path.join(directory, 'layout')]
     : filename === 'runtime_product_controls_test.gd' ? [productInput, path.join(directory, 'controls'), path.join(sceneDirectory, 'scene.architecture.glb')]
     : filename === 'runtime_snapping_controls_test.gd' ? [productInput, path.join(directory, 'snapping')]
+    : filename === 'runtime_layout_ui_test.gd' ? [productInput, path.join(directory, 'furnishing-ui')]
     : filename === 'runtime_snapping_test.gd' ? []
     : ['--scene', scene];
   // Official release templates disable --script/path overrides. Use the pinned
@@ -71,4 +72,4 @@ if (!boot.includes('Plan2World runtime loaded:') || !boot.includes('assets=8') |
 }
 if (await readFile(input, 'utf8') !== source) throw new Error('Native source changed during export');
 if (await readFile(productInput, 'utf8') !== productSource) throw new Error('Native product source changed during editing');
-console.log('Relocated player/scene ZIPs: shipped PCK physics/launcher/layout/product controls/snapping + offline shared core + release executable boot: PASS');
+console.log('Relocated player/scene ZIPs: shipped PCK physics/launcher/layout/product controls/snapping/furnishing UI + offline shared core + release executable boot: PASS');

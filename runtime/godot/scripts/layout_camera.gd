@@ -7,6 +7,7 @@ signal furniture_moved(id: String, point: Vector3)
 signal preview_cancelled
 signal placement_blocked
 signal snap_changed(text: String)
+signal gesture_changed(moving: bool)
 
 var camera: Camera3D
 var data: Dictionary
@@ -16,7 +17,8 @@ var editing := false
 var transitioning := false
 var active := false
 var inset_top := 96.0
-var inset_left := 300.0
+var inset_left := 96.0
+var inset_right := 0.0
 var inset_bottom := 96.0
 var snapping := preload("res://scripts/furniture_snapping.gd").new()
 var _guides: MeshInstance3D
@@ -34,6 +36,7 @@ var _bounds := Rect2()
 var _floor_y := 0.0
 var _center := Vector2.ZERO
 var _height := 20.0
+var _framed_viewport := Vector2.ZERO
 var _building_height := 0.0
 var _tween: Tween
 var _panning := false
@@ -142,18 +145,30 @@ func select_floor(id: String) -> void:
 func view_center() -> Vector2:
 	return _center
 
+func _fit_height(viewport := Vector2.ZERO) -> float:
+	if viewport == Vector2.ZERO: viewport = get_viewport().get_visible_rect().size
+	var aspect := maxf(viewport.x, 1) / maxf(viewport.y, 1)
+	var usable := maxf(0.2, 1.0 - (inset_top + inset_bottom) / maxf(viewport.y, 1))
+	var usable_width := maxf(0.2, 1.0 - (inset_left + inset_right) / maxf(viewport.x, 1))
+	# Fit emitted room bounds and authored wall tops around visible native UI.
+	return maxf(6, _building_height + maxf(_bounds.size.x / (aspect * usable_width), _bounds.size.y / usable) / (2 * tan(deg_to_rad(camera.fov) / 2)) * 1.15)
+
 func fit_floor() -> void:
 	cancel_drag()
 	_center = _bounds.get_center()
-	var viewport := get_viewport().get_visible_rect().size
-	var aspect := maxf(viewport.x, 1) / maxf(viewport.y, 1)
-	var usable := maxf(0.2, 1.0 - (inset_top + inset_bottom) / maxf(viewport.y, 1))
-	var usable_width := maxf(0.2, 1.0 - inset_left / maxf(viewport.x, 1))
-	# Fit wall tops as well as the floor, below the native toolbar. No model
-	# bounds or collision-derived presentation are needed to frame the room.
-	_height = maxf(6, _building_height + maxf(_bounds.size.x / (aspect * usable_width), _bounds.size.y / usable) / (2 * tan(deg_to_rad(camera.fov) / 2)) * 1.15)
-	if active:
-		_animate(_top_pose())
+	_height = _fit_height()
+	_framed_viewport = get_viewport().get_visible_rect().size
+	if active: _animate(_top_pose())
+
+func set_view_insets(left: float, right: float, top: float, bottom: float) -> void:
+	var previous_fit := _fit_height(_framed_viewport)
+	cancel_drag()
+	inset_left = left; inset_right = right; inset_top = top; inset_bottom = bottom
+	# Opening the catalog shifts/zooms the camera while preserving the user's
+	# current plan centre and relative zoom. It never resets the chosen location.
+	_height *= _fit_height() / previous_fit
+	_framed_viewport = get_viewport().get_visible_rect().size
+	if active: _animate(_top_pose())
 
 func set_plan_mode(value: bool) -> void:
 	if active == value:
@@ -170,7 +185,7 @@ func set_plan_mode(value: bool) -> void:
 func _top_pose() -> Transform3D:
 	var viewport := get_viewport().get_visible_rect().size
 	var scale := _height * tan(deg_to_rad(camera.fov) / 2) / maxf(viewport.y, 1)
-	return Transform3D(Basis.from_euler(Vector3(-PI / 2, 0, 0)), Vector3(_center.x - scale * inset_left, _floor_y + _height, _center.y - scale * (inset_top - inset_bottom)))
+	return Transform3D(Basis.from_euler(Vector3(-PI / 2, 0, 0)), Vector3(_center.x + scale * (inset_right - inset_left), _floor_y + _height, _center.y - scale * (inset_top - inset_bottom)))
 
 func _animate(target: Transform3D) -> void:
 	if _tween != null:
@@ -297,6 +312,7 @@ func begin_adjust(id: String) -> bool:
 	if _model != null:
 		_model_pose = _model.global_transform
 	_moving = true
+	gesture_changed.emit(true)
 	_highlight_selected(Color.GREEN)
 	return true
 
@@ -367,6 +383,7 @@ func _show_preview() -> void:
 
 func commit_move() -> void:
 	_moving = false
+	gesture_changed.emit(false)
 	if _preview.distance_to(_origin) <= 0.00001 and is_equal_approx(_preview_yaw, float(_entities[selected_id]["yawClockwiseRadians"])):
 		cancel_drag()
 		return
@@ -398,7 +415,9 @@ func cancel_drag() -> void:
 	snap_changed.emit("")
 	if _highlight != null:
 		_highlight.hide()
-	if was_moving: preview_cancelled.emit()
+	if was_moving:
+		gesture_changed.emit(false)
+		preview_cancelled.emit()
 
 func _preview_allowed() -> bool:
 	return placement_allowed(data, selected_id, (_preview - _origin), _preview_yaw)

@@ -33,7 +33,7 @@ F / gamepad X focuses nearby furniture in an editable Project. Arrow taps move
 cancels the preview. Movement stops while adjusting; mouse/right stick only
 looks. Floor furniture stays in its plan plane. Mounted objects use the explicit
 wall/side/height chosen in top view, and move only along that wall or vertically.
-Curved-wall mounting is currently unsupported. Top-view dragging supports a 10cm grid, straight-wall flush/orientation and furniture alignment guides; use the visible switches or hold Alt for free placement. Magnetic assistance never affects first-person micro-adjustment.
+Curved-wall mounting is currently unsupported. In top view, Tab opens the category/search furniture grid; Esc / gamepad B closes it, Ctrl+F searches. Selected pieces expose Rotate/R, Swap/X and Remove/Delete; Layout… holds Save/Export, with Ctrl+S for Save. Wall installation uses a separate explicit-host dialog. Top-view dragging supports a 10cm grid, straight-wall flush/orientation and furniture alignment guides; use the visible switches or hold Alt for free placement. Magnetic assistance never affects first-person micro-adjustment.
 
 Furniture placement reserves the explicit closed-door volumes even while doors
 are open. The shared compiler checks the same poses before accepting/exporting

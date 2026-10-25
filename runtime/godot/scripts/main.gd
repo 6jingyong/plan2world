@@ -195,6 +195,7 @@ func _edit_layout(command: Dictionary) -> void:
 			return
 		_apply_layout_state(result, candidate)
 		_session.accept(result)
+		_plan_view.command_applied(command)
 		_sync_controls()
 	else:
 		_layout_camera.cancel_drag()

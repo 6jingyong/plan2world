@@ -107,13 +107,13 @@ func _run():
 	if DisplayServer.get_name()=="headless": root.content_scale_size=Vector2i(800,540)
 	await _idle()
 	await _capture("compact-arrange")
-	for name in ["FirstPerson","FloorSelector","FitFloor","MagneticSnap","GridSnap","SaveProject","ExportScene"]:
+	for name in ["FirstPerson","FloorSelector","FitFloor","MagneticSnap","GridSnap","LayoutFiles","OpenCatalog"]:
 		var button: Control=plan.find_child(name,true,false)
 		var rect:=button.get_global_rect()
 		_check(Rect2(Vector2.ZERO,root.get_visible_rect().size).encloses(rect),"Compact UI must retain the visible control: "+name)
 	for point in [Vector3(0,3.4,0),Vector3(12,3.4,12)]:
 		var screen: Vector2=camera.camera.unproject_position(point)
-		_check(screen.x>=camera.inset_left and screen.x<=root.get_visible_rect().size.x and screen.y>=camera.inset_top and screen.y<=root.get_visible_rect().size.y-camera.inset_bottom,"Fit view must keep architecture out of the furnishing panel and context bar")
+		_check(screen.x>=camera.inset_left and screen.x<=root.get_visible_rect().size.x-camera.inset_right and screen.y>=camera.inset_top and screen.y<=root.get_visible_rect().size.y-camera.inset_bottom,"Fit view must keep architecture out of the furnishing panel and context bar")
 	main._show_menu();await process_frame
 	await _capture("compact-menu")
 	_check(main._launcher._screen.get_global_rect().encloses(main._launcher.find_child("OpenProject",true,false).get_global_rect()),"Compact scene menu primary action must fit the viewport")

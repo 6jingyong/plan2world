@@ -108,6 +108,7 @@ ZIPs into relocated paths containing spaces/Chinese characters, then checks:
 - exact shipped PCK resources: real grounded walking, compiler collision, ray
   interaction with swing/slide/paired doors, furniture/column/wall blockers,
   railing/air and straight stair ascent/descent;
+- native furnishing UI: on-demand category/search/symbol grid, add/swap confirmation, retained identities, modal wall setup/cancel, Tab/Ctrl+F/gamepad-B focus behavior, contextual actions and secondary save/export;
 - native top-view semantic snapping and real pointer/Alt/toggle controls: grid, wall orientation/clearance, furniture guides, cancelled pose restoration, atomic save/reopen and compact native UI;
 - native furniture Project entry through the shipped core: add, ray-drag, rotate, replace, collision rejection, delete, save/export/reopen and private-state cleanup; same-world camera/input isolation and fixed architecture;
 - product controls: explicit main-door spawn/facing, failed-load recovery and GLB pairing, keyboard/virtual-gamepad nudges, wall constraints, door obstruction and atomic-save failure recovery;

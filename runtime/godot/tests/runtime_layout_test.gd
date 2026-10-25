@@ -73,9 +73,11 @@ func _run() -> void:
 	var before := _project(main)
 	var furniture_count: int = before["floors"][0]["furniture"].size()
 	var catalog: Array = main._session.current()["catalog"]
-	var palette := plan.find_child("FurnitureCatalog", true, false) as OptionButton
+	plan.set_catalog_open(true)
+	await _idle(main)
+	var palette = plan._catalog_view
 	for i in range(catalog.size()):
-		if catalog[i]["asset"].get("catalogId") == "sofa": palette.select(i)
+		if catalog[i]["asset"].get("catalogId") == "sofa": palette.choose(i)
 	plan.find_child("AddFurniture", true, false).pressed.emit()
 	await _idle(main)
 	var added_id := str(main._session.current()["selectedId"])
@@ -119,22 +121,28 @@ func _run() -> void:
 	await _idle(main)
 	var moved := _item(_project(main), added_id)
 	_check(is_equal_approx(float(moved["position"]["x"]), target.x * 100) and is_equal_approx(float(moved["position"]["y"]), target.y * 100), "Dragging must save native centimetres through the shared core")
-	for i in range(catalog.size()):
-		if catalog[i]["asset"].get("catalogId") == "chair": palette.select(i)
 	plan.find_child("ReplaceFurniture", true, false).pressed.emit()
+	await _idle(main)
+	for i in range(catalog.size()):
+		if catalog[i]["asset"].get("catalogId") == "chair": palette.choose(i)
+	palette.place.pressed.emit()
 	await _idle(main)
 	_check(_item(_project(main), added_id)["catalogId"] == "chair", "Replace must retain identity and use the selected catalog item")
 	var collider := main._collider_nodes["furniture:" + added_id] as StaticBody3D
 	_check(collider.position.is_equal_approx(Vector3(target.x, 0.85, target.y)), "Furniture collision must use compiler output after replacement")
 	_check(plan.find_child("UndoLayout", true, false) == null and not main._session.has_method("undo"), "The product must not expose undo or store an operation history")
-	for i in range(catalog.size()):
-		if catalog[i]["asset"].get("customModelId") == "box": palette.select(i)
 	plan.find_child("ReplaceFurniture", true, false).pressed.emit()
 	await _idle(main)
-	_check(_item(_project(main), added_id).get("customModelId") == "box" and world.get_node("FurnitureLayout").find_child("Asset_" + added_id, true, false) != null, "Custom replacement must load the retained Project GLB through the shared core")
 	for i in range(catalog.size()):
-		if catalog[i]["asset"].get("catalogId") == "chair": palette.select(i)
+		if catalog[i]["asset"].get("customModelId") == "box": palette.choose(i)
+	palette.place.pressed.emit()
+	await _idle(main)
+	_check(_item(_project(main), added_id).get("customModelId") == "box" and world.get_node("FurnitureLayout").find_child("Asset_" + added_id, true, false) != null, "Custom replacement must load the retained Project GLB through the shared core")
 	plan.find_child("ReplaceFurniture", true, false).pressed.emit()
+	await _idle(main)
+	for i in range(catalog.size()):
+		if catalog[i]["asset"].get("catalogId") == "chair": palette.choose(i)
+	palette.place.pressed.emit()
 	await _idle(main)
 	plan.find_child("DeleteFurniture", true, false).pressed.emit()
 	await _idle(main)

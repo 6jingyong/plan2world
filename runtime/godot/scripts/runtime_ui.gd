@@ -26,7 +26,7 @@ static func box(color: Color, radius := 18, padding := 16, shadow := false) -> S
 static func theme() -> Theme:
 	var value := Theme.new()
 	value.default_font_size = 16
-	for type in ["Label", "Button", "OptionButton", "CheckButton", "LineEdit", "PopupMenu", "SpinBox"]:
+	for type in ["Label", "Button", "OptionButton", "CheckButton", "LineEdit", "PopupMenu", "SpinBox", "ItemList", "TabBar"]:
 		value.set_color("font_color", type, INK)
 		value.set_color("font_hover_color", type, INK)
 		value.set_color("font_focus_color", type, INK)
@@ -40,6 +40,18 @@ static func theme() -> Theme:
 		var focus := box(Color.TRANSPARENT, 12, 10)
 		focus.set_border_width_all(2); focus.border_color = LEAF
 		value.set_stylebox("focus", type, focus)
+	value.set_color("font_selected_color", "ItemList", INK)
+	value.set_color("font_hovered_color", "ItemList", INK)
+	value.set_color("font_placeholder_color", "LineEdit", MUTED)
+	value.set_color("clear_button_color", "LineEdit", MUTED)
+	value.set_color("clear_button_color_pressed", "LineEdit", INK)
+	value.set_stylebox("panel", "ItemList", box(Color("f4f5eb"), 14, 6))
+	value.set_stylebox("selected", "ItemList", box(Color("c5dfcd"), 12, 6))
+	value.set_stylebox("selected_focus", "ItemList", box(Color("b6d5c2"), 12, 6))
+	value.set_stylebox("tab_unselected", "TabBar", box(MINT, 12, 10))
+	value.set_stylebox("tab_selected", "TabBar", box(LEAF, 12, 10))
+	value.set_color("font_selected_color", "TabBar", PAPER)
+	value.set_color("font_unselected_color", "TabBar", INK)
 	value.set_stylebox("panel", "PanelContainer", box(PAPER, 20, 18, true))
 	value.set_stylebox("panel", "PopupMenu", box(PAPER, 12, 12, true))
 	value.set_stylebox("hover", "PopupMenu", box(MINT, 8, 8))
