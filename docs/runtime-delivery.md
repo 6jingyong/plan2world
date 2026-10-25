@@ -110,6 +110,10 @@ ZIPs into relocated paths containing spaces/Chinese characters, then checks:
   railing/air and straight stair ascent/descent;
 - native furniture Project entry through the shipped core: add, ray-drag, rotate, replace, collision rejection, delete, save/export/reopen and private-state cleanup; same-world camera/input isolation and fixed architecture;
 - product controls: explicit main-door spawn/facing, failed-load recovery and GLB pairing, keyboard/virtual-gamepad nudges, wall constraints, door obstruction and atomic-save failure recovery;
+- door/layout lifecycle: pointer and micro-step rejection at an open door's
+  reserved closed pose, failed conflicting Project recovery, save/export/reopen
+  with safe default door poses, persistent error messages and unobstructed walking
+  through placement-only reservations;
 - actual release executable startup with all eight dynamic presentations and no
   missing-asset/static proxies; native source unchanged. Assertions read the
   engine's `--log-file` output so Windows GUI builds do not require console stdout.

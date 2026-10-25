@@ -74,6 +74,10 @@ The player pauses on focus loss and provides manual return to its compiled spawn
 while preserving the current world's door state and geometry.
 Godot now switches smoothly between first person and top view in the same 3D world. Its native furniture layout tools support add/move/rotate/replace/remove, native Project save and runtime export, without undo/history. First-person furniture adjustment uses small keyboard/gamepad nudges; floor furniture stays on its floor and mounted objects stay on their explicit wall; architecture stays fixed. Delivered players include the offline shared data/compiler core and need no browser. See [native furniture layout](docs/godot-furniture-layout.md) and [`runtime/godot/README.md`](runtime/godot/README.md).
 
+Furniture must leave the compiled closed-door volumes clear, including when a
+door is currently open. Shared export validation and native placement preview
+enforce this rule so saved layouts reopen without door/furniture clipping.
+
 ## Fresh validation
 
 Five difficult real-plan samples are identified only by source metadata in `tests/fixtures/real-floorplans/reconstruction-corpus/manifest.json`. Fresh run artifacts go to a new ignored `.plan2world-validation/runs/<run-id>/<sample-id>/` directory and are never checked in as fixtures.

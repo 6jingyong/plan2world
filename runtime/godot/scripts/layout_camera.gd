@@ -20,6 +20,7 @@ var _nodes: Dictionary
 var _models: Dictionary
 var _entities := {}
 var _areas: Node3D
+var _door_clearance: Node3D
 var _highlight: MeshInstance3D
 var _bounds := Rect2()
 var _floor_y := 0.0
@@ -47,6 +48,7 @@ func configure(scene: Dictionary, nodes: Dictionary, models: Dictionary, player:
 	_highlight.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_highlight.visible = false
 	add_child(_highlight)
+	_build_door_clearance(scene)
 	refresh(scene, nodes, models)
 	select_floor(str(scene["floors"][0]["id"]))
 
@@ -79,6 +81,29 @@ func refresh(scene: Dictionary, nodes: Dictionary, models: Dictionary) -> void:
 		area.add_child(shape)
 		_areas.add_child(area)
 	update_floor_visibility()
+
+func _build_door_clearance(scene: Dictionary) -> void:
+	# Placement-only copies of the compiler's closed-pose colliders. Layer 4
+	# never blocks locomotion, door animation, floor rays or furniture picking.
+	_door_clearance = Node3D.new()
+	_door_clearance.name = "ClosedDoorClearance"
+	add_child(_door_clearance)
+	var door_ids := {}
+	for entity in scene["entities"]:
+		if entity["kind"] == "door": door_ids[entity["id"]] = true
+	for collider in scene["colliders"]:
+		if collider["kind"] != "box" or not door_ids.has(collider["ownerId"]): continue
+		var area := Area3D.new()
+		area.collision_layer = 4
+		area.collision_mask = 0
+		area.position = _vec3(collider["center"])
+		area.rotation.y = -float(collider["yawClockwiseRadians"])
+		var shape := CollisionShape3D.new()
+		var box := BoxShape3D.new()
+		box.size = _vec3(collider["size"])
+		shape.shape = box
+		area.add_child(shape)
+		_door_clearance.add_child(area)
 
 func select_floor(id: String) -> void:
 	floor_id = id
@@ -339,7 +364,8 @@ func placement_allowed(scene: Dictionary, id: String, offset := Vector3.ZERO) ->
 	var query := PhysicsShapeQueryParameters3D.new()
 	query.shape = shape
 	query.transform = Transform3D(Basis(Vector3.UP, -float(entity["yawClockwiseRadians"])), pose)
-	query.collision_mask = 1
+	query.collision_mask = 5
+	query.collide_with_areas = true
 	query.exclude = exclusions
 	query.margin = 0.0
 	return get_world_3d().direct_space_state.intersect_shape(query, 1).is_empty()

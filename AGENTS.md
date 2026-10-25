@@ -167,6 +167,12 @@ Use `schemas/plan2world-draft-v1.schema.json` and `docs/plan2world-draft-v1.md`.
   Ground items move in the plan plane at fixed elevation; wall items use explicit
   compiler-owned wall frames, height bounds and opening exclusions. Do not infer
   attachment from asset meshes or nearest walls. Curved attachment is unsupported.
+- Furniture must leave every explicit door leaf's default closed volume clear.
+  Shared artifact compilation validates this independently of transient engine
+  door state; native JSON backup stays editable. Godot previews reuse the emitted
+  closed colliders as placement-only Areas, never walking bodies or inferred swing
+  envelopes. Engines still handle live door obstruction. Leafless openings remain
+  unreserved. Re-export older snapshots to apply the current compiler checks.
 - Validate/load a candidate outside the active SceneTree before swapping worlds
   and editable source. Reject mismatched present GLBs using the compiler digest;
   failed loads must retain the previous scene. Missing assets remain explicit

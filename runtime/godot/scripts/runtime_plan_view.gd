@@ -16,6 +16,7 @@ var _mount_side: OptionButton
 var _mount_height: SpinBox
 var _edit_buttons: Dictionary = {}
 var _message: Label
+var _notice := ""
 var _save: FileDialog
 var _export: FileDialog
 
@@ -123,12 +124,13 @@ func set_editor(state: Dictionary, busy: bool, dirty: bool) -> void:
 	for button in _edit_buttons.values():
 		button.disabled = not editable or busy
 	_palette.disabled = not editable or busy
-	_message.text = "Applying layout…" if busy else ("Unsaved layout changes" if dirty else ("Drag furniture to move it. Buildings remain fixed." if editable else "Open an editable Project to arrange furniture."))
+	_message.text = _notice if not _notice.is_empty() else ("Applying layout…" if busy else ("Unsaved layout changes" if dirty else ("Drag furniture to move it. Buildings remain fixed." if editable else "Open an editable Project to arrange furniture.")))
 	if _floor_ids.has(controller.floor_id): _floor_selector.select(_floor_ids.find(controller.floor_id))
 	_selection_changed()
 	_mount_fields()
 
 func show_message(message: String) -> void:
+	_notice = message
 	_message.text = message
 
 func _selection_changed() -> void:
@@ -181,6 +183,7 @@ func configure(data: Dictionary, camera_controller) -> void:
 	set_editor({}, false, false)
 
 func _frame_view() -> void:
+	if not visible or not controller.active: return
 	controller.inset_top = get_node("Toolbar").size.y
 	controller.fit_floor()
 

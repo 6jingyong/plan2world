@@ -68,6 +68,22 @@ rooms. Wall frames and blocked door/window rectangles come from the compiler.
 Door animation checks native physics before advancing its explicit leaf pose;
 an obstruction stops motion without penetrating furniture or the player.
 
+The shared artifact compiler also reserves each explicit door leaf's **closed**
+collider volume against furniture effective boxes. The check uses authored yaw
+and world height, includes flat/non-walking items, and allows touching faces.
+Leafless passages have no reserved leaf. It does not infer or reserve a complete
+swing envelope. A nearby chair may still stop live swing motion, but the saved
+layout is clear when doors reopen in their default closed pose.
+
+Godot previews reuse these emitted boxes as editor-only `Area3D` nodes on layer 4.
+They are queried for placement together with world bodies, never for locomotion,
+door animation, floor support or furniture picking. Static reservations survive
+furniture-only updates; they do not follow the animated leaf. Shared compilation
+remains the final authority for accepting an edit or exporting a scene. Invalid
+externally saved Projects fail to open without destroying the active world;
+internal native authoring and JSON backup remain available for correction.
+Older compiled snapshots should be re-exported to execute the current rule.
+
 `layout_session.gd` delegates native data edits to a separate, offline shared core:
 
 ```text
@@ -149,100 +165,49 @@ GLB recovery, unsupported floor/hole placement, interrupted drag, actual keyboar
 and virtual-gamepad input, wall-bound movement, obstruction and save-failure tests.
 It runs against the shipped PCK/core in both platform delivery jobs.
 
-Local milestone evidence is recorded under
-`.plan2world-validation/runs/20261025-godot-plan-view/`. Failed flat-view and framing
-iterations are retained there as historical evidence; the flattened plan canvas
-is absent from production code. Linux software-rendered inspection and headless
-physics do not establish Windows Forward+ hardware acceptance. No GitHub
-publication or remote CI run is implied by local completion.
+## Local verification record
 
-## Previous local milestone — ab865c3 (2026-10-25)
+Implementation branch: `godot-product-editor`. Keep the scope at native house
+walkthrough and furniture arrangement; these controls do not introduce a general
+scene editor, scripting system or alternative canonical data model.
 
-Baseline: main `89a4fab`; implementation branch: `godot-product-editor`.
-
-| Check | Result |
+| Milestone | Evidence and conclusion |
 | --- | --- |
-| Full deterministic unit suite | 190 files / 1,665 tests passed, single worker |
-| Type/Svelte check | 0 errors, 0 warnings |
-| Production build | Passed |
-| Chromium package/custom-model workflows | 11 passed, including desktop/phone viewport and native package return |
-| Actual Godot 4.7.2 | GLB assets/ownership, demo, grounded walkthrough, native camera/input and furniture editing passed |
-| Relocated Linux player ZIP | Exported PCK + shipped core editing/lifecycle/physics passed; actual release executable boot passed |
-| Native rendered inspection | Exported PCK, GL Compatibility/Mesa software renderer; top view, real-model drag, transition and first person inspected |
-| Windows player | Verified-Node cross-build passed on Linux; this editor revision has no native Windows or Forward+ hardware result yet |
-| Audit at configured high threshold | Passed; existing 3 low-severity SvelteKit-related findings remain |
+| `ab865c3`: native cameras/layout | [Original results](../.plan2world-validation/runs/20261025-godot-plan-view/RESULTS.md). 1,665 unit tests, native mode separation/CRUD, packaged Linux and rendered inspection passed. The flat canvas prototype was removed. |
+| `2582099`: entrance, loading and controls | [Product-control results](../.plan2world-validation/runs/20261025-product-controls/RESULTS.md). 1,670 unit tests; entrance/facing, transactions, no history and constrained controls passed. Frozen real-house replay retained all architecture/input bytes. Closed-pose doorway placement remained explicitly unresolved. |
+| Current: door/layout lifecycle | [Current results](../.plan2world-validation/runs/20261025-door-layout-lifecycle/RESULTS.md). 1,684 unit tests passed. Shared export/CLI checks and native pointer/micro-adjustment reserve default closed poses; save/export/reopen and real walking are covered by the updated shipped-PCK gate. |
 
-The first parallel unit run had two 5-second CLI timeouts while rendering/export
-jobs competed for CPU; the complete single-worker rerun passed unchanged assertions.
-The flattened plan-canvas prototype was rejected and removed. Early framing
-iterations clipped the house, then used a transient 1,178px toolbar height before
-Godot container layout settled; deferred framing now uses the final 117px inset.
-A shipped-PCK assertion initially compared logical viewport coordinates to the
-headless physical window size; it now checks the actual logical viewport. The
-framing constraint was retained. Negative logs and original fixture inputs remain
-in the ignored evidence directory, alongside final hashes and screenshots.
-
-Cleanup removes the superseded flat renderer, avoids browser-store/UI imports in
-the shared data core, deletes unused response projections, updates obsolete runtime
-handoff instructions, and reclaims private/abandoned edit revisions. Existing
-missing-asset/GLB compatibility remains intentional. Reconstruction experiments,
-source observations and their separate working branch are unchanged. No image
-extraction rerun, full three-engine browser suite, benchmark or GitHub publication
-is claimed for this product-editor milestone.
-
-
-## Current local milestone — entrance, transaction and product controls
-
-Baseline: `ab865c3`; branch: `godot-product-editor`. The four agreed changes are
-implemented locally: authored main-door spawn/facing with export clearance,
-isolated load/replace, no product undo/history, and separate pointer layout versus
-keyboard/gamepad micro-adjustment constrained to floor or explicit wall frames.
-Browser internal authoring undo remains. New derived snapshots require the current
-furniture movement contract; native Projects/packages remain the source.
-
-| Validation | Actual scope/result |
-| --- | --- |
-| Full deterministic suite | 191 files / 1,670 tests passed, isolated single worker |
-| Type/Svelte check; production build | Passed; 0 type/Svelte errors or warnings |
-| Chromium workflows | Package/custom-model/scene export and entrance authoring; desktop and phone viewports |
-| Exact exported Linux PCK + bundled core | Launcher, grounded traversal/doors, layout CRUD/save/reopen and product-control gates passed from relocated ZIPs |
-| Native rendered inspection | Same exported PCK; top view, attachment toolbar, floor/wall micro-adjustment; Linux Mesa/GL Compatibility |
-| Frozen real-house Project | E10 saved native input: 50 walls, 40 semantic furniture; normal export/open, one deliberate 1cm furniture move, save/export and grounded short walkthrough passed; architecture and original input bytes unchanged |
-| Missing presentation | Real-house generic semantic furniture correctly remains 40 proxies with an explicit HUD notice; no guessed style/asset substitution |
-| Windows | Final player cross-built with verified Node; native Windows CI/hardware has not run for this unpublished revision |
-
-Evidence, final binaries, source/artifact hashes and negative logs are under
-[the current run](../.plan2world-validation/runs/20261025-product-controls/RESULTS.md).
-The real-house replay is runtime/editor acceptance of a frozen saved Project,
-not a new AI extraction experiment or a claim of improved image quality. Its
-unmarked legacy spawn is preserved; marked-door behavior is separately tested.
-
-Failed iterations remain inspectable: the first consumer gate compared JSON
-numeric array types too strictly; spawn yaw was initially applied twice; a floor
-ray's exclusion append updated a property copy; virtual input needed the actual
-Input event pipeline; test fixture coordinates touched a wall; new test fixture
-TS types needed correction. These were corrected without weakening assertions.
-A full unit run competing with rendering/packaging exceeded one existing 5s CLI
-deadline; the isolated full rerun passed with the same timeout and assertions.
+The latest round additionally fixes notice ownership: camera/toolbar refresh must
+retain an operation's explanation until the next edit. A hidden top-view toolbar
+must not reframe the world or cancel first-person adjustment. Its first negative
+run caught the overwritten explanation. A second test waited for a camera tween
+while the failed-open menu intentionally paused it; that test now waits for data,
+asserts the paused retained world, explicitly resumes, then checks the animation
+settles within the unchanged deadline. Negative logs remain in the run directory.
+Historical implementation diaries stay in Git history; evidence and negative
+results linked above remain available. No extraction prompt, source observation,
+geometry correction, material or lighting change is part of this round.
 
 ### Remaining acceptance and limits
 
-- Door obstruction is fixed for live animation. Furniture can still occupy an
-  open doorway; reopening the saved layout starts doors closed. Shared export/
-  placement rules must explicitly resolve that default-pose conflict before
-  treating the broader door/layout lifecycle as complete.
 - GLB staging is synchronous; each accepted edit still recompiles a complete
-  package in a new offline process and rebuilds furniture. Large-scene latency,
-  subprocess cancellation/timeouts and crash recovery remain separate work.
-- Floor support uses center/corner samples against emitted floor collision; it
-  does not certify continuous support under every point of a large footprint.
-- New wall attachment supports straight solid walls only. Legacy unbound items
-  need explicit attachment; new model-file import is outside this scope.
-- Wall selection currently lists authored IDs. In-world wall picking, HUD
-  contrast on light backgrounds, material/lighting polish and target-device
-  usability need further acceptance. Missing-asset HUD aggregation is covered on
-  initial load; edits introducing new missing models need live-status refresh.
-- Real gamepad hardware, Windows Forward+, native file-dialog/OS resize/DPI paths,
-  full three-engine browser/benchmark regressions and publication are unclaimed.
-  Complex stairs/special doors and optional low-yield observation experiments
-  remain deferred. No GitHub push, PR or merge is part of this local milestone.
+  package in a new offline process and rebuilds furniture. Measure large-scene
+  latency before choosing optimizations; subprocess cancellation/timeouts and
+  crash recovery remain separate work.
+- Closed-pose clearance does not promise that a door can complete its full live
+  motion. Native physics may stop it on a player or nearby furniture. Old
+  compiled snapshots require re-export; the engine does not rerun authoring
+  validation or repair their source data.
+- Floor support samples the center/corners of furniture against emitted floor
+  collision; it does not certify continuous support under every footprint point.
+- Wall attachment supports straight solid walls only. Legacy unbound items need
+  explicit attachment; new model-file import is outside this scope.
+- Wall selection lists authored IDs. In-world wall picking, HUD contrast on light
+  backgrounds, material/lighting polish and target-device usability remain work.
+  Missing-asset HUD aggregation is covered on initial load; edits introducing new
+  missing models need live-status refresh.
+- Linux headless/Mesa inspection and Windows cross-builds do not establish native
+  Windows Forward+, physical controller, file-dialog or OS resize/DPI acceptance.
+  Full three-engine browser/benchmark regressions and remote CI are unclaimed for
+  unpublished local revisions. Complex stairs/special doors and optional
+  low-yield observation experiments stay deferred. No GitHub writes are implied.

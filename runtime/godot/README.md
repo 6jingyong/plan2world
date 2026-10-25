@@ -35,6 +35,12 @@ looks. Floor furniture stays in its plan plane. Mounted objects use the explicit
 wall/side/height chosen in top view, and move only along that wall or vertically.
 Curved-wall mounting is currently unsupported.
 
+Furniture placement reserves the explicit closed-door volumes even while doors
+are open. The shared compiler checks the same poses before accepting/exporting
+layout data. Near-door furniture may still stop live swing motion; saved layouts
+reopen with closed doors clear of furniture. These reservations affect placement
+only, so an open doorway stays walkable. Re-export older compiled snapshots.
+
 Default entrance/facing comes from the author-selected main door and inward
 side. Unmarked legacy Projects retain their previous start. Export rejects
 blocked/unsupported starts. The loader validates candidate semantics and matching

@@ -7,11 +7,11 @@ func _check(value: bool, text: String):
 	if not value: failures += 1; push_error(text)
 func _frames(count: int):
 	for i in range(count): await physics_frame
-func _idle():
+func _idle(wait_for_camera := true):
 	var deadline := Time.get_ticks_msec() + 30000
 	while Time.get_ticks_msec() < deadline:
 		await process_frame; OS.delay_msec(2)
-		if not main._session.busy and not main._editing and main._layout_camera != null and not main._layout_camera.transitioning:
+		if not main._session.busy and not main._editing and main._layout_camera != null and (not wait_for_camera or not main._layout_camera.transitioning):
 			await _frames(3); return
 	_check(false,"Control operation deadline")
 func _command(value: Dictionary): main._edit_layout(value); await _idle()
@@ -114,22 +114,72 @@ func _run():
 	_key(KEY_F);await _idle()
 	var wall_item: Dictionary=_project()["floors"][0]["furniture"].filter(func(e):return e["id"]==wall_id)[0]
 	_check(is_equal_approx(wall_item["wallMount"]["elevation"],141) and is_equal_approx(wall_item["position"]["y"],12.6),"Wall constraints and installation height must persist in the native Project")
-	# Closing a door must stop before furniture, including after a layout commit.
+	# Opening a door must never make its default closed volume placeable.
 	_key(KEY_F2);await _idle()
 	var door=world.get_node("Door_swing-door")
 	door.interact();await _frames(40)
 	_check(door._opened,"Unobstructed door must open")
-	await _command({"type":"add","floorId":"ground","position":{"x":300,"y":600},"asset":{"catalogId":"chair"}})
+	await _command({"type":"add","floorId":"ground","position":{"x":600,"y":600},"asset":{"catalogId":"chair"}})
 	var blocker: String=main._session.current()["selectedId"]
-	_check(not blocker.is_empty(),"Open doorway must accept a furniture blocker for the motion regression")
+	var accepted: String=main._session.current()["projectPath"]
+	var accepted_hash:=FileAccess.get_sha256(accepted)
+	_check(not camera.placement_allowed(main._runtime_data,blocker,Vector3(-3,0,0)),"Top-view preview must reserve the closed pose even while the actual door is open")
+	press.position=camera.camera.unproject_position(camera._vec3(camera._entities[blocker]["position"]));press.pressed=true;root.push_input(press,true)
+	var drag:=InputEventMouseMotion.new();drag.position=camera.camera.unproject_position(camera._vec3(camera._entities[blocker]["position"])+Vector3(-3,0,0));root.push_input(drag,true)
+	_check(camera._moving and not camera._preview_allowed(),"Actual pointer drag must mark the open doorway's closed volume as invalid")
+	await _capture(args[1],"blocked-doorway-preview")
+	press.position=drag.position;press.pressed=false;root.push_input(press,true);await _idle()
+	_check(not camera._moving and main._session.current()["projectPath"]==accepted,"Dropping in the reserved doorway must restore the furniture without committing")
+	await _command({"type":"move","floorId":"ground","id":blocker,"position":{"x":300,"y":600}})
+	_check(main._session.current()["projectPath"]==accepted and FileAccess.get_sha256(accepted)==accepted_hash,"Shared compilation must reject doorway placement without replacing current state")
+	_check(plan._message.text.contains("closed pose"),"The compiler's placement explanation must survive toolbar/camera refresh: "+plan._message.text)
+	await _capture(args[1],"blocked-doorway-message")
+	# Reject an externally saved conflicting Project while retaining this world.
+	var conflicting: Dictionary=_project().duplicate(true)
+	for item in conflicting["floors"][0]["furniture"]:
+		if item["id"]==blocker: item["position"]={"x":300,"y":600}
+	var conflicting_path=str(args[1]).path_join("conflicting.project.json")
+	file=FileAccess.open(conflicting_path,FileAccess.WRITE);file.store_string(JSON.stringify(conflicting));file.close()
+	# The failed-open menu intentionally pauses any in-flight camera animation.
+	# Wait for data here; verify animation settles only after explicit resume.
+	main._open_project(conflicting_path);await _idle(false)
+	_check(paused and main._menu_open and main._world.get_instance_id()==world_id and main._session.current()["projectPath"]==accepted,"Conflicting saved native layout must fail without destroying the active world")
+	main._resume();await _idle()
+	# FPS nudges use the same reservation, before dispatching a data edit.
+	await _command({"type":"move","floorId":"ground","id":blocker,"position":{"x":300,"y":642.1}})
+	main._show_walkthrough();await _idle()
+	player.position=Vector3(3,.4,7.8);player.rotation=Vector3.ZERO;player._pitch=-.55;player.get_node("Camera3D").rotation.x=player._pitch;await _frames(3)
+	_key(KEY_F)
+	_check(main._adjustment.active and camera.selected_id==blocker,"FPS adjustment must focus the placed chair near the open doorway")
+	var edge_pose: Vector3=camera._preview
+	_key(KEY_UP);await _frames(3)
+	_check(main._adjustment.active and camera._preview.is_equal_approx(edge_pose),"A blocked micro-step must preserve furniture focus and its valid pose while the door is open")
+	_key(KEY_ESCAPE);_key(KEY_F2);await _idle()
+	# This chair is clear at both end poses but can obstruct the real swing.
+	await _command({"type":"move","floorId":"ground","id":blocker,"position":{"x":300,"y":660}})
 	door.interact();await _frames(40)
 	_check(not door._busy and door._opened and camera.placement_allowed(main._runtime_data,blocker),"A closing door must stop without intersecting furniture")
+	# Saving/reopening starts closed without clipping the saved furniture.
+	var roundtrip=str(args[1]).path_join("door-layout.project.json")
+	_check(main._session.save_project(roundtrip)==OK and main._session.export_runtime(str(args[1]).path_join("door-layout.zip"))==OK,"A default-pose-safe layout must save/export even when live motion stopped")
+	main._open_project(roundtrip);await _idle()
+	world=main._world;camera=main._layout_camera;plan=main._plan_view;player=world.get_node("Player");door=world.get_node("Door_swing-door")
+	_check(not door._opened and camera.placement_allowed(main._runtime_data,blocker),"Reopened default closed door must not overlap the saved chair")
+	for motion in door._motions:
+		_check(motion["body"].transform.is_equal_approx(motion["closed"]),"Reopen must use the exact compiled closed pose")
 	# Atomic saves replace the requested file; a failed save preserves dirty state.
 	var saved=str(args[1]).path_join("current.project.json")
 	_check(main._session.save_project(saved)==OK,"Native save must succeed")
 	await _command({"type":"remove","floorId":"ground","id":blocker})
 	_check(main._session.save_project(str(args[1]).path_join("missing/current.json"))!=OK and main._session.is_dirty(),"Failed save must not clear unsaved changes")
 	_check(main._session.save_project(saved)==OK and FileAccess.get_sha256(saved)==FileAccess.get_sha256(main._session.current()["projectPath"]),"Atomic save must replace an existing Project with the current coordinates")
+	# Placement-only reservations must not become invisible walking blockers.
+	door.interact();await _frames(40)
+	main._show_walkthrough();await _idle()
+	player.position=Vector3(3,.4,7.4);player.rotation=Vector3.ZERO;player.velocity=Vector3.ZERO;await _frames(3)
+	Input.action_press("move_forward");await _frames(100);Input.action_release("move_forward");await _frames(3)
+	_check(player.position.z<5.6 and player.is_on_floor(),"An open doorway must remain walkable through its placement-only reserved volume")
+	_key(KEY_F2);await _idle()
 	# FPS selection covers upper-floor non-walking markers even if the last
 	# top-view floor was ground. Top-view picking still isolates its floor.
 	await _command({"type":"add","floorId":"upper","position":{"x":600,"y":250},"asset":{"catalogId":"rug"}})

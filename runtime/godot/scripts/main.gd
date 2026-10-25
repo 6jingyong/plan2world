@@ -170,6 +170,7 @@ func _open_project(path: String) -> void:
 func _edit_layout(command: Dictionary) -> void:
 	if _session.busy or _editing:
 		return
+	_layout_message("")
 	_editing = true
 	_sync_controls()
 	_plan_view.set_editor(_session.current(), true, _session.is_dirty())

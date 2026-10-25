@@ -179,6 +179,16 @@ Collision is compiler-owned output rather than something each backend infers fro
 - non-flat furniture gets a conservative box collider;
 - columns get box/cylinder primitives.
 
+Shared artifact compilation rejects furniture effective boxes that overlap a
+door's explicit closed-pose collider. This includes flat selectable furniture and
+both leaves of paired doors, independently of model availability or current
+engine animation. Height and authored rotations matter; touching faces are
+allowed. A leafless opening has no reserved door volume. This does not reserve a
+guessed swing envelope: live opening/closing still stops on native physics
+obstructions. No runtime fields or presentation geometry are added for this rule.
+Old compiled snapshots should be re-exported to run the current check; native
+authoring/JSON backup can retain an invalid layout for correction.
+
 Runtime backends translate these colliders into native physics types. Runtime triangles use right-handed CCW winding with +Y normals for walkable surfaces; Godot reverses triangle winding at its adapter boundary to match clockwise front faces. This conversion applies to physics and missing-GLB fallback presentation. They do not triangulate rooms, carve floor openings or infer stair ramps themselves.
 
 ## Schema and references

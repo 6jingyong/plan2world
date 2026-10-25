@@ -28,15 +28,15 @@ Godot scenes are adapter composition, never canonical authoring data.
 | Godot runtime | Grounded first-person movement, gravity, floor snap, collision, swing/slide/pocket doors, real double/french leaves and straight multi-floor stair traversal |
 | Browser boundary | Legacy PointerLock/FPS, movement collision and runtime door state removed; orbit, review/editing/selection, quick camera preview, floor stacks/cuts and native spawn editing retained |
 | Offline delivery | Shared browser/CLI scene ZIP export; Windows/Linux player builds; scene picker, pause/resume, scene replacement and failed-open recovery |
-| Native layout | Same-world camera transition, top-view input, native picking/placement, furniture-only Project commands, undo/redo, save/export through the bundled shared core |
+| Native layout | Same-world cameras/input, native placement, furniture-only commands without history, default closed-door clearance, save/export through the bundled shared core |
 | Desktop lifecycle | Focus-loss pause and held-action clearing; explicit resume; manual return to compiled spawn with reset velocity/view and preserved world/door state |
 
 See [runtime contracts](plan2world-runtime-v1.md), [assets](runtime-assets-v1.md),
 [delivery](runtime-delivery.md) and the [Godot guide](../runtime/godot/README.md).
 
-## Verification already performed
+## Earlier baseline verification
 
-- Latest desktop milestone: 1,622 unit tests, type checks and production build;
+- Earlier desktop milestone: 1,622 unit tests, type checks and production build;
   pinned Godot 4.7.2 exported-PCK lifecycle/grounded-walkthrough gates, actual Linux
   release boot without console stdout, Linux/Windows cross-builds, and Linux
   rendered input/focus/return-to-start inspection.
@@ -66,10 +66,9 @@ retain native inputs, canonical results, hashes and representative inspected vie
 
 ## Next priorities
 
-1. Continue real-house acceptance and product hardening: resolve saved layouts
-   against default closed-door poses, measure large-scene import/edit latency and
+1. Continue real-house acceptance and product hardening: measure large-scene import/edit latency and
    improve wall-picking/HUD clarity. Native mode separation, no-history editing,
-   entrance contracts and transactional loading have local engine coverage; see
+   entrance contracts, closed-door layout clearance and transactional loading have local engine coverage; see
    [layout ownership and results](godot-furniture-layout.md).
 2. On explicit publication, run the updated native Linux/Windows CI and full
    main-level regressions for this new milestone. Do not push or merge by default.
