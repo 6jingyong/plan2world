@@ -18,14 +18,14 @@ checks and Windows Forward+ hardware acceptance are distinct.
 
 ## Run the standalone player
 
-Extract the Windows/Linux player ZIP, start its executable and choose **Open
-runtime scene…**. Extract the editor's **Export runtime scene (.zip)** output
+Extract the Windows/Linux player ZIP, start its executable and choose **Explore
+a scene…**. Extract the editor's **Export runtime scene (.zip)** output
 and select `scene.runtime.json`. Keep its sibling GLB/assets directory together.
 F1 opens a paused scene menu with resume, **Return to start** and scene switching;
 failed opens retain the current walkthrough. Desktop focus loss pauses and clears
 held controls; focus return waits for explicit resume. Return to start resets only
 the player to the compiled spawn, retaining door states and all scene geometry.
-F2 smoothly switches to top view in the same 3D world. Top view uses visible-pointer furniture selection, middle/right pan and wheel zoom, with first-person controls disabled. **Open editable Project…** enables furniture add/move/rotate/replace/remove, native save and runtime export, with no undo/history; architecture stays fixed. No browser, Godot editor or Node installation is required for delivered players. See [native layout scope, ownership and development](../../docs/godot-furniture-layout.md).
+F2 smoothly switches to top view in the same 3D world. Top view uses visible-pointer furniture selection, middle/right pan and wheel zoom, with first-person controls disabled. **Arrange a Project…** enables furniture add/move/rotate/replace/remove, native save and runtime export, with no undo/history; architecture stays fixed. No browser, Godot editor or Node installation is required for delivered players. See [native layout scope, ownership and development](../../docs/godot-furniture-layout.md).
 See [offline delivery and build instructions](../../docs/runtime-delivery.md).
 
 F / gamepad X focuses nearby furniture in an editable Project. Arrow taps move
@@ -33,7 +33,7 @@ F / gamepad X focuses nearby furniture in an editable Project. Arrow taps move
 cancels the preview. Movement stops while adjusting; mouse/right stick only
 looks. Floor furniture stays in its plan plane. Mounted objects use the explicit
 wall/side/height chosen in top view, and move only along that wall or vertically.
-Curved-wall mounting is currently unsupported.
+Curved-wall mounting is currently unsupported. Top-view dragging supports a 10cm grid, straight-wall flush/orientation and furniture alignment guides; use the visible switches or hold Alt for free placement. Magnetic assistance never affects first-person micro-adjustment.
 
 Furniture placement reserves the explicit closed-door volumes even while doors
 are open. The shared compiler checks the same poses before accepting/exporting

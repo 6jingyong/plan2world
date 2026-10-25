@@ -1,5 +1,6 @@
 extends Node3D
 
+const UI := preload("res://scripts/runtime_ui.gd")
 const RUNTIME_ARTIFACTS := preload("res://scripts/runtime_artifacts.gd")
 const RUNTIME_LOADER := preload("res://scripts/runtime_loader.gd")
 const RUNTIME_ASSET_RENDERER := preload("res://scripts/runtime_asset_renderer.gd")
@@ -30,6 +31,9 @@ var _layout_camera
 var _furniture_collider_ids: Array = []
 var _discard: ConfirmationDialog
 var _pending_action: Callable
+var _scene_notes := PackedStringArray()
+var _static_assets_missing := false
+var _furniture_fallbacks := 0
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -37,6 +41,7 @@ func _ready() -> void:
 	_session = LAYOUT_SESSION.new()
 	add_child(_session)
 	_discard = ConfirmationDialog.new()
+	_discard.theme = UI.theme()
 	_discard.dialog_text = "Discard unsaved furniture layout changes?"
 	_discard.ok_button_text = "Discard changes"
 	_discard.confirmed.connect(func(): _pending_action.call())
@@ -111,6 +116,7 @@ func _open_scene(runtime_path: String, architecture_path: String = "", editor_st
 	_layout_camera.view_started.connect(_sync_controls)
 	_layout_camera.view_settled.connect(_sync_controls)
 	_plan_view.walkthrough_requested.connect(_show_walkthrough)
+	_plan_view.menu_requested.connect(_show_menu)
 	_plan_view.command_requested.connect(_edit_layout)
 	_plan_view.save_requested.connect(_save_layout)
 	_plan_view.export_requested.connect(func(path: String):
@@ -121,17 +127,17 @@ func _open_scene(runtime_path: String, architecture_path: String = "", editor_st
 	var notes: PackedStringArray = []
 	if not presentation_loaded:
 		notes.append("Architecture GLB missing/unreadable; showing compatibility proxies.")
-	elif int(presentation_stats.get("collider_proxy_count", 0)) > 0:
-		notes.append("Some model assets are missing; showing fallback proxies.")
+	_furniture_fallbacks = stage["furniture"]["proxy_count"]
+	_static_assets_missing = presentation_loaded and int(presentation_stats.get("collider_proxy_count", 0)) > _furniture_fallbacks
 	var unsupported := 0
 	for entity in data["entities"]:
 		if (entity["kind"] == "door" and entity["interaction"]["kind"] == "unsupported") or (entity["kind"] == "stair" and entity["traversal"]["kind"] == "unsupported"):
 			unsupported += 1
 	if unsupported > 0:
 		notes.append("%d unsupported door/stair interaction(s); see scene export notes." % unsupported)
-	_show_status(
-		"WASD move · Ctrl slow · Shift fast · E door · F furniture · F2 top view · F1 menu\nProject: %s" % str(data["source"]["projectName"]) + ("\n" + "\n".join(notes) if not notes.is_empty() else ""),
-	)
+	_scene_notes = notes
+	_show_status(str(data["source"]["projectName"]))
+	_update_asset_notice()
 	if editor_state.is_empty(): _session.clear()
 	else: _session.accept(editor_state, true)
 	if previous != null:
@@ -260,6 +266,8 @@ func _render_furniture(data: Dictionary, assets: Dictionary) -> void:
 	_furniture_models = next["models"]
 	_furniture_collider_ids = next["colliders"].keys()
 	_collider_nodes.merge(next["colliders"], true)
+	_furniture_fallbacks = next["proxy_count"]
+	_update_asset_notice()
 
 func _sync_editor() -> void:
 	_plan_view.set_editor(_session.current(), _session.busy or _editing or _layout_camera.transitioning, _session.is_dirty())
@@ -364,7 +372,9 @@ func _layout_message(text: String) -> void:
 	if _plan_view != null: _plan_view.show_message(text)
 	if _world != null:
 		var label := _world.get_node_or_null("HUD/LayoutStatus") as Label
-		if label != null: label.text = text
+		if label != null:
+			label.text = text
+			label.visible = not text.is_empty()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventJoypadButton and event.is_action_pressed("view_toggle") and not _menu_open and _world != null and not _editing:
@@ -399,55 +409,71 @@ func _build_environment(target: Node3D) -> void:
 	sun.directional_shadow_max_distance = 40.0
 	target.add_child(sun)
 
-func _show_status(text: String) -> void:
+func _update_asset_notice() -> void:
+	var notes := _scene_notes.duplicate()
+	if _static_assets_missing or _furniture_fallbacks > 0:
+		notes.append("Some model assets are missing; showing fallback proxies.")
+	var label := _world.get_node("HUD/Identity/Content/PresentationNotes") as Label
+	label.text = "\n".join(notes)
+	label.visible = not notes.is_empty()
+
+func _show_status(project_name: String) -> void:
 	var layer := CanvasLayer.new()
 	layer.name = "HUD"
 	_world.add_child(layer)
-	var panel := ColorRect.new()
-	panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	panel.offset_left = 16
-	panel.offset_right = -16
-	panel.offset_top = 16
-	panel.offset_bottom = 16 + 20 + text.get_slice_count("\n") * 22
-	panel.color = Color(0.05, 0.06, 0.08, 0.78)
-	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var panel := PanelContainer.new()
+	panel.name = "Identity"
+	panel.theme = UI.theme()
+	panel.position = Vector2(20, 20)
+	panel.custom_minimum_size = Vector2(300, 0)
 	layer.add_child(panel)
-	var label := Label.new()
-	label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	label.offset_left = 12
-	label.offset_right = -12
-	label.offset_top = 9
-	label.offset_bottom = -9
-	label.text = text
-	label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	label.modulate = Color("f8fafc")
-	panel.add_child(label)
-	var crosshair := Label.new()
-	crosshair.text = "+"
+	var identity := VBoxContainer.new()
+	identity.name = "Content"
+	identity.add_theme_constant_override("separation", 3)
+	panel.add_child(identity)
+	identity.add_child(UI.label("AT HOME  /  EXPLORING", 12, UI.LEAF))
+	var title := UI.label(project_name, 21)
+	title.custom_minimum_size.x = 280
+	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	identity.add_child(title)
+	var note := UI.label("", 13, UI.AMBER)
+	note.name = "PresentationNotes"
+	note.custom_minimum_size.x = 280
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	identity.add_child(note)
+	UI.ignore_pointer(panel)
+	var crosshair := UI.label("·", 30, Color("fffdf5"))
 	crosshair.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	crosshair.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	crosshair.set_anchors_preset(Control.PRESET_CENTER)
-	crosshair.position = Vector2(-10, -12)
-	crosshair.size = Vector2(20, 24)
-	crosshair.modulate = Color(1, 1, 1, 0.9)
+	crosshair.position = Vector2(-12, -18)
+	crosshair.size = Vector2(24, 36)
+	crosshair.add_theme_color_override("font_shadow_color", UI.INK)
+	crosshair.add_theme_constant_override("shadow_outline_size", 3)
+	crosshair.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(crosshair)
-	var status := Label.new()
+	var help := UI.label("WASD  Wander     E  Open door     F  Adjust a piece     F2  Arrange     F1  Pause", 14)
+	help.add_theme_stylebox_override("normal", UI.box(UI.PAPER, 16, 14, true))
+	help.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+	help.offset_left = 20; help.offset_top = -64; help.offset_bottom = -20
+	help.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(help)
+	var status := UI.label("", 15)
 	status.name = "LayoutStatus"
 	status.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-	status.offset_top = -48
-	status.offset_bottom = -16
-	status.offset_left = 24
+	status.offset_top = -156; status.offset_bottom = -80
+	status.offset_left = 20; status.offset_right = -20
+	status.add_theme_stylebox_override("normal", UI.box(UI.PAPER, 16, 14, true))
+	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	status.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	status.hide()
 	layer.add_child(status)
-	var top_view := Button.new()
-	top_view.name = "TopView"
-	top_view.text = "Top view (F2)"
-	top_view.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
-	top_view.offset_left = -172
-	top_view.offset_right = -24
-	top_view.offset_top = 24
-	top_view.offset_bottom = 64
-	top_view.pressed.connect(func():
+	var top_view := UI.button("Arrange  F2", "TopView", func():
 		_view_mode = ViewMode.PLAN
 		_release_actions()
-		_resume())
+		_resume(), true)
+	top_view.theme = UI.theme()
+	top_view.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	top_view.offset_left = -192; top_view.offset_right = -20
+	top_view.offset_top = 20; top_view.offset_bottom = 68
 	layer.add_child(top_view)

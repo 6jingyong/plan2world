@@ -6,6 +6,7 @@ signal furniture_selected(id: String)
 signal furniture_moved(id: String, point: Vector3)
 signal preview_cancelled
 signal placement_blocked
+signal snap_changed(text: String)
 
 var camera: Camera3D
 var data: Dictionary
@@ -14,7 +15,14 @@ var selected_id := ""
 var editing := false
 var transitioning := false
 var active := false
-var inset_top := 120.0
+var inset_top := 96.0
+var inset_left := 300.0
+var inset_bottom := 96.0
+var snapping := preload("res://scripts/furniture_snapping.gd").new()
+var _guides: MeshInstance3D
+var _preview_yaw := 0.0
+var _drag_point := Vector3.ZERO
+var _bypass_snap := false
 var _player: P2WPlayer
 var _nodes: Dictionary
 var _models: Dictionary
@@ -48,6 +56,9 @@ func configure(scene: Dictionary, nodes: Dictionary, models: Dictionary, player:
 	_highlight.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_highlight.visible = false
 	add_child(_highlight)
+	_guides = MeshInstance3D.new()
+	_guides.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(_guides)
 	_build_door_clearance(scene)
 	refresh(scene, nodes, models)
 	select_floor(str(scene["floors"][0]["id"]))
@@ -136,10 +147,11 @@ func fit_floor() -> void:
 	_center = _bounds.get_center()
 	var viewport := get_viewport().get_visible_rect().size
 	var aspect := maxf(viewport.x, 1) / maxf(viewport.y, 1)
-	var usable := maxf(0.2, 1.0 - inset_top / maxf(viewport.y, 1))
+	var usable := maxf(0.2, 1.0 - (inset_top + inset_bottom) / maxf(viewport.y, 1))
+	var usable_width := maxf(0.2, 1.0 - inset_left / maxf(viewport.x, 1))
 	# Fit wall tops as well as the floor, below the native toolbar. No model
 	# bounds or collision-derived presentation are needed to frame the room.
-	_height = maxf(6, _building_height + maxf(_bounds.size.x / aspect, _bounds.size.y / usable) / (2 * tan(deg_to_rad(camera.fov) / 2)) * 1.15)
+	_height = maxf(6, _building_height + maxf(_bounds.size.x / (aspect * usable_width), _bounds.size.y / usable) / (2 * tan(deg_to_rad(camera.fov) / 2)) * 1.15)
 	if active:
 		_animate(_top_pose())
 
@@ -156,8 +168,9 @@ func set_plan_mode(value: bool) -> void:
 	_animate(_top_pose() if active else _player.get_node("Camera3D").global_transform)
 
 func _top_pose() -> Transform3D:
-	var offset := _height * tan(deg_to_rad(camera.fov) / 2) * inset_top / maxf(get_viewport().get_visible_rect().size.y, 1)
-	return Transform3D(Basis.from_euler(Vector3(-PI / 2, 0, 0)), Vector3(_center.x, _floor_y + _height, _center.y - offset))
+	var viewport := get_viewport().get_visible_rect().size
+	var scale := _height * tan(deg_to_rad(camera.fov) / 2) / maxf(viewport.y, 1)
+	return Transform3D(Basis.from_euler(Vector3(-PI / 2, 0, 0)), Vector3(_center.x - scale * inset_left, _floor_y + _height, _center.y - scale * (inset_top - inset_bottom)))
 
 func _animate(target: Transform3D) -> void:
 	if _tween != null:
@@ -223,6 +236,9 @@ func _input(event: InputEvent) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not active or transitioning:
 		return
+	if event is InputEventKey and event.keycode == KEY_ALT:
+		_bypass_snap = event.pressed
+		if _moving: _snap_preview()
 	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
 		cancel_drag()
 		get_viewport().set_input_as_handled()
@@ -241,8 +257,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventMouseMotion:
 		var point = _plane_point(event.position)
 		if _moving and point != null:
-			_preview = constrained_position(point - _grab_offset)
-			_show_preview()
+			_drag_point = constrained_position(point - _grab_offset)
+			_bypass_snap = event.alt_pressed
+			_snap_preview()
 		elif _panning and point != null:
 			var previous = _plane_point(event.position - event.relative)
 			if previous != null:
@@ -272,6 +289,10 @@ func begin_adjust(id: String) -> bool:
 	if entity.get("locked", false) or entity["movement"]["kind"] == "unbound-wall": return false
 	_origin = _vec3(entity["position"])
 	_preview = _origin
+	_drag_point = _origin
+	_preview_yaw = float(entity["yawClockwiseRadians"])
+	_bypass_snap = false
+	snapping.clear()
 	_model = _models.get(id)
 	if _model != null:
 		_model_pose = _model.global_transform
@@ -295,17 +316,58 @@ func preview_delta(delta: Vector3) -> bool:
 	var next := constrained_position(_preview + delta)
 	if not placement_allowed(data, selected_id, next - _origin): return false
 	_preview = next
+	_preview_yaw = float(_entities[selected_id]["yawClockwiseRadians"])
+	_guides.hide()
+	snap_changed.emit("")
 	_show_preview()
 	return true
 
+func set_snapping(enabled: bool, grid: bool) -> void:
+	snapping.enabled = enabled
+	snapping.grid_enabled = grid
+	snapping.clear()
+	if active and _moving: _snap_preview()
+
+func _snap_preview() -> void:
+	var entity: Dictionary = _entities[selected_id]
+	var result: Dictionary = snapping.solve(data, entity, _drag_point, float(entity["yawClockwiseRadians"]), _bypass_snap)
+	_preview = result.point
+	_preview_yaw = result.yaw
+	# A magnetic candidate cannot override physics, floor support or door rules.
+	if not result.label.is_empty() and not _preview_allowed():
+		_preview = _drag_point
+		_preview_yaw = float(entity["yawClockwiseRadians"])
+		result.label = "Snap blocked · free placement"
+		result.guides = []
+		snapping.clear()
+	_draw_guides(result.guides)
+	snap_changed.emit("Free placement" if _bypass_snap or not snapping.enabled else result.label)
+	_show_preview()
+
+func _draw_guides(lines: Array) -> void:
+	_guides.hide()
+	if lines.is_empty(): return
+	var mesh := ImmediateMesh.new()
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.albedo_color = Color("327e70")
+	material.no_depth_test = true
+	mesh.surface_begin(Mesh.PRIMITIVE_LINES, material)
+	for line in lines:
+		mesh.surface_add_vertex(line[0])
+		mesh.surface_add_vertex(line[1])
+	mesh.surface_end()
+	_guides.mesh = mesh
+	_guides.show()
+
 func _show_preview() -> void:
 	if is_instance_valid(_model):
-		_model.global_position = _model_pose.origin + _preview - _origin
+		_model.global_transform = Transform3D(Basis(Vector3.UP, -(_preview_yaw - float(_entities[selected_id]["yawClockwiseRadians"]))) * _model_pose.basis, _model_pose.origin + _preview - _origin)
 	_highlight_selected(Color.GREEN if _preview_allowed() else Color.RED)
 
 func commit_move() -> void:
 	_moving = false
-	if _preview.distance_to(_origin) <= 0.00001:
+	if _preview.distance_to(_origin) <= 0.00001 and is_equal_approx(_preview_yaw, float(_entities[selected_id]["yawClockwiseRadians"])):
 		cancel_drag()
 		return
 	if _preview_allowed():
@@ -319,6 +381,8 @@ func move_command(id: String, point: Vector3) -> Dictionary:
 	var command := { "type": "move", "id": id, "floorId": entity["floorId"], "position": { "x": point.x * 100, "y": point.z * 100 } }
 	if entity["movement"]["kind"] == "wall":
 		command["elevation"] = (point.y - float(entity["size"][1]) / 2 - float(entity["movement"]["origin"][1])) * 100
+	elif id == selected_id and not is_equal_approx(_preview_yaw, float(entity["yawClockwiseRadians"])):
+		command["rotation"] = rad_to_deg(_preview_yaw)
 	return command
 
 func cancel_drag() -> void:
@@ -328,21 +392,26 @@ func cancel_drag() -> void:
 	if is_instance_valid(_model):
 		_model.global_transform = _model_pose
 	_model = null
+	snapping.clear()
+	_bypass_snap = false
+	if _guides != null: _guides.hide()
+	snap_changed.emit("")
 	if _highlight != null:
 		_highlight.hide()
 	if was_moving: preview_cancelled.emit()
 
 func _preview_allowed() -> bool:
-	return placement_allowed(data, selected_id, (_preview - _origin))
+	return placement_allowed(data, selected_id, (_preview - _origin), _preview_yaw)
 
-func placement_allowed(scene: Dictionary, id: String, offset := Vector3.ZERO) -> bool:
+func placement_allowed(scene: Dictionary, id: String, offset := Vector3.ZERO, yaw_override = null) -> bool:
 	var entity: Dictionary = {}
 	for item in scene["entities"]:
 		if item["id"] == id: entity = item; break
 	if entity.is_empty() or entity.get("locked", false) or entity["movement"]["kind"] == "unbound-wall": return false
 	var pose := _vec3(entity["position"]) + offset
+	var yaw := float(entity["yawClockwiseRadians"]) if yaw_override == null else float(yaw_override)
 	var movement: Dictionary = entity["movement"]
-	if movement["kind"] == "floor" and not _floor_support(entity, pose): return false
+	if movement["kind"] == "floor" and not _floor_support(entity, pose, yaw): return false
 	if movement["kind"] == "wall":
 		var origin := _vec3(movement["origin"])
 		var along := (pose-origin).dot(_vec3(movement["tangent"]))
@@ -363,15 +432,15 @@ func placement_allowed(scene: Dictionary, id: String, offset := Vector3.ZERO) ->
 	shape.size = _vec3(entity["size"]).max(Vector3(0.001,0.001,0.001)) * 0.999
 	var query := PhysicsShapeQueryParameters3D.new()
 	query.shape = shape
-	query.transform = Transform3D(Basis(Vector3.UP, -float(entity["yawClockwiseRadians"])), pose)
+	query.transform = Transform3D(Basis(Vector3.UP, -yaw), pose)
 	query.collision_mask = 5
 	query.collide_with_areas = true
 	query.exclude = exclusions
 	query.margin = 0.0
 	return get_world_3d().direct_space_state.intersect_shape(query, 1).is_empty()
 
-func _floor_support(entity: Dictionary, pose: Vector3) -> bool:
-	var angle := -float(entity["yawClockwiseRadians"])
+func _floor_support(entity: Dictionary, pose: Vector3, yaw: float) -> bool:
+	var angle := -yaw
 	var frame := Basis(Vector3.UP, angle)
 	var size := _vec3(entity["size"])
 	var elevation := float(entity["movement"]["elevation"])
@@ -400,7 +469,7 @@ func _highlight_selected(color: Color) -> void:
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	material.albedo_color = Color(color, 0.2)
 	_highlight.material_override = material
-	_highlight.global_transform = Transform3D(Basis(Vector3.UP, -float(entity["yawClockwiseRadians"])), _vec3(entity["position"]) + (_preview - _origin))
+	_highlight.global_transform = Transform3D(Basis(Vector3.UP, -_preview_yaw), _preview)
 	_highlight.show()
 
 func _vec3(value: Array) -> Vector3:

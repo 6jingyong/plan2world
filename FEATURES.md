@@ -29,6 +29,8 @@ This is a current capability summary, not a development diary.
 
 - Native Godot F2 camera transitions connect first person and top view in one world; top view uses pointer selection, ray picking, pan/zoom and floor visibility independently of first-person controls.
 - Godot furniture layout adds/moves/rotates/replaces/removes existing catalog/custom-model furniture, checks placement with native physics, uses no undo/history, and saves the canonical Project or exports runtime ZIP. Architecture remains fixed; the offline shared core ships with the player. See [scope and ownership](docs/godot-furniture-layout.md).
+- Native top-view dragging supports optional 10cm grid, straight-wall flush/orientation and nearby furniture guides, with 6cm capture/12cm release and Alt bypass. Mounted items retain their explicit host; first-person nudges remain unsnapped. Shared native edits accept snapped position/rotation atomically.
+- Warm rounded native UI separates view controls, furnishings and always-visible save/alignment actions; compact desktop windows keep readable text and scroll the furnishing panel. Missing-model notices refresh after edits.
 - Shared runtime export rejects furniture inside explicit closed-door volumes;
   native pointer/micro-adjustment previews reserve those same colliders without
   adding walking blockers or guessing swing envelopes. Live doors still stop on

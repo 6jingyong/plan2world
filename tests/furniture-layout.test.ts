@@ -30,6 +30,24 @@ describe('shared native furniture layout commands', () => {
     expect(removed.selectedId).toBeNull();
   });
 
+  it('accepts a wall-aligned floor pose atomically, with deterministic collision and no mount inference', async () => {
+    const input = readProject(await runtimeWalkthroughProject()), snapshot = JSON.stringify(input);
+    const command = { type: 'move', floorId: 'ground', id: 'sofa', position: { x: 700, y: 550 }, rotation: 37 } as const;
+    const a = applyFurnitureLayoutCommand(input, command, now), b = applyFurnitureLayoutCommand(input, command, now);
+    expect(a).toEqual(b);
+    expect(a.project.floors[0].furniture.find(i => i.id === 'sofa')).toMatchObject({ position: command.position, rotation: 37 });
+    expect(a.project.floors[0].furniture.find(i => i.id === 'sofa')).not.toHaveProperty('wallMount');
+    const first = await compileRuntimeArtifacts(a.project, async () => null), second = await compileRuntimeArtifacts(b.project, async () => null);
+    expect(first).toEqual(second);
+    expect(first.runtime.colliders.find(c => c.ownerId === 'sofa')).toMatchObject({ center: [7, .9, 5.5], yawClockwiseRadians: 37 * Math.PI / 180 });
+    expect(first.architectureGlb).toEqual((await compileRuntimeArtifacts(input, async () => null)).architectureGlb);
+    expect(JSON.stringify(input)).toBe(snapshot);
+    expect(() => applyFurnitureLayoutCommand(input, { ...command, rotation: NaN }, now)).toThrow('finite');
+    const mounted = applyFurnitureLayoutCommand(input, { type:'add', floorId:'ground', position:{x:700,y:0}, asset:{catalogId:'wall_art'}, wallMount:{wallId:'ground-w0',side:'left',elevation:140} }, now);
+    expect(() => applyFurnitureLayoutCommand(mounted.project, { ...command, id: mounted.selectedId! }, now)).toThrow('authored wall');
+    expect(JSON.stringify(input)).toBe(snapshot);
+  });
+
   it('rejects invalid positions/assets/ownership without mutating input', async () => {
     const input = readProject(await runtimeWalkthroughProject()), before = JSON.stringify(input), floorId = input.floors[0].id;
     for (const command of [

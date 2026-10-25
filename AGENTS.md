@@ -167,6 +167,7 @@ Use `schemas/plan2world-draft-v1.schema.json` and `docs/plan2world-draft-v1.md`.
   Ground items move in the plan plane at fixed elevation; wall items use explicit
   compiler-owned wall frames, height bounds and opening exclusions. Do not infer
   attachment from asset meshes or nearest walls. Curved attachment is unsupported.
+- Top-view snapping is native input assistance over compiled wall/item dimensions. Keep grid, wall flush/orientation and nearby furniture guides optional with explicit release; first-person micro-adjustment never snaps. Floor wall alignment changes pose only, never infers a wallMount. Save snapped position/rotation atomically through the shared native edit core; physics and compiler validation remain authoritative.
 - Furniture must leave every explicit door leaf's default closed volume clear.
   Shared artifact compilation validates this independently of transient engine
   door state; native JSON backup stays editable. Godot previews reuse the emitted

@@ -14,9 +14,9 @@ or canonical Godot scene.
 3. Extract the player ZIP for your platform. Keep the executable and
    `Plan2World.pck` and `core/` together. Start `Plan2World.exe` on Windows or
    `Plan2World.x86_64` on Linux. No Godot editor or Node.js installation is needed.
-4. Choose **Open runtime scene…**, then select the extracted `scene.runtime.json`.
+4. Choose **Explore a scene…**, then select the extracted `scene.runtime.json`.
    Native Project JSON and unextracted ZIPs are not runtime scene input.
-5. For furniture layout, choose **Open editable Project…**, then native Project JSON or a Project package ZIP. This separate entry delegates to the bundled shared compiler core. F2 switches between native top view and first person. See [layout controls and limits](godot-furniture-layout.md).
+5. For furniture layout, choose **Arrange a Project…**, then native Project JSON or a Project package ZIP. This separate entry delegates to the bundled shared compiler core. F2 switches between native top view and first person. See [layout controls and limits](godot-furniture-layout.md).
 
 Scenes can live anywhere and can be moved independently of the player. The
 player uses local files and runs offline. Browser export fetches only referenced
@@ -108,6 +108,7 @@ ZIPs into relocated paths containing spaces/Chinese characters, then checks:
 - exact shipped PCK resources: real grounded walking, compiler collision, ray
   interaction with swing/slide/paired doors, furniture/column/wall blockers,
   railing/air and straight stair ascent/descent;
+- native top-view semantic snapping and real pointer/Alt/toggle controls: grid, wall orientation/clearance, furniture guides, cancelled pose restoration, atomic save/reopen and compact native UI;
 - native furniture Project entry through the shipped core: add, ray-drag, rotate, replace, collision rejection, delete, save/export/reopen and private-state cleanup; same-world camera/input isolation and fixed architecture;
 - product controls: explicit main-door spawn/facing, failed-load recovery and GLB pairing, keyboard/virtual-gamepad nudges, wall constraints, door obstruction and atomic-save failure recovery;
 - door/layout lifecycle: pointer and micro-step rejection at an open door's

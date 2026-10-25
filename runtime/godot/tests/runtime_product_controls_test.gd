@@ -3,6 +3,7 @@ const MAIN := preload("res://main.tscn")
 var main
 var failures := 0
 func _initialize(): _run.call_deferred()
+
 func _check(value: bool, text: String):
 	if not value: failures += 1; push_error(text)
 func _frames(count: int):
@@ -25,6 +26,11 @@ func _capture(directory: String, name: String):
 	await RenderingServer.frame_post_draw
 	_check(root.get_texture().get_image().save_png(directory.path_join(name+".png"))==OK,"Native product screenshot must save")
 func _run():
+	# Dummy headless windows expose a 64px viewport. Give UI gates a real
+	# desktop canvas; rendered tests retain native pixels and actual resizing.
+	if DisplayServer.get_name() == "headless":
+		root.content_scale_size = Vector2i(1280, 720)
+		root.content_scale_mode = Window.CONTENT_SCALE_MODE_CANVAS_ITEMS
 	var args := OS.get_cmdline_user_args()
 	if args.size() != 3: push_error("Expected native Project, output directory and mismatched GLB"); quit(2); return
 	main=MAIN.instantiate();root.add_child(main);await process_frame
@@ -102,6 +108,7 @@ func _run():
 	var wall_id: String=main._session.current()["selectedId"]
 	var bound: Dictionary=camera._entities[wall_id]
 	_check(bound["movement"]["kind"]=="wall","Compiler must emit wall movement constraints")
+	_check(world.get_node("HUD/Identity/Content/PresentationNotes").text.contains("missing") == (main._furniture_fallbacks > 0),"Edits introducing a genuine missing model must update the first-person presentation notice")
 	await _capture(args[1],"wall-layout-controls")
 	main._show_walkthrough();await _idle()
 	player.position=Vector3(6,.4,1.6);player.rotation=Vector3.ZERO;player._pitch=0;player.get_node("Camera3D").rotation.x=0;await _frames(3)

@@ -37,6 +37,11 @@ func _capture(directory: String, name: String) -> void:
 	_check(root.get_texture().get_image().save_png(directory.path_join(name + ".png")) == OK, "Native view capture must save")
 
 func _run() -> void:
+	# Dummy headless windows expose a 64px viewport. Give UI gates a real
+	# desktop canvas; rendered tests retain native pixels and actual resizing.
+	if DisplayServer.get_name() == "headless":
+		root.content_scale_size = Vector2i(1280, 720)
+		root.content_scale_mode = Window.CONTENT_SCALE_MODE_CANVAS_ITEMS
 	var args := OS.get_cmdline_user_args()
 	if args.size() < 2:
 		quit(2)
@@ -62,8 +67,9 @@ func _run() -> void:
 	var view_size: Vector2 = plan.controller.get_viewport().get_visible_rect().size
 	for point in [Vector3(0, 3.4, 0), Vector3(12, 3.4, 12)]:
 		var screen: Vector2 = plan.controller.camera.unproject_position(point)
-		_check(screen.x >= 0 and screen.x <= view_size.x and screen.y >= plan.get_node("Toolbar").size.y and screen.y <= view_size.y, "Fit floor must frame wall tops below the toolbar")
+		_check(screen.x >= 0 and screen.x <= view_size.x and screen.y >= plan.find_child("Toolbar", true, false).position.y + plan.find_child("Toolbar", true, false).size.y and screen.y <= view_size.y, "Fit floor must frame wall tops below the toolbar")
 	await _capture(args[1], "top-view")
+	plan.find_child("MagneticSnap", true, false).button_pressed = false
 	var before := _project(main)
 	var furniture_count: int = before["floors"][0]["furniture"].size()
 	var catalog: Array = main._session.current()["catalog"]

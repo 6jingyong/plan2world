@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { savedProjects } from './storage';
+import type { Wall } from '../../src/lib/models/types';
 
 test('inline correction controls edit wall and opening geometry through the canonical project', async ({ page }) => {
   await page.goto('/editor');
@@ -102,6 +104,12 @@ test(`Review focus keeps endpoint labels on the live wall at ${viewportWidth}px`
   await page.getByRole('button', { name: 'Import JSON', exact: true }).click();
   await (await chooser).setFiles({ name: 'endpoint-labels.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(plan)) });
   await expect(page).toHaveURL(/id=qa-connected-dimensions/);
+  // URL replacement precedes the asynchronous save; a hard navigation needs
+  // the committed record. Observe storage because mobile hides the save badge.
+  await expect.poll(async () => (await savedProjects(page))[plan.id]?.floors[0].walls
+    .map(({ id, start, end }: Wall) => ({ id, start, end }))).toEqual(
+      plan.floors[0].walls.map(({ id, start, end }: Wall) => ({ id, start, end })),
+    );
   await page.goto('/editor?id=qa-connected-dimensions&focusFloor=dimensions-floor&focus=qa-wall-0&focus=qa-wall-2');
 
   const canvasArea = page.getByRole('application');

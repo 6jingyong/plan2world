@@ -16,6 +16,11 @@ func _frames(count: int) -> void:
 		await physics_frame
 
 func _run() -> void:
+	# Dummy headless windows expose a 64px viewport. Give UI gates a real
+	# desktop canvas; rendered tests retain native pixels and actual resizing.
+	if DisplayServer.get_name() == "headless":
+		root.content_scale_size = Vector2i(1280, 720)
+		root.content_scale_mode = Window.CONTENT_SCALE_MODE_CANVAS_ITEMS
 	var args := OS.get_cmdline_user_args()
 	if args.is_empty():
 		quit(2)

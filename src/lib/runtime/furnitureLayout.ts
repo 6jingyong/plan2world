@@ -7,7 +7,7 @@ import { needsWallMount, placeOnWall } from '../utils/furniturePlacement';
 type Asset = { catalogId: string; customModelId?: string };
 export type FurnitureLayoutCommand =
   | { type: 'add'; floorId: string; position: { x: number; y: number }; asset: Asset; wallMount?: FurnitureWallMount }
-  | { type: 'move'; floorId: string; id: string; position: { x: number; y: number }; elevation?: number }
+  | { type: 'move'; floorId: string; id: string; position: { x: number; y: number }; elevation?: number; rotation?: number }
   | { type: 'rotate'; floorId: string; id: string; rotation: number }
   | { type: 'replace'; floorId: string; id: string; asset: Asset; wallMount?: FurnitureWallMount }
   | { type: 'remove'; floorId: string; id: string };
@@ -40,6 +40,11 @@ export function applyFurnitureLayoutCommand(input: unknown, command: FurnitureLa
       item.position = placed.position; item.rotation = placed.rotation; item.wallMount.elevation = placed.elevation;
     }
   };
+  const rotate = (item: FurnitureItem, rotation: number) => {
+    if (item.wallMount || needsWallMount(item.catalogId)) throw new Error('Wall furniture orientation follows its authored wall.');
+    if (typeof rotation !== 'number' || !Number.isFinite(rotation)) throw new Error('Furniture rotation must be finite native degrees.');
+    item.rotation = rotation;
+  };
   let selectedId: string | null = null;
   if (command.type === 'add') {
     const ids = new Set(project.floors.flatMap(f => [f.id, ...Object.values(f).flatMap(value => Array.isArray(value) ? value.flatMap(item => item && typeof item.id === 'string' ? [item.id] : []) : [])]));
@@ -57,13 +62,12 @@ export function applyFurnitureLayoutCommand(input: unknown, command: FurnitureLa
     switch (command.type) {
       case 'move':
         item.position = position(command.position);
+        if (command.rotation !== undefined) rotate(item, command.rotation);
         if (item.wallMount) { item.wallMount.elevation = command.elevation ?? item.wallMount.elevation; attach(item); }
         else if (command.elevation !== undefined) throw new Error('Floor furniture cannot change elevation.');
         break;
       case 'rotate':
-        if (item.wallMount || needsWallMount(item.catalogId)) throw new Error('Wall furniture orientation follows its authored wall.');
-        if (typeof command.rotation !== 'number' || !Number.isFinite(command.rotation)) throw new Error('Furniture rotation must be finite native degrees.');
-        item.rotation = command.rotation; break;
+        rotate(item, command.rotation); break;
       case 'replace': {
         const fields = assetFields(command.asset);
         for (const key of ['customModelId', 'width', 'depth', 'height', 'renderStyle'] as const) delete item[key];

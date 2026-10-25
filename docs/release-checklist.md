@@ -34,7 +34,7 @@ The ordered stage IDs and manifest semantics live in `src/lib/plan2world/validat
 - [ ] For browser review changes, verify orbit, cut/stack, 3D element editing, phone inspector layout, camera preview and idle/resource disposal. The browser has no FPS runtime.
 - [ ] For internal browser authoring, verify affected Undo/Redo and package round trips. Use `docs/project-package-v1.md` for the package contract.
 - [ ] For delivered Godot layout, verify there is no Undo/Redo/history, rejected edits retain current data, and native save/export/reopen preserves accepted furniture poses and door clearance.
-- [ ] Check the actual snapping scope in [native Godot layout](godot-furniture-layout.md); plane constraints, collision rejection and small keyboard steps do not establish automatic snapping.
+- [ ] Verify native grid/wall/furniture snapping, capture/release, Alt/toggle bypass, cancelled pose restoration, door/floor rejection and save/reopen; first-person nudges must stay unsnapped. Check readable compact-window UI and camera framing around all panels. See [native Godot layout](godot-furniture-layout.md).
 - [ ] Record browser/device/input checks and explicitly list untested environments. Managed browser CI is not physical-device qualification.
 - [ ] For performance changes, record the workload, hardware and measurement method; viewport emulation is not a device benchmark.
 

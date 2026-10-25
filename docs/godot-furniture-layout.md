@@ -26,16 +26,16 @@ F1 opens the scene menu. Focus loss pauses, clears held movement and cancels
 previews in either mode; explicit resume returns to that mode. A release over
 a toolbar ends the gesture. The top-view floor selector hides other authored
 floors and ceilings for inspection, without removing their physics or changing
-source geometry. Fit floor includes wall tops and the native toolbar inset.
+source geometry. Fit view includes wall tops and the space reserved by the header, furnishing panel and context bar. Native UI text stays at readable pixel sizes when resizing; the compact furnishing panel scrolls.
 
 Furniture-only editing supports add, move, clockwise 90-degree rotation,
-replacement, removal, **Save Project** (native JSON with retained model
-attachments) and **Export scene** (the existing runtime ZIP). Architecture, door
+replacement, removal, **Save layout…** (native JSON with retained model
+attachments) and **Export…** (the existing runtime ZIP). Architecture, door
 semantics, floors, holes and stairs are fixed. The catalog offers existing built-in
 furniture and custom models already retained in the Project; importing new model
 files and arbitrary rotation controls are outside this milestone. Native locks
 remain enforced. Compiled scenes opened without their source Project allow
-read-only top view; choose **Open editable Project** to edit native JSON or a
+read-only top view; choose **Arrange a Project…** to edit native JSON or a
 Project package ZIP. Unsaved changes require an explicit discard before opening
 another source/scene or closing the app.
 
@@ -46,33 +46,55 @@ Wall-mounted catalog items require a chosen straight solid wall, side and bottom
 height. Curved-wall attachment is explicitly unsupported; existing unbound wall
 items stay visible/selectable but cannot be moved until explicitly attached.
 
-## Snapping status
+## Magnetic placement and native UI
 
-Godot currently provides constrained placement and collision rejection. Automatic
-magnetic placement is not implemented in this product milestone.
+Top-view **dragging** starts with magnetic alignment and a 10cm grid enabled.
+Both switches stay visible next to Save/Export in the bottom context bar.
+**Magnet on/off** controls all assistance; **Grid 10cm** independently disables
+the grid while retaining wall/furniture alignment. Hold **Alt** during a drag to
+release all snapping, including automatic orientation, at the current pointer.
+Releasing Alt reacquires an eligible target. Nothing changes imported positions
+until the user accepts a gesture. Add places a piece at the view centre; dragging
+then uses these same placement aids.
 
-| Native Godot behavior | Status |
+| Assistance | Behavior |
 | --- | --- |
-| Ground furniture stays at authored floor height | Implemented constraint |
-| Mounted furniture follows a chosen straight wall and height range | Implemented explicit binding; wall is selected by the user |
-| Obstacles, floor holes and closed-door volumes reject placement | Implemented validation |
-| Keyboard 1cm steps / gradual gamepad movement | Implemented micro-adjustment, not grid snapping |
-| Nearby-wall auto-attachment, flush position and automatic orientation | Not implemented |
-| Optional grid snapping | Not implemented |
-| Furniture edge/center magnetic alignment | Not implemented |
-| Snap capture/release feedback and tolerances | Not implemented |
+| Grid | Native world X/Y in 10cm intervals; fixed floor elevation |
+| Straight solid wall | Back edge flush with authored thickness and mirror-aware orientation; front faces away; grid applies along the wall without changing clearance |
+| Furniture guides | Nearby same-floor footprint edges/centres, projected onto native X/Y; guides show the selected alignment |
+| Capture/release | 6cm capture, 12cm release hysteresis; stable entity-ID tie order |
+| Explicit mounted item | Along-host grid only; keeps host, side, height and orientation |
+| First person | No magnetic/grid snapping; keyboard taps remain 1cm and gamepad adjustment remains gradual |
 
-The internal browser authoring canvas already has coordinate/grid snapping,
-straight-wall furniture alignment and guide-line snapping. Its wall helper uses
-effective furniture sizes, skips curved/too-short walls and keeps wall clearance
-exact when applying the grid. That helper currently persists position/rotation,
-not an explicit `wallMount`; browser auto-alignment and Godot wall binding are not
-yet a unified editing feature. Browser wall endpoint/segment and drawing-angle
-assistance is architecture authoring, outside Godot's furniture-only scope.
+Wall assistance excludes curves, air/railing boundaries, other floors, short
+hosts and apertures overlapping the item's height. A low item can fit below a
+window sill. Magnetic candidates still pass the existing floor-support, live
+physics and closed-door checks. A blocked candidate releases to the constrained
+pointer pose; if that pose is invalid, red feedback and drop rejection remain.
+Neither GLB bounds nor presentation meshes provide snap targets or collision.
 
-Future product snapping should retain a clear on/off/release interaction and the
-current collision/door validation. First-person micro-adjustment must keep its
-small keyboard/gamepad steps; adding snapping must not force coarse grid jumps.
+`furniture_snapping.gd` is native input assistance over compiled semantic walls
+and effective item dimensions. It does not construct architectural geometry or
+create attachment metadata. An aligned ground item remains a floor item;
+wall-mounted pieces still require the chosen native `wallMount`. The internal
+browser has separate authoring grid/wall/guide tools; automatic cross-engine
+wall attachment is not implied.
+
+A wall-aligned position and rotation reach the shared native editor as **one
+move command** with optional `rotation`. The core validates orientation, retains
+stable IDs and compiles a single accepted pose for presentation and collision.
+Mounted-item commands cannot use this optional rotation. Cancel restores both
+position and orientation without history.
+
+All menus and overlays use native Godot Controls and one small shared theme:
+warm paper surfaces, sage accents, rounded cards, visible keyboard focus and
+contextual help. The furnishing panel contains piece/selection controls; Save,
+Export and alignment stay outside its scroll area. First-person HUD remains
+compact. Menus and the furnishing panel scroll at smaller desktop sizes, while
+camera framing reserves the visible panels. The style takes cues from welcoming
+life-simulation interfaces; no third-party game assets or embedded HTML are used.
+
+![Native Godot furnishing interface, captured from the shipped PCK](images/godot-layout.png)
 
 ## Ownership
 
@@ -188,6 +210,8 @@ meshes and preserved ownership. The relocated delivery test runs these against
 the exported PCK and shipped core from UTF-8 paths containing spaces, then boots
 the actual release executable. With a real display, the layout gate additionally
 captures native top view, drag preview, camera transition and first person.
+`runtime_snapping_test.gd` verifies deterministic semantic capture/release, wall sides/diagonals, aperture/height exclusions, stable target order and explicit host retention. `runtime_snapping_controls_test.gd` exercises actual pointer/Alt/toggle input, atomic pose save/reopen, physics rejection, spatial feedback and compact native UI framing against the shipped PCK.
+
 `runtime_product_controls_test.gd` adds entrance/facing, malformed JSON and wrong
 GLB recovery, unsupported floor/hole placement, interrupted drag, actual keyboard
 and virtual-gamepad input, wall-bound movement, obstruction and save-failure tests.
@@ -204,31 +228,25 @@ scene editor, scripting system or alternative canonical data model.
 | `ab865c3`: native cameras/layout | [Original results](../.plan2world-validation/runs/20261025-godot-plan-view/RESULTS.md). 1,665 unit tests, native mode separation/CRUD, packaged Linux and rendered inspection passed. The flat canvas prototype was removed. |
 | `2582099`: entrance, loading and controls | [Product-control results](../.plan2world-validation/runs/20261025-product-controls/RESULTS.md). 1,670 unit tests; entrance/facing, transactions, no history and constrained controls passed. Frozen real-house replay retained all architecture/input bytes. Closed-pose doorway placement remained explicitly unresolved. |
 | `30964ba`: door/layout lifecycle | [Door/layout results](../.plan2world-validation/runs/20261025-door-layout-lifecycle/RESULTS.md). 1,684 unit tests passed. Shared export/CLI checks and native pointer/micro-adjustment reserve default closed poses; save/export/reopen and real walking are covered by the shipped-PCK gate. |
-| Current: cleanup/readiness | [Review results](../.plan2world-validation/runs/20261025-stability-review/RESULTS.md). 1,684 units, type/build/catalog checks, high-threshold audit, rebuilt Linux/Windows packages and Linux shipped-PCK delivery/asset gates passed. Snapping status is documented; no snapping behavior was added. |
+| `a09a0d8`: cleanup/readiness | [Review results](../.plan2world-validation/runs/20261025-stability-review/RESULTS.md). 1,684 units, type/build/catalog checks, high-threshold audit, rebuilt Linux/Windows packages and Linux shipped-PCK delivery/asset gates passed. Snapping status is documented; no snapping behavior was added. |
+| Snapping/UI | 1,685 units, 42 focused cross-browser cases and shipped Linux PCK/core gates pass. Native magnetic/grid controls, atomic pose, compact UI and live missing-model notices; see [validation record](../.plan2world-validation/runs/20261025-snapping-ui/RESULTS.md). |
 
-## Publication assessment — 2026-10-25
+## Publication and acceptance
 
-Read-only fetch confirmed remote main remains `89a4fab`; the three local product
-milestones through `30964ba` are ahead of that main with no divergent main
-commits. Cleanup follows those milestones and adds no snapping behavior.
+The snapping/UI milestone includes the earlier native cameras, furniture editor,
+main-entrance spawn, transactional world loading, constrained controls and
+closed-door layout lifecycle. It publishes from `godot-product-editor`; merging
+and any formal release tag remain separate actions. Linux/Windows native Godot
+jobs are both required by the aggregate CI gate. PR browser/benchmark skips
+remain as before; full browser/benchmark jobs run on main push.
 
-This is worth publishing as a **product-editor milestone / release candidate**
-for review and reproducible regression, with the supported scope above. It is
-not yet evidence for a finished, generally stable desktop product. Native
-snapping is incomplete, the current editor has no native Windows/Forward+
-hardware acceptance, and its full three-engine browser/benchmark suites have not
-been rerun. Large-scene load/edit time and subprocess cancellation remain limits;
-neither has been misreported as an observed failure.
-
-Publication should run the exact candidate's unit/type/build/audit and native
-Linux/Windows Godot CI. The existing workflow runs on pull requests or main push;
-pushing an isolated feature branch does not trigger it. Keep that policy.
-Existing policy keeps full browser/benchmark jobs on main
-push; final stable acceptance also needs those main-level results and target
-device/input checks. A branch push and a stable release are separate decisions.
-See [release acceptance](release-checklist.md). This review performs no GitHub
-write, PR, tag or merge. Current cleanup evidence lives in
-[the local review](../.plan2world-validation/runs/20261025-stability-review/RESULTS.md).
+The current evidence record is
+[snapping/UI validation](../.plan2world-validation/runs/20261025-snapping-ui/RESULTS.md).
+Linux packaged acceptance and rendered Compatibility inspection do not establish
+native Windows Forward+ hardware or physical-controller quality. Retain those
+platform/manual checks before a general desktop release. No new reconstruction
+observations, geometry correction, lighting or source-image results are part of
+this UI/editing change.
 
 Door/layout milestone `30964ba` additionally fixed notice ownership: camera/toolbar refresh must
 retain an operation's explanation until the next edit. A hidden top-view toolbar
@@ -255,12 +273,11 @@ geometry correction, material or lighting change is part of this round.
   collision; it does not certify continuous support under every footprint point.
 - Wall attachment supports straight solid walls only. Legacy unbound items need
   explicit attachment; new model-file import is outside this scope.
-- Wall selection lists authored IDs. In-world wall picking, HUD contrast on light
-  backgrounds, material/lighting polish and target-device usability remain work.
-  Missing-asset HUD aggregation is covered on initial load; edits introducing new
-  missing models need live-status refresh.
+- Wall selection lists authored IDs; in-world wall picking and material/lighting
+  polish remain future work. Initial load and furniture edits refresh the native
+  missing-asset notice. Target-device usability still needs manual acceptance.
 - Linux headless/Mesa inspection and Windows cross-builds do not establish native
   Windows Forward+, physical controller, file-dialog or OS resize/DPI acceptance.
-  Full three-engine browser/benchmark regressions and remote CI are unclaimed for
-  unpublished local revisions. Complex stairs/special doors and optional
-  low-yield observation experiments stay deferred. No GitHub writes are implied.
+  Main-push full browser/benchmark coverage and the current publication/checks
+  belong in the evidence record rather than inferred from older runs. Complex
+  stairs/special doors and optional low-yield observation experiments stay deferred.
