@@ -6,6 +6,7 @@ signal scene_selected(path: String)
 signal project_selected(path: String)
 signal resume_requested
 signal respawn_requested
+signal authoring_requested(page: int)
 
 var _screen: Control
 var _resume: Button
@@ -51,6 +52,10 @@ func _ready() -> void:
 	help.text = "Walk through your home, or settle in and arrange a few things. Pick up where you left off with a saved Project."
 	help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(help)
+	content.add_child(UI.button("Create from a floor plan…", "CreateFromImage", func():authoring_requested.emit(1), true))
+	var account_help:=HBoxContainer.new();content.add_child(account_help)
+	account_help.add_child(UI.button("AI account…","AIAccount",func():authoring_requested.emit(0)))
+	account_help.add_child(UI.button("How to use…","UserGuide",func():authoring_requested.emit(2)))
 	var open := UI.button("Explore a scene…", "OpenScene", func(): _dialog.popup_centered_ratio(0.8))
 	open.custom_minimum_size.y = 44
 	content.add_child(open)
@@ -113,5 +118,5 @@ func hide_menu() -> void:
 	_dialog.hide()
 
 func set_busy(busy: bool) -> void:
-	for name in ["OpenScene", "OpenProject", "Resume", "ReturnToStart"]:
+	for name in ["OpenScene", "OpenProject", "Resume", "ReturnToStart", "CreateFromImage", "AIAccount", "UserGuide"]:
 		find_child(name, true, false).disabled = busy

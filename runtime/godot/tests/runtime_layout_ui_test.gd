@@ -56,6 +56,11 @@ func _run():
 	main=MAIN.instantiate();root.add_child(main);await process_frame
 	main._open_project(args[0]);await _idle()
 	var camera=main._layout_camera
+	_check(camera.camera.projection==Camera3D.PROJECTION_ORTHOGONAL,"Settled arrangement must use an orthographic camera")
+	var low: Vector2=camera.camera.unproject_position(Vector3(6,0,6))
+	var high: Vector2=camera.camera.unproject_position(Vector3(6,2.8,6))
+	_check(low.distance_to(high)<.001,"Wall tops and floor points with the same plan coordinates must align without perspective parallax")
+	_check(camera.camera.project_ray_normal(Vector2(200,200)).is_equal_approx(camera.camera.project_ray_normal(Vector2(700,500))),"Orthographic picking rays must be parallel throughout the viewport")
 	var plan=main._plan_view
 	var browser=plan._catalog_view
 	var world_id=main._world.get_instance_id()
@@ -63,12 +68,12 @@ func _run():
 	var architecture:=FileAccess.get_sha256(main._session.current()["runtimePath"].get_basename()+".architecture.glb")
 	_check(not browser.visible and not plan._selection_card.visible and camera.inset_right==16,"Idle arrangement must expose the room, without a permanent furniture inspector")
 	await _capture("room-first")
-	camera._center=Vector2(6.25,6.1);camera._height*=.9
+	camera._center=Vector2(6.25,6.1);camera._size*=.9
 	var chosen_center: Vector2=camera.view_center()
-	var zoom: float=camera._height/camera._fit_height()
+	var zoom: float=camera._size/camera._fit_size()
 	_key(KEY_TAB);await _idle()
 	_check(browser.visible and plan._catalog_toggle.button_pressed,"Tab must open the real visual catalog")
-	_check(camera.view_center().is_equal_approx(chosen_center) and is_equal_approx(camera._height/camera._fit_height(),zoom),"Opening inventory must preserve the chosen plan centre and relative zoom")
+	_check(camera.view_center().is_equal_approx(chosen_center) and is_equal_approx(camera._size/camera._fit_size(),zoom),"Opening inventory must preserve the chosen plan centre and relative zoom")
 	_check(browser.list.item_count>100 and browser.list.get_item_icon(0)!=null,"Inventory must show visual native furniture symbols, not a flat dropdown")
 	await _capture("catalog-all")
 	_key(KEY_TAB);await _idle()

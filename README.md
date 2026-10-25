@@ -72,7 +72,7 @@ Plan2World Runtime player. Windows/Linux player builds, offline use and delivery
 verification are described in [runtime delivery](docs/runtime-delivery.md).
 The player pauses on focus loss and provides manual return to its compiled spawn
 while preserving the current world's door state and geometry.
-Godot now switches smoothly between first person and top view in the same 3D world. Its native furniture layout tools support add/move/rotate/replace/remove, native Project save and runtime export, without undo/history. Top-view dragging offers a 10cm grid, straight-wall flush/orientation and furniture guides, with visible toggles and Alt to release. The native arrangement view keeps the room central, opens a searchable category/tile catalog with Tab, and shows actions only for the selected piece. Save/export live in the secondary Layout menu; the walking HUD stays compact. First-person furniture adjustment uses small keyboard/gamepad nudges; floor furniture stays on its floor and mounted objects stay on their explicit wall; architecture stays fixed. Delivered players include the offline shared data/compiler core and need no browser. See [native furniture layout](docs/godot-furniture-layout.md) and [`runtime/godot/README.md`](runtime/godot/README.md).
+Godot now switches between perspective first person and orthographic top view in the same 3D world. Its native furniture layout tools support add/move/rotate/replace/remove, native Project save and runtime export, without undo/history. Top-view dragging offers a 10cm grid, straight-wall flush/orientation and furniture guides, with visible toggles and Alt to release. The native arrangement view keeps the room central, opens a searchable category/tile catalog with Tab, and shows actions only for the selected piece. Save/export live in the secondary Layout menu; the walking HUD stays compact. First-person furniture adjustment uses small keyboard/gamepad nudges; floor furniture stays on its floor and mounted objects stay on their explicit wall; architecture stays fixed. Delivered players include the offline shared data/compiler core and need no browser. See [native furniture layout](docs/godot-furniture-layout.md) and [`runtime/godot/README.md`](runtime/godot/README.md).
 
 Furniture must leave the compiled closed-door volumes clear, including when a
 door is currently open. Shared export validation and native placement preview
@@ -88,6 +88,7 @@ Historical model outputs and validation diaries are intentionally absent from th
 
 ## Important references
 
+- [中文使用说明书：插件 / Skill 与独立桌面工具](docs/user-guide.zh-CN.md) — 账户、原图重建、正交俯视、布置与保存；
 - [`AGENTS.md`](AGENTS.md) — project invariants and validation rules;
 - [`skills/reconstruct-plan2world/SKILL.md`](skills/reconstruct-plan2world/SKILL.md) — active reconstruction procedure;
 - [`docs/plan2world-draft-v1.md`](docs/plan2world-draft-v1.md) — concise draft contract;

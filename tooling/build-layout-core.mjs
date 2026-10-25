@@ -27,6 +27,7 @@ export async function buildLayoutCore(output, target = process.platform) {
   if (!sources[target]) throw new Error('Furniture editing currently supports Linux/Windows x64 players.');
   await mkdir(output, { recursive: true });
   const compiled = await build({ entryPoints: [path.join(root, 'tooling/godot-layout-core.mjs')], outfile: path.join(output, 'layout-core.cjs'), bundle: true, platform: 'node', format: 'cjs', target: 'node24', alias: { '$lib': path.join(root, 'src/lib') }, logLevel: 'error', metafile: true });
+  const ai = await build({ entryPoints: [path.join(root, 'tooling/godot-ai-core.mjs')], outfile: path.join(output, 'ai-core.cjs'), bundle: true, platform: 'node', format: 'cjs', target: 'node24', alias: { '$lib': path.join(root, 'src/lib') }, loader: { '.md': 'text' }, logLevel: 'error', metafile: true });
   const cache = path.join(os.tmpdir(), `plan2world-node-${nodeVersion}`);
   await mkdir(cache, { recursive: true });
   const [source, sha256] = sources[target];
@@ -43,7 +44,7 @@ export async function buildLayoutCore(output, target = process.platform) {
   await verifiedDownload(`https://raw.githubusercontent.com/nodejs/node/v${nodeVersion}/LICENSE`, license, '148eacf7863ef4329224a29398623077200a27194aa075569faf4a0a85566ca5');
   await copyFile(license, path.join(output, 'LICENSE-Node.txt'));
   const packages = new Set();
-  for (const input of Object.keys(compiled.metafile.inputs)) {
+  for (const input of [...Object.keys(compiled.metafile.inputs), ...Object.keys(ai.metafile.inputs)]) {
     const marker = input.lastIndexOf('node_modules/');
     if (marker < 0) continue;
     const parts = input.slice(marker + 13).split('/');

@@ -63,7 +63,7 @@ func _run() -> void:
 	var pose := player.position
 	var plan := world.get_node("PlanView")
 	_check(not paused and not player.is_physics_processing() and plan.visible and plan.controller.editing, "Editable Project must open directly in furniture layout mode")
-	print("Layout framing: camera=", plan.controller.camera.global_transform, " height=", plan.controller._height, " inset=", plan.controller.inset_top, " current=", plan.controller.camera.current)
+	print("Layout framing: camera=", plan.controller.camera.global_transform, " height=", plan.controller._size, " inset=", plan.controller.inset_top, " current=", plan.controller.camera.current)
 	var view_size: Vector2 = plan.controller.get_viewport().get_visible_rect().size
 	for point in [Vector3(0, 3.4, 0), Vector3(12, 3.4, 12)]:
 		var screen: Vector2 = plan.controller.camera.unproject_position(point)

@@ -62,6 +62,7 @@ func _run() -> void:
 	await _frames(28)
 	var plan := world.get_node("PlanView")
 	_check(not paused and not player.is_physics_processing() and plan.visible and not world.get_node("HUD").visible, "F2 must enter a native top view with suspended player controls with no first-person HUD")
+	_check(camera.projection==Camera3D.PROJECTION_ORTHOGONAL,"Settled top view must use orthographic projection")
 	_check(not Input.is_action_pressed("move_forward"), "Entering top view must release held locomotion")
 	Input.action_press("move_forward")
 	var look_in_plan := InputEventMouseMotion.new()
@@ -81,13 +82,13 @@ func _run() -> void:
 	selector.item_selected.emit(1)
 	await _frames(40)
 	_check(plan.controller.floor_id == "upper", "Floor selection must change only the displayed authored floor")
-	var height_before: float = plan.controller._height
+	var size_before: float = plan.controller._size
 	var wheel := InputEventMouseButton.new()
 	wheel.button_index = MOUSE_BUTTON_WHEEL_UP
 	wheel.pressed = true
 	wheel.position = root.get_visible_rect().size * 0.5
 	plan.controller._unhandled_input(wheel)
-	_check(plan.controller._height < height_before, "Plan view must zoom without changing runtime geometry")
+	_check(plan.controller._size < size_before, "Plan view must zoom without changing runtime geometry")
 	var pan_release := InputEventMouseButton.new()
 	pan_release.button_index = MOUSE_BUTTON_MIDDLE
 	plan.controller._panning = true
@@ -110,6 +111,7 @@ func _run() -> void:
 	root.push_input(mode_key)
 	await _frames(40)
 	_check(not paused and not plan.visible and world.get_node("HUD").visible, "F2 must restore first person")
+	_check(player.get_node("Camera3D").projection==Camera3D.PROJECTION_PERSPECTIVE and player.get_node("Camera3D").current,"First person must retain its own perspective camera")
 	_check(player.position.is_equal_approx(pose) and player.rotation.is_equal_approx(heading) and player.get_node("Camera3D").rotation.is_equal_approx(pitch), "View switching must retain player pose and look")
 	_check(world.get_instance_id() == world_id and door_for_plan._opened, "View switching must retain the world and open door state")
 	door_for_plan.interact()

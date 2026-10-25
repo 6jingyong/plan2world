@@ -35,7 +35,7 @@ var _highlight: MeshInstance3D
 var _bounds := Rect2()
 var _floor_y := 0.0
 var _center := Vector2.ZERO
-var _height := 20.0
+var _size := 20.0
 var _framed_viewport := Vector2.ZERO
 var _building_height := 0.0
 var _tween: Tween
@@ -145,28 +145,28 @@ func select_floor(id: String) -> void:
 func view_center() -> Vector2:
 	return _center
 
-func _fit_height(viewport := Vector2.ZERO) -> float:
+func _fit_size(viewport := Vector2.ZERO) -> float:
 	if viewport == Vector2.ZERO: viewport = get_viewport().get_visible_rect().size
 	var aspect := maxf(viewport.x, 1) / maxf(viewport.y, 1)
 	var usable := maxf(0.2, 1.0 - (inset_top + inset_bottom) / maxf(viewport.y, 1))
 	var usable_width := maxf(0.2, 1.0 - (inset_left + inset_right) / maxf(viewport.x, 1))
-	# Fit emitted room bounds and authored wall tops around visible native UI.
-	return maxf(6, _building_height + maxf(_bounds.size.x / (aspect * usable_width), _bounds.size.y / usable) / (2 * tan(deg_to_rad(camera.fov) / 2)) * 1.15)
+	# Orthographic size is the vertical world span, independent of height/FOV.
+	return maxf(4, maxf(_bounds.size.x / (aspect * usable_width), _bounds.size.y / usable) * 1.15)
 
 func fit_floor() -> void:
 	cancel_drag()
 	_center = _bounds.get_center()
-	_height = _fit_height()
+	_size = _fit_size()
 	_framed_viewport = get_viewport().get_visible_rect().size
 	if active: _animate(_top_pose())
 
 func set_view_insets(left: float, right: float, top: float, bottom: float) -> void:
-	var previous_fit := _fit_height(_framed_viewport)
+	var previous_fit := _fit_size(_framed_viewport)
 	cancel_drag()
 	inset_left = left; inset_right = right; inset_top = top; inset_bottom = bottom
 	# Opening the catalog shifts/zooms the camera while preserving the user's
 	# current plan centre and relative zoom. It never resets the chosen location.
-	_height *= _fit_height() / previous_fit
+	_size *= _fit_size() / previous_fit
 	_framed_viewport = get_viewport().get_visible_rect().size
 	if active: _animate(_top_pose())
 
@@ -184,20 +184,40 @@ func set_plan_mode(value: bool) -> void:
 
 func _top_pose() -> Transform3D:
 	var viewport := get_viewport().get_visible_rect().size
-	var scale := _height * tan(deg_to_rad(camera.fov) / 2) / maxf(viewport.y, 1)
-	return Transform3D(Basis.from_euler(Vector3(-PI / 2, 0, 0)), Vector3(_center.x + scale * (inset_right - inset_left), _floor_y + _height, _center.y - scale * (inset_top - inset_bottom)))
+	var scale := _size / (2 * maxf(viewport.y, 1))
+	return Transform3D(Basis.from_euler(Vector3(-PI / 2, 0, 0)), Vector3(_center.x + scale * (inset_right - inset_left), _floor_y + _view_height(), _center.y - scale * (inset_top - inset_bottom)))
+
+func _view_height() -> float:
+	return maxf(_building_height + 8, _size)
+
+func _plan_fov() -> float:
+	return rad_to_deg(2 * atan(_size / (2 * _view_height())))
 
 func _animate(target: Transform3D) -> void:
 	if _tween != null:
 		_tween.kill()
 	var source := camera.global_transform
+	var source_size := camera.size
+	# Match the floor-plane framing at projection boundaries. In settled plan
+	# mode, every height has the same scale; only the transition uses perspective.
+	if not active and camera.projection == Camera3D.PROJECTION_ORTHOGONAL:
+		camera.projection = Camera3D.PROJECTION_PERSPECTIVE
+		camera.fov = _plan_fov()
+	var source_fov := camera.fov
+	var target_fov: float = _plan_fov() if active else _player.get_node("Camera3D").fov
 	transitioning = true
 	view_started.emit()
 	_tween = create_tween().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	_tween.tween_method(func(weight: float): camera.global_transform = source.interpolate_with(target, weight), 0.0, 1.0, 0.45)
+	_tween.tween_method(func(weight: float):
+		camera.global_transform = source.interpolate_with(target, weight)
+		camera.size = lerpf(source_size, _size, weight)
+		camera.fov = lerpf(source_fov, target_fov, weight), 0.0, 1.0, 0.45)
 	_tween.tween_callback(func():
 		transitioning = false
-		if not active:
+		if active:
+			camera.projection = Camera3D.PROJECTION_ORTHOGONAL
+			camera.size = _size
+		else:
 			update_floor_visibility()
 			_player.get_node("Camera3D").make_current()
 		view_settled.emit())
@@ -261,7 +281,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.button_index in [MOUSE_BUTTON_MIDDLE, MOUSE_BUTTON_RIGHT]:
 			_panning = event.pressed
 		elif event.pressed and event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
-			_height = clampf(_height * (1.0 / 1.15 if event.button_index == MOUSE_BUTTON_WHEEL_UP else 1.15), 4, 200)
+			_size = clampf(_size * (1.0 / 1.15 if event.button_index == MOUSE_BUTTON_WHEEL_UP else 1.15), 2, 400)
+			camera.size = _size
 			camera.global_transform = _top_pose()
 		elif event.button_index == MOUSE_BUTTON_LEFT and editing:
 			if event.pressed:

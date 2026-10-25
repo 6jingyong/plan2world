@@ -35,11 +35,13 @@ try {
     'Export a runtime scene ZIP in the Plan2World editor. Extract it anywhere, then choose Explore a scene in this player.\n' +
     'Keep the executable, PCK and core/ folder together. Keep each scene JSON, architecture GLB and assets folder together.\n' +
     'For furniture layout, choose Arrange a Project and select native Project JSON or a Project package ZIP.\n' +
-    'F2 switches smoothly between first-person and top view in the same Godot world.\n' +
+    'Read README.zh-CN.md for the plugin/Skill and standalone desktop workflows.\n' +
+    'Optional Create from a floor plan: connect your OpenRouter account/API key, choose a vision model and explicitly confirm two paid image observations. Credentials are session-only; no automatic paid retries. Choose the main entrance and inward side before opening the generated Project.\n' +
+    'F2 switches between first-person perspective and orthographic top view in the same Godot world.\n' +
     'Top view: middle/right drag pans, wheel zooms, left drag moves furniture, Esc cancels a drag.\n' +
     'Top-view dragging: optional 10 cm grid, straight-wall alignment and nearby furniture guides. Hold Alt for free placement; first-person micro-adjustment never snaps.\n' +
     'Add, rotate, replace or delete furniture; save native Project and export a runtime scene ZIP. No undo or operation history. Architecture stays fixed.\n' +
-    'Scenes run offline; no account, AI or network service is used by the player.\n\n' +
+    'Existing scenes, furniture editing and export run offline without an account. Only optional image creation/account connection uses the network and your OpenRouter credits.\n\n' +
     'WASD move | Ctrl slow | Shift fast | Mouse look | E door | Esc mouse | F1 scene menu\n' +
     'The scene menu pauses the current walkthrough. Failed scene opens can be dismissed by resuming it.\n\n' +
     'Switching windows pauses and clears held controls. Resume explicitly when you return.\n' +
@@ -49,6 +51,10 @@ try {
     'Windows builds are unsigned. Platform signing and Windows hardware acceptance are separate release steps.\n\n' +
     'Optional CLI: player -- --scene "path/to/scene.runtime.json"\n');
   await writeFile(path.join(directory, 'LICENSE-Plan2World.txt'), await readFile(path.join(root, 'LICENSE')));
+  const guide = (await readFile(path.join(root, 'docs/user-guide.zh-CN.md'), 'utf8'))
+    .replaceAll('](../skills/', '](https://github.com/6jingyong/plan2world/blob/main/skills/')
+    .replace('](godot-furniture-layout.md)', '](https://github.com/6jingyong/plan2world/blob/main/docs/godot-furniture-layout.md)');
+  await writeFile(path.join(directory, 'README.zh-CN.md'), guide);
   // Godot's generated copyright text includes its bundled third-party notices.
   const noticeScript = path.join(root, 'tooling/runtime-player-notices.gd');
   execFileSync(godot, ['--headless', '--script', noticeScript, '--', path.join(directory, 'LICENSE-Godot.txt')], { stdio: 'inherit' });

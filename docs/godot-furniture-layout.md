@@ -5,6 +5,14 @@ furniture layout from above. The browser remains an internal reconstruction,
 architecture-editing and review tool; it is not required in a delivered player.
 The native Plan2World `Project` remains the saved source of truth.
 
+Settled plan view uses **orthographic projection**: camera size determines
+world span, while altitude only clears authored wall tops. Drawer/resize framing,
+zoom, parallel picking and snapping retain that projection. First person uses its
+own perspective camera; transitions match floor-plane framing at the boundary.
+The [user guide](user-guide.zh-CN.md) covers both Skill and native desktop creation.
+Optional OpenRouter image creation delegates to a separate authoring process;
+the furniture edit core and runtime scene loading remain offline.
+
 ## Controls and scope
 
 | First person | Top view |
@@ -276,6 +284,7 @@ scene editor, scripting system or alternative canonical data model.
 | `a09a0d8`: cleanup/readiness | [Review results](../.plan2world-validation/runs/20261025-stability-review/RESULTS.md). 1,684 units, type/build/catalog checks, high-threshold audit, rebuilt Linux/Windows packages and Linux shipped-PCK delivery/asset gates passed. Snapping status is documented; no snapping behavior was added. |
 | PR #80: snapping/UI | 1,685 units, 42 focused cross-browser cases and shipped Linux PCK/core gates pass. Native magnetic/grid controls, atomic pose, compact UI and live missing-model notices; see [validation record](../.plan2world-validation/runs/20261025-snapping-ui/RESULTS.md). |
 | Local arrangement flow | 1,686 unit tests; packaged Linux UI/input/data gates and rendered inspection pass. On-demand catalog, contextual actions, secondary file commands and preserved view framing; see [local results](../.plan2world-validation/runs/20261025-layout-flow/RESULTS.md). |
+| Local orthographic / desktop creation | 1,700 unit tests, six focused Chromium regressions, packaged Linux controls and rendered inspection pass. Native OpenRouter account/image flow uses a mocked provider; real account/model and Windows hardware acceptance remain separate. See [verification record](../.plan2world-validation/runs/20261026-ortho-desktop/RESULTS.md). |
 
 ## Publication and acceptance
 

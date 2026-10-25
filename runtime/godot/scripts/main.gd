@@ -10,11 +10,13 @@ const RUNTIME_PLAN_VIEW := preload("res://scripts/runtime_plan_view.gd")
 const LAYOUT_SESSION := preload("res://scripts/layout_session.gd")
 const FURNITURE_ADJUSTMENT := preload("res://scripts/furniture_adjustment.gd")
 const LAYOUT_CAMERA := preload("res://scripts/layout_camera.gd")
+const DESKTOP_AUTHORING := preload("res://scripts/desktop_authoring.gd")
 
 enum ViewMode { WALKTHROUGH, PLAN }
 
 var _world: Node3D
 var _launcher
+var _authoring
 var _spawn: Vector3
 var _spawn_yaw = null
 var _adjustment
@@ -48,6 +50,10 @@ func _ready() -> void:
 	add_child(_discard)
 	_launcher = RUNTIME_LAUNCHER.new()
 	add_child(_launcher)
+	_authoring=DESKTOP_AUTHORING.new()
+	add_child(_authoring)
+	_authoring.project_ready.connect(func(path:String):_request_action(_open_project.bind(path)))
+	_launcher.authoring_requested.connect(func(page:int):_authoring.show_page(page))
 	_launcher.scene_selected.connect(func(path: String): _request_action(_open_scene.bind(path)))
 	_launcher.project_selected.connect(func(path: String): _request_action(_open_project.bind(path)))
 	_launcher.resume_requested.connect(_resume)
@@ -291,6 +297,7 @@ func _save_layout(path: String) -> void:
 	_plan_view.show_message("Project saved." if error == OK else "Could not save Project: " + error_string(error))
 
 func _unhandled_key_input(event: InputEvent) -> void:
+	if _authoring._screen.visible:return
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F1:
 		if _menu_open and _world != null:
 			_resume()

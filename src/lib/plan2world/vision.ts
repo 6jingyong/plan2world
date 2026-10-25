@@ -78,17 +78,25 @@ export async function reconstructFloorPlanImage(
   signal?: AbortSignal,
 ): Promise<FloorPlanReconstructionResult> {
   const { sourceWidthPx: _sourceWidthPx, sourceHeightPx: _sourceHeightPx, ...instructionOptions } = options;
-  const architectureInput = await generateOpenAIJsonFromImage(config, image.base64, image.mimeType,
-    buildArchitectureInstructions(instructionOptions), customFetch, signal);
   const source = await sourceForAssembly(image, options);
+  return reconstructFloorPlanWithObserver(
+    prompt => generateOpenAIJsonFromImage(config, image.base64, image.mimeType, prompt, customFetch, signal),
+    source, instructionOptions,
+  );
+}
+
+/** The browser and native desktop authoring process share the same two-pass
+ * contract. The observer owns only provider transport; original raster pixels
+ * and all deterministic preparation/assembly stay outside the engine adapter. */
+export async function reconstructFloorPlanWithObserver(
+  observe: (prompt: string) => Promise<unknown>,
+  source: { context: { sourceWidthPx?: number; sourceHeightPx?: number }; raster?: SourceRasterPixels },
+  options: ReconstructionOptions = {},
+): Promise<FloorPlanReconstructionResult> {
+  const architectureInput = await observe(buildArchitectureInstructions(options));
   const architecture = preflightArchitectureObservation(architectureInput, source.context);
-  const furnishing = await generateOpenAIJsonFromImage(
-    config,
-    image.base64,
-    image.mimeType,
+  const furnishing = await observe(
     `${buildReconstructionInstructions()}\n\nFROZEN_ARCHITECTURE_JSON:\n${JSON.stringify(architecture)}`,
-    customFetch,
-    signal,
   );
   const stage = prepareArchitectureStage(architecture, source.context, furnishing, source.raster);
   assertArchitectureHostsResolved(stage);
