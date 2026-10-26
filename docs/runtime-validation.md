@@ -1,5 +1,13 @@
 # Runtime validation scope
 
+The subsequent local milestone is summarized in the
+[development handoff](development-handoff.md): 1,761 unit tests, complete-footprint
+support, explicit multi-leaf door routes, cancellable spatial placement and the
+[fixed lighting reference](runtime-lighting-calibration.md). Fifteen relocated
+Linux PCK/core gate groups plus actual release boot pass; Windows is cross-built
+only in this environment. The historical #81 evidence below remains separate.
+The full browser/benchmark integration result is being recorded for this local branch.
+
 The native furnishing, orthographic plan and ceiling-light milestone is checked
 with Godot 4.7.2. Generated inputs and output packages stay
 under ignored `.plan2world-validation/`; they are not application fixtures or

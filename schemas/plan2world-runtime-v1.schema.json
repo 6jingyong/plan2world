@@ -102,7 +102,7 @@
       "required": ["axis", "travel"],
       "properties": { "axis": { "$ref": "#/$defs/vec3" }, "travel": { "$ref": "#/$defs/nonnegative" }, "fixed": { "const": true } },
       "if": { "required": ["fixed"] },
-      "then": { "properties": { "travel": { "const": 0 } } },
+      "then": { "properties": { "travel": { "const": 0 }, "axis": { "const": [0, 0, 0] } } },
       "else": { "properties": { "travel": { "$ref": "#/$defs/positive" } } }
     },
     "blockedDoorLeaf": { "$ref": "#/$defs/doorLeaf", "unevaluatedProperties": false },

@@ -8,6 +8,12 @@ import {ceilingHosts} from '$lib/utils/ceilingFurniture';
 import {runtimeProductProject} from '../tooling/runtime-product-fixture.mjs';
 
 describe('read-only native placement preview',()=>{
+  it('keeps provisional identities distinct from every native entity kind',async()=>{
+    const project=readProject(await runtimeProductProject());
+    project.floors[0].textAnnotations.push({id:'placement-preview',x:0,y:0,text:'reserved',fontSize:16,color:'#000',rotation:0});
+    const preview=furniturePlacementPreview(project,{type:'add',floorId:'ground',position:{x:600,y:500},asset:{catalogId:'chair'}});
+    expect(preview.id).toBe('placement-preview-new');
+  });
   it('previews invalid landing positions without saving a provisional Project',async()=>{
     const project=readProject(await runtimeProductProject()),before=JSON.stringify(project);
     const command={type:'add' as const,floorId:'ground',position:{x:3000,y:3000},asset:{catalogId:'chair'}};

@@ -12,7 +12,7 @@ var _rows:VBoxContainer
 var _note:Label
 
 func _ready() -> void:
-	name="DoorSettings";title="Door panels";theme=UI.theme();ok_button_text="Apply panels";min_size=Vector2i(660,440)
+	name="DoorSettings";title="Door panels";theme=UI.theme();ok_button_text="Apply panels";min_size=Vector2i(660,440);exclusive=true
 	var form:=VBoxContainer.new();add_child(form)
 	_selector=OptionButton.new();_selector.name="DoorSelector";form.add_child(_selector)
 	_selector.item_selected.connect(func(index:int):_choose(index))

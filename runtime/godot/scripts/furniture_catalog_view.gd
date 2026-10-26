@@ -115,7 +115,7 @@ func _filter() -> void:
 		if not text.is_empty() and not str(item["label"]).to_lower().contains(text): continue
 		_visible_indices.append(index)
 		list.add_item(item["label"], _texture(index))
-		list.set_item_tooltip(list.item_count - 1, "%s · %s" % [item["label"], item["category"]])
+		list.set_item_tooltip(list.item_count - 1, "%s · %s%s" % [item["label"], item["category"]," · placeholder" if item.get("presentation")=="placeholder" else ""])
 	_empty.visible = _visible_indices.is_empty()
 	if _visible_indices.is_empty():
 		selected_index = -1
@@ -132,6 +132,7 @@ func choose(index: int) -> void:
 	_title.text = item["label"]
 	var size: Array = item["dimensions"]
 	_description.text = "%s × %s × %s cm" % [size[0], size[1], size[2]]
+	if item.get("presentation")=="placeholder":_description.text+=" · placeholder"
 	var visible_index := _visible_indices.find(index)
 	if visible_index >= 0:
 		list.select(visible_index)

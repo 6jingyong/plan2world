@@ -46,6 +46,10 @@ var _help: Label
 var _framed_size := Vector2.ZERO
 var _catalog_action := "AddFurniture"
 var _doors:Array=[]
+var _external_dialogs:Array[Window]=[]
+
+func register_dialog(dialog:Window) -> void:
+	_external_dialogs.append(dialog)
 
 func _ready() -> void:
 	name = "PlanView"
@@ -176,7 +180,7 @@ func _save_dialog(title: String, filter: String, filename: String) -> FileDialog
 	return dialog
 
 func has_open_dialog() -> bool:
-	return _save.visible or _export.visible or _files.get_popup().visible or _mount_dialog.visible or _ceiling_dialog.visible
+	return _save.visible or _export.visible or _files.get_popup().visible or _mount_dialog.visible or _ceiling_dialog.visible or _external_dialogs.any(func(dialog):return is_instance_valid(dialog) and dialog.visible)
 
 func configure(data: Dictionary, camera_controller) -> void:
 	controller = camera_controller
@@ -274,6 +278,8 @@ func _selection_changed() -> void:
 	if controller._entities.has(controller.selected_id) and controller._entities[controller.selected_id]["kind"] == "furniture":
 		var entity: Dictionary = controller._entities[controller.selected_id]
 		_selection.text = str(entity["catalogId"]).replace("_"," ").capitalize() + (" · locked" if entity["locked"] else "")
+		if controller._models.has(entity["id"]) and not controller._models[entity["id"]].has_meta("p2w_asset_ref"):
+			_selection.text=str(entity.get("sourceCategory",entity["catalogId"])).replace("_"," ").capitalize()+" · placeholder"+(" · locked" if entity["locked"] else "")
 		for action in _edit_buttons.values(): action.disabled = not controller.editing or entity["locked"]
 		_edit_buttons["RotateFurniture"].disabled = not controller.editing or entity["locked"] or entity["movement"]["kind"] not in ["floor","ceiling"]
 		_edit_buttons["LightSettings"].visible=entity.has("light")

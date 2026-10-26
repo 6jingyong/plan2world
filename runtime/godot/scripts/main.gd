@@ -139,6 +139,7 @@ func _open_scene(runtime_path: String, architecture_path: String = "", editor_st
 	_plan_view = RUNTIME_PLAN_VIEW.new()
 	_world.add_child(_plan_view)
 	_plan_view.configure(data, _layout_camera)
+	_plan_view.register_dialog(_door_settings);_plan_view.register_dialog(_light_settings.dialog)
 	_layout_camera.view_started.connect(_sync_controls)
 	_layout_camera.view_settled.connect(_sync_controls)
 	_plan_view.walkthrough_requested.connect(_show_walkthrough)
@@ -156,8 +157,8 @@ func _open_scene(runtime_path: String, architecture_path: String = "", editor_st
 	var notes: PackedStringArray = []
 	if not presentation_loaded:
 		notes.append("Architecture GLB missing/unreadable; showing compatibility proxies.")
-	_furniture_fallbacks = stage["furniture"]["proxy_count"]
-	_static_assets_missing = presentation_loaded and int(presentation_stats.get("collider_proxy_count", 0)) > _furniture_fallbacks
+	_furniture_fallbacks = stage["furniture"]["missing_count"]
+	_static_assets_missing = presentation_loaded and int(presentation_stats.get("collider_proxy_count", 0)) > int(stage["furniture"]["proxy_count"])
 	var unsupported := 0
 	for entity in data["entities"]:
 		if (entity["kind"] == "door" and entity["interaction"]["kind"] == "unsupported") or (entity["kind"] == "stair" and entity["traversal"]["kind"] == "unsupported"):
@@ -345,7 +346,8 @@ func _build_furniture(data: Dictionary, assets: Dictionary, world: Node3D) -> Di
 	var proxy: Dictionary = RUNTIME_PROXY_RENDERER.new().render(furniture, group, built, true, presented["presented"])
 	var models: Dictionary = presented["instances"].duplicate()
 	models.merge(proxy["instances"])
-	return { "root": group, "colliders": built["collider_nodes"], "models": models, "asset_count": presented["presented"].size(), "proxy_count": proxy["collider_proxy_count"] }
+	return { "root": group, "colliders": built["collider_nodes"], "models": models, "asset_count": presented["presented"].size(), "proxy_count": proxy["collider_proxy_count"],
+		"missing_count":models.values().filter(func(model):return not model.has_meta("p2w_asset_ref")).size() }
 
 func _changed_furniture(data:Dictionary) -> Dictionary:
 	var old:Dictionary={};var changed:Dictionary={}
@@ -526,7 +528,7 @@ func _show_door_settings() -> void:
 func _update_asset_notice() -> void:
 	var notes := _scene_notes.duplicate()
 	if _static_assets_missing or _furniture_fallbacks > 0:
-		notes.append("Some model assets are missing; showing fallback proxies.")
+		notes.append("%d item(s) use placeholders. Select a piece to choose a replacement."%_furniture_fallbacks if not _static_assets_missing else "Some scene models are unavailable; placeholders remain visible.")
 	var label := _world.get_node("HUD/Identity/Content/PresentationNotes") as Label
 	label.text = "\n".join(notes)
 	label.visible = not notes.is_empty()

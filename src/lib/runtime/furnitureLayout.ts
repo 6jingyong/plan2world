@@ -5,6 +5,8 @@ import { furnitureSvg } from '../utils/furnitureSvg';
 
 import { needsWallMount, placeOnWall } from '../utils/furniturePlacement';
 import { needsCeilingMount, furnitureCeilingFrame, ceilingLightProfile } from '../utils/ceilingFurniture';
+import {getModelFile} from '../utils/furnitureModelFiles';
+import {hasBuiltinWallDecor} from '../utils/builtinWallDecor';
 
 export type Asset = { catalogId: string; customModelId?: string };
 export type FurnitureLayoutCommand =
@@ -26,6 +28,9 @@ export function layoutAssetFields(project:Project,asset:Asset):Partial<Furniture
     const catalog = getCatalogItem(asset.catalogId);
     if (!catalog || catalog.symbol) throw new Error('Choose a supported furniture catalog item.');
     return { catalogId: catalog.id };
+}
+export function layoutElementIds(project:Project):Set<string>{
+  return new Set(project.floors.flatMap(f=>[f.id,...Object.values(f).flatMap(value=>Array.isArray(value)?value.flatMap(item=>item&&typeof item.id==='string'?[item.id]:[]):[])]));
 }
 export function applyFurnitureLayoutCommand(input: unknown, command: FurnitureLayoutCommand, now = new Date()) {
   const project = readProject(input);
@@ -59,7 +64,7 @@ export function applyFurnitureLayoutCommand(input: unknown, command: FurnitureLa
   };
   let selectedId: string | null = null;
   if (command.type === 'add') {
-    const ids = new Set(project.floors.flatMap(f => [f.id, ...Object.values(f).flatMap(value => Array.isArray(value) ? value.flatMap(item => item && typeof item.id === 'string' ? [item.id] : []) : [])]));
+    const ids = layoutElementIds(project);
     let index = 1;
     while (ids.has(`layout-furniture-${index}`)) index++;
     const item = { id: `layout-furniture-${index}`, position: position(command.position), rotation: 0, scale: { x: 1, y: 1, z: 1 }, ...assetFields(command.asset) } as FurnitureItem;
@@ -129,11 +134,13 @@ export function furnitureLayoutCatalog(project: Project) {
   return [
     ...furnitureCatalog.filter(item => !item.symbol).map(item => ({
       label: item.name, category: item.category, dimensions: [item.width, item.depth, item.height],
+      presentation: needsCeilingMount(item.id)||hasBuiltinWallDecor(item.id)||getModelFile(item.id)?'model':'placeholder',
       symbolSvg: illustration(item.id, item.width, item.depth, item.color),
       mounting: needsCeilingMount(item.id) ? 'ceiling' : needsWallMount(item.id) ? 'wall' : 'floor', asset: { catalogId: item.id } as Asset,
     })),
     ...(project.customModels ?? []).map(model => ({
       label: model.name, category: 'Custom models', dimensions: [model.width, model.depth, model.height],
+      presentation:'model',
       mounting: 'floor' as const,
       symbolSvg: illustration('imported_object', model.width, model.depth, '#63756c'),
       asset: { catalogId: 'custom-model', customModelId: model.id } as Asset,

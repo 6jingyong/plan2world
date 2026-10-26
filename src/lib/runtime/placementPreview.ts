@@ -4,7 +4,7 @@ import {getFurnitureSize} from '../utils/furnitureCatalog';
 import {needsWallMount,furnitureWallFrame} from '../utils/furniturePlacement';
 import {needsCeilingMount,ceilingHosts} from '../utils/ceilingFurniture';
 import {floorElevations} from '../utils/floors';
-import {layoutAssetFields,type FurnitureLayoutCommand} from './furnitureLayout';
+import {layoutAssetFields,layoutElementIds,type FurnitureLayoutCommand} from './furnitureLayout';
 import {runtimeWallMovement} from './furnitureMovement';
 import type {RuntimeFurnitureEntity} from './types';
 
@@ -17,7 +17,8 @@ export function furniturePlacementPreview(input:unknown,command:PlacementPreview
   const existing=command.type==='replace'?floor.furniture.find(item=>item.id===command.id):undefined;
   if(command.type==='replace'&&(!existing||existing.locked))throw new Error('Choose unlocked furniture to replace.');
   let id=existing?.id??'placement-preview';
-  while(!existing&&project.floors.some(f=>f.furniture.some(item=>item.id===id)))id+='-new';
+  const ids=layoutElementIds(project);
+  while(!existing&&ids.has(id))id+='-new';
   const fields=layoutAssetFields(project,command.asset),position=command.position??existing?.position;
   if(!position||![position.x,position.y].every(Number.isFinite))throw new Error('Preview position must be finite.');
   const item: FurnitureItem={id,catalogId:fields.catalogId!,...fields,position:{...position},rotation:command.rotation??existing?.rotation??0,scale:{x:1,y:1,z:1}};

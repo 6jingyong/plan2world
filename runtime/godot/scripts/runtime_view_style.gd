@@ -3,9 +3,11 @@ extends Node
 # Native presentation profiles over the same world. No floor-plan geometry,
 # collision or attachment is inferred from meshes here.
 const PRESETS := ["Day", "Night", "Sunrise", "Sunset"]
+const LIGHTING:=preload("res://scripts/lighting_profile.gd")
 var daylight := 0
 var plan := false
 var _environment: Environment
+var _reflection_sky:ProceduralSkyMaterial
 var _sun: DirectionalLight3D
 var _lights: Node3D
 var _sources := {}
@@ -18,6 +20,10 @@ func configure(data: Dictionary, mode: int) -> void:
 	var world:=WorldEnvironment.new();world.name="WorldEnvironment";_environment=Environment.new();world.environment=_environment;get_parent().add_child(world)
 	_environment.background_mode=Environment.BG_COLOR
 	_environment.ambient_light_source=Environment.AMBIENT_SOURCE_COLOR
+	# Metallic catalog/decor materials need an environment reflection reference.
+	# Keep the background colour separate; this does not infer local mirror views.
+	var sky:=Sky.new();_reflection_sky=ProceduralSkyMaterial.new();sky.sky_material=_reflection_sky
+	_environment.sky=sky;_environment.reflected_light_source=Environment.REFLECTION_SOURCE_SKY
 	_sun=DirectionalLight3D.new();_sun.name="Sun";_sun.shadow_enabled=true;_sun.directional_shadow_max_distance=40;get_parent().add_child(_sun)
 	_lights=Node3D.new();_lights.name="FurnitureLights";get_parent().add_child(_lights)
 	refresh(data,{})
@@ -38,7 +44,7 @@ func _add_fixture(entity:Dictionary,models:Dictionary) -> void:
 	lamp.name="Light_"+id.validate_node_name();lamp.shadow_enabled=true;lamp.light_color=_color(contract["color"])
 	# One renderer calibration for full and incremental loading; native photometry
 	# remains unchanged. The reference exposure maps 800 lm to energy 1.
-	lamp.light_energy=float(contract["lumens"])/800
+	lamp.light_energy=float(contract["lumens"])/LIGHTING.LUMENS_PER_ENERGY
 	if lamp is SpotLight3D:lamp.spot_range=contract["range"];lamp.spot_angle=contract["spotAngleDegrees"]
 	else:lamp.omni_range=contract["range"]
 	_lights.add_child(lamp);_sources[id]=lamp;_source_contracts[id]=contract
@@ -75,15 +81,16 @@ func apply(enabled: bool) -> void:
 	_environment.ssao_radius=1.2;_environment.ssao_intensity=1.0
 	_environment.glow_enabled=false
 	_environment.tonemap_mode=Environment.TONE_MAPPER_LINEAR if plan else Environment.TONE_MAPPER_FILMIC
-	var ambient: Array=[.62,.035,.20,.17]
-	var sun_energy: Array=[1.15,.025,.72,.62]
-	var sun_color: Array=[Color("fff3dc"),Color("7495cd"),Color("ffb16e"),Color("ff8b58")]
-	var background: Array=[Color("dce6ee"),Color("101a30"),Color("edc6ab"),Color("c99d9e")]
-	var rotation: Array=[Vector3(-55,-35,0),Vector3(-40,130,0),Vector3(-12,-85,0),Vector3(-10,85,0)]
-	_environment.background_color=Color("f2f4ed") if plan else background[daylight]
-	_environment.ambient_light_color=Color.WHITE if plan else sun_color[daylight]
-	_environment.ambient_light_energy=0 if plan else ambient[daylight]
-	_sun.visible=not plan;_sun.rotation_degrees=rotation[daylight];_sun.light_color=sun_color[daylight];_sun.light_energy=sun_energy[daylight]
+	_environment.tonemap_exposure=1 if plan else LIGHTING.EXPOSURE
+	_environment.tonemap_white=1 if plan else LIGHTING.WHITE_POINT
+	_environment.background_color=Color("f2f4ed") if plan else LIGHTING.BACKGROUND[daylight]
+	_reflection_sky.sky_top_color=LIGHTING.BACKGROUND[daylight]
+	_reflection_sky.sky_horizon_color=LIGHTING.BACKGROUND[daylight].lerp(LIGHTING.SUN_COLOR[daylight],.3)
+	_reflection_sky.ground_horizon_color=_reflection_sky.sky_horizon_color
+	_reflection_sky.ground_bottom_color=LIGHTING.BACKGROUND[daylight].darkened(.75)
+	_environment.ambient_light_color=Color.WHITE if plan else LIGHTING.SUN_COLOR[daylight]
+	_environment.ambient_light_energy=0 if plan else LIGHTING.AMBIENT[daylight]
+	_sun.visible=not plan;_sun.rotation_degrees=LIGHTING.ROTATION[daylight];_sun.light_color=LIGHTING.SUN_COLOR[daylight];_sun.light_energy=LIGHTING.SUN_ENERGY[daylight]
 	for id in _sources:_sources[id].visible=not plan and _source_contracts[id]["enabled"] and _source_contracts[id]["lumens"]>0
 	_style(get_parent(),"")
 

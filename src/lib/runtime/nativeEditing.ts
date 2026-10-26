@@ -13,6 +13,7 @@ export function applyNativeEditCommand(input: unknown, command: NativeEditComman
   const project = readProject(input);
   const door = project.floors.find(f => f.id === command.floorId)?.doors.find(d => d.id === command.id);
   if (!door) throw new Error('Choose an existing door on this floor.');
+  if(!['double','french','sliding','pocket'].includes(door.type))throw new Error('Panel settings require a sliding, pocket, double or French door.');
   if (command.configuration === null) delete door.leafConfiguration;
   else door.leafConfiguration = structuredClone(command.configuration);
   project.updatedAt = now;

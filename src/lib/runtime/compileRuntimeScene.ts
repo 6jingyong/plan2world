@@ -13,6 +13,7 @@ import { entranceSpawn } from './playerSpawn';
 import { compileRuntimeStair, type RuntimeStairTarget } from './stairTraversal';
 import { compileRuntimeDoor } from './doorCompilation';
 import {runtimeWallMovement} from './furnitureMovement';
+import {hasBuiltinWallDecor} from '../utils/builtinWallDecor';
 import type {
   Plan2WorldRuntimeSceneV1,
   RuntimeBoxCollider,
@@ -173,7 +174,7 @@ function compileFloor(
         : needsWallMount(item.catalogId) ? { kind: 'unbound-wall' } : { kind: 'floor', elevation: m(elevationCm) },
       id: item.id, floorId: floor.id, kind: 'furniture', catalogId: item.catalogId,
       ...(item.sourceCategory ? { sourceCategory: item.sourceCategory } : {}),
-      assetRef: item.customModelId ? `custom-model:${item.customModelId}` : ceiling ? `builtin:${item.catalogId}-v1` : `catalog:${item.catalogId}`,
+      assetRef: item.customModelId ? `custom-model:${item.customModelId}` : ceiling || hasBuiltinWallDecor(item.catalogId) ? `builtin:${item.catalogId}-v1` : `catalog:${item.catalogId}`,
       ...(ceiling ? { light: (() => {
         const profile = ceilingLightProfile(item.catalogId)!;
         const settings = item.light ?? profile.defaults;

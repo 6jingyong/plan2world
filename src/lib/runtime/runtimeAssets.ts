@@ -6,6 +6,7 @@ import { appendBox, type MeshBuilder } from './presentationGeometry';
 import { serializePresentationGlb } from './architectureGlb';
 import type { Plan2WorldRuntimeSceneV1 } from './types';
 import { needsCeilingMount } from '../utils/ceilingFurniture';
+import {hasBuiltinWallDecor} from '../utils/builtinWallDecor';
 
 export interface RuntimeAsset {
   id: string;
@@ -50,6 +51,19 @@ export function compileCeilingLightAsset(id: string) {
     {...emitter,id:ref+':emitter',kind:'furniture',material:'lamp-emitter'}],{artifact:'runtime-asset',assetId:ref});
 }
 
+/** Reusable generic wall decoration, front +Z. Fit, mounting and collider size
+ * remain compiler-owned and independent of this presentation geometry. */
+export function compileWallDecorAsset(id:string){
+  const frame:MeshBuilder={positions:[],normals:[],uvs:[],indices:[]},face:MeshBuilder={positions:[],normals:[],uvs:[],indices:[]};
+  for(const x of [-.47,.47])appendBox(frame,[x,0,0],[.06,1,1],0);
+  for(const y of [-.47,.47])appendBox(frame,[0,y,0],[.88,.06,1],0);
+  appendBox(frame,[0,0,-.4],[.88,.88,.2],0);
+  appendBox(face,[0,0,.3],[.88,.88,.2],0);
+  const ref=`builtin:${id}-v1`;
+  return serializePresentationGlb([{...frame,id:ref+':frame',kind:'furniture',material:'decor-frame'},
+    {...face,id:ref+':face',kind:'furniture',material:id==='mirror'?'mirror-face':'wall-art'}],{artifact:'runtime-asset',assetId:ref});
+}
+
 /** Resolve only referenced assets. Source bytes remain immutable and are shared
  * by digest; native identity is preserved separately from storage filenames.
  * Missing sources are explicit diagnostics. Invalid retained sources fail export. */
@@ -66,6 +80,7 @@ export async function compileRuntimeAssets(project: Project, runtime: Plan2World
     let reason: RuntimeAssetDiagnostic['reason'] = 'missing-source';
     if (id === 'builtin:door-leaf-v1') bytes = compileDefaultDoorAsset();
     else if (id.startsWith('builtin:') && id.endsWith('-v1') && needsCeilingMount(id.slice(8,-3))) bytes = compileCeilingLightAsset(id.slice(8,-3));
+    else if (id.startsWith('builtin:') && id.endsWith('-v1') && hasBuiltinWallDecor(id.slice(8,-3))) bytes = compileWallDecorAsset(id.slice(8,-3));
     else if (id.startsWith('custom-model:')) {
       const modelId = id.slice('custom-model:'.length);
       const model = project.customModels?.find(model => model.id === modelId);

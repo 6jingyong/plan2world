@@ -60,7 +60,8 @@ func run():
 	var world_id:int=main._world.get_instance_id();var player_pose:Transform3D=main._world.get_node("Player").transform
 	var other:Node=main._world.find_child("Door_unequal",true,false);var other_id:int=other.get_instance_id()
 	other.interact();await frames()
-	main._door_settings.show_doors(main._session.current()["doors"],"ground")
+	main._show_door_settings()
+	check(paused and main._plan_view.has_open_dialog(),"Native shortcuts must treat shared door settings as a paused modal")
 	var settings=main._door_settings;settings._selector.select(0);settings._selector.item_selected.emit(0)
 	settings._preset.select(2);settings._preset.item_selected.emit(2)
 	settings.confirmed.emit();settings.hide();await idle(main)

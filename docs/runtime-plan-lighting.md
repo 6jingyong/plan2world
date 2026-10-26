@@ -1,5 +1,9 @@
 # Plan presentation and ceiling lights
 
+The current renderer reference and measured before/after results are documented
+in [lighting calibration](runtime-lighting-calibration.md). Native photometric
+settings stay authoritative; view exposure and natural presets are session state.
+
 Godot uses the same world, colliders and camera transition for walkthrough and
 orthographic arrangement. Plan appearance is a native material/view profile,
 not an embedded browser or a second 2D scene model.

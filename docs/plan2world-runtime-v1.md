@@ -79,7 +79,8 @@ Every non-opening interaction contains `leaves`. Each leaf has its own stable
 width/height/thickness in metres, independent of the referenced collider's shape.
 The collider retains the native door as `ownerId`. The door's top-level dimensions
 and `closedPose` describe the whole doorway, not an implied full-width moving body.
-Leaf IDs use `door:<URI-encoded native ID>:leaf:<index>`; adapters never construct
+Legacy leaf IDs use `door:<URI-encoded native ID>:leaf:<index>`; configured sliders
+use the URI-encoded native panel identity in place of the index. Adapters never construct
 IDs or divide the doorway width themselves.
 
 ### `swing`
@@ -104,7 +105,8 @@ follows the right-hand rule.
 }
 ```
 
-`single` has one leaf. Native `double`/`french` doors compile to two equal leaves,
+`single` has one leaf. Native `double`/`french` doors compile to two leaves (equal
+by default, or using the explicitly authored first-leaf ratio),
 hinged at opposite jambs with opposite signed angles. `swingDirection` and `flipSide` jointly select their shared opening side, matching
 the native two-leaf plan symbol. Changing either reverses both angles without
 swapping part identities. On a single door, `swingDirection` selects the hinge. A paired door has one open/close state;
@@ -117,10 +119,14 @@ place an additional full-width collider across the paired leaves.
 
 ### `slide`
 
-Sliding/pocket interactions contain one leaf with `axis` (world-space unit vector)
-and positive `travel` in metres. They have no pivot or swing angle. The compiler
-maps the retained native left/right direction onto the opening chord until the
-native authoring model gains a separate slide-direction semantic.
+Sliding/pocket interactions contain explicit panels with closed poses, track
+offsets compiled into those poses, world-space unit axes and positive travel.
+A fixed panel additionally has `fixed: true`, zero travel and a zero axis; its
+collider and asset remain real independent parts. No panel has an inferred hinge.
+Configured sliders set `allowHostOverlap: false`; pockets explicitly allow their
+own host cavity. Neighbouring walls and fixed/other moving panels remain obstacles.
+Legacy Projects without panel configuration retain their previous single-panel
+direction/travel and host exemption. See [native door panels](native-door-panels.md).
 
 ### `unsupported`
 

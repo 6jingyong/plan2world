@@ -41,7 +41,8 @@ try {
     'Top view is an unlit plan: dark walls, orange doors and blue windows. Choose Furniture or Ceiling lights in the layer selector.\n' +
     'Top view: middle/right drag pans, wheel zooms, left drag moves furniture, Esc cancels a drag.\n' +
     'Top-view dragging: optional 10 cm grid, straight-wall alignment and nearby furniture guides. Hold Alt for free placement; first-person micro-adjustment never snaps.\n' +
-    'Add, rotate, replace or delete furniture; save native Project and export a runtime scene ZIP. No undo or operation history. Architecture stays fixed.\n' +
+    'Place in room prepares a cancellable footprint preview; click a valid landing to accept. Swap uses the same preview. Wall/ceiling installation offers exact lists and direct host picking.\n' +
+    'Add, rotate, replace or delete furniture; save native Project and export a runtime scene ZIP. No undo or operation history. Architectural apertures stay fixed; Doors… configures existing sliding/paired panels.\n' +
     'Existing scenes, furniture editing and export run offline without an account. Only optional image creation/account connection uses the network and your OpenRouter credits.\n\n' +
     'WASD move | Ctrl slow | Shift fast | Mouse look | E door | Esc mouse | F1 scene menu\n' +
     'The scene menu pauses the current walkthrough. Failed scene opens can be dismissed by resuming it.\n\n' +
