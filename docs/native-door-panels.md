@@ -21,6 +21,11 @@ Reset explicitly restores the legacy default.
 An explicit aperture-width edit scales panel widths, closed centres and travel
 together; track offsets remain physical. Host reversal preserves physical panels.
 
+For explicitly configured doors, internal 3D Review draws the shared compiler's
+closed parts, including unequal widths and track offsets, on both the active and
+stacked floors. This is a read-only geometry preview; interaction and obstruction
+remain Godot responsibilities.
+
 Runtime slide parts retain explicit axis/travel. Fixed parts additionally carry
 `fixed: true`, zero travel and a zero axis, with a real independent collider and
 asset. Configured sliders emit `allowHostOverlap: false`; pocket panels explicitly
