@@ -125,6 +125,7 @@ ZIPs into relocated paths containing spaces/Chinese characters, then checks:
   reserved closed pose, failed conflicting Project recovery, save/export/reopen
   with safe default door poses, persistent error messages and unobstructed walking
   through placement-only reservations;
+- native interaction at paired-door seams, actor exclusion, nearest-wall occlusion and the existing reach; architecture ownership checks resolve an existing GLB and match its compiler digest;
 - actual release executable startup with all eight dynamic presentations and no
   missing-asset/static proxies; native source unchanged. Assertions read the
   engine's `--log-file` output so Windows GUI builds do not require console stdout.

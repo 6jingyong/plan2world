@@ -88,6 +88,7 @@ Historical model outputs and validation diaries are intentionally absent from th
 
 ## Important references
 
+- [YJ215 全流程验证与已知缺口](docs/yj215-validation.md) — 保留失败与源歧义，区分布置/照明通过和阳台门未通过；
 - [平面图显示、吸顶灯与自然光](docs/runtime-plan-lighting.md) — 同一 Godot 世界中的显示模式、分层编辑与数据边界；
 - [中文使用说明书：插件 / Skill 与独立桌面工具](docs/user-guide.zh-CN.md) — 账户、原图重建、正交俯视、布置与保存；
 - [`AGENTS.md`](AGENTS.md) — project invariants and validation rules;

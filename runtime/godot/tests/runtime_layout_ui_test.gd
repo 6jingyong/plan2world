@@ -65,7 +65,8 @@ func _run():
 	var browser=plan._catalog_view
 	var world_id=main._world.get_instance_id()
 	var before:=_count()
-	var architecture:=FileAccess.get_sha256(main._session.current()["runtimePath"].get_basename()+".architecture.glb")
+	var architecture:=FileAccess.get_sha256(P2WRuntimeArtifacts.new().default_architecture_path(str(main._session.current()["runtimePath"])))
+	_check(architecture.length()==64 and architecture==main._runtime_data["source"]["architectureSha256"],"Ownership checks must hash the actual architecture GLB and match the compiler digest")
 	_check(not browser.visible and not plan._selection_card.visible and camera.inset_right==16,"Idle arrangement must expose the room, without a permanent furniture inspector")
 	await _capture("room-first")
 	camera._center=Vector2(6.25,6.1);camera._size*=.9
@@ -167,7 +168,7 @@ func _run():
 	plan._save.hide()
 	var saved:=directory.path_join("layout.project.json")
 	_check(main._session.save_project(saved)==OK,"The new UI must still save the canonical Project")
-	_check(main._world.get_instance_id()==world_id and FileAccess.get_sha256(args[0])==original and FileAccess.get_sha256(main._session.current()["runtimePath"].get_basename()+".architecture.glb")==architecture,"Catalog/actions must preserve world, original source and architectural bytes")
+	_check(main._world.get_instance_id()==world_id and FileAccess.get_sha256(args[0])==original and FileAccess.get_sha256(P2WRuntimeArtifacts.new().default_architecture_path(str(main._session.current()["runtimePath"])))==architecture,"Catalog/actions must preserve world, original source and architectural bytes")
 	main.free();paused=false
 	print("Runtime game-style furnishing UI: ","PASS" if failures==0 else "FAIL (%d)"%failures)
 	quit(0 if failures==0 else 1)

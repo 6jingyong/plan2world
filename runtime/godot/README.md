@@ -183,7 +183,7 @@ The adapter delegates engine work to Godot:
 - player body: grounded `CharacterBody3D` with project gravity, floor snapping and `move_and_slide()`;
 - collision: runtime-v1 boxes/cylinders/triangle meshes -> Godot `CollisionShape3D`;
 - static architecture display: runtime-loaded glTF 2.0 binary via `GLTFDocument`/`GLTFState`;
-- interactive swing and slide doors: one `door.gd` controller per native door, with one `AnimatableBody3D` per explicit moving leaf; ray targets delegate to that controller;
+- interactive swing and slide doors: one `door.gd` controller per native door, with one `AnimatableBody3D` per explicit moving leaf; a small native ShapeCast handles aimed interaction across leaf seams, preserves wall occlusion and delegates to that controller;
 - straight-stair traversal: ordinary grounded movement over compiler-owned ramp collision;
 - mouse look and movement speeds live only in the runtime backend.
 
@@ -195,6 +195,7 @@ This is still an architecture/runtime milestone, not a rendering-quality milesto
 
 - `kind: "swing"` and `kind: "slide"` doors are interactive; fold and overhead source motions remain closed blockers;
 - single/double/french swing doors consume explicit per-leaf pivots, poses and colliders; both paired leaves share one interaction state;
+- current native sliding doors retain one moving leaf; multi-track balcony assemblies need explicit panel/track/travel authoring before they can reproduce real opening geometry. The [YJ215 case](../../docs/yj215-validation.md) records three blocked sliders; never bypass adjacent-wall collision to hide this limitation;
 - straight stairs can connect adjacent authored floors physically and now have shared step presentation; L-shaped, U-shaped and spiral stairs remain explicit unsupported traversal/presentation rather than being approximated;
 - a multi-floor stairwell still needs the native project to contain the corresponding `floorOpening` aperture; the runtime compiler will preserve it but will not invent one;
 - wall junctions with incompatible endpoint heights or pathological/unbounded offset intersections retain closed caps and emit a compiler diagnostic;
