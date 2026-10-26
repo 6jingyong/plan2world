@@ -1,5 +1,6 @@
 import type { BackgroundImage, Project, Wall } from '$lib/models/types';
 import { wallPathSpans } from '$lib/utils/wallProfiles';
+import { validateImagePreparationEvidence } from './imagePreparation';
 import {
   draftToProject,
   parsePlan2WorldDraft,
@@ -13,6 +14,7 @@ export interface SourceFloorPlanImage {
   width: number;
   height: number;
   name?: string;
+  preparation?: import('./imagePreparation').ImagePreparationEvidence;
 }
 
 export interface NormalizedImagePoint {
@@ -257,6 +259,11 @@ export function draftToProjectWithSourceBackground(
 ): Project {
   const draft = parsePlan2WorldDraft(input);
   const project = draftToProject(draft, now);
+  if (source.preparation) {
+    validateImagePreparationEvidence(source.preparation);
+    if (source.preparation.manifest.width !== source.width || source.preparation.manifest.height !== source.height) throw new Error('Image preparation dimensions disagree with the tracing background.');
+    if (project.reconstruction) project.reconstruction.inputPreparation = structuredClone(source.preparation);
+  }
   const floor = project.floors.find(item => item.id === draft.sourceRegistration?.floorId) ?? project.floors[0];
   if (!floor) return project;
 

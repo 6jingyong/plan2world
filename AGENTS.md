@@ -6,7 +6,17 @@ Plan2World turns a floor-plan raster into an editable browser home and an engine
 
 ## Canonical reconstruction
 
-**source raster → one architectural observation (functional zones/walls/openings/scale), freeze those observations → furniture semantics/positions → deterministic raster refinement + functional-zone logical closure + opening audit → freeze final architecture and furniture anchors → deterministic draft assembly → native application**
+**original raster → optional confirmed image preparation → one architectural observation (functional zones/walls/openings/scale), freeze those observations → furniture semantics/positions → deterministic raster refinement + functional-zone logical closure + opening audit → freeze final architecture and furniture anchors → deterministic draft assembly → native application**
+
+- Input preparation is shared deterministic authoring code. JPEG EXIF direction,
+  manual quarter-turns and four-corner rectification happen BEFORE observation.
+  Perspective mode needs a known rectangular reference and explicit aspect ratio;
+  never square off the apartment outline or infer page proportions. Freeze original
+  and working image, reversible transform and hashes. All later pixels, observations,
+  scale and overlays use the working image; native reconstruction evidence retains
+  provenance and the original when transformed. This is not runtime semantics.
+  See `docs/image-preparation.md`. Local crops inspect specific doubts; fixed grids
+  and per-tile reconstruction stay optional/low priority, not default stages.
 
 - The direct Skill records `source-architecture-v1` in original image pixels,
   including concise visual evidence, decisions and uncertain/rejected candidates.
@@ -132,6 +142,12 @@ Keep bulk diaries/artifacts out
 of the active tree; do not erase negative results when later fixes pass.
 Use the ledger's effectiveness table for orientation; read individual historical
 rounds when their variable or failure is relevant.
+
+`runtime:validate` records separate source/structure/door-motion/arrangement/save/
+walkthrough/rendering scopes. Every supported door is tested in its own original
+closed physics world without a player; record blocked leaves/owners and unsupported
+motions. Untested scopes remain `not_run`, never borrow a compiler or CI pass.
+Frozen reconstruction and later deliberate user arrangement are separate inputs.
 
 ## Draft invariants
 

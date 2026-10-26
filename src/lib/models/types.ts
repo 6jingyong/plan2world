@@ -302,6 +302,7 @@ export interface ReconstructionObservationReview {
 export interface ReconstructionEvidence {
   version: 1;
   observationReview?: ReconstructionObservationReview;
+  inputPreparation?: import('../plan2world/imagePreparation').ImagePreparationEvidence;
   scale: { mode: 'measured' | 'provided' | 'estimated'; confidence: number; basis?: string };
   assumptions: string[];
   floors: {

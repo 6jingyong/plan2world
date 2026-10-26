@@ -2,7 +2,7 @@ import architectureGuide from '../../../skills/reconstruct-plan2world/references
 import furnishingGuide from '../../../skills/reconstruct-plan2world/references/furnishing-pass.md?raw';
 import { PLAN2WORLD_FURNITURE_TYPES } from './furnitureVocabulary';
 
-export const PLAN2WORLD_RECONSTRUCTION_INSTRUCTIONS_VERSION = 'plan2world-architecture-furnishing-instructions-v22' as const;
+export const PLAN2WORLD_RECONSTRUCTION_INSTRUCTIONS_VERSION = 'plan2world-architecture-furnishing-instructions-v23' as const;
 export interface ReconstructionOptions { scaleHint?: string }
 
 /** The portable Skill is also the source for the browser's observation prompt. */

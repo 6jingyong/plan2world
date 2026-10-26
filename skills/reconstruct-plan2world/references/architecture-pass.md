@@ -3,6 +3,12 @@
 Observe the original raster once for walls, windows, doors, sliding doors and
 scale evidence. Programs own topology, IDs, host matching and arithmetic.
 
+The supplied image is the confirmed observation input. Optional photo direction/
+perspective preparation has already happened upstream. Use pixels in THIS image;
+do not undo its crop, infer a paper ratio, rectify the apartment outline or return
+coordinates in an earlier photograph. Local views only help inspect a specific
+uncertainty and share the same full-image coordinates.
+
 Output `source-architecture-v1`:
 
 ```json

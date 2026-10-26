@@ -19,6 +19,7 @@ This is a current capability summary, not a development diary.
 
 - Valid drafts convert into the existing native `Project`/`Floor` model.
 - Native wall/opening/furniture correction, Undo/Redo and persistence remain available.
+- Optional local photo preparation: JPEG EXIF direction, four paper/reference corners, known aspect ratio, quarter-turns and confirmed preview. Browser/desktop/Skill reuse shared deterministic transforms; original evidence and the working coordinate frame persist. No automatic paper detection or extra model observation.
 - Imported-object blocks can be styled/replaced while retaining native identity.
 - Rooms/areas are derived from live native geometry.
 - Source-boundary review shows unsupported or merged observed zones before opening the home. Its compact import-time findings survive native save/package return; live geometry checks remain separate after edits.

@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile,access } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { preflightArchitectureObservation, prepareArchitectureStage, assembleFrozenArchitecture } from '$lib/plan2world/architecture';
+import { prepareFloorPlanImage } from '../tooling/prepare-floorplan-image.mjs';
+import { encodeRgbaPng } from '../tooling/png-raster.mjs';
+import { readProject } from '$lib/utils/projectValidation';
 
 function evidence() {
   const decision = { decision: 'accept', decisionBasis: 'Visible source stroke.', evidence: 'Architectural line.' };
@@ -127,4 +131,32 @@ describe('single architectural observation with frozen opening evidence', () => 
       expect(await readFile(join(output, 'architecture-stage.json'), 'utf8')).toBe(before);
     } finally { await rm(directory, { recursive: true, force: true }); }
   });
+  it('CLI hands the same confirmed input to the native Project and rejects a different image with identical dimensions',async()=>{
+    const directory=await mkdtemp(join(tmpdir(),'p2w-cli-photo-handoff-'));
+    try{
+      const imagePath=join(directory,'original.png'),rasterPath=join(directory,'original.rgba'),data=Buffer.alloc(100*100*4,255);
+      await writeFile(imagePath,encodeRgbaPng({width:100,height:100,data}));await writeFile(rasterPath,data);
+      const prepared=await prepareFloorPlanImage({imagePath,rasterPath,width:100,height:100,pixelOrientation:'upright',recipe:{mode:'perspective',quarterTurns:0,corners:[{x:.1,y:.1},{x:.9,y:.15},{x:.85,y:.9},{x:.15,y:.85}],aspectRatio:1,outputWidth:100},outputDirectory:join(directory,'input')});
+      const furnishing={schemaVersion:'source-furnishing-v1',furniture:[{sourceCategory:'chair',position:{x:50,y:50}}]};
+      const stage=prepareArchitectureStage(evidence(),{...context,sourceImageSha256:prepared.manifest.working.sha256},furnishing);
+      const stagePath=join(directory,'stage.json'),furnishingPath=join(directory,'furnishing.json');await writeFile(stagePath,JSON.stringify(stage));await writeFile(furnishingPath,JSON.stringify(furnishing));
+      const output=join(directory,'assembled'),args=['tooling/plan2world-architecture.mjs','assemble','--stage',stagePath,'--furnishing',furnishingPath,'--source',prepared.imagePath,'--input-preparation',prepared.manifestPath,'--original-image',prepared.originalPath,'--output',output];
+      execFileSync(process.execPath,args,{env:{...process.env,NODE_ENV:'production'},stdio:'pipe'});
+      const project=readProject(JSON.parse(await readFile(join(output,'project.json'),'utf8')));
+      expect(project.reconstruction?.inputPreparation?.manifest).toEqual(prepared.manifest);
+      expect(project.reconstruction?.inputPreparation?.originalDataUrl).toBe('data:image/png;base64,'+(await readFile(imagePath)).toString('base64'));
+      expect(project.floors[0].backgroundImage?.dataUrl).toBe('data:image/png;base64,'+(await readFile(prepared.imagePath)).toString('base64'));
+      expect(project.floors[0].entrance).toBeUndefined();
+      expect(project.reconstruction?.observationReview).toBeDefined();
+      const changed=Buffer.alloc(data.length,0);for(let i=3;i<changed.length;i+=4)changed[i]=255;
+      await writeFile(prepared.imagePath,encodeRgbaPng({width:100,height:100,data:changed}));
+      const altered=JSON.parse(await readFile(prepared.manifestPath,'utf8'));altered.working.sha256=createHash('sha256').update(await readFile(prepared.imagePath)).digest('hex');await writeFile(prepared.manifestPath,JSON.stringify(altered));
+      const wrongOutput=join(directory,'wrong-input'),badArgs=[...args.slice(0,-1),wrongOutput];
+      let failure='';try{execFileSync(process.execPath,badArgs,{env:{...process.env,NODE_ENV:'production'},stdio:'pipe'});}catch(error:any){failure=String(error.stderr);}
+      expect(failure).toContain('does not match the frozen stage');
+      await expect(access(wrongOutput)).rejects.toThrow();
+      expect(JSON.parse(await readFile(stagePath,'utf8'))).toEqual(stage);
+      expect(()=>preflightArchitectureObservation(evidence(),{...context,sourceImageSha256:'bad'})).toThrow(/SHA-256/);
+    }finally{await rm(directory,{recursive:true,force:true});}
+  },30_000);
 });

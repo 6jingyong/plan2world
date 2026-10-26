@@ -115,6 +115,7 @@ export function parseSourceFurnishing(input: unknown, scaleEvidence: SourceAnnot
 }
 
 function assertSourceBounds(architecture: SourceArchitectureV1, context: ReconstructionAssemblyContext, furniturePositions: DraftPoint[] = []) {
+  if (context.sourceImageSha256 !== undefined && (typeof context.sourceImageSha256 !== 'string' || !/^[a-f0-9]{64}$/.test(context.sourceImageSha256))) throw new Error('Architecture source image identity must be a SHA-256 digest.');
   if (context.sourceWidthPx !== undefined || context.sourceHeightPx !== undefined) {
     const width = context.sourceWidthPx, height = context.sourceHeightPx;
     if (typeof width !== 'number' || typeof height !== 'number' || !Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) throw new Error('Architecture requires both positive source dimensions.');

@@ -8,13 +8,16 @@ import { readSourceRaster } from './source-raster.mjs';
 
 const [command, ...args] = process.argv.slice(2), options = {};
 for (let i = 0; i < args.length; i += 2) {
-  if (!['--input', '--stage', '--furnishing', '--output', '--source', '--source-width', '--source-height'].includes(args[i]) || !args[i + 1]) throw new Error('Invalid architecture command arguments.');
+  if (!['--input', '--stage', '--furnishing', '--output', '--source', '--source-width', '--source-height', '--input-preparation', '--original-image'].includes(args[i]) || !args[i + 1]) throw new Error('Invalid architecture command arguments.');
   options[args[i].slice(2)] = args[i + 1];
 }
 if (!['preflight', 'prepare', 'assemble', 'assemble-diagnostic'].includes(command) || !options.output) throw new Error('Usage: preflight|prepare --input architecture.json [--furnishing furnishing.json (prepare only)] --output new-dir [--source original.jpg | --source-width W --source-height H] | assemble[‑diagnostic] --stage architecture-stage.json --furnishing furnishing.json --output new-dir');
 if (command === 'preflight' && options.furnishing) throw new Error('Observation preflight runs before furnishing and does not consume furniture.');
+if (options['input-preparation'] || options['original-image']) {
+  if (command !== 'assemble' || !options.source || !options['input-preparation'] || !options['original-image']) throw new Error('Input preparation requires assemble with --source working.png --input-preparation manifest.json --original-image original.jpg.');
+}
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const server = await createServer({ root, configFile: false, logLevel: 'error', resolve: { alias: { '$lib': resolve(root, 'src/lib') } }, optimizeDeps: { noDiscovery: true, include: [] }, server: { middlewareMode: true, watch: null, ws: false }, appType: 'custom' });
+const server = await createServer({ root, configFile: false, logLevel: 'error', resolve: { alias: { '$lib': resolve(root, 'src/lib') } }, optimizeDeps: { noDiscovery: true, include: [] }, server: { middlewareMode: true, watch: null, hmr: false }, appType: 'custom' });
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const input = async path => { if (!path) throw new Error('Missing required input path.'); const bytes = await readFile(resolve(path)); return { value: JSON.parse(bytes), sha256: hash(bytes), path: resolve(path) }; };
 try {
@@ -28,7 +31,7 @@ try {
     const sourceBytes = options.source ? await readFile(resolve(options.source)) : undefined;
     const raster = sourceBytes ? await readSourceRaster(sourceBytes) : undefined;
     if (raster && width !== undefined && (raster.width !== Number(width) || raster.height !== Number(height))) throw new Error('Source dimensions disagree with decoded original.');
-    const context = raster ? { sourceWidthPx: raster.width, sourceHeightPx: raster.height }
+    const context = raster ? { sourceWidthPx: raster.width, sourceHeightPx: raster.height, sourceImageSha256: hash(sourceBytes) }
       : width === undefined ? {} : { sourceWidthPx: Number(width), sourceHeightPx: Number(height) };
     if (command === 'preflight') {
       const architecture = preflightArchitectureObservation(source.value, context);
@@ -74,6 +77,25 @@ try {
     const result = assembleFrozenArchitecture(stage.value, furnishing.value, { allowUnresolvedOpenings: command === 'assemble-diagnostic' });
     outputs = { 'draft.json': result.draft, 'architecture-preservation.json': { architectureUnchanged: result.architectureUnchanged, openingAudit: result.openingAudit, validationStatus: result.validationStatus } };
     provenance = { command, stage: { path: stage.path, sha256: stage.sha256 }, furnishing: { path: furnishing.path, sha256: furnishing.sha256 }, architectureUnchanged: result.architectureUnchanged, validationStatus: result.validationStatus };
+    if (command === 'assemble' && options.source) {
+      const bytes=await readFile(resolve(options.source)),raster=await readSourceRaster(bytes);
+      if(stage.value.sourceContext.sourceImageSha256!==hash(bytes)) throw new Error('Source image does not match the frozen stage. Prepare a new stage from the confirmed working image.');
+      const {draftToProjectWithSourceBackground}=await server.ssrLoadModule('/src/lib/plan2world/sourceBackground.ts');
+      let preparation;
+      if(options['input-preparation']) {
+        const {readPreparedImageEvidence}=await server.ssrLoadModule('/tooling/prepare-floorplan-image.mjs');
+        // The native handoff binds encoded image identity/dimensions. Source
+        // raster refinement already ran on this image during stage preparation;
+        // do not compare decoder-specific alpha rounding as a new observation.
+        preparation=await readPreparedImageEvidence({preparationManifestPath:resolve(options['input-preparation']),originalImagePath:resolve(options['original-image']),width:raster.width,height:raster.height},bytes);
+      }
+      const mime=preparation?.manifest.working.mimeType??(bytes[0]===0xff?'image/jpeg':bytes[0]===0x89?'image/png':'image/webp');
+      const project=draftToProjectWithSourceBackground(result.draft,{dataUrl:`data:${mime};base64,${bytes.toString('base64')}`,width:raster.width,height:raster.height,name:preparation?.manifest.source.name,preparation});
+      const {summarizeArchitectureObservation}=await server.ssrLoadModule('/src/lib/plan2world/review.ts');
+      project.reconstruction.observationReview=summarizeArchitectureObservation(stage.value);
+      outputs['project.json']=project;
+      provenance.workingImage={sha256:hash(bytes),width:raster.width,height:raster.height};
+    }
   }
   const output = resolve(options.output); await mkdir(output, { recursive: true });
   outputs['provenance.json'] = provenance;

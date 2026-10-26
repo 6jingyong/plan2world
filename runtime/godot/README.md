@@ -2,6 +2,12 @@
 
 This directory is a deliberately small consumer of `plan2world-runtime-v1` plus its sibling `architecture.glb` presentation artifact.
 It is **not** a second authoring model and must never become the source of truth for a house.
+
+The optional creation page prepares photographed plans locally before recognition:
+JPEG direction, paper/reference corners, explicit width/height ratio, preview and
+confirmation. Original evidence and the working raster stay aligned through the
+shared authoring core; the runtime loader does not handle images. Preparation
+needs no AI account. See [image preparation](../../docs/image-preparation.md).
 The editable Plan2World `Project` remains authoritative. Runtime loaders consume compiled artifacts; a separate native furniture editor delegates Project edits/compilation to the packaged shared core. All UI, cameras, picking, drag and collision checks run in Godot.
 
 [中文使用说明书：插件 / Skill 与独立桌面](../../docs/user-guide.zh-CN.md).

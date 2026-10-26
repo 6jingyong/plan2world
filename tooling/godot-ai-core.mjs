@@ -16,7 +16,7 @@ try {
   // Provider/network internals may contain secrets: only known product errors
   // leave this process. Unexpected details never become engine console output.
   const message = error instanceof Error ? error.message : '';
-  const safe = /^(OpenRouter |Account |Enter a valid |Connect OpenRouter |Choose |Unsupported |Original raster |Invalid native |The model |Unresolved |Architecture |Duplicate |Overlapping |Source )/.test(message);
+  const safe = /^(Image preparation |OpenRouter |Account |Enter a valid |Connect OpenRouter |Choose |Unsupported |Original raster |Invalid native |The model |Unresolved |Architecture |Duplicate |Overlapping |Source )/.test(message);
   emit({ done: true, result: { ok: false, error: safe ? message : 'Reconstruction could not finish. Existing work was retained; check model capability and source observations before trying again.' } });
   process.exitCode = 1;
 }

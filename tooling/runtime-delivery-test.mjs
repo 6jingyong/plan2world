@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import JSZip from 'jszip';
 import { runtimeWalkthroughProject } from './runtime-walkthrough-fixture.mjs';
 import { runtimeProductProject } from './runtime-product-fixture.mjs';
+import { runtimeDoorAuditProject } from './runtime-door-audit-fixture.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const [playerZip, output] = process.argv.slice(2);
@@ -63,6 +64,24 @@ for (const filename of ['runtime_launcher_test.gd', 'runtime_walkthrough_test.gd
   // editor to exercise the exact shipped PCK; do not add test hooks to the game.
   execFileSync(godot, ['--headless', '--main-pack', path.join(playerDirectory, 'Plan2World.pck'), '--fixed-fps', '60', '--script', script, '--', ...args], { cwd: directory, stdio: 'inherit', timeout: 180_000, env: { ...process.env, P2W_AUTHORING_CORE: path.join(playerDirectory, 'core') } });
 }
+// A real per-door audit must distinguish healthy motion, physical obstruction,
+// explicit unsupported motion and a leafless passage. Use the shipped loader
+// and physics from the exact PCK, with no actor or presentation-derived shapes.
+const doorAuditScript=path.join(directory,'runtime-door-audit.gd');
+await copyFile(path.join(root,'tooling/runtime-door-audit.gd'),doorAuditScript);
+async function auditDoors(runtimePath,reportPath) {
+  execFileSync(godot,['--headless','--main-pack',path.join(playerDirectory,'Plan2World.pck'),'--fixed-fps','60','--script',doorAuditScript,'--',runtimePath,reportPath],{cwd:directory,stdio:'inherit',timeout:180_000});
+  return JSON.parse(await readFile(reportPath,'utf8'));
+}
+const healthy=await auditDoors(scene,path.join(directory,'healthy-door-motion.json'));
+if(healthy.status!=='pass'||healthy.doors.length!==4||healthy.doors.some(door=>door.status!=='pass'||!door.fullyOpen||!door.fullyClosed))throw new Error('Every supported fixture door must fully open and close in isolation.');
+const blockedInput=path.join(directory,'blocked-doors.project.json'),blockedScene=path.join(directory,'blocked-doors.runtime.json');
+await writeFile(blockedInput,JSON.stringify(await runtimeDoorAuditProject()));
+execFileSync(process.execPath,[path.join(root,'tooling/runtime-export.mjs'),blockedInput,blockedScene],{cwd:root,stdio:'inherit'});
+const blocked=await auditDoors(blockedScene,path.join(directory,'blocked-door-motion.json'));
+const byId=new Map(blocked.doors.map(door=>[door.id,door])),slide=byId.get('slide-door');
+if(blocked.status!=='fail'||slide?.status!=='fail'||slide.fullyOpen||!slide.fullyClosed||!slide.leaves.some(leaf=>leaf.openPoseBlockers.includes('slide-travel-blocker')))throw new Error('Door audit must report an authored travel blocker without bypassing or repairing it.');
+if(byId.get('unsupported-fold')?.status!=='review_required'||byId.get('unsupported-overhead')?.status!=='review_required'||byId.get('leafless')?.status!=='pass')throw new Error('Unsupported motion and leafless passages must retain their explicit semantics in acceptance.');
 // Also boot the shipped application normally, without the external test script.
 // Windows GUI executables may have no console stdout. The engine's own log-file
 // option gives both platforms the same observable production load diagnostics.
@@ -75,4 +94,4 @@ if (!boot.includes('Plan2World runtime loaded:') || !boot.includes('assets=8') |
 }
 if (await readFile(input, 'utf8') !== source) throw new Error('Native source changed during export');
 if (await readFile(productInput, 'utf8') !== productSource) throw new Error('Native product source changed during editing');
-console.log('Relocated player/scene ZIPs: shipped PCK physics/launcher/layout/product controls/snapping/furnishing UI/desktop authoring (mock provider)/flat plan/ceiling lighting/door seam interaction + offline shared core + release executable boot: PASS');
+console.log('Relocated player/scene ZIPs: eleven gate groups including local photo preparation, mocked recognition and every-door healthy/blocked/unsupported motion + offline shared core + release executable boot: PASS');

@@ -29,6 +29,8 @@ The direct Skill / CLI and browser provider use the same reconstruction sequence
 
 Initial reconstructed doors/windows extend from floor to host wall height, with window sill 0. These are editable starting values, not measurements inferred from the raster. Furniture extraction remains semantics and position only.
 
+Phone photos can use local four-corner preparation with an explicit known rectangle proportion, preview and confirmation before recognition. Original evidence is retained; both observations, source review and calibration share the same prepared image. Flat plans work directly. See [input preparation](docs/image-preparation.md).
+
 Functional zones and architecture are observed together, followed by the furniture-only observation. The program verifies independent native regions, inserts source-supported leafless thresholds and balcony air/railing boundaries, and evaluates bounded connections of observed wall endpoints. See [functional zones](docs/functional-zones.md) and [furniture-guided closure](docs/furniture-guided-closure.md).
 
 Original-pixel raster evidence supports conservative refinement. Background sampling uses accepted architectural bounds and an interior grid to avoid photo frames; ambiguous backgrounds disable raster assistance. Sampling never crops coordinates or authorizes walls. Centerline correction remains disabled; see [raster background](docs/raster-background.md) and [centerline policy](docs/raster-centerlines.md).

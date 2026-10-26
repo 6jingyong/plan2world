@@ -30,6 +30,8 @@ explicit paid-image consent. It uses the same reconstruction pipeline, requires
 an explicit entrance choice and then opens the saved native Project. It adds no
 account requirement to offline runtime or furniture editing. Players include the
 [Chinese guide](user-guide.zh-CN.md) as `README.zh-CN.md`.
+Local [photo preparation](image-preparation.md) also works without an account.
+Recognition uses the confirmed working image; the original remains retained.
 
 Controls: WASD move, Ctrl slow, Shift fast, mouse look, E door, Esc release/capture
 mouse, F2 top view, F1 scene menu. The menu pauses physics/input. Failed scene opens preserve

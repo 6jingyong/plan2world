@@ -2,10 +2,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mkdtemp, readFile, writeFile, rm, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { deflateSync } from 'node:zlib';
 import { runDesktopAiTask } from '../tooling/desktop-ai-tasks.mjs';
 import { reconstructFloorPlanWithObserver } from '$lib/plan2world/vision';
 import { readProject } from '$lib/utils/projectValidation';
+import { compileRuntimeScene } from '$lib/runtime/compileRuntimeScene';
+import { encodeRgbaPng } from '../tooling/png-raster.mjs';
 
 const directories: string[]=[];
 afterEach(async () => { await Promise.all(directories.splice(0).map(d => rm(d,{recursive:true,force:true}))); });
@@ -18,11 +19,7 @@ const furnishing={schemaVersion:'source-furnishing-v1',furniture:[{sourceCategor
 // Original synthetic PNG and its exact opaque-white pixels, for transport parity
 // only. This is not a real-floorplan/model extraction quality evaluation.
 function png() {
-  const crc=(bytes:Buffer) => { let v=0xffffffff;for(const b of bytes){v^=b;for(let j=0;j<8;j++)v=(v>>>1)^((v&1)?0xedb88320:0);}return(v^0xffffffff)>>>0; };
-  const chunk=(type:string,body:Buffer)=>{const data=Buffer.concat([Buffer.from(type),body]),n=Buffer.alloc(4),c=Buffer.alloc(4);n.writeUInt32BE(body.length);c.writeUInt32BE(crc(data));return Buffer.concat([n,data,c]);};
-  const header=Buffer.alloc(13);header.writeUInt32BE(360);header.writeUInt32BE(300,4);header[8]=8;header[9]=6;
-  const scan=Buffer.alloc((360*4+1)*300,255);for(let i=0;i<300;i++)scan[i*(360*4+1)]=0;
-  return Buffer.concat([Buffer.from('89504e470d0a1a0a','hex'),chunk('IHDR',header),chunk('IDAT',deflateSync(scan)),chunk('IEND',Buffer.alloc(0))]);
+  return encodeRgbaPng({width:360,height:300,data:Buffer.alloc(360*300*4,255)});
 }
 async function input() {
   const dir=await mkdtemp(path.join(tmpdir(),'p2w-desktop-test-'));directories.push(dir);
@@ -74,6 +71,31 @@ describe('shared native desktop reconstruction',()=>{
     await expect(runDesktopAiTask(request,()=>{},fetcher)).rejects.toThrow();
     expect(fetcher).toHaveBeenCalledTimes(1);
     expect(JSON.parse(await readFile(path.join(request.outputDirectory,'source-architecture.json'),'utf8'))).toEqual(bad);
-    expect(await readdir(request.outputDirectory)).toEqual(['source-architecture.json']);
+    expect((await readdir(request.outputDirectory)).sort()).toEqual(['architecture-freeze.json','source-architecture.json']);
+    const receipt=JSON.parse(await readFile(path.join(request.outputDirectory,'architecture-freeze.json'),'utf8'));
+    expect(receipt.modelId).toBe('fixture/vision');expect(receipt.promptSha256).toMatch(/^[a-f0-9]{64}$/);expect(receipt.observationSha256).toMatch(/^[a-f0-9]{64}$/);
+  });
+  it('prepares without a provider, then uses the confirmed image for both observations, background and saved provenance',async()=>{
+    const {request,image}=await input(),fetcher=vi.fn();
+    const preparation=await runDesktopAiTask({...request,op:'prepare-image',pixelOrientation:'upright',recipe:{mode:'perspective',quarterTurns:0,corners:[{x:.1,y:.1},{x:.9,y:.15},{x:.85,y:.9},{x:.15,y:.85}],aspectRatio:1.2,outputWidth:360},outputDirectory:request.outputDirectory+'-image'},()=>{},fetcher);
+    expect(fetcher).not.toHaveBeenCalled();
+    let pass=0;const working=await readFile(preparation.imagePath);
+    const observe=vi.fn(async(_url:string,init:RequestInit)=>{
+      const body=JSON.parse(init.body as string);
+      expect(body.messages[0].content[0].image_url.url).toBe('data:image/png;base64,'+working.toString('base64'));
+      return new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify(pass++===0?architecture:furnishing)}}]}));
+    });
+    const preparedRequest={...request,imagePath:preparation.imagePath,rasterPath:preparation.rasterPath,preparationManifestPath:preparation.manifestPath,originalImagePath:preparation.originalPath};
+    const result=await runDesktopAiTask(preparedRequest,()=>{},observe);
+    expect(observe).toHaveBeenCalledTimes(2);
+    const project=readProject(JSON.parse(await readFile(result.projectPath,'utf8')));
+    expect(project.floors[0].backgroundImage?.dataUrl).toBe('data:image/png;base64,'+working.toString('base64'));
+    expect(project.reconstruction?.inputPreparation?.originalDataUrl).toBe('data:image/png;base64,'+image.toString('base64'));
+    expect(project.reconstruction?.inputPreparation?.manifest).toEqual(preparation.manifest);
+    const runtime=compileRuntimeScene(project),withoutEvidence=structuredClone(project);delete withoutEvidence.reconstruction!.inputPreparation;
+    expect(compileRuntimeScene(withoutEvidence)).toEqual(runtime);
+    const corrupted=Buffer.from(working);corrupted[20]^=1;await writeFile(preparation.imagePath,corrupted);
+    await expect(runDesktopAiTask({...preparedRequest,outputDirectory:request.outputDirectory+'-tamper'},()=>{},fetcher)).rejects.toThrow(/after confirmation/);
+    expect(fetcher).not.toHaveBeenCalled();expect(await readFile(request.imagePath)).toEqual(image);
   });
 });

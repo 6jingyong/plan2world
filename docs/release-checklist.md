@@ -15,7 +15,7 @@ Use this checklist for a specific release candidate. Checking a box requires evi
 When reconstruction behavior or the Skill changes:
 
 - [ ] Apply the current `skills/reconstruct-plan2world` procedure to at least one fresh original raster.
-- [ ] Create/identify a validation run and record source identity, repository commit and a new draft-candidate ID.
+- [ ] Create/identify a validation run and record source identity, repository commit and a new draft-candidate ID. For a photo, freeze confirmed preparation, known rectangle proportion and inverse transform before either observation; all stages use that working image. Preserve the original.
 - [ ] Freeze the complete emitted JSON before inspecting downstream output; record its hash when practical.
 - [ ] Review source → draft separately from draft-contract validity.
 - [ ] Validate the frozen draft before testing validated draft → native conversion.
@@ -24,7 +24,10 @@ When reconstruction behavior or the Skill changes:
 - [ ] Stop at the earliest failed boundary. Fix that reusable layer and leave later stages unclaimed for that run.
 - [ ] If the reconstruction Skill changed, generate a separate fresh draft candidate rather than overwriting the failed one.
 
-The ordered stage IDs and manifest semantics live in `src/lib/plan2world/validationRun.ts`; source/model/prompt identity lives in `reconstructionExperiment.ts`.
+See [input preparation](image-preparation.md), the compact experiment ledger and
+[mechanical case acceptance](runtime-integration.md). Source fidelity, compiler
+checks, every-door motion, save/reopen, walkthrough and rendered lighting are
+separate evidence; untested scopes remain `not_run` in the case report.
 
 ## User workflows
 

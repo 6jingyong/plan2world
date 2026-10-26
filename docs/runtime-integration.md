@@ -40,6 +40,29 @@ preservation and teardown assertions remain correctness gates.
 
 ## Saved real-house Project
 
+Run the reusable mechanical acceptance in a fresh directory:
+
+```sh
+GODOT_BIN=/path/to/Godot_v4.7.2 npm run runtime:validate -- \
+  house.project.json NEW_DIRECTORY --arranged arranged.project.json
+```
+
+`--arranged` is optional and is a separate deliberate user-edit snapshot, never
+a repaired reconstruction. The tool freezes input identity/code state, exports
+twice through the real CLI, compares all files and ZIP bytes, checks real GLB and
+asset digests/ownership, and audits **every door** in a separate closed physics
+world without a player. It records each leaf's requested/actual travel/angle,
+full open/close and blocker owners. Leafless passages pass without motion;
+unsupported semantics require review. It never changes an aperture or collision.
+
+`validation-report.json` keeps input, sourceReview, structure, doorMotion,
+arrangement, persistence, walkthrough and rendering separate. Source fidelity,
+interactive save/reopen, player routes and actual lighting remain `not_run`
+unless tested independently; successful exports cannot certify them. Exit codes
+are 0=all scopes pass, 1=a checked scope failed, 2=review or untested scopes remain.
+Source-zone findings, when retained in native import evidence, remain historical.
+The report supplements the manual/native checks below; it does not replace them.
+
 1. Import an existing saved native Project in the editor, review its geometry,
    save it, then use **Export → Download JSON**. The repository's Wikimedia
    two-bedroom downstream baseline can also be imported and saved through this

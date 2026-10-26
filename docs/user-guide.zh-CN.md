@@ -50,11 +50,15 @@ Disconnect 只清除本机凭据，不撤销 OpenRouter 上的 Key。授权生�
 
 桌面版目前实现 OpenRouter。ChatGPT 账户可以使用上面的宿主 Skill 入口；桌面内的 Sign in with ChatGPT 尚未实现。OpenAI 已提供开源客户端官方方案，但需要独立完成身份校验、授权及流式请求接入，不能复用浏览器会话或将订阅当作普通 API Key。[官方接入文档](https://developers.openai.com/siwc/token-sharing-open-source/sign-in)。
 
-### 2. 上传原图并确认生成
+### 2. 准备图片并确认生成
 
-在 **From an image** 选择原图、检查预览，并按需填已知尺寸。勾选使用自己 OpenRouter 额度发送两次观察，点击 **Reconstruct floor plan**。
+在 **From an image** 选择原图。现成的平面图可直接使用；手机拍照可勾选 **Correct a photographed rectangle**，拖动纸张或已知矩形的四角，选择真实纸张比例或输入已知宽高比，点击 **Preview prepared image**，检查后选择 **Use prepared image**。**Rotate output 90°** 可调整最终方向；选中的角可用方向键微调，Shift 加大步长。
 
-原图发送到 OpenRouter 及所选模型服务商。第一轮观察建筑，第二轮携带冻结的建筑观察提取家具；共享程序随后完成像素辅助检查、逻辑闭合、门窗审查和 Project 组装。同次执行最多两次模型观察，前置审查失败时可能只发生一次。
+不要把户型外轮廓拉成矩形，也不要把不确定的纸张默认成 A4。保留尺寸标注；纸张宽高比不等于建筑实际尺寸。任意调整都会取消先前确认，准备过程在本机完成、不需要登录或 AI 额度。原图、变换和校正图均保留，Project 的背景使用校正图。
+
+按需填已知建筑尺寸，再勾选使用自己 OpenRouter 额度发送两次观察，点击 **Reconstruct floor plan**。
+
+确认后的图片发送到 OpenRouter 及所选模型服务商。两轮使用同一图片：第一轮观察建筑，第二轮携带冻结的建筑观察提取家具；共享程序随后完成像素辅助检查、逻辑闭合、门窗审查和 Project 组装。同次执行最多两次模型观察，前置审查失败时可能只发生一次。透视校正不额外调用模型。
 
 **付费请求不会自动重试。** 取消、超时或无效结果仍可能产生费用；再次生成需重新确认。费用只显示提供方实际返回的值，未提供时不估算。观察与草稿在本机用户数据的 `creation-sessions/` 中保留供诊断，不是编辑撤销记录。原图不被修改。
 

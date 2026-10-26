@@ -36,7 +36,7 @@ try {
     'Keep the executable, PCK and core/ folder together. Keep each scene JSON, architecture GLB and assets folder together.\n' +
     'For furniture layout, choose Arrange a Project and select native Project JSON or a Project package ZIP.\n' +
     'Read README.zh-CN.md for the plugin/Skill and standalone desktop workflows.\n' +
-    'Optional Create from a floor plan: connect your OpenRouter account/API key, choose a vision model and explicitly confirm two paid image observations. Credentials are session-only; no automatic paid retries. Choose the main entrance and inward side before opening the generated Project.\n' +
+    'Optional Create from a floor plan: prepare a photo locally using four corners and a known rectangle proportion, preview and confirm. Flat plans work directly. Connect OpenRouter, choose a vision model and explicitly confirm two paid observations of the same prepared image. Credentials are session-only; no automatic paid retries. Choose the main entrance and inward side before opening the generated Project.\n' +
     'F2 switches between first-person perspective and orthographic top view in the same Godot world.\n' +
     'Top view is an unlit plan: dark walls, orange doors and blue windows. Choose Furniture or Ceiling lights in the layer selector.\n' +
     'Top view: middle/right drag pans, wheel zooms, left drag moves furniture, Esc cancels a drag.\n' +

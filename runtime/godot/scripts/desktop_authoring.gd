@@ -34,6 +34,20 @@ var _disconnect: Button
 var _pick: Button
 var _cancel: Button
 var _save: FileDialog
+var _input_preview
+var _perspective: CheckBox
+var _proportion: OptionButton
+var _reference_width: SpinBox
+var _reference_height: SpinBox
+var _output_width: SpinBox
+var _prepare_image: Button
+var _accept_image: Button
+var _rotate_image: Button
+var _quarter_turns := 0
+var _source_raster := ""
+var _input_count := 0
+var _pending_input: Dictionary={}
+var _accepted_input: Dictionary={}
 
 func _ready() -> void:
 	name="DesktopAuthoring";layer=20;process_mode=Node.PROCESS_MODE_ALWAYS
@@ -72,6 +86,32 @@ func _ready() -> void:
 	var create:=VBoxContainer.new();create.name="From an image";_tabs.add_child(create)
 	_pick=UI.button("Choose floor-plan image…","ChooseImage",func():get_node("SourcePicker").popup_centered_ratio(.8));create.add_child(_pick)
 	_source_name=_text("PNG / JPEG / WebP · up to 12 MB / 24 million pixels",14);create.add_child(_source_name)
+	_perspective=CheckBox.new();_perspective.name="CorrectPerspective";_perspective.text="Correct a photographed rectangle"
+	_perspective.toggled.connect(func(value:bool):_input_preview.visible=value;_invalidate_input());create.add_child(_perspective)
+	create.add_child(_text("For a photo, select paper or a known rectangle. Keep dimension labels; do not square off the apartment outline. Flat images can be used directly.",14))
+	_input_preview=PREVIEW.new();_input_preview.name="PaperCorners";_input_preview.editing_corners=true;_input_preview.custom_minimum_size=Vector2(0,220);_input_preview.size_flags_horizontal=Control.SIZE_EXPAND_FILL;_input_preview.hide()
+	_input_preview.focus_mode=Control.FOCUS_ALL
+	_input_preview.corners_changed.connect(func(_points:Array):_invalidate_input());create.add_child(_input_preview)
+	var dimensions:=GridContainer.new();dimensions.columns=2;create.add_child(dimensions)
+	dimensions.add_child(_text("Known rectangle proportion",14));_proportion=OptionButton.new();_proportion.name="PaperProportion"
+	for label in ["Choose a known proportion…","A4 portrait · 210:297","A4 landscape · 297:210","Custom width / height"]:_proportion.add_item(label)
+	_proportion.item_selected.connect(func(index:int):
+		if index==1:_reference_width.set_value_no_signal(210);_reference_height.set_value_no_signal(297)
+		elif index==2:_reference_width.set_value_no_signal(297);_reference_height.set_value_no_signal(210)
+		else:_reference_width.set_value_no_signal(0);_reference_height.set_value_no_signal(0)
+		_invalidate_input());dimensions.add_child(_proportion)
+	for label in ["Reference width","Reference height","Output width (px)"]:
+		dimensions.add_child(_text(label,14));var spin:=SpinBox.new();spin.min_value=0;spin.max_value=100000;spin.step=.01;dimensions.add_child(spin)
+		spin.value_changed.connect(func(_value:float):_invalidate_input())
+		if label=="Reference width":_reference_width=spin;spin.name="ReferenceWidth"
+		elif label=="Reference height":_reference_height=spin;spin.name="ReferenceHeight"
+		else:_output_width=spin;spin.name="PreparedWidth";spin.min_value=2;spin.max_value=6000;spin.step=1;spin.set_value_no_signal(1600)
+	_perspective.toggled.connect(func(value:bool):dimensions.visible=value);dimensions.hide()
+	create.add_child(_text("Reference sides use the same units and establish image proportion only, not the building's physical scale.",14))
+	var image_actions:=HBoxContainer.new();create.add_child(image_actions)
+	_rotate_image=UI.button("Rotate output 90°","RotatePreparedImage",func():_quarter_turns=(_quarter_turns+1)%4;_invalidate_input());image_actions.add_child(_rotate_image)
+	_prepare_image=UI.button("Preview prepared image","PrepareImage",_prepare_input);image_actions.add_child(_prepare_image)
+	_accept_image=UI.button("Use prepared image","ConfirmPreparedImage",func():_accepted_input=_pending_input.duplicate(true);_consent.button_pressed=false;_status.text="Prepared image confirmed. No AI request has been sent.";_sync(),true);create.add_child(_accept_image)
 	_preview=PREVIEW.new();_preview.name="SourcePreview";_preview.custom_minimum_size=Vector2(0,220);_preview.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	_preview.resized.connect(func():_preview.queue_redraw());create.add_child(_preview)
 	_scale=LineEdit.new();_scale.name="ScaleHint";_scale.placeholder_text="Optional known measurement, e.g. lower wall = 600 cm";create.add_child(_scale)
@@ -91,10 +131,10 @@ func _ready() -> void:
 	help.add_child(_text("Plugin / Skill",23))
 	help.add_child(_text("In a host with reconstruct-plan2world installed, attach the original floor-plan image and invoke the Skill. Review the draft and native Project in the authoring tool. Export a runtime scene, then open it here; or choose Arrange a Project to edit furniture. AI usage belongs to your host account."))
 	help.add_child(_text("Standalone desktop",23))
-	help.add_child(_text("1. Connect OpenRouter and select a vision model.\n2. Choose the original image and confirm the two paid observations.\n3. Review counts/assumptions and explicitly select the main entrance and inward side. Save the native Project as a backup.\n4. Open arrangement. Tab browses furniture; drag moves it; R rotates; X swaps. F2 switches orthographic arrangement / first-person walkthrough.\n5. Layout → Save saves the Project; Export writes the derived runtime scene ZIP. There is no Undo/history."))
-	help.add_child(_text("No account is needed to open existing Projects/scenes. New reconstruction sends the original image to OpenRouter and the selected model provider. Failed/cancelled requests can still cost credits; there is no automatic paid retry. For structural corrections use the internal authoring editor.",14))
+	help.add_child(_text("1. Choose the image. Flat plans work directly; for photos, select the paper/known rectangle, enter its true proportion, preview and confirm. Preparation is local and free.\n2. Connect OpenRouter, choose a model and explicitly confirm two paid observations of that prepared image.\n3. Review counts/assumptions and explicitly select the main entrance and inward side. Save the native Project as a backup.\n4. Open arrangement. Tab browses furniture; drag moves it; R rotates; X swaps. F2 switches orthographic arrangement / first-person walkthrough.\n5. Layout → Save saves the Project; Export writes the derived runtime scene ZIP. There is no Undo/history."))
+	help.add_child(_text("No account is needed for image preparation or existing Projects/scenes. Recognition sends the confirmed image to OpenRouter and the selected model provider. Failed/cancelled requests can still cost credits; there is no automatic paid retry. For structural corrections use the internal authoring editor.",14))
 	_status=_text("",14);column.add_child(_status)
-	_cancel=UI.button("Cancel current AI task","CancelAITask",func():_task.cancel());column.add_child(_cancel)
+	_cancel=UI.button("Cancel current task","CancelAITask",func():_task.cancel());column.add_child(_cancel)
 	var fit:=func():panel.custom_minimum_size=Vector2(minf(720,_screen.size.x-48),minf(720,_screen.size.y-48))
 	_screen.resized.connect(func():fit.call_deferred());column.minimum_size_changed.connect(func():fit.call_deferred())
 	var picker:=FileDialog.new();picker.name="SourcePicker";picker.title="Choose original floor-plan image";picker.access=FileDialog.ACCESS_FILESYSTEM;picker.file_mode=FileDialog.FILE_MODE_OPEN_FILE
@@ -131,12 +171,19 @@ func _sync(working:=false) -> void:
 	var busy:bool=working or _task.busy
 	_cancel.disabled=not busy
 	for button in [_login,_connect,_disconnect,_pick]:button.disabled=busy
+	_perspective.disabled=busy or _source_path.is_empty()
+	for spin in [_reference_width,_reference_height,_output_width]:spin.editable=not busy
+	for index in range(_proportion.item_count):_proportion.set_item_disabled(index,busy)
+	_prepare_image.disabled=busy or _source_path.is_empty();_rotate_image.disabled=_prepare_image.disabled
+	_rotate_image.text="Rotate output 90° · %d°" % (_quarter_turns*90)
+	_accept_image.visible=not _pending_input.is_empty() and _accepted_input.is_empty();_accept_image.disabled=busy
+	_input_preview.mouse_filter=Control.MOUSE_FILTER_IGNORE if busy else Control.MOUSE_FILTER_STOP
 	_model.editable=not busy;_key.editable=not busy;_scale.editable=not busy;_consent.disabled=busy
 	for index in range(_models.item_count):_models.set_item_disabled(index,busy)
 	for choice in [_entrance,_side]:
 		for index in range(choice.item_count):choice.set_item_disabled(index,busy)
 	_preview.mouse_filter=Control.MOUSE_FILTER_IGNORE if busy else Control.MOUSE_FILTER_STOP
-	_generate.disabled=busy or _api_key.is_empty() or _model.text.strip_edges().is_empty() or _source_path.is_empty() or not _consent.button_pressed
+	_generate.disabled=busy or _api_key.is_empty() or _model.text.strip_edges().is_empty() or _accepted_input.is_empty() or not _consent.button_pressed
 	_open.disabled=busy or _result.is_empty() or _entrance.selected<1
 	_backup.disabled=busy or _result.is_empty()
 
@@ -146,23 +193,54 @@ func _select_source(path:String) -> void:
 	if file==null or file.get_length()>12*1024*1024:_status.text="Choose a readable image up to 12 MB.";return
 	var image:=Image.load_from_file(path)
 	if image==null or image.is_empty() or image.get_width()*image.get_height()>24000000:_status.text="Choose an image up to 24 million pixels.";return
-	image.convert(Image.FORMAT_RGBA8)
-	_source_path=path;_source_image=image;_source_name.text=path.get_file();_result={};_entrance.clear()
-	_preview.texture=ImageTexture.create_from_image(image);_preview.doors=[];_preview.selected=-1;_preview.queue_redraw()
-	_consent.button_pressed=false;_summary.text="Review the original image, scale hint and selected model before generating.";_sync()
+	image.convert(Image.FORMAT_RGBA8);_ensure_creation_session();_input_count+=1
+	var raster:=_session_dir.path_join("decoded-%d.rgba" % _input_count)
+	file=FileAccess.open(raster,FileAccess.WRITE)
+	if file==null:_status.text="Could not prepare image pixels.";return
+	file.store_buffer(image.get_data());file.close();_sync(true);_status.text="Preparing image locally…"
+	var result:Dictionary=await _task.run({"op":"prepare-image","imagePath":path,"rasterPath":raster,"width":image.get_width(),"height":image.get_height(),"pixelOrientation":"raw","recipe":{"mode":"identity","quarterTurns":0},"outputDirectory":_session_dir.path_join("input-%d" % _input_count)})
+	DirAccess.remove_absolute(raster)
+	if not result.get("ok",false):_status.text=result["error"];_sync();return
+	_source_path=result["originalPath"];_source_raster=result["sourceRasterPath"];_source_name.text=path.get_file();_source_image=Image.load_from_file(result["imagePath"])
+	_quarter_turns=0;_perspective.set_pressed_no_signal(false);_perspective.toggled.emit(false);_input_preview.corners=[Vector2.ZERO,Vector2(1,0),Vector2.ONE,Vector2(0,1)];_input_preview.texture=ImageTexture.create_from_image(_source_image)
+	_output_width.set_value_no_signal(mini(2048,int(result["sourceWidth"])));_pending_input=result;_accepted_input=result.duplicate(true)
+	_set_input_preview(result);_consent.button_pressed=false;_status.text="Review the image and model before generating. Photo correction is local and uses no AI credits.";_sync()
+
+func _ensure_creation_session() -> void:
+	if not _session_dir.is_empty():return
+	_session_dir=ProjectSettings.globalize_path("user://creation-sessions/%s-%s" % [OS.get_process_id(),Time.get_ticks_usec()]);DirAccess.make_dir_recursive_absolute(_session_dir)
+
+func _invalidate_input() -> void:
+	if _preview==null or _consent==null:return
+	_pending_input={};_accepted_input={};_result={};_entrance.clear();_preview.doors=[];_preview.selected=-1;_preview.queue_redraw();_consent.button_pressed=false;_sync()
+	_summary.text="Input changed. Preview and confirm it before recognition."
+
+func _set_input_preview(result:Dictionary) -> void:
+	_preview.texture=ImageTexture.create_from_image(Image.load_from_file(result["imagePath"]));_preview.doors=[];_preview.selected=-1;_preview.queue_redraw();_result={};_entrance.clear()
+	_summary.text="%d × %d · original photo and transform retained. Check proportions and dimension labels before recognition." % [result["width"],result["height"]]
+
+func _prepare_input() -> void:
+	if _prepare_image.disabled:return
+	var recipe:Dictionary={"mode":"perspective" if _perspective.button_pressed else "identity","quarterTurns":_quarter_turns}
+	if _perspective.button_pressed:
+		if _reference_width.value<=0 or _reference_height.value<=0:_status.text="Choose a known rectangle width and height.";return
+		var corners:Array=[]
+		for point in _input_preview.corners:corners.append({"x":point.x,"y":point.y})
+		recipe.merge({"corners":corners,"aspectRatio":_reference_width.value/_reference_height.value,"outputWidth":int(_output_width.value)})
+	_input_count+=1;_sync(true);_status.text="Correcting image locally…"
+	var result:Dictionary=await _task.run({"op":"prepare-image","imagePath":_source_path,"sourceName":_source_name.text,"rasterPath":_source_raster,"width":_source_image.get_width(),"height":_source_image.get_height(),"pixelOrientation":"upright","recipe":recipe,"outputDirectory":_session_dir.path_join("input-%d" % _input_count)})
+	if result.get("ok",false):_pending_input=result;_accepted_input={};_set_input_preview(result);_status.text="Check the prepared image, then choose Use prepared image. No AI request has been sent."
+	else:_status.text=result["error"]
+	_sync()
 
 func _generate_project() -> void:
 	if _generate.disabled:return
-	if _session_dir.is_empty():
-		_session_dir=ProjectSettings.globalize_path("user://creation-sessions/%s-%s" % [OS.get_process_id(),Time.get_ticks_usec()]);DirAccess.make_dir_recursive_absolute(_session_dir)
+	_ensure_creation_session()
 	_attempt+=1
-	var stem:=_session_dir.path_join(str(_attempt));var raster:=stem+".rgba"
-	var file:=FileAccess.open(raster,FileAccess.WRITE)
-	if file==null:_status.text="Could not prepare original image pixels.";return
-	file.store_buffer(_source_image.get_data());file.close()
+	var stem:=_session_dir.path_join("run-%d" % _attempt)
 	_sync(true);_status.text="Starting reconstruction…"
-	var result:Dictionary=await _task.run({"op":"reconstruct","apiKey":_api_key,"model":_model.text.strip_edges(),"imagePath":_source_path,"rasterPath":raster,"width":_source_image.get_width(),"height":_source_image.get_height(),"scaleHint":_scale.text,"outputDirectory":stem})
-	DirAccess.remove_absolute(raster);_consent.button_pressed=false
+	var result:Dictionary=await _task.run({"op":"reconstruct","apiKey":_api_key,"model":_model.text.strip_edges(),"imagePath":_accepted_input["imagePath"],"rasterPath":_accepted_input["rasterPath"],"width":_accepted_input["width"],"height":_accepted_input["height"],"preparationManifestPath":_accepted_input["manifestPath"],"originalImagePath":_accepted_input["originalPath"],"scaleHint":_scale.text,"outputDirectory":stem})
+	_consent.button_pressed=false
 	if result.get("ok",false):
 		_result=result;_entrance.clear();_entrance.add_item("Choose the main entrance…");_preview.doors=[];_preview.selected=-1
 		var floor:Dictionary=result["floors"][0]

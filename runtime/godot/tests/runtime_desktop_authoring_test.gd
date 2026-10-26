@@ -36,6 +36,8 @@ func _run():
 	# no real credential, paid call or extraction-quality claim is involved.
 	var preloader:=directory.path_join("mock-openrouter.cjs")
 	var file:=FileAccess.open(preloader,FileAccess.WRITE)
+	var captures_path:=directory.path_join("provider-images.json")
+	file.store_string("const capturePath="+JSON.stringify(captures_path)+";const captured=[];\n")
 	file.store_string("""
 const e={decision:'accept',decisionBasis:'Synthetic source.',evidence:'Synthetic source stroke.'};
 const architecture={schemaVersion:'source-architecture-v1',scaleEvidence:{kind:'measured_dimension',realLengthCm:360,endpoints:[{x:0,y:0},{x:360,y:0}],evidence:'360 cm'},walls:[[[0,0],[360,0]],[[360,0],[360,300]],[[360,300],[0,300]],[[0,300],[0,0]]].map(([a,b],i)=>({...e,label:'wall'+i,start:{x:a[0],y:a[1]},end:{x:b[0],y:b[1]}})),openings:[{...e,label:'entrance',kind:'door',endpoints:[{x:135,y:0},{x:225,y:0}]}],doorGaps:[]};
@@ -50,6 +52,8 @@ global.fetch=async(url,init)=>{
  if(url.endsWith('/models'))return json({data:[{id:'fixture/vision',name:'Test vision',architecture:{input_modalities:['image','text'],output_modalities:['text']}}]});
  if(url.endsWith('/chat/completions')){
   const body=JSON.parse(init.body),prompt=body.messages[0].content[1].text;
+  captured.push(require('node:crypto').createHash('sha256').update(Buffer.from(body.messages[0].content[0].image_url.url.split(',')[1],'base64')).digest('hex'));
+  require('node:fs').writeFileSync(capturePath,JSON.stringify(captured));
   return json({choices:[{finish_reason:'stop',message:{content:JSON.stringify(prompt.includes('FROZEN_ARCHITECTURE_JSON:')?{schemaVersion:'source-furnishing-v1',furniture:[{sourceCategory:'chair',position:{x:180,y:150}}]}:architecture)}}],usage:{cost:.002}});
  }
  throw new Error('Unexpected provider request');
@@ -88,8 +92,34 @@ global.fetch=async(url,init)=>{
 	view._tabs.current_tab=1;await process_frame
 	var image:=Image.create(360,300,false,Image.FORMAT_RGBA8);image.fill(Color.WHITE)
 	var image_path:=directory.path_join("synthetic-original.png");image.save_png(image_path)
-	view.get_node("SourcePicker").file_selected.emit(image_path);await process_frame
+	view.get_node("SourcePicker").file_selected.emit(image_path);await _settled()
 	_check(view._generate.disabled,"Image upload/inference must require explicit confirmation of paid observations")
+	_check(not view._accepted_input.is_empty() and not FileAccess.file_exists(captures_path),"Flat input preparation must run locally without paid observations")
+	await _click(view._perspective);await process_frame
+	_check(view._accepted_input.is_empty() and not view._consent.button_pressed,"Changing input preparation must revoke previous confirmation and paid consent")
+	view._proportion.select(3);view._proportion.item_selected.emit(3)
+	view._reference_width.value=360;view._reference_height.value=300;view._output_width.value=360
+	# Exercise actual letterboxed corner dragging, not a second homography in GD.
+	var scroll=view._input_preview.get_parent().get_parent()
+	while scroll!=null and not scroll is ScrollContainer:scroll=scroll.get_parent()
+	if scroll!=null:scroll.ensure_control_visible(view._input_preview)
+	await process_frame;await process_frame
+	var paper_rect:Rect2=view._input_preview.image_rect()
+	var down:=InputEventMouseButton.new();down.button_index=MOUSE_BUTTON_LEFT;down.pressed=true;down.position=view._input_preview.global_position+paper_rect.position+Vector2(2,2)
+	root.push_input(down,true)
+	var drag:=InputEventMouseMotion.new();drag.position=view._input_preview.global_position+paper_rect.position+paper_rect.size*Vector2(.9,.9);drag.button_mask=MOUSE_BUTTON_MASK_LEFT;root.push_input(drag,true)
+	down.pressed=false;down.position=drag.position;root.push_input(down,true);await process_frame
+	_check(view._input_preview.corners[0].distance_to(Vector2(.9,.9))<.01,"Native paper handles must map actual pointer positions to upright source coordinates")
+	await _click(view._prepare_image);await _settled()
+	_check(view._pending_input.is_empty() and view._status.text.contains("convex") and not FileAccess.file_exists(captures_path),"Crossed/concave paper selections must be rejected before paid work")
+	view._input_preview.corners=[Vector2(.05,.05),Vector2(.95,.1),Vector2(.9,.95),Vector2(.1,.9)];view._input_preview.corners_changed.emit(view._input_preview.corners);view._input_preview.queue_redraw()
+	await _click(view._prepare_image);await _settled()
+	_check(not view._pending_input.is_empty() and view._accepted_input.is_empty() and view._generate.disabled,"A corrected preview must await explicit image confirmation")
+	if scroll is ScrollContainer:scroll.ensure_control_visible(view._preview)
+	await process_frame;await process_frame
+	await _capture("prepared-photo")
+	await _click(view._accept_image);await process_frame
+	_check(not view._accepted_input.is_empty() and not view._consent.button_pressed,"Confirming a local correction must not authorize a paid request")
 	await _click(view._consent);await process_frame
 	_check(not view._generate.disabled,"A connected account, chosen model and image consent must enable reconstruction")
 	view._scale.text="360 cm"
@@ -97,6 +127,10 @@ global.fetch=async(url,init)=>{
 	_check(not view._result.is_empty() and not view._consent.button_pressed,"Exact shipped AI core must complete two mocked provider observations and reset consent")
 	if view._result.is_empty():main.free();paused=false;quit(1);return
 	var generated:Dictionary=JSON.parse_string(FileAccess.get_file_as_string(view._result["projectPath"]))
+	var captured:Array=JSON.parse_string(FileAccess.get_file_as_string(captures_path))
+	_check(captured.size()==2 and captured[0]==FileAccess.get_sha256(view._accepted_input["imagePath"]) and captured[0]==captured[1],"Both observations must receive the exact confirmed image bytes")
+	_check(generated["reconstruction"]["inputPreparation"]["manifest"]["width"]==360 and generated["reconstruction"]["inputPreparation"].has("originalDataUrl"),"Saved native evidence must retain the original photo and confirmed transform")
+	_check(FileAccess.get_sha256(image_path)==FileAccess.get_sha256(view._accepted_input["originalPath"]),"Preparing a photograph must never overwrite its original bytes")
 	_check(generated["floors"][0]["walls"].size()==4 and not generated["floors"][0].has("entrance"),"Generated native data must retain observed architecture and leave entrance choice to the user")
 	_check(view._open.disabled and view._preview.doors.size()==1,"Generation alone must not guess an entrance or replace the active world")
 	_check(main._world.get_instance_id()==world_id,"The previous world must survive account and image generation")
@@ -127,6 +161,19 @@ global.fetch=async(url,init)=>{
 	_check(view._status.text=="Could not open the system browser. Use your API key instead." and view._api_key=="fixture-private-key","Actionable authorization failure must survive task completion without being replaced by generic cancellation")
 	await _click(view._disconnect);await process_frame
 	_check(view._api_key.is_empty() and view._generate.disabled,"Disconnect must erase the in-memory account and prevent new paid tasks")
+	# A real JPEG APP1 orientation is tested through the native decoder + shared
+	# core. Phone direction and local output rotation require no AI account.
+	var phone:=Image.create(96,64,false,Image.FORMAT_RGB8);phone.fill(Color.BLUE)
+	for y in range(64):
+		for x in range(48):phone.set_pixel(x,y,Color.RED)
+	var jpeg:=phone.save_jpg_to_buffer(.95)
+	var exif:=PackedByteArray([255,225,0,34,69,120,105,102,0,0,73,73,42,0,8,0,0,0,1,0,18,1,3,0,1,0,0,0,6,0,0,0,0,0,0,0])
+	var phone_path:=directory.path_join("phone-exif6.jpg");file=FileAccess.open(phone_path,FileAccess.WRITE);file.store_buffer(jpeg.slice(0,2)+exif+jpeg.slice(2));file.close()
+	view.show_page(1);view.get_node("SourcePicker").file_selected.emit(phone_path);await _settled()
+	_check(view._source_image.get_width()==64 and view._source_image.get_height()==96 and view._source_image.get_pixel(32,10).r>.8 and view._source_image.get_pixel(32,85).b>.8,"Native JPEG EXIF must normalize upright before selecting corners, without double rotation")
+	await _click(view._rotate_image);await _click(view._prepare_image);await _settled()
+	_check(view._pending_input.get("width",0)==96 and view._pending_input.get("height",0)==64 and view._accepted_input.is_empty(),"Manual output rotation must operate on the upright source and await confirmation")
+	_check(JSON.parse_string(FileAccess.get_file_as_string(captures_path)).size()==2 and view._api_key.is_empty(),"EXIF preparation/rotation must not require an account or invoke a provider")
 	view.show_page(2);await process_frame;await _capture("native-guide")
 	_check(FileAccess.get_sha256(args[0])==original,"Desktop authoring must not modify the previously opened native source")
 	main.free();paused=false
