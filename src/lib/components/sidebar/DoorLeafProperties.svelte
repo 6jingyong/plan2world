@@ -12,6 +12,7 @@
   const paired = $derived(door.type === 'double' || door.type === 'french');
   function preset(event: Event) {
     const id=(event.target as HTMLSelectElement).value;
+    if(id==='custom')return;
     draft=id ? slidingDoorPreset(door.width,id as DoorLeafPreset) : undefined; error='';
   }
   function leaf(index: number, field: keyof SlidingDoorLeaf, value: string | number) {
@@ -40,7 +41,8 @@
     </label>
   {:else}
     <label class="block text-xs">Starting configuration / 起始配置
-      <select class="w-full border rounded p-1" onchange={preset}>
+      <select class="w-full border rounded p-1" value={draft?'custom':''} onchange={preset}>
+        <option value="custom">Current panels / 当前配置</option>
         <option value="">Legacy single panel / 原单叶</option>
         {#each doorLeafPresets.filter(p=>door.type==='pocket'?p.id==='pocket':p.id!=='pocket') as p}<option value={p.id}>{p.label}</option>{/each}
       </select>

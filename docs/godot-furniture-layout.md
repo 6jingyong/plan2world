@@ -39,7 +39,8 @@ source geometry. Fit view reserves the compact tool rail and any open catalog dr
 Furniture-only editing supports add, move, clockwise 90-degree rotation,
 replacement, removal, **Layout… → Save layout…** (native JSON with retained model
 attachments) and **Layout… → Export scene…** (the existing runtime ZIP). Architecture, door
-semantics, floors, holes and stairs are fixed. The catalog offers existing built-in
+apertures, floors, holes and stairs are fixed. Existing door panel configuration
+has its separate [native settings](native-door-panels.md). The catalog offers existing built-in
 furniture and custom models already retained in the Project; importing new model
 files and arbitrary rotation controls are outside this milestone. Native locks
 remain enforced. Compiled scenes opened without their source Project allow
@@ -68,16 +69,21 @@ inspector and full-width command bars are no longer part of this flow.
   native furniture drawing helpers; dimensions come from catalog/custom-model
   definitions. Illustrations are not GLB model renders. Category, search and
   choice persist across closing/reopening. Selecting a tile changes no Project.
-- **Add at view centre** uses the existing validated add command. Pan the room to
-  choose that location; an accepted add closes the catalog and reveals the piece
-  actions. A blocked add leaves the catalog open with its explanation. This
-  milestone does not add a new-item cursor ghost or a finite inventory system.
+- **Place in room…** prepares a read-only footprint preview at the current view
+  centre, closes the catalog and follows the pointer. Click a valid location to
+  accept; Esc, a floor/layer change or focus loss cancels. Invalid landings stay
+  red and keep the accepted Project unchanged. Preview dimensions come from the
+  shared native core, not measured model bounds. There is no finite inventory.
 - Selecting a placed piece reveals **Rotate / R**, **Swap / X** and **Remove / Del**.
   Swap opens the same catalog in replacement mode and commits only after the
-  separate confirmation, preserving native identity and item count. Selecting
+  spatial confirmation, preserving native identity and item count. Selecting
   another floor clears the old replacement target and returns to Add mode.
 - Wall furniture opens a focused installation dialog for an explicit wall, side
-  and bottom height. Cancelling it returns to the catalog without an edit.
+  and bottom height. Wall and ceiling dialogs offer **Pick … in plan** as well as
+  exact lists. Wall picking uses the actual same-floor wall owner; a ceiling
+  click must identify one supported emitted enclosure outside holes. Neither
+  chooses a nearest host. Confirming the dialog starts the constrained spatial
+  preview; it does not accept an edit. Cancelling preserves the source.
 - **Layout…** contains native Save/Export dialogs; **Ctrl+S** opens Save. Opening
   inventory cancels an uncommitted drag. Hints, snap feedback and errors do not
   consume pointer events or become hidden clickable overlays.
@@ -95,8 +101,8 @@ Both switches stay on the compact left tool rail.
 the grid while retaining wall/furniture alignment. Hold **Alt** during a drag to
 release all snapping, including automatic orientation, at the current pointer.
 Releasing Alt reacquires an eligible target. Nothing changes imported positions
-until the user accepts a gesture. Add places a piece at the view centre; dragging
-then uses these same placement aids.
+until the user accepts a gesture. New-item previews start at the view centre and
+use these same placement aids before their first accepted landing.
 
 | Assistance | Behavior |
 | --- | --- |

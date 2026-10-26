@@ -12,6 +12,7 @@ import { triangulatePolygonWithHoles } from './polygonTriangulation';
 import { entranceSpawn } from './playerSpawn';
 import { compileRuntimeStair, type RuntimeStairTarget } from './stairTraversal';
 import { compileRuntimeDoor } from './doorCompilation';
+import {runtimeWallMovement} from './furnitureMovement';
 import type {
   Plan2WorldRuntimeSceneV1,
   RuntimeBoxCollider,
@@ -168,10 +169,7 @@ function compileFloor(
     const frame = item.wallMount ? validateWallPlacement(floor, { ...item, width: item.width ?? custom?.width, depth: item.depth ?? custom?.depth, height: item.height ?? custom?.height }) : null;
     entities.push({
       locked: !!item.locked,
-      movement: ceiling ? { kind: 'ceiling', roomId: ceiling.id, elevation: m(elevationCm+ceiling.height) } : frame ? { kind: 'wall', wallId: item.wallMount!.wallId, side: item.wallMount!.side,
-        blocked: frame.blocked.map(opening => ({ along: [m(opening.along[0]),m(opening.along[1])], bottom: [m(opening.bottom[0]),m(opening.bottom[1])] })),
-        origin: point3(frame.origin, elevationCm), tangent: [frame.tangent.x, 0, frame.tangent.y],
-        along: [m(frame.along[0]), m(frame.along[1])], bottom: [m(frame.bottom[0]), m(frame.bottom[1])] }
+      movement: ceiling ? { kind: 'ceiling', roomId: ceiling.id, elevation: m(elevationCm+ceiling.height) } : frame ? runtimeWallMovement(frame,item.wallMount!,elevationCm)
         : needsWallMount(item.catalogId) ? { kind: 'unbound-wall' } : { kind: 'floor', elevation: m(elevationCm) },
       id: item.id, floorId: floor.id, kind: 'furniture', catalogId: item.catalogId,
       ...(item.sourceCategory ? { sourceCategory: item.sourceCategory } : {}),

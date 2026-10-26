@@ -9,6 +9,7 @@ signal save_requested(path: String)
 signal export_requested(path: String)
 signal light_requested(id:String)
 signal doors_requested
+signal preview_requested(command:Dictionary)
 var controller
 var _floor_selector: OptionButton
 var _layer_selector:OptionButton
@@ -106,7 +107,7 @@ func _ready() -> void:
 	_catalog_view.piece_chosen.connect(func(_index): _mount_fields())
 	_mount_dialog = ConfirmationDialog.new(); _mount_dialog.name = "MountingDialog"
 	_mount_dialog.title = "Wall installation"; _mount_dialog.theme = UI.theme()
-	_mount_dialog.confirmed.connect(func(): _action(_catalog_action))
+	_mount_dialog.confirmed.connect(func(): _action(_catalog_action,true))
 	add_child(_mount_dialog)
 	var fields := VBoxContainer.new(); fields.custom_minimum_size.x = 320
 	_mount_dialog.add_child(fields)
@@ -115,6 +116,7 @@ func _ready() -> void:
 	_wall_selector.fit_to_longest_item = false
 	_wall_selector.tooltip_text = "Explicit installation wall; dragging keeps this binding."
 	fields.add_child(_wall_selector)
+	fields.add_child(UI.button("Pick wall in plan","PickMountWall",func():_mount_dialog.hide();_catalog_view.hide();controller.begin_host_pick("wall");show_message("Click the installation wall. Then choose its side and height.")))
 	_mount_side = OptionButton.new(); _mount_side.name = "MountSide"
 	_mount_side.add_item("Wall · left side"); _mount_side.add_item("Wall · right side")
 	fields.add_child(_mount_side)
@@ -123,10 +125,11 @@ func _ready() -> void:
 	_mount_height.suffix = "cm"; _mount_height.tooltip_text = "Bottom height above the floor"
 	fields.add_child(_mount_height)
 	_ceiling_dialog=ConfirmationDialog.new();_ceiling_dialog.name="CeilingMountDialog";_ceiling_dialog.title="Ceiling installation";_ceiling_dialog.theme=UI.theme();_ceiling_dialog.ok_button_text="Attach to ceiling"
-	_ceiling_dialog.confirmed.connect(func():_action(_catalog_action));add_child(_ceiling_dialog)
+	_ceiling_dialog.confirmed.connect(func():_action(_catalog_action,true));add_child(_ceiling_dialog)
 	var ceiling_fields:=VBoxContainer.new();ceiling_fields.custom_minimum_size.x=340;_ceiling_dialog.add_child(ceiling_fields)
 	ceiling_fields.add_child(UI.label("Choose the ceiling that supports this light.",14,UI.MUTED))
 	_ceiling_selector=OptionButton.new();_ceiling_selector.name="CeilingHost";_ceiling_selector.fit_to_longest_item=false;ceiling_fields.add_child(_ceiling_selector)
+	ceiling_fields.add_child(UI.button("Pick ceiling in plan","PickMountCeiling",func():_ceiling_dialog.hide();_catalog_view.hide();controller.begin_host_pick("ceiling");show_message("Click inside the installation ceiling.")))
 	ceiling_fields.add_child(UI.label("Height follows the authored ceiling. No vertical offset.",14,UI.MUTED))
 	# Selected-piece actions appear only when useful, near the input prompts.
 	_selection_card = PanelContainer.new(); _selection_card.name = "SelectedPiece"
@@ -181,6 +184,15 @@ func configure(data: Dictionary, camera_controller) -> void:
 	controller.furniture_selected.connect(func(_id: String): _selection_changed())
 	controller.gesture_changed.connect(func(_moving: bool): _context())
 	controller.furniture_moved.connect(func(id: String, point: Vector3): command_requested.emit(controller.move_command(id,point)))
+	controller.placement_requested.connect(func(command:Dictionary):command_requested.emit(command))
+	controller.host_picked.connect(func(kind:String,id:String):
+		if kind=="wall":
+			_wall_selector.select(_wall_ids.find(id));_mount_dialog.popup_centered()
+		else:
+			for i in range(_ceiling_hosts.size()):
+				if _ceiling_hosts[i]["id"]==id:_ceiling_selector.select(i)
+			_ceiling_dialog.popup_centered()
+		show_message(""))
 	controller.placement_blocked.connect(func(): show_message("Placement blocked. Keep furniture clear of obstacles, doorways and floor holes."))
 	for floor in data["floors"]:
 		_floor_ids.append(str(floor["id"])); _floor_selector.add_item(str(floor["name"]))
@@ -236,7 +248,7 @@ func _request_piece() -> void:
 		_fill_ceilings()
 		if _ceiling_hosts.is_empty():show_message("This floor has no supported horizontal ceiling. Correct the native Project before attaching a light.");return
 		_ceiling_dialog.popup_centered()
-	else: _action(_catalog_action)
+	else: _action(_catalog_action,true)
 
 func command_applied(command: Dictionary) -> void:
 	if command["type"] in ["add","replace"]: set_catalog_open(false)
@@ -246,7 +258,7 @@ func _context() -> void:
 	if controller == null: return
 	var chosen: bool = controller._entities.has(controller.selected_id) and controller._entities[controller.selected_id]["kind"] == "furniture"
 	_selection_card.visible = chosen and not _catalog_view.visible and not controller._moving
-	_help.text = "Release to place · Esc cancel · Alt free" if controller._moving else ("Select a piece · Double-click to add · Esc close" if _catalog_view.visible else "Click select · Right drag pan · Scroll zoom")
+	_help.text = "Click to place · Esc cancel · Alt free" if controller.has_placement_preview() else ("Release to place · Esc cancel · Alt free" if controller._moving else ("Select a piece · Double-click to place · Esc close" if _catalog_view.visible else "Click select · Right drag pan · Scroll zoom"))
 	_snap_chip.visible = controller._moving and not _snap_status.text.is_empty()
 	_toast.visible = not _notice.is_empty()
 
@@ -275,7 +287,7 @@ func _selection_changed() -> void:
 		_mount_fields()
 	_context()
 
-func _action(action: String) -> void:
+func _action(action: String,preview:=false) -> void:
 	var command := {"floorId":controller.floor_id,"id":controller.selected_id}
 	var index: int = _catalog_view.selected_index
 	match action:
@@ -299,7 +311,8 @@ func _action(action: String) -> void:
 	if action in ["AddFurniture","ReplaceFurniture"] and _catalog[index].get("mounting")=="ceiling":
 		if _ceiling_hosts.is_empty():return
 		command["ceilingMount"]={"wallIds":_ceiling_hosts[_ceiling_selector.selected]["ceilingWallIds"]}
-	command_requested.emit(command)
+	if preview:preview_requested.emit(command)
+	else:command_requested.emit(command)
 
 func _fill_ceilings() -> void:
 	var previous:Variant=_ceiling_selector.get_item_metadata(_ceiling_selector.selected) if _ceiling_selector.selected>=0 else null
@@ -327,8 +340,8 @@ func _fill_walls() -> void:
 func _mount_fields() -> void:
 	var index: int = _catalog_view.selected_index
 	var mounted: bool = index>=0 and _catalog[index].get("mounting")=="wall"
-	_catalog_view.place.text = ("Choose wall & swap…" if mounted else "Swap selected piece") if _catalog_action=="ReplaceFurniture" else ("Choose wall & add…" if mounted else "Add at view centre")
-	if index>=0 and _catalog[index].get("mounting")=="ceiling":_catalog_view.place.text="Choose ceiling & swap…" if _catalog_action=="ReplaceFurniture" else "Choose ceiling & add…"
+	_catalog_view.place.text = ("Choose wall & preview…" if mounted else "Preview replacement") if _catalog_action=="ReplaceFurniture" else ("Choose wall & preview…" if mounted else "Place in room…")
+	if index>=0 and _catalog[index].get("mounting")=="ceiling":_catalog_view.place.text="Choose ceiling & preview…"
 
 func _frame_view() -> void:
 	if not visible or not controller.active: return

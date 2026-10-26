@@ -111,6 +111,8 @@ func _run():
 	await _search("armchair")
 	_click_at(browser.list.global_position+browser.list.get_item_rect(0).get_center())
 	_click(browser.place);await _idle()
+	_check(camera.has_placement_preview() and _count()==before,"Choosing Place must show an unaccepted spatial preview")
+	_click_at(camera.camera.unproject_position(camera._preview));await _idle()
 	var id: String=main._session.current()["selectedId"]
 	_check(not browser.visible and plan._selection_card.visible and _count()==before+1,"Accepted placement must return to the room with contextual piece actions")
 	_check(absf(float(_item(id)["position"]["x"])-625)<.0001 and absf(float(_item(id)["position"]["y"])-610)<.0001,"The inventory must add at the preserved view centre")
@@ -133,6 +135,8 @@ func _run():
 	_click_at(browser.list.global_position+browser.list.get_item_rect(0).get_center())
 	_check(main._session.current()["projectPath"]==revision,"Choosing a replacement must preserve the accepted layout until confirmed")
 	_click(browser.place);await _idle()
+	_check(camera.has_placement_preview(),"Replacement must use the same spatial confirmation")
+	_click_at(camera.camera.unproject_position(camera._preview));await _idle()
 	_check(_count()==before+1 and main._session.current()["selectedId"]==id and _item(id)["catalogId"]=="coffee_table","Confirming Swap must retain the native identity and item count")
 	_key(KEY_TAB);await _idle();await _search("wall art")
 	_click_at(browser.list.global_position+browser.list.get_item_rect(0).get_center())

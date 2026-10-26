@@ -28,6 +28,10 @@ func apply_command(command: Dictionary) -> Dictionary:
 		return { "ok": false, "error": "Open an editable Project first." }
 	return await _execute(_current["projectPath"], command)
 
+func preview(command:Dictionary) -> Dictionary:
+	if _current.is_empty():return {"ok":false,"error":"Open an editable Project first."}
+	return await _execute(_current["projectPath"],command,true)
+
 func accept(candidate: Dictionary, opened := false) -> void:
 	var previous := _current
 	_current = candidate
@@ -56,7 +60,7 @@ func _copy_atomic(source: String, destination: String) -> Error:
 		DirAccess.remove_absolute(temporary)
 	return error
 
-func _execute(project_path: String, command: Dictionary) -> Dictionary:
+func _execute(project_path: String, command: Dictionary, preview_only:=false) -> Dictionary:
 	if busy:
 		return { "ok": false, "error": "An edit is still being applied." }
 	var core_dir := OS.get_environment("P2W_AUTHORING_CORE") if OS.has_environment("P2W_AUTHORING_CORE") else OS.get_executable_path().get_base_dir().path_join("core")
@@ -74,7 +78,7 @@ func _execute(project_path: String, command: Dictionary) -> Dictionary:
 	var file := FileAccess.open(request_path, FileAccess.WRITE)
 	if file == null:
 		return { "ok": false, "error": "Could not create the local editing session." }
-	file.store_string(JSON.stringify({ "op": "open" if command.is_empty() else "command", "projectPath": project_path, "command": command, "outputDirectory": stem }))
+	file.store_string(JSON.stringify({ "op": "preview" if preview_only else ("open" if command.is_empty() else "command"), "projectPath": project_path, "command": command, "outputDirectory": stem }))
 	file.close()
 	busy = true
 	_worker = Thread.new()

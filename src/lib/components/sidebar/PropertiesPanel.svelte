@@ -567,7 +567,7 @@
       {#if ['double','french','sliding','pocket'].includes(selectedDoor.type)}
         <DoorLeafProperties door={selectedDoor} onchange={(leafConfiguration)=>{if(selectedDoor)updateDoor(selectedDoor.id,{leafConfiguration});}} />
       {/if}
-      {#if selectedDoor.type !== 'opening' && selectedDoor.type !== 'garage'}
+      {#if selectedDoor.type !== 'opening' && selectedDoor.type !== 'garage' && selectedDoor.leafConfiguration?.kind !== 'sliding'}
       <div role="group" aria-label={$t('openingProperties.hinge')}>
         <span class="text-xs text-gray-500">{$t('openingProperties.hinge')}</span>
         <div class="flex gap-2">

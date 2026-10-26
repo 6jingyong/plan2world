@@ -144,6 +144,7 @@ func _open_scene(runtime_path: String, architecture_path: String = "", editor_st
 	_plan_view.walkthrough_requested.connect(_show_walkthrough)
 	_plan_view.menu_requested.connect(_show_menu)
 	_plan_view.command_requested.connect(_edit_layout)
+	_plan_view.preview_requested.connect(_begin_placement)
 	_plan_view.light_requested.connect(_show_light_settings)
 	_plan_view.doors_requested.connect(_show_door_settings)
 	_plan_view.save_requested.connect(_save_layout)
@@ -235,6 +236,16 @@ func _edit_layout(command: Dictionary) -> void:
 		_layout_camera.cancel_drag()
 		_sync_controls()
 		_layout_message(str(result["error"]))
+
+func _begin_placement(command:Dictionary) -> void:
+	if _editing or _session.busy:return
+	_layout_message("")
+	_layout_camera.cancel_drag();_editing=true;_sync_controls()
+	var result:Dictionary=await _session.preview(command)
+	_editing=false;_sync_controls()
+	if not result.get("ok",false):_layout_message(str(result["error"]));return
+	_plan_view.set_catalog_open(false)
+	_layout_camera.begin_placement(command,result["preview"])
 
 func _apply_layout_state(state: Dictionary, data: Dictionary) -> void:
 	var artifacts := RUNTIME_ARTIFACTS.new()

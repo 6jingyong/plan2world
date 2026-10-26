@@ -107,6 +107,7 @@ func _run():
 	plan._wall_selector.select(plan._wall_ids.find("ground-w0"));plan._mount_side.select(0);plan._mount_height.value=140
 	camera._center=Vector2(6,6)
 	plan._mount_dialog.hide();plan._mount_dialog.confirmed.emit();await _idle()
+	main._layout_camera.commit_move();await _idle()
 	var wall_id: String=main._session.current()["selectedId"]
 	var bound: Dictionary=camera._entities[wall_id]
 	_check(bound["movement"]["kind"]=="wall","Compiler must emit wall movement constraints")

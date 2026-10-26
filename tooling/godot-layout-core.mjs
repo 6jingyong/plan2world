@@ -4,6 +4,7 @@ import { readProject } from '../src/lib/utils/projectValidation';
 import { readProjectPackage } from '../src/lib/utils/projectPackageCodec';
 import { furnitureLayoutCatalog } from '../src/lib/runtime/furnitureLayout';
 import { applyNativeEditCommand, nativeDoorEditor } from '../src/lib/runtime/nativeEditing';
+import {furniturePlacementPreview} from '../src/lib/runtime/placementPreview';
 import { compileRuntimeArtifacts } from '../src/lib/runtime/runtimeArtifacts';
 import { runtimePackageFiles, serializeRuntimePackage } from '../src/lib/runtime/runtimePackage';
 
@@ -15,6 +16,9 @@ async function run() {
     const bytes = await readFile(request.projectPath);
     const source = path.extname(request.projectPath).toLowerCase() === '.zip'
       ? readProjectPackage(new Uint8Array(bytes)).project : readProject(JSON.parse(bytes.toString('utf8')));
+    if(request.op==='preview'){
+      await writeFile(responsePath,JSON.stringify({ok:true,preview:furniturePlacementPreview(source,request.command)}));return;
+    }
     let project = source, selectedId = null, updateKind = 'world';
     if (request.op === 'command') ({ project, selectedId, updateKind } = applyNativeEditCommand(source, request.command));
     else if (request.op !== 'open') throw new Error('Unsupported authoring operation.');

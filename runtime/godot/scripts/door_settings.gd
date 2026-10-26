@@ -19,7 +19,7 @@ func _ready() -> void:
 	_note=UI.label("Author settings · widths, centres, tracks and signed travel in cm.\nAlong A→B; positive track is toward the wall's left side.",14,UI.MUTED);form.add_child(_note)
 	_preset=OptionButton.new();_preset.name="DoorPreset";form.add_child(_preset)
 	_preset.item_selected.connect(func(index:int):
-		_configuration=null if index==0 else _door["presets"][index-1]["configuration"].duplicate(true)
+		_configuration=(_door["configuration"].duplicate(true) if _door["configuration"] is Dictionary else null) if index==0 else _door["presets"][index-1]["configuration"].duplicate(true)
 		_draw())
 	_ratio=SpinBox.new();_ratio.name="FirstLeafPercent";_ratio.min_value=1;_ratio.max_value=99;_ratio.suffix="% first leaf";form.add_child(_ratio)
 	_ratio.value_changed.connect(func(value:float):_configuration={"kind":"paired","firstLeafRatio":value/100})
@@ -31,6 +31,7 @@ func _ready() -> void:
 		var ids:Array=_configuration["leaves"].map(func(leaf):return leaf["id"]);var index:=1
 		while ids.has("panel-%d"%index):index+=1
 		_configuration["leaves"].append({"id":"panel-%d"%index,"width":_door["width"]/2,"center":0,"track":12,"motion":"slide","travel":-_door["width"]/2});_draw()))
+	form.add_child(UI.button("Reset default","ResetDoorPanels",func():_configuration=null;_draw()))
 	confirmed.connect(func():command_requested.emit({"type":"door-leaves","floorId":_door["floorId"],"id":_door["id"],"configuration":_configuration}))
 
 func show_doors(doors:Array,floor_id:String) -> void:
@@ -42,7 +43,7 @@ func show_doors(doors:Array,floor_id:String) -> void:
 
 func _choose(index:int) -> void:
 	_door=_doors[index];_configuration=_door["configuration"].duplicate(true) if _door["configuration"] is Dictionary else null
-	_preset.clear();_preset.add_item("Legacy default")
+	_preset.clear();_preset.add_item("Current panels" if _configuration is Dictionary else "Legacy default")
 	for preset in _door["presets"]:_preset.add_item(preset["label"])
 	_draw()
 
