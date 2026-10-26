@@ -362,3 +362,12 @@
 - **源码/交付**：全量1,761单测/203文件、类型/生产构建/catalog通过；audit 3 low、0 moderate/high/critical。最终Linux搬移PCK/core十五组门控与实际release启动通过；Windows只交叉构建。完整三浏览器/benchmark仍在运行，结果随后补入。
 - **保留失败**：并行图形负载期间两次既有CLI五秒期限失败，保留日志；图形与全量单测串行、单worker后全通过，未改断言/期限。镜面最初无反射参考而偏黑；首次环境枚举名错误被实际启动拦截，修正后保留原对照。首轮搬移包暴露动态赋值到typed Array的模态注册错误，改成显式注册接口后十五组通过；旧坏包/日志不删。
 - **证据/边界**：同一忽略目录 `light-before/`、`light-reflections-fixed/`、`final-light-controls/`、`final-serial-tests.log`、`relocated-delivery-verified/` 和 `player-*-verified.zip`。没有真实付费模型、手机照片识图、YJ215私有Project或Windows硬件验收声明。
+
+## P9 — 完整回归与显式门叶3D Review补正
+
+- **问题/变量/代码身份**：对 `1770b87` 完成整合回归；核对中发现内部3D Review仍用旧整叶示意。后续 `4cf5e20` 仅让显式配置在活动/堆叠层复用共享编译器的闭合部件，新增实际显示网格检查。没有添加浏览器物理/动画，也没有改变原生/core源码或识图流程。
+- **全量与后续定向**：原构建三引擎1,332项全部覆盖，各444项。环境重启中断首轮，保留139项通过记录；以完成清单跳过已通过项，剩余1,193项全通过。原一项葡语保存提示超时在同断言/期限下复验通过，原因未作确定归因。补正后新生产构建18项三引擎定向通过，含9项新增滑门/不等宽双开/曲墙堆叠几何检查，并查看实际截图；最终完整收集共1,341项。
+- **负例/构建身份**：新增显示网格检查先在旧构建上确实失败，保留 `door-review-before*`。完整回归期间689个生产构建文件的哈希未变化；新构建另存独立哈希清单。两组与全套并行的四例环境诊断未显示明确收益，不作为隔离性能对照，未改变正式配置/断言或替换WPE端口。
+- **最终校验/性能**：补正后1,761单测/203文件再次串行全通过，类型0错误0警告、生产构建通过。六组桌面/手机视口benchmark通过，改名全部GPU资源类型新增数为0、内置GLB请求为0、退出释放通过；这些是软件渲染采样，不是手机/Windows硬件SLA。P6的千件主线程更新对照结论保持独立。
+- **独立范围**：固定作者Project的机械检查输入/结构/五门运动/布置保持通过；源审查、交互保存、路线及渲染在该报告仍 `not_run`，整体exit 2，不改成总体通过。十五组搬移Linux PCK/core与真实release启动沿用已验证产物；后续diff证明原生/core未变，Windows仍仅交叉构建。
+- **证据/下一步**：同一忽略目录 `browser-resume-report.json`、`door-review-final-report.json`、`post-review-serial-tests.log`、`viewer-benchmark-report.json`、`viewer-benchmark-results/`、`mechanical-final/`、`acceptance-status.json`，另存增量Git bundle。当前本地实现和整合结束；下一优先级恢复YJ215私有原图/Project后另存作者配置版本复验，硬件/真实模型验收继续独立，不据此更改识图结论。

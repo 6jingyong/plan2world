@@ -1,16 +1,20 @@
 # Plan2World 开发交接
 
 本页是新对话的当前开发入口，不是完成所有产品验收的声明。先读本页与
-[`AGENTS.md`](../AGENTS.md)，再从最新 `origin/main` 创建实现分支。
+[`AGENTS.md`](../AGENTS.md)，检查下列当前分支及本地提交；保留尚未推送的本轮成果。
 
 ## 2026-10-26 后续本地实现
 
 当前工作区 `/workspace/plan2world`，分支
 `feat/native-door-and-layout-reliability`，基于 main `0b917b7`。
 本轮只做本地实现/验证/提交，没有 push、PR 或合并授权。
+原生实现头为 `1770b87`，后补内部3D Review 为 `4cf5e20`；后者未改变原生/core源码，
+已验证的 player ZIP 仍对应当前原生实现。另有 `implementation.bundle` 增量分支备份，
+在已有 main `0b917b7` 的 clone 中可恢复本轮提交，勿只复制本页后丢失本地分支。
 
 - 已完成显式多叶滑门/固定扇/轨道/行程、不等宽双开，内部浏览器与 Godot 原生配置、
-  保存/package 往返和逐门通行；旧工程不自动猜配置。见 [门叶契约](native-door-panels.md)。
+  保存/package 往返和逐门通行；内部3D Review 使用共享编译器闭合门叶，支持堆叠层。
+  旧工程不自动猜配置。见 [门叶契约](native-door-panels.md)。
 - 已完成全占地支撑校验和按变化 owner 更新家具/拾取/材质/灯源。
   本机固定1,000件输入的主线程更新中位数435.3→35.5ms，非端到端/硬件SLA。
   见 [支撑与性能](runtime-placement-support.md)。
@@ -21,13 +25,20 @@
   见 [照明参考](runtime-lighting-calibration.md)。
 - 全量1,761单测/203文件、类型/生产构建/catalog通过；audit仍3 low，0 moderate/high/critical。
   搬移后的 Linux PCK/core 十五组门控及实际 release 启动通过；Windows只交叉构建，
-  没有本轮原生 Windows/硬件声明。完整三浏览器回归与 benchmark 正在整合验收。
+  没有本轮原生 Windows/硬件声明。
+- 原实现 `1770b87` 的三引擎全量1,332项通过，各444项；环境重启前139项与重启后
+  1,193项合并覆盖全套。一项保存提示超时复验通过，原日志/trace保留，未改断言/期限。
+  后续 `4cf5e20` 的18项三引擎定向检查通过，其中9项新增门叶3D几何检查；实际截图已查看。
+  六组桌面/手机视口benchmark全部通过：改名零新增GPU资源、零内置模型请求、退出释放通过。
+  软件渲染耗时不代表实体手机或Windows性能。
+- `runtime:validate` 的输入/结构/逐门运动/布置一致性通过；源图审查、交互保存、玩家路线、
+  渲染在该机械报告中仍为 `not_run`，整体 `review_required`（exit 2），不借独立门控填成总体通过。
 
 本轮证据在 `.plan2world-validation/runs/20261026-native-door-layout/`，包括初始失败、
 固定输入、before/after性能与照明、正常保存工程、原生截图和打包日志。
 当前包为 `player-linux-verified.zip` / `player-windows-verified.zip`；首轮坏包和日志保留。
 旧 YJ215 原图/Project/证据未随 clone 带来，仍需恢复后另存作者配置版本复验。
-本轮没有运行识图或付费 API。复盘见 P5–P8。
+本轮没有运行识图或付费 API。复盘见 P5–P9。
 
 ## 本次交接与工作约定
 
@@ -98,9 +109,9 @@
 主卧隐私边界仍不确定。不得靠自动补门、改生成结果、放宽碰撞或增加无证据分隔
 来让案例通过。源错误在观察层修；程序错误在最早负责层修。
 
-下一阶段门型验收应覆盖保存重开、重复字节稳定、独立碰撞/展示、完整开关、
-静态邻墙/家具/玩家阻挡和实际人物穿越。先用明确作者输入验证机制，再另存案例布置
-版本验证；不要回写冻结的 AI 观察或宣传成识别提升。
+本轮作者输入已覆盖保存重开、重复字节稳定、独立碰撞/展示、完整开关、
+静态邻墙/家具/玩家阻挡和实际人物穿越。下一优先级是恢复私有 YJ215 输入，
+另存明确作者配置版本复验三处阳台门；不要回写冻结的 AI 观察或宣传成识别提升。
 
 继续后置：L/U/螺旋楼梯、折叠/车库门、曲墙挂装、桌面 ChatGPT 登录。
 OpenRouter 真实授权/付费模型、Windows 显卡/DPI/文件框、实体手柄仍需独立验收。
@@ -133,12 +144,22 @@ GODOT_BIN=/path/to/Godot_v4.7.2 npm run runtime:validate -- \
   project.json NEW_DIRECTORY --arranged arranged.project.json
 ```
 
-本机多项重构子进程测试与 build 并行曾超出原有 5 秒期限；保留失败日志后以
-`npm test -- --maxWorkers=2` 全部通过，未改断言/超时。只读架构 CLI 已关闭 HMR。
+本机多项子进程测试与图形检查并行曾超出原有 5 秒期限；保留失败日志后串行图形与单测，
+最终 `npm test -- --maxWorkers=1` 全部通过，未改断言/超时。只读架构 CLI 已关闭 HMR。
 `runtime:validate` 返回1表示检查失败，2表示仍需审查/有未测环节，不能把2当总体通过。
 Godot 4.7.2 与 Node 24.19.0 的固定版本、SHA 校验和交付命令见运行时文档。
 
 ## 阅读入口与本地证据
+
+本轮汇总为 `.plan2world-validation/runs/20261026-native-door-layout/acceptance-status.json`；
+包含源码/构建身份、各范围结果、ZIP哈希与独立证据路径。分支备份在同目录
+`implementation.bundle`，在拥有基线的 clone 中可执行：
+
+```sh
+git fetch /path/to/implementation.bundle \
+  refs/heads/feat/native-door-and-layout-reliability:refs/heads/feat/native-door-and-layout-reliability
+git switch feat/native-door-and-layout-reliability
+```
 
 - [当前验证范围](runtime-validation.md)、[YJ215 案例及缺口](yj215-validation.md)
 - [家具布置](godot-furniture-layout.md)、[平面图/灯光](runtime-plan-lighting.md)

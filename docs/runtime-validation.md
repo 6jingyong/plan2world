@@ -6,7 +6,26 @@ support, explicit multi-leaf door routes, cancellable spatial placement and the
 [fixed lighting reference](runtime-lighting-calibration.md). Fifteen relocated
 Linux PCK/core gate groups plus actual release boot pass; Windows is cross-built
 only in this environment. The historical #81 evidence below remains separate.
-The full browser/benchmark integration result is being recorded for this local branch.
+The native source is `1770b87`; the later internal Review fix is `4cf5e20` and
+does not change the delivered native/core sources. This local branch is unpushed.
+
+| Current integration check | Result |
+| --- | --- |
+| Shared source | 1,761 tests / 203 files pass on the final code; type/build/catalog pass; audit 3 low, 0 moderate/high/critical |
+| Complete browser regression | 1,332 cases on the original implementation, 444 per engine; 139 before an environment restart plus 1,193 afterward; one saved-label timeout passed unchanged on resume |
+| Configured door Review | 18 Chromium/Firefox/WebKit cases pass on the subsequent production build, including 9 new actual-mesh checks for sliding, unequal paired and curved/stacked parts; rendered screenshots inspected |
+| Viewer benchmark | All six desktop/phone-viewport cases pass; rename allocations and built-in GLB requests remain zero, teardown passes; software timings are informational |
+| Mechanical authored case | Input, byte-stable structure/hashes/owners, five-door motion and architecture-preserving arrangement pass; sourceReview/persistence/walkthrough/rendering remain `not_run` in this report, overall `review_required` (exit 2) |
+| Delivery | Fifteen relocated Linux PCK/core groups and actual release boot pass; Windows cross-build only |
+
+Evidence is under `.plan2world-validation/runs/20261026-native-door-layout/`,
+including `acceptance-status.json`, production-build hash manifests, the original
+interrupted browser log/trace, resumed and targeted JSON reports, six benchmark
+metrics, `mechanical-final/validation-report.json` and verified player ZIPs.
+The newly expanded complete browser collection is 1,341 cases; the nine additions
+were exercised in the final targeted run. Private YJ215 inputs remain absent.
+
+## Historical #81 evidence
 
 The native furnishing, orthographic plan and ceiling-light milestone is checked
 with Godot 4.7.2. Generated inputs and output packages stay
