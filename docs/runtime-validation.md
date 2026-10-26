@@ -7,7 +7,7 @@ public sample Projects.
 
 | Check | Local evidence |
 | --- | --- |
-| Shared source | 1,713 tests in 196 files; type check without warnings, production build, catalog verification and zero audit findings |
+| Shared source | 1,713 tests in 196 files; type check without warnings, production build, catalog verification and high-threshold audit gate (0 high/critical; 3 low SvelteKit/adapter findings) |
 | Internal browser | Six focused Chromium cases covering existing furniture previews, desktop/phone layouts and 3D edit/persistence |
 | Delivered runtime | Ten relocated PCK/core gates plus the real release executable boot; door-seam picking retains wall occlusion/reach and excludes the actor |
 | Assets/physics | Native GLB import/fit/ownership, independent colliders, dynamic doors and grounded traversal |

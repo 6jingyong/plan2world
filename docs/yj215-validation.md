@@ -80,6 +80,8 @@ JSON、原图或生成模型。北侧卫生间入口和主卧隐私分隔继续�
 并匹配编译器 digest，避免把两个空字符串当作“建筑字节相同”。新增原生门缝、
 自身排除、墙遮挡和距离回归，接入搬移后 PCK 的第十组验收。完整单元、类型、
 构建及 Linux/Windows Godot CI 记录在 PR #81；PR 的 browser/benchmark 按既有政策跳过。
+本轮 audit 为 0 high/critical、3 low（SvelteKit 和两个 adapter 的关联告警）。修复建议
+涉及跨大版本升级，留作独立维护；没有把 required audit gate 通过写成零告警。
 
 完整证据在本地忽略目录
 `.plan2world-validation/runs/20261025-yj215-desktop-e2e-1807/`：两轮原始观察、冻结哈希、
