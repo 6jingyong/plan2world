@@ -8,7 +8,8 @@
 - 仓库：`6jingyong/plan2world`。本轮用户明确授权将 PR #81 合入 main。
   PR #81 包含原生 Godot 布置、正交平面图、灯光、桌面作者入口及图片准备；
   功能提交为 `a8bca6a2228242887eae7845eb594ceb8e7dab1a`，本页随合并准备补入。
-  合并提交和最新状态以 GitHub/main 为准，不从旧 `runtime-v2` 重新开工。
+  已 squash 合入 main `fc9692823fdf4ac9e99fcb845a3d4288cbe35bd8`；
+  后续整合修正和最新状态以 GitHub/main 为准，不从旧 `runtime-v2` 重新开工。
 - 本次合并授权不自动延伸到下一阶段。之后默认在本地实现、测试和提交；
   用户明确要求时才 push、开/更新 PR 或合并。阶段尽量完整，不按小函数拆 PR。
 - 用户希望新对话继续开发；建议下一阶段为“常用门型与通行闭环”，尚未开始实现。
@@ -85,6 +86,11 @@ audit 3 low、0 moderate/high/critical。PR required Linux/原生 Windows Godot 
 [run 40272614129](https://github.com/6jingyong/plan2world/actions/runs/40272614129)。
 PR browser/benchmark 按 policy 跳过；合并到 main 后必须检查 push 的完整矩阵，
 不能把上述 PR 通过等同于 main 全部回归通过。
+
+main 首轮完整回归发现真实户型纠错用例仍查找旧的 `Selected floor plan`，
+而当前确认图使用 `Prepared floor plan`。整合修正只同步该定位并新增原图/工作图/
+背景/manifest 字节身份断言；全部原有纠错、Undo/Redo、保存和3D检查保留，
+应用代码和生成结果不变。保留首轮失败，最终 main 状态以最新 push 的完整矩阵为准。
 
 本地另有三浏览器定向图像/保存检查、搬移后 PCK/core 的十一组门控和真实 release
 启动、Compatibility/Mesa 原生窗口。账户/推理用 mock，直接 Skill 不建立外部模型质量。

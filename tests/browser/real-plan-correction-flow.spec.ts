@@ -54,7 +54,10 @@ for (const width of [1440, 390]) test(`existing real source reaches a corrected,
   await page.getByRole('button', { name: 'Save OpenAI settings', exact: true }).click();
   await page.locator('input[type="file"][accept="image/png,image/jpeg,image/webp"]')
     .setInputFiles(resolve('tests/fixtures/real-floorplans/wikimedia-two-bedroom-source.jpg'));
-  await expect(page.getByRole('img', { name: 'Selected floor plan', exact: true })).toBeVisible();
+  const preparedPreview = page.getByRole('img', { name: 'Prepared floor plan', exact: true });
+  await expect(preparedPreview).toBeVisible();
+  const confirmedImage = (await preparedPreview.getAttribute('src'))!;
+  expect(createHash('sha256').update(Buffer.from(confirmedImage.split(',')[1], 'base64')).digest('hex')).toBe(sourceHash);
   await page.getByRole('button', { name: 'Generate reconstruction', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Review reconstructed plan', exact: true })).toBeVisible();
   await expect(page.getByText('walls', { exact: true })).toBeVisible();
@@ -78,6 +81,10 @@ for (const width of [1440, 390]) test(`existing real source reaches a corrected,
   }
 
   const imported = await exported(), importedFloor = imported.floors[0], firstDoor = importedFloor.doors[0];
+  expect(importedFloor.backgroundImage.dataUrl).toBe(confirmedImage);
+  expect(imported.reconstruction.inputPreparation.manifest).toMatchObject({
+    source: { sha256: sourceHash }, working: { sha256: sourceHash }, recipe: { mode: 'identity', quarterTurns: 0 },
+  });
   await page.getByRole('button', { name: 'Save', exact: true }).press('l');
   await page.goto(`/editor?id=${imported.id}&focusFloor=${importedFloor.id}&focus=${firstDoor.id}`);
   await expect(page).not.toHaveURL(/focusFloor=/);
