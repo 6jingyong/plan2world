@@ -29,24 +29,45 @@ func refresh(data: Dictionary, models: Dictionary) -> void:
 	for entity in data["entities"]:
 		_entities[entity["id"]]=entity
 		if not entity.has("light"):continue
-		var contract:Dictionary=entity["light"]
-		var lamp:Light3D=SpotLight3D.new() if contract["kind"]=="spot" else OmniLight3D.new()
-		lamp.name="Light_"+str(entity["id"]).validate_node_name();lamp.shadow_enabled=true
-		lamp.light_color=_color(contract["color"])
-		# Photometric source stays engine-neutral; this renderer's reference exposure
-		# maps 800 lm to energy 1. No model/material measurement defines a light.
-		lamp.light_energy=float(contract["lumens"])/800.0
-		if lamp is SpotLight3D:
-			lamp.spot_range=contract["range"];lamp.spot_angle=contract["spotAngleDegrees"]
-		else:lamp.omni_range=contract["range"]
-		_lights.add_child(lamp);_sources[entity["id"]]=lamp;_source_contracts[entity["id"]]=contract
-		preview_light(entity["id"],_v3(entity["position"]),entity["yawClockwiseRadians"])
-		if models.has(entity["id"]):_emitter_materials(models[entity["id"]],contract)
+		_add_fixture(entity,models)
 	apply(plan)
+
+func _add_fixture(entity:Dictionary,models:Dictionary) -> void:
+	var id:String=entity["id"];var contract:Dictionary=entity["light"]
+	var lamp:Light3D=SpotLight3D.new() if contract["kind"]=="spot" else OmniLight3D.new()
+	lamp.name="Light_"+id.validate_node_name();lamp.shadow_enabled=true;lamp.light_color=_color(contract["color"])
+	# One renderer calibration for full and incremental loading; native photometry
+	# remains unchanged. The reference exposure maps 800 lm to energy 1.
+	lamp.light_energy=float(contract["lumens"])/800
+	if lamp is SpotLight3D:lamp.spot_range=contract["range"];lamp.spot_angle=contract["spotAngleDegrees"]
+	else:lamp.omni_range=contract["range"]
+	_lights.add_child(lamp);_sources[id]=lamp;_source_contracts[id]=contract
+	preview_light(id,_v3(entity["position"]),entity["yawClockwiseRadians"])
+	lamp.visible=not plan and contract["enabled"] and contract["lumens"]>0
+	if models.has(id):_emitter_materials(models[id],contract)
 
 func set_daylight(mode: int) -> void:
 	daylight=mode%PRESETS.size()
 	if not plan:apply(false)
+
+func prepare_update(changed:Dictionary) -> void:
+	var keep:Array=[]
+	for saved in _originals:
+		if changed.has(saved[5]):_restore_one(saved)
+		else:keep.append(saved)
+	_originals=keep
+
+func refresh_subset(data:Dictionary,models:Dictionary,changed:Dictionary) -> void:
+	_entities.clear()
+	for entity in data["entities"]:_entities[entity["id"]]=entity
+	for id in changed:
+		if _sources.has(id):
+			var source:Node=_sources[id];_lights.remove_child(source);source.queue_free();_sources.erase(id);_source_contracts.erase(id)
+		if not _entities.has(id):continue
+		var entity:Dictionary=_entities[id]
+		if entity.has("light"):
+			_add_fixture(entity,models)
+		if models.has(id):_style(models[id],"furniture",str(id))
 
 func apply(enabled: bool) -> void:
 	_restore();plan=enabled
@@ -68,25 +89,28 @@ func apply(enabled: bool) -> void:
 
 func _restore() -> void:
 	for saved in _originals:
-		var mesh=saved[0]
-		if not is_instance_valid(mesh):continue
-		mesh.material_override=saved[1];mesh.cast_shadow=saved[3];mesh.visible=saved[4]
-		for i in range(saved[2].size()):mesh.set_surface_override_material(i,saved[2][i])
+		_restore_one(saved)
 	_originals.clear()
 
-func _style(node:Node, inherited:String) -> void:
+func _restore_one(saved:Array) -> void:
+	var mesh=saved[0]
+	if not is_instance_valid(mesh):return
+	mesh.material_override=saved[1];mesh.cast_shadow=saved[3];mesh.visible=saved[4]
+	for i in range(saved[2].size()):mesh.set_surface_override_material(i,saved[2][i])
+
+func _style(node:Node, inherited:String,inherited_owner:="") -> void:
 	if node.get_meta("p2w_editor_overlay",false):return
 	if node is Light3D and node!=_sun and node.get_parent()!=_lights:node.visible=false
 	var kind:=inherited
 	var info:Dictionary=node.get_meta("extras",{}).get("plan2world",{})
 	if not info.is_empty():kind=str(info.get("kind",kind))
 	if info.get("view")=="plan" and node is Node3D:node.visible=plan
-	var owner:=str(node.get_meta("p2w_owner_id",""))
+	var owner:=str(node.get_meta("p2w_owner_id",inherited_owner))
 	if _entities.has(owner):kind=_entities[owner]["kind"]
 	if plan and node is MeshInstance3D and node.mesh!=null:
 		var old:Array=[]
 		for i in range(node.mesh.get_surface_count()):old.append(node.get_surface_override_material(i))
-		_originals.append([node,node.material_override,old,node.cast_shadow,node.visible])
+		_originals.append([node,node.material_override,old,node.cast_shadow,node.visible,owner])
 		node.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		if kind=="door":node.hide()
 		var palette:Dictionary={"wall":"293c42","floor":"f5f0e3","column":"647878","stair":"cec5ae","plan-door":"ed792e","plan-window":"138cc5"}
@@ -97,7 +121,7 @@ func _style(node:Node, inherited:String) -> void:
 				var source=node.get_surface_override_material(i)
 				if source==null:source=node.mesh.surface_get_material(i)
 				node.set_surface_override_material(i,_flat(source))
-	for child in node.get_children():_style(child,kind)
+	for child in node.get_children():_style(child,kind,owner)
 
 func _flat(source:Material,color:=Color.TRANSPARENT) -> StandardMaterial3D:
 	var material:StandardMaterial3D=source.duplicate() if source is StandardMaterial3D else StandardMaterial3D.new()

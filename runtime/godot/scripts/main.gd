@@ -218,6 +218,8 @@ func _edit_layout(command: Dictionary) -> void:
 			if candidate.is_empty() or not _apply_door_state(result,candidate,str(command["id"])):
 				_session.discard_candidate(result);_sync_controls();_layout_message("Door panels overlap an obstacle or the player. Previous door retained.");return
 			_session.accept(result);_sync_controls();return
+		if not candidate.is_empty() and candidate["source"].get("architectureSha256")!=_runtime_data["source"].get("architectureSha256"):
+			_session.discard_candidate(result);_sync_controls();_layout_message("The edit changed architectural artifacts. Previous world retained.");return
 		var id := "" if result.get("selectedId") == null else str(result["selectedId"])
 		if candidate.is_empty() or (not id.is_empty() and not _layout_camera.placement_allowed(candidate, id)):
 			_layout_camera.cancel_drag()
@@ -237,12 +239,14 @@ func _edit_layout(command: Dictionary) -> void:
 func _apply_layout_state(state: Dictionary, data: Dictionary) -> void:
 	var artifacts := RUNTIME_ARTIFACTS.new()
 	_layout_camera.cancel_drag()
-	_render_furniture(data, artifacts.load_assets(str(state["runtimePath"])))
+	var changed:=_changed_furniture(data)
+	_layout_camera.display.prepare_update(changed)
+	_render_furniture(data, artifacts.load_assets(str(state["runtimePath"])),changed)
 	_runtime_data = data
 	_spawn = _choose_spawn(data)
 	_spawn_yaw = _spawn_floor(data).get("walkthroughYawClockwiseRadians")
-	_layout_camera.display.refresh(data,_furniture_models)
-	_layout_camera.refresh(data, _collider_nodes, _furniture_models)
+	_layout_camera.display.refresh_subset(data,_furniture_models,changed)
+	if not changed.is_empty():_layout_camera.refresh(data, _collider_nodes, _furniture_models,changed.keys())
 	_layout_camera.selected_id = "" if state.get("selectedId") == null else str(state["selectedId"])
 	_sync_editor()
 
@@ -332,19 +336,39 @@ func _build_furniture(data: Dictionary, assets: Dictionary, world: Node3D) -> Di
 	models.merge(proxy["instances"])
 	return { "root": group, "colliders": built["collider_nodes"], "models": models, "asset_count": presented["presented"].size(), "proxy_count": proxy["collider_proxy_count"] }
 
-func _render_furniture(data: Dictionary, assets: Dictionary) -> void:
-	var next := _build_furniture(data, assets, _world)
-	if _furniture_root != null:
-		_world.remove_child(_furniture_root)
-		_furniture_root.queue_free()
-	for id in _furniture_collider_ids:
-		_collider_nodes.erase(id)
-	_furniture_root = next["root"]
-	_furniture_root.name = "FurnitureLayout"
-	_furniture_models = next["models"]
-	_furniture_collider_ids = next["colliders"].keys()
-	_collider_nodes.merge(next["colliders"], true)
-	_furniture_fallbacks = next["proxy_count"]
+func _changed_furniture(data:Dictionary) -> Dictionary:
+	var old:Dictionary={};var changed:Dictionary={}
+	for entity in _runtime_data["entities"]:
+		if entity["kind"]=="furniture":old[entity["id"]]=entity
+	for entity in data["entities"]:
+		if entity["kind"]!="furniture":continue
+		if old.get(entity["id"])!=entity:changed[entity["id"]]=true
+		old.erase(entity["id"])
+	for id in old:changed[id]=true
+	return changed
+
+func _render_furniture(data: Dictionary, assets: Dictionary,changed:Dictionary) -> void:
+	if changed.is_empty():return
+	var subset:=data.duplicate();subset["entities"]=data["entities"].filter(func(entity):return changed.has(entity["id"]))
+	var stage:=Node3D.new();var next:=_build_furniture(subset,assets,stage)
+	for id in changed:
+		var model:Node=_furniture_models.get(id)
+		if is_instance_valid(model) and model.get_parent()==_furniture_root:
+			_furniture_root.remove_child(model);model.queue_free()
+		_furniture_models.erase(id)
+	for collider in _runtime_data["colliders"]:
+		if not changed.has(collider["ownerId"]) or not _collider_nodes.has(collider["id"]):continue
+		var node:Node=_collider_nodes[collider["id"]]
+		_furniture_root.remove_child(node);node.queue_free();_collider_nodes.erase(collider["id"]);_furniture_collider_ids.erase(collider["id"])
+	for child in next["root"].get_children():
+		next["root"].remove_child(child);_furniture_root.add_child(child)
+	stage.free()
+	_furniture_models.merge(next["models"])
+	_furniture_collider_ids.append_array(next["colliders"].keys())
+	_collider_nodes.merge(next["colliders"])
+	_furniture_fallbacks=0
+	for model in _furniture_models.values():
+		if not model.has_meta("p2w_asset_ref"):_furniture_fallbacks+=1
 	_update_asset_notice()
 
 func _sync_editor() -> void:
