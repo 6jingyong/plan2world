@@ -100,7 +100,10 @@
     "slideDoorLeaf": {
       "$ref": "#/$defs/doorLeaf", "unevaluatedProperties": false,
       "required": ["axis", "travel"],
-      "properties": { "axis": { "$ref": "#/$defs/vec3" }, "travel": { "$ref": "#/$defs/positive" } }
+      "properties": { "axis": { "$ref": "#/$defs/vec3" }, "travel": { "$ref": "#/$defs/nonnegative" }, "fixed": { "const": true } },
+      "if": { "required": ["fixed"] },
+      "then": { "properties": { "travel": { "const": 0 } } },
+      "else": { "properties": { "travel": { "$ref": "#/$defs/positive" } } }
     },
     "blockedDoorLeaf": { "$ref": "#/$defs/doorLeaf", "unevaluatedProperties": false },
     "doorInteraction": {
@@ -117,6 +120,7 @@
           "type": "object", "additionalProperties": false, "required": ["kind", "leaves"],
           "properties": {
             "kind": { "const": "slide" },
+            "allowHostOverlap": { "type": "boolean" },
             "leaves": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/slideDoorLeaf" } }
           }
         },

@@ -1,9 +1,10 @@
 import { validateReconstructionEvidence } from './reconstructionEvidence';
 import { readFloorBoundary } from './floorBoundary';
-import type { Project, DetailKind } from '$lib/models/types';
+import type { Project, DetailKind, Door } from '$lib/models/types';
 import { validateItemDetails, validateRetainedDetailState } from './itemDetails';
 import { refreshLegacyFurnitureCategories } from './legacyFurnitureCategories';
 import { validateCustomModelDefinitions } from './customModelDefinitions';
+import { validateDoorLeaves } from './doorLeaves';
 
 /** Read untrusted native files without mutating their input or the active editor. */
 export function readProject(value: unknown): Project {
@@ -121,6 +122,7 @@ export function readProject(value: unknown): Project {
         choice(opening.type, ['single', 'double', 'sliding', 'french', 'pocket', 'bifold', 'opening', 'garage'], `${path}.type`);
         choice(opening.swingDirection, ['left', 'right'], `${path}.swingDirection`);
         booleans(opening, ['flipSide'], path);
+        validateDoorLeaves(opening as Door);
       } else {
         choice(opening.type, ['standard', 'fixed', 'casement', 'sliding', 'bay'], `${path}.type`);
         number(opening.sillHeight, `${path}.sillHeight`, 0);

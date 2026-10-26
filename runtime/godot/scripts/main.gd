@@ -13,6 +13,7 @@ const LAYOUT_CAMERA := preload("res://scripts/layout_camera.gd")
 const DESKTOP_AUTHORING := preload("res://scripts/desktop_authoring.gd")
 const VIEW_STYLE:=preload("res://scripts/runtime_view_style.gd")
 const LIGHT_SETTINGS:=preload("res://scripts/light_settings.gd")
+const DOOR_SETTINGS:=preload("res://scripts/door_settings.gd")
 
 enum ViewMode { WALKTHROUGH, PLAN }
 
@@ -20,6 +21,7 @@ var _world: Node3D
 var _launcher
 var _authoring
 var _light_settings
+var _door_settings
 var _daylight:=0
 var _spawn: Vector3
 var _spawn_yaw = null
@@ -57,6 +59,12 @@ func _ready() -> void:
 	_authoring=DESKTOP_AUTHORING.new()
 	add_child(_authoring)
 	_light_settings=LIGHT_SETTINGS.new();add_child(_light_settings)
+	_door_settings=DOOR_SETTINGS.new();add_child(_door_settings)
+	_door_settings.command_requested.connect(_edit_layout)
+	_door_settings.visibility_changed.connect(func():
+		if _door_settings.visible:return
+		while _editing or _session.busy:await get_tree().process_frame
+		if _world!=null and not _menu_open:_resume())
 	_light_settings.command_requested.connect(_edit_layout)
 	_light_settings.closed.connect(func():
 		while _editing or _session.busy:await get_tree().process_frame
@@ -137,6 +145,7 @@ func _open_scene(runtime_path: String, architecture_path: String = "", editor_st
 	_plan_view.menu_requested.connect(_show_menu)
 	_plan_view.command_requested.connect(_edit_layout)
 	_plan_view.light_requested.connect(_show_light_settings)
+	_plan_view.doors_requested.connect(_show_door_settings)
 	_plan_view.save_requested.connect(_save_layout)
 	_plan_view.export_requested.connect(func(path: String):
 		var error: Error = _session.export_runtime(path)
@@ -205,6 +214,10 @@ func _edit_layout(command: Dictionary) -> void:
 	_editing = false
 	if result.get("ok", false):
 		var candidate: Dictionary = RUNTIME_ARTIFACTS.new().load_runtime(str(result["runtimePath"]))
+		if result.get("updateKind")=="doors":
+			if candidate.is_empty() or not _apply_door_state(result,candidate,str(command["id"])):
+				_session.discard_candidate(result);_sync_controls();_layout_message("Door panels overlap an obstacle or the player. Previous door retained.");return
+			_session.accept(result);_sync_controls();return
 		var id := "" if result.get("selectedId") == null else str(result["selectedId"])
 		if candidate.is_empty() or (not id.is_empty() and not _layout_camera.placement_allowed(candidate, id)):
 			_layout_camera.cancel_drag()
@@ -232,6 +245,49 @@ func _apply_layout_state(state: Dictionary, data: Dictionary) -> void:
 	_layout_camera.refresh(data, _collider_nodes, _furniture_models)
 	_layout_camera.selected_id = "" if state.get("selectedId") == null else str(state["selectedId"])
 	_sync_editor()
+
+func _apply_door_state(state:Dictionary,data:Dictionary,id:String) -> bool:
+	if data["source"].get("architectureSha256")!=_runtime_data["source"].get("architectureSha256"):return false
+	var entity:Dictionary={}
+	for item in data["entities"]:
+		if item["id"]==id:entity=item
+	if entity.is_empty():return false
+	var exclusions:Array[RID]=[];var old_root:Node
+	for collider in _runtime_data["colliders"]:
+		if collider["ownerId"]==id and _collider_nodes.has(collider["id"]):
+			var body:PhysicsBody3D=_collider_nodes[collider["id"]];exclusions.append(body.get_rid());old_root=body.get_parent()
+		elif collider["ownerId"]==entity["hostWallId"] and entity["interaction"].get("allowHostOverlap",true) and _collider_nodes.has(collider["id"]):
+			exclusions.append(_collider_nodes[collider["id"]].get_rid())
+	var colliders:Dictionary={}
+	for collider in data["colliders"]:
+		if collider["ownerId"]!=id:continue
+		colliders[collider["id"]]=collider
+		var shape:=BoxShape3D.new();shape.size=Vector3(collider["size"][0],collider["size"][1],collider["size"][2])-Vector3.ONE*.00001
+		var query:=PhysicsShapeQueryParameters3D.new();query.shape=shape;query.exclude=exclusions;query.collision_mask=1;query.margin=0
+		query.transform=Transform3D(Basis(Vector3.UP,-float(collider["yawClockwiseRadians"])),Vector3(collider["center"][0],collider["center"][1],collider["center"][2]))
+		if not get_world_3d().direct_space_state.intersect_shape(query,1).is_empty():return false
+	var group:=Node3D.new();group.name="EditedDoor"
+	var nodes:Dictionary={};var leaves:Dictionary={}
+	RUNTIME_LOADER.new()._build_door(entity,colliders,_collider_nodes.duplicate(),leaves,group)
+	for leaf in entity["interaction"]["leaves"]:nodes[leaf["colliderId"]]=leaves[leaf["id"]]
+	var subset:Dictionary={"entities":[entity],"colliders":colliders.values(),"floors":data["floors"]}
+	var built:Dictionary={"leaf_nodes":leaves,"collider_nodes":nodes}
+	var assets:=RUNTIME_ARTIFACTS.new().load_assets(str(state["runtimePath"]))
+	var presented:Dictionary=RUNTIME_ASSET_RENDERER.new().render(subset,group,built,assets)
+	RUNTIME_PROXY_RENDERER.new().render(subset,group,built,true,presented["presented"])
+	# Commit only the changed assembly. Architecture, other doors, player and
+	# camera retain their existing nodes and state.
+	if old_root!=null:
+		if old_root.get_parent().name=="EditedDoor":old_root=old_root.get_parent()
+		old_root.get_parent().remove_child(old_root);old_root.queue_free()
+	for collider in _runtime_data["colliders"]:
+		if collider["ownerId"]==id:_collider_nodes.erase(collider["id"])
+	_world.add_child(group)
+	_collider_nodes.merge(nodes)
+	_runtime_data=data;_layout_camera._build_door_clearance(data)
+	_layout_camera.refresh(data,_collider_nodes,_furniture_models)
+	_layout_camera.display.refresh(data,_furniture_models)
+	return true
 
 func _stage_world(data: Dictionary, artifacts, runtime_path: String, architecture_path: String) -> Dictionary:
 	var world := Node3D.new()
@@ -295,13 +351,13 @@ func _sync_editor() -> void:
 	_plan_view.set_editor(_session.current(), _session.busy or _editing or _layout_camera.transitioning, _session.is_dirty())
 
 func _sync_controls() -> void:
-	var walking: bool = not _menu_open and not _light_settings.dialog.visible and _view_mode == ViewMode.WALKTHROUGH and not _layout_camera.transitioning and not _adjustment.active and not _editing
+	var walking: bool = not _menu_open and not _light_settings.dialog.visible and not _door_settings.visible and _view_mode == ViewMode.WALKTHROUGH and not _layout_camera.transitioning and not _adjustment.active and not _editing
 	var player := _world.get_node("Player") as P2WPlayer
 	player.set_physics_process(walking)
 	player.set_process_unhandled_input(not _menu_open and _view_mode == ViewMode.WALKTHROUGH and not _layout_camera.transitioning)
 	player.interaction_enabled = walking
 	_adjustment.set_process_unhandled_input(not _menu_open and not _editing)
-	_layout_camera.set_process_unhandled_input(not _menu_open)
+	_layout_camera.set_process_unhandled_input(not _menu_open and not _door_settings.visible)
 	if not _menu_open:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED if _view_mode == ViewMode.WALKTHROUGH and not _layout_camera.transitioning else Input.MOUSE_MODE_VISIBLE
 	_sync_editor()
@@ -313,7 +369,7 @@ func _save_layout(path: String) -> void:
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if _authoring._screen.visible:return
-	if _light_settings.dialog.visible:return
+	if _light_settings.dialog.visible or _door_settings.visible:return
 	if event is InputEventKey and event.pressed and not event.echo and not _menu_open and _world!=null:
 		if event.keycode==KEY_T and _view_mode==ViewMode.WALKTHROUGH:
 			_set_daylight((_daylight+1)%4);get_viewport().set_input_as_handled();return
@@ -364,7 +420,7 @@ func _notification(what: int) -> void:
 		_request_action(func(): get_tree().quit())
 		return
 	if what == NOTIFICATION_WM_WINDOW_FOCUS_OUT and is_node_ready() and _world != null and not _menu_open:
-		if _plan_view.has_open_dialog() or _light_settings.dialog.visible:
+		if _plan_view.has_open_dialog() or _light_settings.dialog.visible or _door_settings.visible:
 			return
 		_show_menu("Session paused while this window was inactive.")
 
@@ -407,6 +463,7 @@ func _layout_message(text: String) -> void:
 			label.visible = not text.is_empty()
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _door_settings.visible:return
 	if event is InputEventJoypadButton and event.is_action_pressed("view_toggle") and not _menu_open and _world != null and not _editing:
 		if _view_mode == ViewMode.PLAN: _show_walkthrough()
 		else:
@@ -424,6 +481,12 @@ func _show_light_settings(id:String) -> void:
 	if _layout_camera._entities[id].get("locked",false):return
 	_adjustment.cancel();_layout_camera.cancel_drag();_release_actions()
 	_light_settings.show_light(_layout_camera._entities[id]);get_tree().paused=true;Input.mouse_mode=Input.MOUSE_MODE_VISIBLE;_sync_controls()
+
+func _show_door_settings() -> void:
+	if _editing or _session.busy:return
+	_adjustment.cancel();_layout_camera.cancel_drag();_release_actions()
+	_door_settings.show_doors(_session.current().get("doors",[]),_layout_camera.floor_id)
+	if _door_settings.visible:get_tree().paused=true;Input.mouse_mode=Input.MOUSE_MODE_VISIBLE;_sync_controls()
 
 func _update_asset_notice() -> void:
 	var notes := _scene_notes.duplicate()

@@ -101,6 +101,7 @@ func refresh(scene: Dictionary, nodes: Dictionary, models: Dictionary) -> void:
 	update_floor_visibility()
 
 func _build_door_clearance(scene: Dictionary) -> void:
+	if _door_clearance!=null:remove_child(_door_clearance);_door_clearance.queue_free()
 	# Placement-only copies of the compiler's closed-pose colliders. Layer 4
 	# never blocks locomotion, door animation, floor rays or furniture picking.
 	_door_clearance = Node3D.new()

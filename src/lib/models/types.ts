@@ -89,6 +89,20 @@ export interface Room {
   labelOffset?: Point;
 }
 
+/** Author input in native cm, in the opening chord frame (A to B, normal left).
+ * A fixed panel retains a real collider; it is never an inferred moving leaf. */
+export interface SlidingDoorLeaf {
+  id: string;
+  width: number;
+  center: number;
+  track: number;
+  motion: 'fixed' | 'slide';
+  travel: number; // signed cm along the opening chord; fixed panels require 0
+}
+export type DoorLeafConfiguration =
+  | { kind: 'paired'; firstLeafRatio: number }
+  | { kind: 'sliding'; leaves: SlidingDoorLeaf[] };
+
 export interface Door {
   details?: ItemDetails;
   id: string;
@@ -99,6 +113,7 @@ export interface Door {
   type: 'single' | 'double' | 'sliding' | 'french' | 'pocket' | 'bifold' | 'opening' | 'garage';
   swingDirection: 'left' | 'right';
   flipSide: boolean; // flip which side of wall the door opens to (vertical flip)
+  leafConfiguration?: DoorLeafConfiguration;
 }
 
 export interface Window {

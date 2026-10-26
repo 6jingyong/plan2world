@@ -15,6 +15,7 @@ import { getWallStartHeight, getWallEndHeight, getWallHeightAt, validWallHeight 
 import type { DetailTarget, ItemDetails } from '$lib/models/types';
 import { detailItem, itemDetails, validateItemDetails } from '$lib/utils/itemDetails';
 import { readProject } from '$lib/utils/projectValidation';
+import { reverseDoorLeaves, resizeDoorLeaves, validateDoorLeaves } from '$lib/utils/doorLeaves';
 import { createDefaultFloor } from '$lib/models/projectDefaults';
 export { createDefaultFloor, createDefaultProject } from '$lib/models/projectDefaults';
 
@@ -741,6 +742,7 @@ export function reverseWall(id: string) {
         d.position = 1 - d.position;
         d.swingDirection = d.swingDirection === 'left' ? 'right' : 'left';
         d.flipSide = !d.flipSide;
+        if (d.leafConfiguration) d.leafConfiguration = reverseDoorLeaves(d.leafConfiguration);
       }
     }
     for (const win of f.windows) {
@@ -756,9 +758,13 @@ export function updateDoor(id: string, updates: Partial<Door>) {
   if (!door || unchangedFields(door, updates)) return;
   if (['width', 'height'].some(key => key in updates && !validPositiveDimension(updates[key as 'width' | 'height']))) return;
   if ('position' in updates && !validOpeningPosition(updates.position)) return;
+  const next = { ...door, ...updates };
+  if (updates.type && updates.type !== door.type && !('leafConfiguration' in updates)) next.leafConfiguration = undefined;
+  else if (updates.width !== undefined && door.leafConfiguration && !('leafConfiguration' in updates)) next.leafConfiguration = resizeDoorLeaves(door.leafConfiguration,updates.width/door.width);
+  try { validateDoorLeaves(next); } catch { return; }
   mutate((f) => {
     const d = f.doors.find((d) => d.id === id);
-    if (d) Object.assign(d, updates);
+    if (d) Object.assign(d, updates, { leafConfiguration: next.leafConfiguration });
   }, undefined, coalesceKeyFor('door', id, updates));
 }
 

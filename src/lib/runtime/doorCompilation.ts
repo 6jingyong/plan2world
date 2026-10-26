@@ -1,5 +1,6 @@
 import type { Door } from '../models/types';
 import { compileRuntimeWallPathProfile } from './wallPathGeometry';
+import { validateDoorLeaves } from '../utils/doorLeaves';
 import type { RuntimeBoxCollider, RuntimeDoorEntity, RuntimeDoorInteraction, RuntimeDoorLeaf, RuntimeVec3, RuntimeWallEntity } from './types';
 
 const LEAF_THICKNESS = 0.04;
@@ -13,6 +14,7 @@ export function compileRuntimeDoor(floorId: string, elevation: number, door: Doo
   entity: RuntimeDoorEntity; colliders: RuntimeBoxCollider[];
 } {
   const path = compileRuntimeWallPathProfile(wall);
+  validateDoorLeaves(door);
   const distance = path.distanceAt(door.position);
   const width = door.width * 0.01, height = door.height * 0.01;
   const a = path.sampleDistance(distance - width / 2).point;
@@ -23,13 +25,19 @@ export function compileRuntimeDoor(floorId: string, elevation: number, door: Doo
   const center: RuntimeVec3 = [(a[0] + b[0]) / 2, elevation + height / 2, (a[1] + b[1]) / 2];
   const paired = door.type === 'double' || door.type === 'french';
   const count = paired ? 2 : 1;
-  const leaves: RuntimeDoorLeaf[] = Array.from({ length: count }, (_, index) => {
-    const offset = paired ? (index === 0 ? -1 : 1) * chordWidth / 4 : 0;
-    const id = `door:${encodeURIComponent(door.id)}:leaf:${index}`;
+  const config = door.leafConfiguration;
+  const ratio = config?.kind === 'paired' ? config.firstLeafRatio : .5;
+  const panels = config?.kind === 'sliding' ? config.leaves : undefined;
+  const leaves: RuntimeDoorLeaf[] = Array.from({ length: panels?.length ?? count }, (_, index) => {
+    const fraction = paired ? (index === 0 ? ratio : 1-ratio) : 1;
+    const leafWidth = panels ? panels[index].width * chordWidth / door.width : chordWidth * fraction;
+    const offset = panels ? panels[index].center * chordWidth / door.width : paired ? (index === 0 ? -chordWidth/2+leafWidth/2 : chordWidth/2-leafWidth/2) : 0;
+    const track = panels ? panels[index].track * .01 : 0;
+    const id = `door:${encodeURIComponent(door.id)}:leaf:${panels ? encodeURIComponent(panels[index].id) : index}`;
     return {
       id, colliderId: id, assetRef: 'builtin:door-leaf-v1',
-      size: [chordWidth / count, height, LEAF_THICKNESS],
-      closedPose: { center: [center[0] + tangent[0] * offset, center[1], center[2] + tangent[1] * offset], yawClockwiseRadians: yaw },
+      size: [leafWidth, height, LEAF_THICKNESS],
+      closedPose: { center: [center[0] + tangent[0] * offset-tangent[1]*track, center[1], center[2] + tangent[1] * offset+tangent[0]*track], yawClockwiseRadians: yaw },
     };
   });
   let interaction: RuntimeDoorInteraction;
@@ -40,7 +48,11 @@ export function compileRuntimeDoor(floorId: string, elevation: number, door: Doo
     case 'sliding':
     case 'pocket': {
       const sign = door.swingDirection === 'left' ? 1 : -1;
-      interaction = { kind: 'slide', leaves: leaves.map(leaf => ({ ...leaf, axis: [tangent[0] * sign, 0, tangent[1] * sign], travel: chordWidth })) };
+      interaction = { kind: 'slide', ...(panels ? { allowHostOverlap: door.type === 'pocket' } : {}), leaves: leaves.map((leaf,index) => {
+        const panel = panels?.[index], direction = panel ? Math.sign(panel.travel) : sign;
+        return { ...leaf, axis: [tangent[0]*direction,0,tangent[1]*direction], travel: panel ? Math.abs(panel.travel)*.01 : chordWidth,
+          ...(panel?.motion === 'fixed' ? { fixed: true as const } : {}) };
+      }) };
       break;
     }
     case 'single':

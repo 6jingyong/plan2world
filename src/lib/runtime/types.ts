@@ -69,7 +69,8 @@ export type RuntimeDoorInteraction =
     }
   | {
       kind: 'slide';
-      leaves: (RuntimeDoorLeaf & { axis: RuntimeVec3; travel: number })[];
+      allowHostOverlap?: boolean;
+      leaves: (RuntimeDoorLeaf & { axis: RuntimeVec3; travel: number; fixed?: true })[];
     }
   | {
       kind: 'unsupported';
