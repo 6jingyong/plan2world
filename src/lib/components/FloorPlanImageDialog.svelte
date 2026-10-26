@@ -11,20 +11,20 @@
   import { geometryIssueKey } from '$lib/plan2world/geometryHealth';
   import { reviewIssueFocusMode } from '$lib/plan2world/reviewFocus';
   import ReconstructionReview from './ReconstructionReview.svelte';
+  import FloorPlanImagePreparation from './FloorPlanImagePreparation.svelte';
+  import type { PreparedBrowserFloorPlan } from '$lib/plan2world/imagePreparationBrowser';
   import { buildReconstructionTrace } from '$lib/plan2world/reconstructionTrace';
   import {
     calibratePlan2WorldDraft,
     summarizePlan2WorldDraft,
   } from '$lib/plan2world/review';
   import {
-    decodeSourceFloorPlanImage,
     draftToProjectWithSourceBackground,
     sourceImageDistanceInPlanCm,
     type NormalizedImagePoint,
     type SourceFloorPlanImage,
   } from '$lib/plan2world/sourceBackground';
   import {
-    encodeFloorPlanImage,
     MAX_FLOOR_PLAN_IMAGE_BYTES,
     reconstructFloorPlanImage,
   } from '$lib/plan2world/vision';
@@ -33,7 +33,7 @@
 
   let fileInput: HTMLInputElement;
   let file = $state<File | null>(null);
-  let previewUrl = $state('');
+  let preparedImage = $state<PreparedBrowserFloorPlan | null>(null);
   let scaleHint = $state('');
   let busy = $state(false);
   let status = $state('');
@@ -71,11 +71,6 @@
     }
   });
 
-  function revokePreview() {
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    previewUrl = '';
-  }
-
   function resetCalibration() {
     calibrationPoints = [];
     actualReference = '';
@@ -103,10 +98,9 @@
       error = 'The image is larger than 12 MB. Resize or compress it first.';
       return;
     }
-    revokePreview();
     resetReview();
+    preparedImage = null;
     file = next;
-    previewUrl = URL.createObjectURL(next);
   }
 
   function onFileSelected(event: Event) {
@@ -122,15 +116,16 @@
   }
 
   async function generate() {
-    if (!file || busy) return;
+    if (!file || !preparedImage || busy) return;
+    const prepared = preparedImage;
     error = '';
     resetReview();
     status = 'Reading floor-plan image…';
     busy = true;
     controller = new AbortController();
     try {
-      const image = await encodeFloorPlanImage(file);
-      sourceImage = { ...await decodeSourceFloorPlanImage(image.dataUrl), name: file.name };
+      const image = prepared.image;
+      sourceImage = structuredClone($state.snapshot(prepared.source));
       if (controller.signal.aborted) return;
       status = 'Reconstructing walls, doors, and windows…';
       const result = await reconstructFloorPlanImage(
@@ -190,7 +185,7 @@
     busy = true;
     controller = new AbortController();
     try {
-      const candidate = draftToProjectWithSourceBackground(draft, sourceImage);
+      const candidate = draftToProjectWithSourceBackground(draft, $state.snapshot(sourceImage));
       if (candidate.reconstruction && observationReview) {
         candidate.reconstruction.observationReview = structuredClone($state.snapshot(observationReview));
       }
@@ -222,7 +217,6 @@
 
   onDestroy(() => {
     controller?.abort();
-    revokePreview();
   });
 </script>
 
@@ -243,7 +237,7 @@
   <input bind:this={fileInput} class="hidden" type="file" accept="image/png,image/jpeg,image/webp" onchange={onFileSelected} />
 
   {#if draft && review}
-    <ReconstructionReview {review} {trace} {observationReview} sourceUrl={previewUrl} sourceName={file?.name}
+    <ReconstructionReview {review} {trace} {observationReview} sourceUrl={sourceImage?.dataUrl ?? ''} sourceName={file?.name}
       {calibrationPoints} onpick={pickCalibrationPoint} {busy} bind:showTrace bind:focusedIssueKey />
 
     <div class="mt-4 rounded-xl border border-blue-200 bg-blue-50/60 p-4">
@@ -285,9 +279,8 @@
   {:else}
     <button type="button" disabled={busy} onclick={() => fileInput.click()}
       ondragover={(event) => event.preventDefault()} ondrop={onDrop}
-      class="w-full min-h-52 rounded-2xl border-2 border-dashed border-gray-300 hover:border-blue-400 bg-gray-50 hover:bg-blue-50/40 transition-colors overflow-hidden disabled:opacity-60">
-      {#if previewUrl}
-        <img src={previewUrl} alt="Selected floor plan" class="w-full max-h-80 object-contain bg-white" />
+      class="w-full {file ? '' : 'min-h-52'} rounded-2xl border-2 border-dashed border-gray-300 hover:border-blue-400 bg-gray-50 hover:bg-blue-50/40 transition-colors overflow-hidden disabled:opacity-60">
+      {#if file}
         <div class="px-4 py-3 text-sm text-gray-600 flex justify-between gap-3">
           <span class="truncate">{file?.name}</span>
           <span class="shrink-0">Click to replace</span>
@@ -300,6 +293,7 @@
         </div>
       {/if}
     </button>
+    {#if file}<FloorPlanImagePreparation {file} disabled={busy} onprepared={value => preparedImage=value}/>{/if}
 
     <div class="mt-5">
       <label class="block">
@@ -360,7 +354,7 @@
         {busy ? 'Opening…' : focusedIssue ? 'Open editable home at finding' : 'Open editable home'}
       </button>
     {:else}
-      <button type="button" onclick={generate} disabled={!file || busy}
+      <button type="button" onclick={generate} disabled={!preparedImage || busy}
         class="px-5 py-2.5 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:bg-gray-300 disabled:text-gray-500">
         {busy ? 'Generating…' : 'Generate reconstruction'}
       </button>

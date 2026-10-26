@@ -134,6 +134,17 @@ export function readProject(value: unknown): Project {
         choice(item.wallMount.side, ['left', 'right'], `${path}.wallMount.side`); number(item.wallMount.elevation, `${path}.wallMount.elevation`, 0);
         if (!floor.walls.some((wall: any) => wall.id === item.wallMount.wallId)) fail(`${path}.wallMount.wallId`, 'must reference an existing wall on this floor');
       }
+      if (item.ceilingMount !== undefined) {
+        record(item.ceilingMount, `${path}.ceilingMount`); ids(item.ceilingMount.wallIds, `${path}.ceilingMount.wallIds`);
+        if (!item.ceilingMount.wallIds.length || new Set(item.ceilingMount.wallIds).size!==item.ceilingMount.wallIds.length || item.ceilingMount.wallIds.some((id: string) => !walls.has(id))) fail(`${path}.ceilingMount.wallIds`, 'must refer to unique existing ceiling boundary walls on this floor');
+        if (item.wallMount) fail(path, 'cannot attach to both a wall and ceiling');
+      }
+      if (item.light !== undefined) {
+        record(item.light, `${path}.light`);
+        if (typeof item.light.enabled !== 'boolean') fail(`${path}.light.enabled`, 'must be boolean');
+        number(item.light.lumens, `${path}.light.lumens`, 0, 20000);
+        number(item.light.temperatureKelvin, `${path}.light.temperatureKelvin`, 2000, 10000);
+      }
       defaults(item, { scale: { x: 1, y: 1, z: 1 } }); record(item.scale, `${path}.scale`);
       // Mirroring uses negative scale. Do not normalize signs or round dimensions.
       for (const key of ['x', 'y', 'z']) number(item.scale[key], `${path}.scale.${key}`);

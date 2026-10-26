@@ -32,7 +32,9 @@ test('image upload reaches the provider, pauses for review, then opens the edita
     context.strokeRect(0, 0, 799, 599); return canvas.toDataURL().split(',')[1];
   });
   await input.setInputFiles({ name: 'synthetic-floorplan.png', mimeType: 'image/png', buffer: Buffer.from(image, 'base64') });
-  await expect(page.getByRole('img', { name: 'Selected floor plan', exact: true })).toBeVisible();
+  const prepared = page.getByRole('img', { name: 'Prepared floor plan', exact: true });
+  await expect(prepared).toBeVisible();
+  await expect(prepared).toHaveAttribute('src', 'data:image/png;base64,' + image);
   await page.getByRole('button', { name: 'Generate reconstruction', exact: true }).click();
 
   await expect(page.getByRole('heading', { name: 'Review reconstructed plan', exact: true })).toBeVisible();

@@ -19,6 +19,7 @@ This is a current capability summary, not a development diary.
 
 - Valid drafts convert into the existing native `Project`/`Floor` model.
 - Native wall/opening/furniture correction, Undo/Redo and persistence remain available.
+- Optional local photo preparation: JPEG EXIF direction, four paper/reference corners, known aspect ratio, quarter-turns and confirmed preview. Browser/desktop/Skill reuse shared deterministic transforms; original evidence and the working coordinate frame persist. No automatic paper detection or extra model observation.
 - Imported-object blocks can be styled/replaced while retaining native identity.
 - Rooms/areas are derived from live native geometry.
 - Source-boundary review shows unsupported or merged observed zones before opening the home. Its compact import-time findings survive native save/package return; live geometry checks remain separate after edits.
@@ -28,9 +29,14 @@ This is a current capability summary, not a development diary.
 ## Compiled runtime
 
 - Native Godot F2 camera transitions connect first person and top view in one world; top view uses pointer selection, ray picking, pan/zoom and floor visibility independently of first-person controls.
+- Settled top view uses orthographic projection with parallel picking and equal scale at floor/wall-top heights; first person keeps its perspective camera.
+- Plan mode uses unlit dark walls, orange door/blue window markers and no scene lighting/shadows/AO. The shared compiler owns aperture marker geometry. The same world restores PBR and day/night/sunrise/sunset lighting for walkthrough.
+- A separate ceiling layer supports four ceiling light types, explicit native ceiling attachment, horizontal top-view/first-person movement, actual point/spot illumination and saved on/off, lumens and temperature. Unsupported ceilings and holes remain explicit blockers. See [plan/lighting ownership](docs/runtime-plan-lighting.md).
+- Fresh YJ215 validation covers the complete source-to-native-edit/lighting pipeline and records unresolved source boundaries and blocked multi-track balcony sliders; it is not an all-spaces-traversable acceptance. See [case evidence](docs/yj215-validation.md).
+- Optional native desktop image creation supports session-only OpenRouter browser authorization/API keys, explicit vision-model/image-spending consent, shared two-observation reconstruction, source-door review and user-selected main entrance. Existing scenes and furniture edits remain offline. See the [two-entry Chinese manual](docs/user-guide.zh-CN.md).
 - Godot furniture layout adds/moves/rotates/replaces/removes existing catalog/custom-model furniture, checks placement with native physics, uses no undo/history, and saves the canonical Project or exports runtime ZIP. Architecture remains fixed; the offline shared core ships with the player. See [scope and ownership](docs/godot-furniture-layout.md).
 - Native top-view dragging supports optional 10cm grid, straight-wall flush/orientation and nearby furniture guides, with 6cm capture/12cm release and Alt bypass. Mounted items retain their explicit host; first-person nudges remain unsnapped. Shared native edits accept snapped position/rotation atomically.
-- Warm rounded native UI separates view controls, furnishings and always-visible save/alignment actions; compact desktop windows keep readable text and scroll the furnishing panel. Missing-model notices refresh after edits.
+- Native arrangement UI uses an on-demand right-side visual catalog with category/search, contextual piece actions and secondary save/export. Opening/closing the catalog and resizing preserve plan centre/relative zoom; the compact UI fits 800×540. Existing native furniture symbols provide inventory illustrations. Missing-model notices refresh after edits.
 - Shared runtime export rejects furniture inside explicit closed-door volumes;
   native pointer/micro-adjustment previews reserve those same colliders without
   adding walking blockers or guessing swing envelopes. Live doors still stop on

@@ -5,6 +5,14 @@ furniture layout from above. The browser remains an internal reconstruction,
 architecture-editing and review tool; it is not required in a delivered player.
 The native Plan2World `Project` remains the saved source of truth.
 
+Settled plan view uses **orthographic projection**: camera size determines
+world span, while altitude only clears authored wall tops. Drawer/resize framing,
+zoom, parallel picking and snapping retain that projection. First person uses its
+own perspective camera; transitions match floor-plane framing at the boundary.
+The [user guide](user-guide.zh-CN.md) covers both Skill and native desktop creation.
+Optional OpenRouter image creation delegates to a separate authoring process;
+the furniture edit core and runtime scene loading remain offline.
+
 ## Controls and scope
 
 | First person | Top view |
@@ -26,11 +34,11 @@ F1 opens the scene menu. Focus loss pauses, clears held movement and cancels
 previews in either mode; explicit resume returns to that mode. A release over
 a toolbar ends the gesture. The top-view floor selector hides other authored
 floors and ceilings for inspection, without removing their physics or changing
-source geometry. Fit view includes wall tops and the space reserved by the header, furnishing panel and context bar. Native UI text stays at readable pixel sizes when resizing; the compact furnishing panel scrolls.
+source geometry. Fit view reserves the compact tool rail and any open catalog drawer. Opening/closing the drawer and resizing preserve the chosen plan centre and relative zoom; Fit explicitly restores the floor frame. Native UI text remains at readable pixel sizes.
 
 Furniture-only editing supports add, move, clockwise 90-degree rotation,
-replacement, removal, **Save layout…** (native JSON with retained model
-attachments) and **Export…** (the existing runtime ZIP). Architecture, door
+replacement, removal, **Layout… → Save layout…** (native JSON with retained model
+attachments) and **Layout… → Export scene…** (the existing runtime ZIP). Architecture, door
 semantics, floors, holes and stairs are fixed. The catalog offers existing built-in
 furniture and custom models already retained in the Project; importing new model
 files and arbitrary rotation controls are outside this milestone. Native locks
@@ -46,11 +54,44 @@ Wall-mounted catalog items require a chosen straight solid wall, side and bottom
 height. Curved-wall attachment is explicitly unsupported; existing unbound wall
 items stay visible/selectable but cannot be moved until explicitly attached.
 
+## Arrangement workflow
+
+The default view gives the room most of the screen. The left rail contains Items,
+alignment, grid and Fit; mode/floor controls sit at the top, the project/saved
+state at bottom left, and contextual input hints at bottom right. A permanent
+inspector and full-width command bars are no longer part of this flow.
+
+- **Tab / Items** opens or closes the right-side furniture catalog. It works even
+  when the grid/search owns keyboard focus; **Ctrl+F** focuses search, and
+  **Esc / gamepad B** closes the catalog.
+- Category tabs and search filter a visual grid. Symbols reuse the existing
+  native furniture drawing helpers; dimensions come from catalog/custom-model
+  definitions. Illustrations are not GLB model renders. Category, search and
+  choice persist across closing/reopening. Selecting a tile changes no Project.
+- **Add at view centre** uses the existing validated add command. Pan the room to
+  choose that location; an accepted add closes the catalog and reveals the piece
+  actions. A blocked add leaves the catalog open with its explanation. This
+  milestone does not add a new-item cursor ghost or a finite inventory system.
+- Selecting a placed piece reveals **Rotate / R**, **Swap / X** and **Remove / Del**.
+  Swap opens the same catalog in replacement mode and commits only after the
+  separate confirmation, preserving native identity and item count. Selecting
+  another floor clears the old replacement target and returns to Add mode.
+- Wall furniture opens a focused installation dialog for an explicit wall, side
+  and bottom height. Cancelling it returns to the catalog without an edit.
+- **Layout…** contains native Save/Export dialogs; **Ctrl+S** opens Save. Opening
+  inventory cancels an uncommitted drag. Hints, snap feedback and errors do not
+  consume pointer events or become hidden clickable overlays.
+
+This organization takes cues from game furnishing workflows, including
+[Nintendo's Happy Home Paradise overview](https://play.nintendo.com/media/videos/animal-crossing-happy-home-designer-trailer/).
+All controls, focus, transitions and spatial interaction remain native Godot.
+No reference-game art is packaged.
+
 ## Magnetic placement and native UI
 
 Top-view **dragging** starts with magnetic alignment and a 10cm grid enabled.
-Both switches stay visible next to Save/Export in the bottom context bar.
-**Magnet on/off** controls all assistance; **Grid 10cm** independently disables
+Both switches stay on the compact left tool rail.
+**Align** controls all assistance; **Grid 10cm** independently disables
 the grid while retaining wall/furniture alignment. Hold **Alt** during a drag to
 release all snapping, including automatic orientation, at the current pointer.
 Releasing Alt reacquires an eligible target. Nothing changes imported positions
@@ -86,17 +127,22 @@ stable IDs and compiles a single accepted pose for presentation and collision.
 Mounted-item commands cannot use this optional rotation. Cancel restores both
 position and orientation without history.
 
-All menus and overlays use native Godot Controls and one small shared theme:
-warm paper surfaces, sage accents, rounded cards, visible keyboard focus and
-contextual help. The furnishing panel contains piece/selection controls; Save,
-Export and alignment stay outside its scroll area. First-person HUD remains
-compact. Menus and the furnishing panel scroll at smaller desktop sizes, while
-camera framing reserves the visible panels. The style takes cues from welcoming
-life-simulation interfaces; no third-party game assets or embedded HTML are used.
+All menus and overlays use native Godot Controls and the shared warm paper/sage
+theme. Furniture browsing, selection actions, transient placement feedback and
+file operations have separate places in the layout rather than sharing one
+always-visible inspector. First-person HUD and constrained input remain intact.
 
-![Native Godot furnishing interface, captured from the shipped PCK](images/godot-layout.png)
+![Native arrangement view, captured from the packaged PCK](images/godot-layout.png)
+
+![On-demand visual furniture catalog](images/godot-furniture-catalog.png)
 
 ## Ownership
+
+`furniture_catalog_view.gd` owns category/search/selection over a read-only UI
+projection from the offline core. Its symbols are standard SVG 1.1 inventory
+illustrations; they never enter runtime JSON, asset fitting or collision. Native
+`runtime_plan_view.gd` binds UI actions to existing commands. The composition
+root closes the catalog only after an accepted add/replacement.
 
 `layout_camera.gd` owns a native Camera3D transition, ray picking, pan/zoom, drag
 preview and Godot shape queries. The transition interpolates within the same
@@ -189,6 +235,14 @@ runtime GLBs instantiate renderable MeshInstance3D nodes with ownership extras.
 
 ## Develop and verify
 
+Plan mode now uses unlit dark walls and orange/blue opening bands in the same
+orthographic world. The Furniture / Ceiling lights selector isolates the editing
+layer. Ceiling fixtures require an explicit enclosure, preserve height during
+dragging/nudging and save real light settings through the native edit core.
+L opens light settings; T / the walkthrough HUD chooses natural light. See
+[plan presentation and ceiling lights](runtime-plan-lighting.md) for ownership,
+controls and limits.
+
 Build the offline core once, then point the development Godot process at it:
 
 ```bash
@@ -212,54 +266,39 @@ the actual release executable. With a real display, the layout gate additionally
 captures native top view, drag preview, camera transition and first person.
 `runtime_snapping_test.gd` verifies deterministic semantic capture/release, wall sides/diagonals, aperture/height exclusions, stable target order and explicit host retention. `runtime_snapping_controls_test.gd` exercises actual pointer/Alt/toggle input, atomic pose save/reopen, physics rejection, spatial feedback and compact native UI framing against the shipped PCK.
 
+`runtime_layout_ui_test.gd` checks native category/search/tile input, modal
+wall installation/cancellation, add/swap confirmation, identity/count retention,
+contextual shortcuts, Tab/focus/gamepad-B closure, 800×540 catalog bounds, preserved
+plan centre/zoom and unchanged source/architecture. It runs through the relocated
+PCK/core delivery gate.
+
+`runtime_plan_lighting_test.gd` covers layer isolation, explicit ceiling setup,
+pointer/key movement, collision/hole rejection, light preview/cancel/settings,
+native persistence, natural presets and plan/walk restoration. Its displayed
+run additionally samples actual lit floor pixels and captures all four presets;
+headless assertions cannot establish visual lighting quality.
+
 `runtime_product_controls_test.gd` adds entrance/facing, malformed JSON and wrong
 GLB recovery, unsupported floor/hole placement, interrupted drag, actual keyboard
 and virtual-gamepad input, wall-bound movement, obstruction and save-failure tests.
 It runs against the shipped PCK/core in both platform delivery jobs.
 
-## Local verification record
+## Acceptance
 
-Implementation branch: `godot-product-editor`. Keep the scope at native house
-walkthrough and furniture arrangement; these controls do not introduce a general
-scene editor, scripting system or alternative canonical data model.
+The native layout gates run through the exact shipped PCK and shared core after
+moving the player and scene ZIPs to paths with spaces and Chinese characters.
+They cover camera/input separation, furniture edits, native persistence, doorway
+clearance, optional desktop authoring with a mocked provider, snapping, plan
+presentation and ceiling lighting. See [delivery verification](runtime-delivery.md)
+and the [current validation scope](runtime-validation.md).
 
-| Milestone | Evidence and conclusion |
-| --- | --- |
-| `ab865c3`: native cameras/layout | [Original results](../.plan2world-validation/runs/20261025-godot-plan-view/RESULTS.md). 1,665 unit tests, native mode separation/CRUD, packaged Linux and rendered inspection passed. The flat canvas prototype was removed. |
-| `2582099`: entrance, loading and controls | [Product-control results](../.plan2world-validation/runs/20261025-product-controls/RESULTS.md). 1,670 unit tests; entrance/facing, transactions, no history and constrained controls passed. Frozen real-house replay retained all architecture/input bytes. Closed-pose doorway placement remained explicitly unresolved. |
-| `30964ba`: door/layout lifecycle | [Door/layout results](../.plan2world-validation/runs/20261025-door-layout-lifecycle/RESULTS.md). 1,684 unit tests passed. Shared export/CLI checks and native pointer/micro-adjustment reserve default closed poses; save/export/reopen and real walking are covered by the shipped-PCK gate. |
-| `a09a0d8`: cleanup/readiness | [Review results](../.plan2world-validation/runs/20261025-stability-review/RESULTS.md). 1,684 units, type/build/catalog checks, high-threshold audit, rebuilt Linux/Windows packages and Linux shipped-PCK delivery/asset gates passed. Snapping status is documented; no snapping behavior was added. |
-| Snapping/UI | 1,685 units, 42 focused cross-browser cases and shipped Linux PCK/core gates pass. Native magnetic/grid controls, atomic pose, compact UI and live missing-model notices; see [validation record](../.plan2world-validation/runs/20261025-snapping-ui/RESULTS.md). |
+Inspect actual displayed lighting separately from headless physics. Linux Mesa
+and Windows cross-builds do not establish native Windows Forward+ or physical
+controller quality. CI runs native Linux and Windows gates; browser/benchmark
+jobs retain the main-push policy. Keep generated inputs, failures and screenshots
+in ignored validation runs; use Git history for implementation diaries.
 
-## Publication and acceptance
-
-The snapping/UI milestone includes the earlier native cameras, furniture editor,
-main-entrance spawn, transactional world loading, constrained controls and
-closed-door layout lifecycle. It publishes from `godot-product-editor`; merging
-and any formal release tag remain separate actions. Linux/Windows native Godot
-jobs are both required by the aggregate CI gate. PR browser/benchmark skips
-remain as before; full browser/benchmark jobs run on main push.
-
-The current evidence record is
-[snapping/UI validation](../.plan2world-validation/runs/20261025-snapping-ui/RESULTS.md).
-Linux packaged acceptance and rendered Compatibility inspection do not establish
-native Windows Forward+ hardware or physical-controller quality. Retain those
-platform/manual checks before a general desktop release. No new reconstruction
-observations, geometry correction, lighting or source-image results are part of
-this UI/editing change.
-
-Door/layout milestone `30964ba` additionally fixed notice ownership: camera/toolbar refresh must
-retain an operation's explanation until the next edit. A hidden top-view toolbar
-must not reframe the world or cancel first-person adjustment. Its first negative
-run caught the overwritten explanation. A second test waited for a camera tween
-while the failed-open menu intentionally paused it; that test now waits for data,
-asserts the paused retained world, explicitly resumes, then checks the animation
-settles within the unchanged deadline. Negative logs remain in the run directory.
-Historical implementation diaries stay in Git history; evidence and negative
-results linked above remain available. No extraction prompt, source observation,
-geometry correction, material or lighting change is part of this round.
-
-### Remaining acceptance and limits
+## Remaining acceptance and limits
 
 - GLB staging is synchronous; each accepted edit still recompiles a complete
   package in a new offline process and rebuilds furniture. Measure large-scene
@@ -269,12 +308,17 @@ geometry correction, material or lighting change is part of this round.
   motion. Native physics may stop it on a player or nearby furniture. Old
   compiled snapshots require re-export; the engine does not rerun authoring
   validation or repair their source data.
-- Floor support samples the center/corners of furniture against emitted floor
+- Ground-furniture support samples the center/corners against emitted floor
   collision; it does not certify continuous support under every footprint point.
+  Ceiling commands additionally validate the full footprint against their native
+  enclosure and holes in the shared core.
 - Wall attachment supports straight solid walls only. Legacy unbound items need
   explicit attachment; new model-file import is outside this scope.
-- Wall selection lists authored IDs; in-world wall picking and material/lighting
-  polish remain future work. Initial load and furniture edits refresh the native
+- Ceiling fixtures currently support four built-in asset types on horizontal
+  native ceilings. Unbound legacy lights need explicit attachment; custom-model
+  ceiling capability, slope mounting and calibrated photometry are not provided.
+- Wall selection uses an explicit wall list; in-world wall picking and richer
+  materials remain future work. Initial load and furniture edits refresh the native
   missing-asset notice. Target-device usability still needs manual acceptance.
 - Linux headless/Mesa inspection and Windows cross-builds do not establish native
   Windows Forward+, physical controller, file-dialog or OS resize/DPI acceptance.

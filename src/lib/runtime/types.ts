@@ -18,6 +18,7 @@ export interface RuntimeRoomSurface {
   holes: RuntimeVec2[][];
   slabThickness: number;
   ceilingHeight: number | null;
+  ceilingWallIds?: string[];
 }
 
 export interface RuntimeFloor {
@@ -104,7 +105,8 @@ export interface RuntimeWindowEntity extends RuntimeEntityBase {
 export interface RuntimeFurnitureEntity extends RuntimeEntityBase {
   kind: 'furniture';
   locked: boolean;
-  movement: { kind: 'floor'; elevation: number } | { kind: 'wall'; wallId: string; side: 'left' | 'right'; blocked: { along: RuntimeVec2; bottom: RuntimeVec2 }[]; origin: RuntimeVec3; tangent: RuntimeVec3; along: RuntimeVec2; bottom: RuntimeVec2 } | { kind: 'unbound-wall' };
+  movement: { kind: 'floor'; elevation: number } | { kind: 'ceiling'; roomId: string; elevation: number } | { kind: 'wall'; wallId: string; side: 'left' | 'right'; blocked: { along: RuntimeVec2; bottom: RuntimeVec2 }[]; origin: RuntimeVec3; tangent: RuntimeVec3; along: RuntimeVec2; bottom: RuntimeVec2 } | { kind: 'unbound-wall' };
+  light?: { kind: 'omni' | 'spot'; enabled: boolean; lumens: number; temperatureKelvin: number; color: RuntimeVec3; range: number; spotAngleDegrees: number; localPosition: RuntimeVec3; direction: RuntimeVec3 };
   catalogId: string;
   sourceCategory?: string;
   assetRef: string;

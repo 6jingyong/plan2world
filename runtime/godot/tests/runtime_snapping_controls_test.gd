@@ -57,7 +57,8 @@ func _run():
 	main._open_project(args[0]);await _idle()
 	var camera=main._layout_camera
 	var plan=main._plan_view
-	var architecture_hash:=FileAccess.get_sha256(main._session.current()["runtimePath"].get_basename()+".architecture.glb")
+	var architecture_hash:=FileAccess.get_sha256(P2WRuntimeArtifacts.new().default_architecture_path(str(main._session.current()["runtimePath"])))
+	_check(architecture_hash.length()==64 and architecture_hash==main._runtime_data["source"]["architectureSha256"],"Ownership checks must hash the actual architecture GLB and match the compiler digest")
 	_check(plan._snap.button_pressed and plan._grid.button_pressed and camera.snapping.enabled,"Top-view magnetic placement and grid start enabled")
 	await _capture("arrange")
 	_pick("sofa");_drag(Vector3(6.27,.9,3.17))
@@ -107,13 +108,13 @@ func _run():
 	if DisplayServer.get_name()=="headless": root.content_scale_size=Vector2i(800,540)
 	await _idle()
 	await _capture("compact-arrange")
-	for name in ["FirstPerson","FloorSelector","FitFloor","MagneticSnap","GridSnap","SaveProject","ExportScene"]:
+	for name in ["FirstPerson","FloorSelector","FitFloor","MagneticSnap","GridSnap","LayoutFiles","OpenCatalog"]:
 		var button: Control=plan.find_child(name,true,false)
 		var rect:=button.get_global_rect()
 		_check(Rect2(Vector2.ZERO,root.get_visible_rect().size).encloses(rect),"Compact UI must retain the visible control: "+name)
 	for point in [Vector3(0,3.4,0),Vector3(12,3.4,12)]:
 		var screen: Vector2=camera.camera.unproject_position(point)
-		_check(screen.x>=camera.inset_left and screen.x<=root.get_visible_rect().size.x and screen.y>=camera.inset_top and screen.y<=root.get_visible_rect().size.y-camera.inset_bottom,"Fit view must keep architecture out of the furnishing panel and context bar")
+		_check(screen.x>=camera.inset_left and screen.x<=root.get_visible_rect().size.x-camera.inset_right and screen.y>=camera.inset_top and screen.y<=root.get_visible_rect().size.y-camera.inset_bottom,"Fit view must keep architecture out of the furnishing panel and context bar")
 	main._show_menu();await process_frame
 	await _capture("compact-menu")
 	_check(main._launcher._screen.get_global_rect().encloses(main._launcher.find_child("OpenProject",true,false).get_global_rect()),"Compact scene menu primary action must fit the viewport")
@@ -124,7 +125,7 @@ func _run():
 	_check(main._session.save_project(saved)==OK,"Snapped layout must save")
 	main._open_project(saved);await _idle()
 	_check(is_equal_approx(_item().position.x,740) and is_equal_approx(_item().position.y,60) and is_zero_approx(_item().rotation),"Snapped pose must survive close/reopen through the native compiler")
-	_check(FileAccess.get_sha256(main._session.current()["runtimePath"].get_basename()+".architecture.glb")==architecture_hash and FileAccess.get_sha256(args[0])==input_hash,"Snapping must preserve original input and byte-identical architectural presentation")
+	_check(FileAccess.get_sha256(P2WRuntimeArtifacts.new().default_architecture_path(str(main._session.current()["runtimePath"])))==architecture_hash and FileAccess.get_sha256(args[0])==input_hash,"Snapping must preserve original input and byte-identical architectural presentation")
 	main._show_walkthrough();await _idle();await _capture("explore")
 	main.free();paused=false
 	print("Runtime snapping and native UI controls: ","PASS" if failures==0 else "FAIL (%d)"%failures)

@@ -11,7 +11,7 @@ var interaction_enabled := true
 var _pitch := 0.0
 var _gravity := float(ProjectSettings.get_setting("physics/3d/default_gravity", 9.8))
 var _camera: Camera3D
-var _interaction_ray: RayCast3D
+var _interaction_cast: ShapeCast3D
 
 func configure(profile: Dictionary, spawn: Vector3, yaw = null) -> void:
 	eye_height = float(profile.get("eyeHeight", 1.6))
@@ -52,15 +52,22 @@ func _build_body() -> void:
 		_camera.position.y = eye_height
 		_camera.current = true
 		add_child(_camera)
-		_interaction_ray = RayCast3D.new()
-		_interaction_ray.name = "InteractionRay"
-		_interaction_ray.target_position = Vector3(0, 0, -2.5)
-		_interaction_ray.collide_with_bodies = true
-		_interaction_ray.collide_with_areas = false
-		_camera.add_child(_interaction_ray)
+		_interaction_cast = ShapeCast3D.new()
+		_interaction_cast.name = "InteractionCast"
+		# A small aim tolerance crosses real leaf seams and floating-point gaps.
+		# This is an input query, never a change to the compiler's door collision.
+		var probe := SphereShape3D.new()
+		probe.radius = 0.015
+		_interaction_cast.shape = probe
+		_interaction_cast.target_position = Vector3(0, 0, -2.5)
+		_interaction_cast.enabled = false
+		_interaction_cast.collide_with_bodies = true
+		_interaction_cast.collide_with_areas = false
+		_interaction_cast.add_exception(self)
+		_camera.add_child(_interaction_cast)
 	else:
 		_camera = get_node("Camera3D") as Camera3D
-		_interaction_ray = _camera.get_node("InteractionRay") as RayCast3D
+		_interaction_cast = _camera.get_node("InteractionCast") as ShapeCast3D
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
@@ -102,12 +109,12 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 
 func interact() -> void:
-	if not _interaction_ray:
+	if not _interaction_cast:
 		return
-	_interaction_ray.force_raycast_update()
-	if not _interaction_ray.is_colliding():
+	_interaction_cast.force_shapecast_update()
+	if not _interaction_cast.is_colliding():
 		return
-	var target := _interaction_ray.get_collider()
+	var target := _interaction_cast.get_collider(0)
 	if target is Node:
 		target = target.get_meta("p2w_interaction_target", target)
 	if target and target.has_method("interact"):

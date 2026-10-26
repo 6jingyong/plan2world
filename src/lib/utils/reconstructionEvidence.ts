@@ -1,3 +1,5 @@
+import { validateImagePreparationEvidence } from '../plan2world/imagePreparation';
+
 /** Validate optional import evidence without treating its historical IDs as live references. */
 export function validateReconstructionEvidence(value: unknown) {
   const object = (value: any) => value && typeof value === 'object' && !Array.isArray(value);
@@ -20,6 +22,7 @@ export function validateReconstructionEvidence(value: unknown) {
       || review.zoneFindings.length !== review.acceptedZoneCount - review.supportedZoneCount
       || !review.zoneFindings.every((finding: any) => object(finding) && text(finding.label) && text(finding.message))) fail();
   }
+  if (evidence.inputPreparation !== undefined) validateImagePreparationEvidence(evidence.inputPreparation);
   const floors = new Set<string>();
   for (const floor of evidence.floors) {
     if (!object(floor) || !text(floor.floorId) || floors.has(floor.floorId)) fail();

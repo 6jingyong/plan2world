@@ -1,8 +1,9 @@
 import { compileArchitectureMesh, type ArchitectureMesh, type ArchitectureMeshPrimitive } from './architectureMesher';
 import { compileStaticArchitectureEntities, type StaticArchitecturePrimitive } from './staticArchitectureMesher';
 import type { Plan2WorldRuntimeSceneV1 } from './types';
+import { compilePlanOpenings } from './planOpeningMesher';
 
-export type ArchitecturePresentationPrimitive = ArchitectureMeshPrimitive | StaticArchitecturePrimitive;
+export type ArchitecturePresentationPrimitive = ArchitectureMeshPrimitive | StaticArchitecturePrimitive | ReturnType<typeof compilePlanOpenings>[number];
 
 export interface ArchitecturePresentationMesh extends Omit<ArchitectureMesh, 'primitives'> {
   primitives: ArchitecturePresentationPrimitive[];
@@ -20,6 +21,7 @@ export function compileArchitecturePresentation(scene: Plan2WorldRuntimeSceneV1)
     primitives: [
       ...shell.primitives,
       ...compileStaticArchitectureEntities(scene),
+      ...compilePlanOpenings(scene),
     ],
   };
 }

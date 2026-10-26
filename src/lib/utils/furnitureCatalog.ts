@@ -66,13 +66,13 @@ export const furnitureCatalog: FurnitureDef[] = [
   { id: 'mirror', name: 'Mirror', category: 'Decor', icon: '🪞', color: '#94a3b8', width: 60, depth: 5, height: 90 },
   { id: 'clock', name: 'Clock', category: 'Decor', icon: '🕐', color: '#1e293b', width: 30, depth: 5, height: 30 },
   // Lighting
-  { id: 'ceiling_light', name: 'Ceiling Light', category: 'Lighting', icon: '💡', color: '#fef08a', width: 40, depth: 40, height: 15 },
-  { id: 'chandelier', name: 'Chandelier', category: 'Lighting', icon: '✨', color: '#fcd34d', width: 60, depth: 60, height: 50 },
-  { id: 'recessed_light', name: 'Recessed Light', category: 'Lighting', icon: '🔆', color: '#fef9c3', width: 15, depth: 15, height: 5 },
+  { id: 'ceiling_light', name: 'Ceiling Light', category: 'Ceiling Lights', icon: '💡', color: '#fef08a', width: 40, depth: 40, height: 15 },
+  { id: 'chandelier', name: 'Chandelier', category: 'Ceiling Lights', icon: '✨', color: '#fcd34d', width: 60, depth: 60, height: 50 },
+  { id: 'recessed_light', name: 'Recessed Light', category: 'Ceiling Lights', icon: '🔆', color: '#fef9c3', width: 15, depth: 15, height: 5 },
   { id: 'floor_lamp', name: 'Floor Lamp', category: 'Lighting', icon: '🪔', color: '#e5e7eb', width: 40, depth: 40, height: 160 },
   { id: 'table_lamp', name: 'Table Lamp', category: 'Lighting', icon: '💡', color: '#fde68a', width: 25, depth: 25, height: 45 },
   { id: 'wall_sconce', name: 'Wall Sconce', category: 'Lighting', icon: '🔅', color: '#fef3c7', width: 15, depth: 10, height: 20 },
-  { id: 'pendant_light', name: 'Pendant Light', category: 'Lighting', icon: '💡', color: '#fbbf24', width: 30, depth: 30, height: 30 },
+  { id: 'pendant_light', name: 'Pendant Light', category: 'Ceiling Lights', icon: '💡', color: '#fbbf24', width: 30, depth: 30, height: 30 },
 
   // Outdoor Furniture
   { id: 'patio_table', name: 'Patio Table', category: 'Outdoor Furniture', icon: '🪑', color: '#92400e', width: 120, depth: 120, height: 75 },

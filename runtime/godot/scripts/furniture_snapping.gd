@@ -20,6 +20,12 @@ func solve(scene: Dictionary, entity: Dictionary, point: Vector3, yaw: float, by
 	if not enabled or bypass:
 		clear()
 		return result
+	if entity["movement"]["kind"]=="ceiling":
+		clear()
+		if grid_enabled:
+			result.point=Vector3(round(point.x/GRID)*GRID,point.y,round(point.z/GRID)*GRID)
+			result.label="Ceiling grid · 10 cm"
+		return result
 	if entity["movement"]["kind"] == "wall":
 		var motion: Dictionary = entity["movement"]
 		var origin := _v3(motion["origin"])

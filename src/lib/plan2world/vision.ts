@@ -6,6 +6,7 @@ import { summarizeArchitectureObservation } from './review';
 import type { ReconstructionObservationReview } from '$lib/models/types';
 import { decodeSourceFloorPlanImage } from './sourceBackground';
 import type { SourceRasterPixels } from './rasterWallContinuation';
+import { imageSha256 } from './imagePreparation';
 import { buildArchitectureInstructions, buildReconstructionInstructions, PLAN2WORLD_RECONSTRUCTION_INSTRUCTIONS_VERSION, type ReconstructionOptions } from './reconstructionInstructions';
 export { buildArchitectureInstructions as buildFloorPlanVisionPrompt } from './reconstructionInstructions';
 
@@ -57,7 +58,8 @@ async function sourceForAssembly(image: EncodedFloorPlanImage, options: FloorPla
     if (!context) throw new Error('Cannot read source pixels for deterministic reconstruction.');
     context.drawImage(element, 0, 0);
     const raster: SourceRasterPixels = { width: source.width, height: source.height, data: context.getImageData(0, 0, source.width, source.height).data };
-    return { context: { sourceWidthPx: source.width, sourceHeightPx: source.height }, raster };
+    const bytes=Uint8Array.from(atob(image.base64),char=>char.charCodeAt(0));
+    return { context: { sourceWidthPx: source.width, sourceHeightPx: source.height,sourceImageSha256:await imageSha256(bytes) }, raster };
   }
   if (options.sourceWidthPx !== undefined || options.sourceHeightPx !== undefined) {
     return { context: { sourceWidthPx: options.sourceWidthPx, sourceHeightPx: options.sourceHeightPx } };
@@ -78,17 +80,25 @@ export async function reconstructFloorPlanImage(
   signal?: AbortSignal,
 ): Promise<FloorPlanReconstructionResult> {
   const { sourceWidthPx: _sourceWidthPx, sourceHeightPx: _sourceHeightPx, ...instructionOptions } = options;
-  const architectureInput = await generateOpenAIJsonFromImage(config, image.base64, image.mimeType,
-    buildArchitectureInstructions(instructionOptions), customFetch, signal);
   const source = await sourceForAssembly(image, options);
+  return reconstructFloorPlanWithObserver(
+    prompt => generateOpenAIJsonFromImage(config, image.base64, image.mimeType, prompt, customFetch, signal),
+    source, instructionOptions,
+  );
+}
+
+/** The browser and native desktop authoring process share the same two-pass
+ * contract. The observer owns only provider transport; original raster pixels
+ * and all deterministic preparation/assembly stay outside the engine adapter. */
+export async function reconstructFloorPlanWithObserver(
+  observe: (prompt: string) => Promise<unknown>,
+  source: { context: { sourceWidthPx?: number; sourceHeightPx?: number;sourceImageSha256?:string }; raster?: SourceRasterPixels },
+  options: ReconstructionOptions = {},
+): Promise<FloorPlanReconstructionResult> {
+  const architectureInput = await observe(buildArchitectureInstructions(options));
   const architecture = preflightArchitectureObservation(architectureInput, source.context);
-  const furnishing = await generateOpenAIJsonFromImage(
-    config,
-    image.base64,
-    image.mimeType,
+  const furnishing = await observe(
     `${buildReconstructionInstructions()}\n\nFROZEN_ARCHITECTURE_JSON:\n${JSON.stringify(architecture)}`,
-    customFetch,
-    signal,
   );
   const stage = prepareArchitectureStage(architecture, source.context, furnishing, source.raster);
   assertArchitectureHostsResolved(stage);

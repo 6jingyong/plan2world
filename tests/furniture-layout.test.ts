@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyFurnitureLayoutCommand } from '$lib/runtime/furnitureLayout';
+import { applyFurnitureLayoutCommand, furnitureLayoutCatalog } from '$lib/runtime/furnitureLayout';
 import { compileRuntimeArtifacts } from '$lib/runtime/runtimeArtifacts';
 import { readProject } from '$lib/utils/projectValidation';
 import { readProjectPackage, projectPackageBytes } from '$lib/utils/projectPackageCodec';
@@ -79,6 +79,24 @@ describe('shared native furniture layout commands', () => {
     expect(chair).not.toHaveProperty('customModelId');
     expect(chair).not.toHaveProperty('width');
     expect(catalog.project.projectPackage!.assets).toEqual(input.projectPackage!.assets);
+  });
+
+  it('projects a deterministic visual catalog without changing native data or runtime artifacts', async () => {
+    const input = readProject(await runtimeWalkthroughProject()), before = JSON.stringify(input);
+    const catalog = furnitureLayoutCatalog(input);
+    expect(catalog).toEqual(furnitureLayoutCatalog(input));
+    expect(catalog.find(i => i.asset.catalogId === 'sofa')).toMatchObject({
+      label: 'Sofa', category: 'Living Room', dimensions: [200, 90, 80], mounting: 'floor',
+    });
+    expect(catalog.find(i => i.asset.customModelId === 'box')).toMatchObject({
+      category: 'Custom models', dimensions: [100, 75, 50],
+    });
+    for (const item of catalog) {
+      expect(item.symbolSvg).toContain('viewBox="-36 -36 72 72"');
+      expect(item.symbolSvg).not.toMatch(/NaN|Infinity|<image|href=|undefined|="#([0-9a-f]{8})"/i);
+    }
+    expect(JSON.stringify(input)).toBe(before);
+    expect(JSON.stringify((await compileRuntimeArtifacts(input, async () => null)).runtime)).not.toMatch(/symbolSvg|dimensions|Custom models/);
   });
 
   it('honors locks and cleans group membership when furniture is removed', async () => {

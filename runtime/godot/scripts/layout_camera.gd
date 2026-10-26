@@ -7,6 +7,8 @@ signal furniture_moved(id: String, point: Vector3)
 signal preview_cancelled
 signal placement_blocked
 signal snap_changed(text: String)
+signal gesture_changed(moving: bool)
+signal pose_previewed(id:String, position:Vector3, yaw:float)
 
 var camera: Camera3D
 var data: Dictionary
@@ -15,8 +17,11 @@ var selected_id := ""
 var editing := false
 var transitioning := false
 var active := false
+var ceiling_editing := false
+var display
 var inset_top := 96.0
-var inset_left := 300.0
+var inset_left := 96.0
+var inset_right := 0.0
 var inset_bottom := 96.0
 var snapping := preload("res://scripts/furniture_snapping.gd").new()
 var _guides: MeshInstance3D
@@ -33,7 +38,8 @@ var _highlight: MeshInstance3D
 var _bounds := Rect2()
 var _floor_y := 0.0
 var _center := Vector2.ZERO
-var _height := 20.0
+var _size := 20.0
+var _framed_viewport := Vector2.ZERO
 var _building_height := 0.0
 var _tween: Tween
 var _panning := false
@@ -47,6 +53,7 @@ var _visibility: Array = []
 
 func configure(scene: Dictionary, nodes: Dictionary, models: Dictionary, player: P2WPlayer) -> void:
 	name = "LayoutCamera"
+	set_meta("p2w_editor_overlay",true)
 	_player = player
 	camera = Camera3D.new()
 	camera.name = "Camera3D"
@@ -142,18 +149,30 @@ func select_floor(id: String) -> void:
 func view_center() -> Vector2:
 	return _center
 
+func _fit_size(viewport := Vector2.ZERO) -> float:
+	if viewport == Vector2.ZERO: viewport = get_viewport().get_visible_rect().size
+	var aspect := maxf(viewport.x, 1) / maxf(viewport.y, 1)
+	var usable := maxf(0.2, 1.0 - (inset_top + inset_bottom) / maxf(viewport.y, 1))
+	var usable_width := maxf(0.2, 1.0 - (inset_left + inset_right) / maxf(viewport.x, 1))
+	# Orthographic size is the vertical world span, independent of height/FOV.
+	return maxf(4, maxf(_bounds.size.x / (aspect * usable_width), _bounds.size.y / usable) * 1.15)
+
 func fit_floor() -> void:
 	cancel_drag()
 	_center = _bounds.get_center()
-	var viewport := get_viewport().get_visible_rect().size
-	var aspect := maxf(viewport.x, 1) / maxf(viewport.y, 1)
-	var usable := maxf(0.2, 1.0 - (inset_top + inset_bottom) / maxf(viewport.y, 1))
-	var usable_width := maxf(0.2, 1.0 - inset_left / maxf(viewport.x, 1))
-	# Fit wall tops as well as the floor, below the native toolbar. No model
-	# bounds or collision-derived presentation are needed to frame the room.
-	_height = maxf(6, _building_height + maxf(_bounds.size.x / (aspect * usable_width), _bounds.size.y / usable) / (2 * tan(deg_to_rad(camera.fov) / 2)) * 1.15)
-	if active:
-		_animate(_top_pose())
+	_size = _fit_size()
+	_framed_viewport = get_viewport().get_visible_rect().size
+	if active: _animate(_top_pose())
+
+func set_view_insets(left: float, right: float, top: float, bottom: float) -> void:
+	var previous_fit := _fit_size(_framed_viewport)
+	cancel_drag()
+	inset_left = left; inset_right = right; inset_top = top; inset_bottom = bottom
+	# Opening the catalog shifts/zooms the camera while preserving the user's
+	# current plan centre and relative zoom. It never resets the chosen location.
+	_size *= _fit_size() / previous_fit
+	_framed_viewport = get_viewport().get_visible_rect().size
+	if active: _animate(_top_pose())
 
 func set_plan_mode(value: bool) -> void:
 	if active == value:
@@ -169,31 +188,53 @@ func set_plan_mode(value: bool) -> void:
 
 func _top_pose() -> Transform3D:
 	var viewport := get_viewport().get_visible_rect().size
-	var scale := _height * tan(deg_to_rad(camera.fov) / 2) / maxf(viewport.y, 1)
-	return Transform3D(Basis.from_euler(Vector3(-PI / 2, 0, 0)), Vector3(_center.x - scale * inset_left, _floor_y + _height, _center.y - scale * (inset_top - inset_bottom)))
+	var scale := _size / (2 * maxf(viewport.y, 1))
+	return Transform3D(Basis.from_euler(Vector3(-PI / 2, 0, 0)), Vector3(_center.x + scale * (inset_right - inset_left), _floor_y + _view_height(), _center.y - scale * (inset_top - inset_bottom)))
+
+func _view_height() -> float:
+	return maxf(_building_height + 8, _size)
+
+func _plan_fov() -> float:
+	return rad_to_deg(2 * atan(_size / (2 * _view_height())))
 
 func _animate(target: Transform3D) -> void:
 	if _tween != null:
 		_tween.kill()
 	var source := camera.global_transform
+	var source_size := camera.size
+	# Match the floor-plane framing at projection boundaries. In settled plan
+	# mode, every height has the same scale; only the transition uses perspective.
+	if not active and camera.projection == Camera3D.PROJECTION_ORTHOGONAL:
+		camera.projection = Camera3D.PROJECTION_PERSPECTIVE
+		camera.fov = _plan_fov()
+	var source_fov := camera.fov
+	var target_fov: float = _plan_fov() if active else _player.get_node("Camera3D").fov
 	transitioning = true
 	view_started.emit()
 	_tween = create_tween().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	_tween.tween_method(func(weight: float): camera.global_transform = source.interpolate_with(target, weight), 0.0, 1.0, 0.45)
+	_tween.tween_method(func(weight: float):
+		camera.global_transform = source.interpolate_with(target, weight)
+		camera.size = lerpf(source_size, _size, weight)
+		camera.fov = lerpf(source_fov, target_fov, weight), 0.0, 1.0, 0.45)
 	_tween.tween_callback(func():
 		transitioning = false
-		if not active:
+		if active:
+			camera.projection = Camera3D.PROJECTION_ORTHOGONAL
+			camera.size = _size
+		else:
 			update_floor_visibility()
 			_player.get_node("Camera3D").make_current()
 		view_settled.emit())
 
 func update_floor_visibility() -> void:
 	for area in _areas.get_children():
-		area.collision_layer = 2 if not active or area.get_meta("floor_id") == floor_id else 0
+		var ceiling:bool=_entities[area.get_meta("furniture_id")]["movement"]["kind"]=="ceiling"
+		area.collision_layer = 2 if not active or (area.get_meta("floor_id")==floor_id and ceiling==ceiling_editing) else 0
 	for saved in _visibility:
 		if is_instance_valid(saved[0]):
 			saved[0].visible = saved[1]
 	_visibility.clear()
+	if display!=null:display.apply(active)
 	if not active or data.is_empty():
 		return
 	var owners := {}
@@ -217,6 +258,8 @@ func _filter_visibility(node: Node, owners: Dictionary, architecture := false) -
 		elif owners.has(owner):
 			_visibility.append([node, node.visible])
 			node.visible = node.visible and owners[owner] == floor_id
+			if _entities.has(owner) and _entities[owner]["kind"]=="furniture":
+				node.visible=node.visible and (_entities[owner]["movement"]["kind"]=="ceiling")==ceiling_editing
 			return
 	for child in node.get_children():
 		_filter_visibility(child, owners, architecture or child == get_parent().get_node_or_null("Architecture"))
@@ -246,7 +289,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.button_index in [MOUSE_BUTTON_MIDDLE, MOUSE_BUTTON_RIGHT]:
 			_panning = event.pressed
 		elif event.pressed and event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
-			_height = clampf(_height * (1.0 / 1.15 if event.button_index == MOUSE_BUTTON_WHEEL_UP else 1.15), 4, 200)
+			_size = clampf(_size * (1.0 / 1.15 if event.button_index == MOUSE_BUTTON_WHEEL_UP else 1.15), 2, 400)
+			camera.size = _size
 			camera.global_transform = _top_pose()
 		elif event.button_index == MOUSE_BUTTON_LEFT and editing:
 			if event.pressed:
@@ -297,13 +341,14 @@ func begin_adjust(id: String) -> bool:
 	if _model != null:
 		_model_pose = _model.global_transform
 	_moving = true
+	gesture_changed.emit(true)
 	_highlight_selected(Color.GREEN)
 	return true
 
 func constrained_position(point: Vector3) -> Vector3:
 	var entity: Dictionary = _entities[selected_id]
 	var motion: Dictionary = entity["movement"]
-	if motion["kind"] == "floor":
+	if motion["kind"] in ["floor","ceiling"]:
 		return Vector3(point.x, _origin.y, point.z)
 	var origin := _vec3(motion["origin"])
 	var tangent := _vec3(motion["tangent"])
@@ -361,12 +406,14 @@ func _draw_guides(lines: Array) -> void:
 	_guides.show()
 
 func _show_preview() -> void:
+	pose_previewed.emit(selected_id,_preview,_preview_yaw)
 	if is_instance_valid(_model):
 		_model.global_transform = Transform3D(Basis(Vector3.UP, -(_preview_yaw - float(_entities[selected_id]["yawClockwiseRadians"]))) * _model_pose.basis, _model_pose.origin + _preview - _origin)
 	_highlight_selected(Color.GREEN if _preview_allowed() else Color.RED)
 
 func commit_move() -> void:
 	_moving = false
+	gesture_changed.emit(false)
 	if _preview.distance_to(_origin) <= 0.00001 and is_equal_approx(_preview_yaw, float(_entities[selected_id]["yawClockwiseRadians"])):
 		cancel_drag()
 		return
@@ -391,6 +438,7 @@ func cancel_drag() -> void:
 	_moving = false
 	if is_instance_valid(_model):
 		_model.global_transform = _model_pose
+		pose_previewed.emit(selected_id,_origin,float(_entities[selected_id]["yawClockwiseRadians"]))
 	_model = null
 	snapping.clear()
 	_bypass_snap = false
@@ -398,7 +446,9 @@ func cancel_drag() -> void:
 	snap_changed.emit("")
 	if _highlight != null:
 		_highlight.hide()
-	if was_moving: preview_cancelled.emit()
+	if was_moving:
+		gesture_changed.emit(false)
+		preview_cancelled.emit()
 
 func _preview_allowed() -> bool:
 	return placement_allowed(data, selected_id, (_preview - _origin), _preview_yaw)
@@ -411,7 +461,8 @@ func placement_allowed(scene: Dictionary, id: String, offset := Vector3.ZERO, ya
 	var pose := _vec3(entity["position"]) + offset
 	var yaw := float(entity["yawClockwiseRadians"]) if yaw_override == null else float(yaw_override)
 	var movement: Dictionary = entity["movement"]
-	if movement["kind"] == "floor" and not _floor_support(entity, pose, yaw): return false
+	if movement["kind"] in ["floor","ceiling"] and not _floor_support(entity, pose, yaw): return false
+	if movement["kind"]=="ceiling" and absf(pose.y+float(entity["size"][1])/2-float(movement["elevation"]))>.00001:return false
 	if movement["kind"] == "wall":
 		var origin := _vec3(movement["origin"])
 		var along := (pose-origin).dot(_vec3(movement["tangent"]))
@@ -444,10 +495,13 @@ func _floor_support(entity: Dictionary, pose: Vector3, yaw: float) -> bool:
 	var frame := Basis(Vector3.UP, angle)
 	var size := _vec3(entity["size"])
 	var elevation := float(entity["movement"]["elevation"])
+	var ceiling:bool=entity["movement"]["kind"]=="ceiling"
 	var floor_owners := {}
 	for floor in data["floors"]:
 		if floor["id"] == entity["floorId"]:
-			for room in floor["rooms"]: floor_owners[room["id"]] = true
+			if ceiling:elevation=floor["elevation"]
+			for room in floor["rooms"]:
+				if not ceiling or room["id"]==entity["movement"]["roomId"]:floor_owners[room["id"]] = true
 	var exclusions: Array[RID] = []
 	for collider in data["colliders"]:
 		if collider["ownerId"] == entity["id"] and _nodes.has(collider["id"]): exclusions.append(_nodes[collider["id"]].get_rid())
@@ -458,6 +512,9 @@ func _floor_support(entity: Dictionary, pose: Vector3, yaw: float) -> bool:
 		var hit := get_world_3d().direct_space_state.intersect_ray(ray)
 		if hit.is_empty() or not floor_owners.has(hit["collider"].get_meta("p2w_owner_id", "")): return false
 	return true
+
+func set_ceiling_layer(value:bool) -> void:
+	cancel_drag();ceiling_editing=value;selected_id="";furniture_selected.emit("");update_floor_visibility()
 
 func _highlight_selected(color: Color) -> void:
 	var entity: Dictionary = _entities[selected_id]

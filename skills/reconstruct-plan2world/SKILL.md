@@ -16,7 +16,7 @@ Read stage references only when entering that stage:
 
 Pipeline:
 
-**original raster → one architectural observation (functional zones + walls + windows + doors + sliding doors + scale evidence), freeze those observations → furniture semantics/positions → raster-supported refinement + functional-zone constrained logical closure and opening audit → freeze final architecture and guiding anchors → deterministic draft → native application**
+**original raster → optional confirmed image preparation → one architectural observation (functional zones + walls + windows + doors + sliding doors + scale evidence), freeze those observations → furniture semantics/positions → raster-supported refinement + functional-zone constrained logical closure and opening audit → freeze final architecture and guiding anchors → deterministic draft → native application**
 
 An image-quality rerun is a new complete execution from the original raster, not
 another architecture pass inside one execution. Record those separately. The
@@ -44,9 +44,22 @@ Use the run directory for every generated stage artifact, for example:
 
 Historical runs belong in Git history or disposable local run directories, not active fixtures.
 
-The original raster is canonical. Lossless crops may be inspected as views: record
-their source boxes and display scaling, without enhancement, independent fitting
-or a different coordinate system. All observations use original raster pixels.
+The original raster is immutable source evidence. Flat images use it directly.
+For a photographed plane, prepare and confirm its paper/known rectangular reference
+BEFORE observing architecture. Use the shared [input preparation](../../docs/image-preparation.md),
+an explicit known width/height ratio and a fresh output directory; never rectify
+the apartment outline, infer a page ratio or repair walls in the image. Keep the
+original, recipe, reversible matrix and hashes. All later image inputs, pixels,
+observations, overlays and scale calibration use that SAME frozen working image.
+Below, "original/source raster pixels" means this observation input, not mixed
+coordinates from the unrectified photo. Preserve preparation evidence with the
+native Project using `SourceFloorPlanImage.preparation`.
+
+Lossless local crops may be inspected for a concrete unresolved detail: record
+source boxes and display scaling in working-image pixels. Fixed grids and separate
+per-tile reconstruction remain opt-in/low priority; E1/E2 did not establish an
+overall recognition gain. No enhancement, independent fitting or third model
+observation is added. See the [experiment ledger](../../docs/observation-experiment-results.md).
 
 ## A. Observe architecture once
 
@@ -184,6 +197,12 @@ assembly requires the same furniture observation. The CLI refuses overwrites.
 Assemble deterministically:
 
 `NODE_ENV=production node tooling/plan2world-architecture.mjs assemble --stage "$RUN_DIR/prepared/architecture-stage.json" --furnishing "$RUN_DIR/source-furnishing.json" --output "$RUN_DIR/assembled"`
+
+For a prepared photograph, add `--source working.png --input-preparation
+input-preparation.json --original-image original.jpg` using the actual frozen
+paths. The assembler then also writes native `project.json` with the registered
+working background, original photo, transform and source-zone review. This is
+the same native conversion used by desktop/browser, with no inferred entrance.
 
 The assembler reuses the existing unit conversion, geometry, furniture catalogue,
 source registration and `plan2world-draft-v1` pipeline. Legacy wall/annotation

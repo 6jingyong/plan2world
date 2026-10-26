@@ -14,13 +14,21 @@ Project catalogId / customModelId + retained attachments
 
 ## Identity and packaging
 
-Furniture retains `catalog:<catalogId>` or `custom-model:<customModelId>` as its
+Ordinary furniture retains `catalog:<catalogId>` or `custom-model:<customModelId>` as its
 `assetRef`; sourceCategory remains source semantics and never selects a guessed
 model. Each explicit non-opening door leaf receives `builtin:door-leaf-v1` and
 its own size, closed pose and collider reference. Leafless openings have no asset
 reference. Fold/overhead remain unsupported closed blockers with a default leaf.
 Double/french doors instance the same asset twice, with compiler-owned independent
 hinges and one shared interaction state.
+
+The four ceiling-fixture IDs (`ceiling_light`, `chandelier`, `recessed_light`,
+`pendant_light`) use deterministic shared `builtin:<catalogId>-v1` unit GLBs,
+packaged and fitted through this same manifest. Body/emitter materials describe
+appearance only. Runtime `light` semantics independently supply the real source;
+brightness and temperature changes leave model bytes and collision unchanged.
+Ceiling attachment is required in native Project data. See
+[ceiling lighting](runtime-plan-lighting.md) for the contract and current scope.
 
 The sibling directory follows the runtime filename: `house.runtime.json` (or
 `house.json`) resolves to `house.assets/manifest.json`; a filename without `.json`

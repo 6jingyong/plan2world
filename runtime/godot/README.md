@@ -2,7 +2,22 @@
 
 This directory is a deliberately small consumer of `plan2world-runtime-v1` plus its sibling `architecture.glb` presentation artifact.
 It is **not** a second authoring model and must never become the source of truth for a house.
+
+The optional creation page prepares photographed plans locally before recognition:
+JPEG direction, paper/reference corners, explicit width/height ratio, preview and
+confirmation. Original evidence and the working raster stay aligned through the
+shared authoring core; the runtime loader does not handle images. Preparation
+needs no AI account. See [image preparation](../../docs/image-preparation.md).
 The editable Plan2World `Project` remains authoritative. Runtime loaders consume compiled artifacts; a separate native furniture editor delegates Project edits/compilation to the packaged shared core. All UI, cameras, picking, drag and collision checks run in Godot.
+
+[中文使用说明书：插件 / Skill 与独立桌面](../../docs/user-guide.zh-CN.md).
+Optional **Create from a floor plan…** and **AI account…** use a separate native
+authoring surface and shared reconstruction process. OpenRouter login/API keys
+stay in session memory; explicit consent precedes paid observations. Existing
+Project editing and runtime scenes remain offline and require no account.
+Settled top view uses orthographic projection; first person stays perspective.
+
+![Native account entry, captured from the packaged player](../../docs/images/godot-ai-account.png)
 
 ## Target
 
@@ -33,7 +48,7 @@ F / gamepad X focuses nearby furniture in an editable Project. Arrow taps move
 cancels the preview. Movement stops while adjusting; mouse/right stick only
 looks. Floor furniture stays in its plan plane. Mounted objects use the explicit
 wall/side/height chosen in top view, and move only along that wall or vertically.
-Curved-wall mounting is currently unsupported. Top-view dragging supports a 10cm grid, straight-wall flush/orientation and furniture alignment guides; use the visible switches or hold Alt for free placement. Magnetic assistance never affects first-person micro-adjustment.
+Curved-wall mounting is currently unsupported. In top view, Tab opens the category/search furniture grid; Esc / gamepad B closes it, Ctrl+F searches. Selected pieces expose Rotate/R, Swap/X and Remove/Delete; Layout… holds Save/Export, with Ctrl+S for Save. Wall installation uses a separate explicit-host dialog. Top-view dragging supports a 10cm grid, straight-wall flush/orientation and furniture alignment guides; use the visible switches or hold Alt for free placement. Magnetic assistance never affects first-person micro-adjustment.
 
 Furniture placement reserves the explicit closed-door volumes even while doors
 are open. The shared compiler checks the same poses before accepting/exporting
@@ -47,6 +62,16 @@ blocked/unsupported starts. The loader validates candidate semantics and matchin
 GLB digest before replacing the active world; a failure retains the old scene.
 
 ## Develop locally / run the built-in demo
+
+Top view is an unlit plan profile over the same world: dark wall outlines,
+orange doors and blue windows, with lights/shadows disabled. The Furniture /
+Ceiling lights selector isolates the editing layer. Four ceiling fixtures require
+an explicit horizontal ceiling and stay at its height in both editing modes.
+Use **L** for light on/off, lumens and temperature; **T** / the walking HUD changes
+Day, Night, Sunrise or Sunset. Natural light is session view state; fixture pose
+and settings save in the native Project. Re-export older scenes for the plan
+opening bands and bind older unmounted fixtures explicitly. See
+[plan presentation and ceiling lighting](../../docs/runtime-plan-lighting.md).
 
 1. Install Godot 4.7.2.
 2. Open `runtime/godot/project.godot`.
@@ -154,6 +179,8 @@ The scripts are intentionally split by responsibility:
 - `player.gd` / `door.gd`: engine-side runtime behavior;
 - `layout_camera.gd`: same-world camera transition, native layout input, selection and placement queries;
 - `runtime_plan_view.gd`: native Godot layout toolbar;
+- `runtime_view_style.gd`: same-world unlit plan profile, natural-light presets and explicit runtime light instances;
+- `light_settings.gd`: native fixture settings dialog using shared edit commands;
 - `layout_session.gd`: offline shared Project/compiler core, accepted current state, atomic save/export;
 - `main.gd`: scene/editor composition and mode lifecycle.
 
@@ -162,11 +189,11 @@ The adapter delegates engine work to Godot:
 - player body: grounded `CharacterBody3D` with project gravity, floor snapping and `move_and_slide()`;
 - collision: runtime-v1 boxes/cylinders/triangle meshes -> Godot `CollisionShape3D`;
 - static architecture display: runtime-loaded glTF 2.0 binary via `GLTFDocument`/`GLTFState`;
-- interactive swing and slide doors: one `door.gd` controller per native door, with one `AnimatableBody3D` per explicit moving leaf; ray targets delegate to that controller;
+- interactive swing and slide doors: one `door.gd` controller per native door, with one `AnimatableBody3D` per explicit moving leaf; a small native ShapeCast handles aimed interaction across leaf seams, preserves wall occlusion and delegates to that controller;
 - straight-stair traversal: ordinary grounded movement over compiler-owned ramp collision;
 - mouse look and movement speeds live only in the runtime backend.
 
-No Plan2World wall topology, room detection, floor-hole inference, stair-target resolution, geometry repair, or AI reconstruction is recomputed here.
+No Plan2World wall topology, room detection, floor-hole inference, stair-target resolution or geometry repair is recomputed in the engine. Optional desktop creation delegates AI observations and reconstruction to the shared authoring process; the runtime loader never invokes it.
 
 ## Deliberate limitations
 
@@ -174,6 +201,7 @@ This is still an architecture/runtime milestone, not a rendering-quality milesto
 
 - `kind: "swing"` and `kind: "slide"` doors are interactive; fold and overhead source motions remain closed blockers;
 - single/double/french swing doors consume explicit per-leaf pivots, poses and colliders; both paired leaves share one interaction state;
+- current native sliding doors retain one moving leaf; multi-track balcony assemblies need explicit panel/track/travel authoring before they can reproduce real opening geometry. The [YJ215 case](../../docs/yj215-validation.md) records three blocked sliders; never bypass adjacent-wall collision to hide this limitation;
 - straight stairs can connect adjacent authored floors physically and now have shared step presentation; L-shaped, U-shaped and spiral stairs remain explicit unsupported traversal/presentation rather than being approximated;
 - a multi-floor stairwell still needs the native project to contain the corresponding `floorOpening` aperture; the runtime compiler will preserve it but will not invent one;
 - wall junctions with incompatible endpoint heights or pathological/unbounded offset intersections retain closed caps and emit a compiler diagnostic;

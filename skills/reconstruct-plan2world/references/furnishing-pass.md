@@ -2,6 +2,9 @@
 
 Read the original raster with frozen architecture as context. Emit only:
 
+Use the SAME confirmed image and pixel coordinates as the architectural pass.
+Do not recrop, rectify, independently fit a region or map back to an earlier photo.
+
 ```json
 {
   "schemaVersion":"source-furnishing-v1",

@@ -4,8 +4,9 @@ import { floorInteriorPoint } from '$lib/utils/floorInteriorPoint';
 import { analyzeFloor } from '$lib/utils/floorAnalysis';
 import { floorElevations } from '$lib/utils/floors';
 import { needsWallMount, validateWallPlacement } from '../utils/furniturePlacement';
+import { ceilingLightProfile, furnitureCeilingFrame, nativeRoomId, nativeCeilingHeight, needsCeilingMount, lightColor } from '../utils/ceilingFurniture';
 import { getCatalogItem, getFurnitureSize } from '$lib/utils/furnitureCatalog';
-import { roomCeilingHeight, wallProfileSpans } from '$lib/utils/wallProfiles';
+import { wallProfileSpans } from '$lib/utils/wallProfiles';
 import { wallPointAt, wallTangentAt } from '$lib/utils/wallPath';
 import { triangulatePolygonWithHoles } from './polygonTriangulation';
 import { entranceSpawn } from './playerSpawn';
@@ -159,23 +160,32 @@ function compileFloor(
     if (catalog?.symbol && !item.customModelId) continue;
     const custom = customModels?.find(model => model.id === item.customModelId);
     const size = getFurnitureSize({ ...item, width: item.width ?? custom?.width, depth: item.depth ?? custom?.depth, height: item.height ?? custom?.height });
-    const position = point3(item.position, elevationCm + (item.wallMount?.elevation ?? 0) + size.height / 2);
+    const ceiling = needsCeilingMount(item.catalogId) ? furnitureCeilingFrame(floor,item,analysis) : null;
+    if (!ceiling && item.ceilingMount) throw new Error('Ceiling attachment requires a ceiling furniture asset.');
+    if (!ceiling && item.light) throw new Error('Light settings require a supported attached ceiling light.');
+    const position = point3(item.position, elevationCm + (ceiling?.bottom ?? item.wallMount?.elevation ?? 0) + size.height / 2);
     const yaw = item.rotation * Math.PI / 180;
     const frame = item.wallMount ? validateWallPlacement(floor, { ...item, width: item.width ?? custom?.width, depth: item.depth ?? custom?.depth, height: item.height ?? custom?.height }) : null;
     entities.push({
       locked: !!item.locked,
-      movement: frame ? { kind: 'wall', wallId: item.wallMount!.wallId, side: item.wallMount!.side,
+      movement: ceiling ? { kind: 'ceiling', roomId: ceiling.id, elevation: m(elevationCm+ceiling.height) } : frame ? { kind: 'wall', wallId: item.wallMount!.wallId, side: item.wallMount!.side,
         blocked: frame.blocked.map(opening => ({ along: [m(opening.along[0]),m(opening.along[1])], bottom: [m(opening.bottom[0]),m(opening.bottom[1])] })),
         origin: point3(frame.origin, elevationCm), tangent: [frame.tangent.x, 0, frame.tangent.y],
         along: [m(frame.along[0]), m(frame.along[1])], bottom: [m(frame.bottom[0]), m(frame.bottom[1])] }
         : needsWallMount(item.catalogId) ? { kind: 'unbound-wall' } : { kind: 'floor', elevation: m(elevationCm) },
       id: item.id, floorId: floor.id, kind: 'furniture', catalogId: item.catalogId,
       ...(item.sourceCategory ? { sourceCategory: item.sourceCategory } : {}),
-      assetRef: item.customModelId ? `custom-model:${item.customModelId}` : `catalog:${item.catalogId}`,
+      assetRef: item.customModelId ? `custom-model:${item.customModelId}` : ceiling ? `builtin:${item.catalogId}-v1` : `catalog:${item.catalogId}`,
+      ...(ceiling ? { light: (() => {
+        const profile = ceilingLightProfile(item.catalogId)!;
+        const settings = item.light ?? profile.defaults;
+        return { ...settings, kind: profile.kind, color: lightColor(settings.temperatureKelvin), range: profile.range,
+          spotAngleDegrees: profile.spotAngleDegrees, localPosition: [0,-m(size.height/2)-.015,0] as RuntimeVec3, direction:[0,-1,0] as RuntimeVec3 };
+      })() } : {}),
       mirror: [(item.scale?.x ?? 1) < 0 ? -1 : 1, 1, (item.scale?.y ?? 1) < 0 ? -1 : 1],
       position, yawClockwiseRadians: yaw, size: [m(size.width), m(size.height), m(size.depth)],
     });
-    if (size.width > 0 && size.depth > 0 && size.height >= 20) {
+    if (size.width > 0 && size.depth > 0 && (ceiling || size.height >= 20)) {
       colliders.push({
         id: `furniture:${item.id}`, ownerId: item.id, floorId: floor.id, dynamic: false, kind: 'box',
         center: position, size: [m(size.width), m(size.height), m(size.depth)], yawClockwiseRadians: yaw,
@@ -215,18 +225,15 @@ function compileFloor(
     .map(({ room, polygon }) => ({
       // Saved native room identity is authoritative. Unpersisted detected rooms
       // carry editor timestamps; derive their runtime identity from floor/boundary.
-      id: floor.rooms.some(saved => saved.id === room.id) ? room.id :
-        `room:${encodeURIComponent(floor.id)}:${[...room.walls].sort().map(encodeURIComponent).join(',')}`,
+      id: nativeRoomId(floor,room),
       name: room.name,
       roomType: room.roomType ?? 'indoor',
       polygon: polygon.map(point2),
       holes: (analysis.holes.get(room.id) ?? []).map(hole => hole.map(point2)),
       slabThickness: m(floor.slabThickness ?? 5),
+      ...(nativeCeilingHeight(floor,room) === undefined ? {} : { ceilingWallIds: [...new Set(room.walls)].sort() }),
       ceilingHeight: (() => {
-        // Match native authoring: an outdoor room or explicit ground boundary
-        // does not establish a roof, even when some retained walls share height.
-        if (room.roomType === 'outdoor' || room.boundary) return null;
-        const height = roomCeilingHeight(room.walls, floor.walls);
+        const height = nativeCeilingHeight(floor,room);
         return height === undefined ? null : m(height);
       })(),
     }));

@@ -2,11 +2,25 @@
 
 ## Mission
 
+For current completed milestones, deferred work and the next implementation
+priority, read [the development handoff](docs/development-handoff.md). It does not
+replace the invariants below or authorize future pushes/merges.
+
 Plan2World turns a floor-plan raster into an editable browser home and an engine-neutral compiled runtime. The existing openPlan3D `Project` remains the canonical authoring truth, with its editor, history, persistence and Three.js review/preview surfaces. Runtime experience is derived from that Project through deterministic artifacts and consumed by Godot or future engines. Do not create a competing canonical scene graph.
 
 ## Canonical reconstruction
 
-**source raster → one architectural observation (functional zones/walls/openings/scale), freeze those observations → furniture semantics/positions → deterministic raster refinement + functional-zone logical closure + opening audit → freeze final architecture and furniture anchors → deterministic draft assembly → native application**
+**original raster → optional confirmed image preparation → one architectural observation (functional zones/walls/openings/scale), freeze those observations → furniture semantics/positions → deterministic raster refinement + functional-zone logical closure + opening audit → freeze final architecture and furniture anchors → deterministic draft assembly → native application**
+
+- Input preparation is shared deterministic authoring code. JPEG EXIF direction,
+  manual quarter-turns and four-corner rectification happen BEFORE observation.
+  Perspective mode needs a known rectangular reference and explicit aspect ratio;
+  never square off the apartment outline or infer page proportions. Freeze original
+  and working image, reversible transform and hashes. All later pixels, observations,
+  scale and overlays use the working image; native reconstruction evidence retains
+  provenance and the original when transformed. This is not runtime semantics.
+  See `docs/image-preparation.md`. Local crops inspect specific doubts; fixed grids
+  and per-tile reconstruction stay optional/low priority, not default stages.
 
 - The direct Skill records `source-architecture-v1` in original image pixels,
   including concise visual evidence, decisions and uncertain/rejected candidates.
@@ -133,6 +147,12 @@ of the active tree; do not erase negative results when later fixes pass.
 Use the ledger's effectiveness table for orientation; read individual historical
 rounds when their variable or failure is relevant.
 
+`runtime:validate` records separate source/structure/door-motion/arrangement/save/
+walkthrough/rendering scopes. Every supported door is tested in its own original
+closed physics world without a player; record blocked leaves/owners and unsupported
+motions. Untested scopes remain `not_run`, never borrow a compiler or CI pass.
+Frozen reconstruction and later deliberate user arrangement are separate inputs.
+
 ## Draft invariants
 
 Use `schemas/plan2world-draft-v1.schema.json` and `docs/plan2world-draft-v1.md`.
@@ -168,6 +188,11 @@ Use `schemas/plan2world-draft-v1.schema.json` and `docs/plan2world-draft-v1.md`.
   compiler-owned wall frames, height bounds and opening exclusions. Do not infer
   attachment from asset meshes or nearest walls. Curved attachment is unsupported.
 - Top-view snapping is native input assistance over compiled wall/item dimensions. Keep grid, wall flush/orientation and nearby furniture guides optional with explicit release; first-person micro-adjustment never snaps. Floor wall alignment changes pose only, never infers a wallMount. Save snapped position/rotation atomically through the shared native edit core; physics and compiler validation remain authoritative.
+- Native catalog category/dimensions/illustrations are a read-only editor projection. Keep symbols out of runtime artifacts and physics; reuse authoring symbols instead of rebuilding furniture geometry in the adapter. Catalog/selection actions use the existing shared native commands, not a second scene model.
+- Settled Godot top view uses orthographic projection; floor/top points must align at different heights, with parallel picking rays. Walkthrough retains its own perspective camera. Keep drawer framing/zoom and planar snapping independent of camera altitude/FOV.
+- Plan presentation reuses the same Godot world with unlit materials and disabled sun/fixture lights/shadows/AO. Compiler-owned aperture bands in architecture GLB carry `view: "plan"`; engines hide them in walkthrough and never reconstruct them from wall/collider meshes. Restore materials, world state and the selected natural-light preset on return.
+- Ceiling fixtures bind an explicit native enclosure wall-ID set, using the same native ceiling-height policy as the compiler. Shared code validates the whole footprint and holes; do not guess a ceiling, flatten a sloped roof, change room topology or move the fixture to recover invalid source data. Runtime movement names the emitted ceiling room/elevation. Native plane dragging and first-person nudges never change height/host. Saved light settings and compiler-owned local source position/direction drive real engine lights independently of asset meshes/colliders. Lamp assets stay dynamic, not baked in architecture; natural-light presets are session view state, not edit history.
+- Optional desktop image creation is an authoring surface, separate from the offline runtime loader and offline edit core. Its private stdio task delegates the same two-observation/raster/assembly pipeline to the shared TypeScript core. OpenRouter credentials stay in process memory, never argv, request files, Project, artifacts or logs; explicit image consent precedes paid work, with no automatic retry. The user selects the main door/inward side; never infer or relocate spawn. Native source-preview door markers are read-only projections, not engine topology.
 - Furniture must leave every explicit door leaf's default closed volume clear.
   Shared artifact compilation validates this independently of transient engine
   door state; native JSON backup stays editable. Godot previews reuse the emitted

@@ -1,9 +1,5 @@
 # Observation workflow experiments
 
-Work is on `observation-v2`. On 2026-10-25 the user authorized merging the validated
-milestone to main once checks pass; do not promote failed source observations.
-The runtime migration is merged through PR #62 at main `a2b5dd6`, with
-[full main CI](https://github.com/6jingyong/plan2world/actions/runs/40077540331).
 Maintain the [results ledger](observation-experiment-results.md) after every round,
 including failures. It owns the historical findings; this page owns the active plan.
 
@@ -26,12 +22,13 @@ or overlapping walls before furnishing, without accepting opening hosts or
 replacing final furniture-guided closure. Its fresh E10 execution supports 12/12
 accepted zones and reaches Godot; this is one workflow check, not a recognition
 quality comparison.
-The current step is merge-level regression of floor acceptance, explicit semantics,
-polygon support and review handoff. Local checks pass: 1,661 unit tests, type/build,
-27 targeted browser cases across three engines and eight Godot commands. Require
-remote core checks, including native Windows, before merging; then verify the full
-main browser and benchmark run. Keep platform/manual and source-quality limits
-explicit in the integration receipt.
+Those reconstruction milestones are already integrated. Current work adds optional
+[photo preparation](image-preparation.md) before both observations and reusable
+[case acceptance](runtime-integration.md), without changing topology/closure or
+claiming a recognition gain. Flat inputs keep their original encoded bytes.
+Prepared inputs retain original evidence and use one confirmed working coordinate
+frame. Current candidate evidence belongs in [runtime validation](runtime-validation.md),
+not stale historical test counts or previous branch merge instructions.
 Do not combine selected runs into a five-image score or claim external-provider
 quality from direct Codex runs.
 

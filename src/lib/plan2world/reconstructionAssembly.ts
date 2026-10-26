@@ -31,6 +31,8 @@ export interface SourceAnnotationV1 {
 export interface ReconstructionAssemblyContext {
   sourceWidthPx?: number;
   sourceHeightPx?: number;
+  /** Program-owned identity of the confirmed observation image; no geometry. */
+  sourceImageSha256?: string;
   functionalZoneLabels?: { label: string; category: string; environment: 'indoor' | 'balcony' | 'outdoor'; position: DraftPoint }[];
 }
 

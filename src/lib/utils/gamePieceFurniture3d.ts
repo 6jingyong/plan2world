@@ -6,6 +6,11 @@ export interface GamePieceAppearance {
   ghost?: boolean;
 }
 
+export function gamePieceHeight(def:FurnitureDef) {
+  const baseHeight=Math.min(10,Math.max(5,Math.min(def.width,def.depth)*.08));
+  return Math.max(baseHeight+8,Math.min(60,def.height*.3));
+}
+
 function material(color: string, ghost = false) {
   const value = new THREE.Color(color);
   return new THREE.MeshStandardMaterial({
@@ -39,7 +44,7 @@ export function createGamePieceFurnitureModel(
 
   const color = appearance.color ?? def.color ?? '#888888';
   const baseHeight = Math.min(10, Math.max(5, Math.min(def.width, def.depth) * 0.08));
-  const visualHeight = Math.max(baseHeight + 8, Math.min(60, def.height * 0.3));
+  const visualHeight = gamePieceHeight(def);
 
   // Full-footprint base keeps the spatial extent exact even when the upper token
   // is inset for readability.

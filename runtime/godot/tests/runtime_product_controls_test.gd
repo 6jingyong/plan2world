@@ -99,12 +99,14 @@ func _run():
 	# Wall picture: explicit host frame, not inferred from mesh or nearest wall.
 	_key(KEY_F2);await _idle()
 	var plan=main._plan_view
+	plan.set_catalog_open(true);await _idle()
 	for i in range(plan._catalog.size()):
-		if plan._catalog[i]["asset"].get("catalogId")=="wall_art": plan._palette.select(i);plan._palette.item_selected.emit(i)
-	_check(plan._wall_selector.visible and plan._mount_height.visible,"Wall catalog selection must expose native attachment controls")
+		if plan._catalog[i]["asset"].get("catalogId")=="wall_art": plan._catalog_view.choose(i)
+	plan._catalog_view.place.pressed.emit();await process_frame
+	_check(plan._mount_dialog.visible and plan._wall_selector.is_visible_in_tree() and plan._mount_height.is_visible_in_tree(),"Wall catalog selection must expose native attachment controls")
 	plan._wall_selector.select(plan._wall_ids.find("ground-w0"));plan._mount_side.select(0);plan._mount_height.value=140
 	camera._center=Vector2(6,6)
-	plan.find_child("AddFurniture",true,false).pressed.emit();await _idle()
+	plan._mount_dialog.hide();plan._mount_dialog.confirmed.emit();await _idle()
 	var wall_id: String=main._session.current()["selectedId"]
 	var bound: Dictionary=camera._entities[wall_id]
 	_check(bound["movement"]["kind"]=="wall","Compiler must emit wall movement constraints")

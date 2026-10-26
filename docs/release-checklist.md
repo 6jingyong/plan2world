@@ -15,7 +15,7 @@ Use this checklist for a specific release candidate. Checking a box requires evi
 When reconstruction behavior or the Skill changes:
 
 - [ ] Apply the current `skills/reconstruct-plan2world` procedure to at least one fresh original raster.
-- [ ] Create/identify a validation run and record source identity, repository commit and a new draft-candidate ID.
+- [ ] Create/identify a validation run and record source identity, repository commit and a new draft-candidate ID. For a photo, freeze confirmed preparation, known rectangle proportion and inverse transform before either observation; all stages use that working image. Preserve the original.
 - [ ] Freeze the complete emitted JSON before inspecting downstream output; record its hash when practical.
 - [ ] Review source → draft separately from draft-contract validity.
 - [ ] Validate the frozen draft before testing validated draft → native conversion.
@@ -24,7 +24,10 @@ When reconstruction behavior or the Skill changes:
 - [ ] Stop at the earliest failed boundary. Fix that reusable layer and leave later stages unclaimed for that run.
 - [ ] If the reconstruction Skill changed, generate a separate fresh draft candidate rather than overwriting the failed one.
 
-The ordered stage IDs and manifest semantics live in `src/lib/plan2world/validationRun.ts`; source/model/prompt identity lives in `reconstructionExperiment.ts`.
+See [input preparation](image-preparation.md), the compact experiment ledger and
+[mechanical case acceptance](runtime-integration.md). Source fidelity, compiler
+checks, every-door motion, save/reopen, walkthrough and rendered lighting are
+separate evidence; untested scopes remain `not_run` in the case report.
 
 ## User workflows
 
@@ -34,7 +37,9 @@ The ordered stage IDs and manifest semantics live in `src/lib/plan2world/validat
 - [ ] For browser review changes, verify orbit, cut/stack, 3D element editing, phone inspector layout, camera preview and idle/resource disposal. The browser has no FPS runtime.
 - [ ] For internal browser authoring, verify affected Undo/Redo and package round trips. Use `docs/project-package-v1.md` for the package contract.
 - [ ] For delivered Godot layout, verify there is no Undo/Redo/history, rejected edits retain current data, and native save/export/reopen preserves accepted furniture poses and door clearance.
-- [ ] Verify native grid/wall/furniture snapping, capture/release, Alt/toggle bypass, cancelled pose restoration, door/floor rejection and save/reopen; first-person nudges must stay unsnapped. Check readable compact-window UI and camera framing around all panels. See [native Godot layout](godot-furniture-layout.md).
+- [ ] Verify orthographic top view has no height parallax and parallel picking; first person restores its perspective camera. For optional desktop creation, check account consent/cancel/failure, image-spending consent, shared pipeline, explicit entrance, native backup and absent credentials in exports. Distinguish mocked-provider automation from real account/model acceptance; include the two-entry manual in the player ZIP.
+- [ ] Verify native grid/wall/furniture snapping, capture/release, Alt/toggle bypass, cancelled pose restoration, door/floor rejection and save/reopen; first-person nudges must stay unsnapped. Check category/search/empty results, catalog dismissal from focused controls, add/swap confirmation, cancelled wall installation, contextual actions and readable compact-window UI. Catalog/resize framing must preserve the chosen plan centre/relative zoom. See [native Godot layout](godot-furniture-layout.md).
+- [ ] Check unlit plan walls/opening colours with lights/shadows off, ceiling-layer isolation, explicit mounting/holes, fixed-height drag/nudges, light preview/cancel/settings and native persistence. Inspect actual rendered on/off/temperature differences and all four natural-light presets; headless light-node assertions alone do not establish illumination quality. See [plan/light contract](runtime-plan-lighting.md).
 - [ ] Record browser/device/input checks and explicitly list untested environments. Managed browser CI is not physical-device qualification.
 - [ ] For performance changes, record the workload, hardware and measurement method; viewport emulation is not a device benchmark.
 

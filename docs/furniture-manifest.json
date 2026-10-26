@@ -779,7 +779,7 @@
     {
       "id": "ceiling_light",
       "name": "Ceiling Light",
-      "category": "Lighting",
+      "category": "Ceiling Lights",
       "dimensionsCm": {
         "width": 40,
         "depth": 40,
@@ -792,7 +792,7 @@
     {
       "id": "chandelier",
       "name": "Chandelier",
-      "category": "Lighting",
+      "category": "Ceiling Lights",
       "dimensionsCm": {
         "width": 60,
         "depth": 60,
@@ -805,7 +805,7 @@
     {
       "id": "recessed_light",
       "name": "Recessed Light",
-      "category": "Lighting",
+      "category": "Ceiling Lights",
       "dimensionsCm": {
         "width": 15,
         "depth": 15,
@@ -857,7 +857,7 @@
     {
       "id": "pendant_light",
       "name": "Pendant Light",
-      "category": "Lighting",
+      "category": "Ceiling Lights",
       "dimensionsCm": {
         "width": 30,
         "depth": 30,

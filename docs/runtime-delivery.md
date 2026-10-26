@@ -24,6 +24,15 @@ catalog models from the application's own origin; custom-model attachments reuse
 the retained Project sources. A failed model request reports an export error and
 can be retried. Genuinely absent model sources retain the existing proxy policy.
 
+Optional desktop **Create from a floor plan…** is a separate online authoring
+entry, with native OpenRouter account authorization or API-key connection and
+explicit paid-image consent. It uses the same reconstruction pipeline, requires
+an explicit entrance choice and then opens the saved native Project. It adds no
+account requirement to offline runtime or furniture editing. Players include the
+[Chinese guide](user-guide.zh-CN.md) as `README.zh-CN.md`.
+Local [photo preparation](image-preparation.md) also works without an account.
+Recognition uses the confirmed working image; the original remains retained.
+
 Controls: WASD move, Ctrl slow, Shift fast, mouse look, E door, Esc release/capture
 mouse, F2 top view, F1 scene menu. The menu pauses physics/input. Failed scene opens preserve
 the current world so it can be resumed. Opening another scene replaces the old
@@ -108,13 +117,17 @@ ZIPs into relocated paths containing spaces/Chinese characters, then checks:
 - exact shipped PCK resources: real grounded walking, compiler collision, ray
   interaction with swing/slide/paired doors, furniture/column/wall blockers,
   railing/air and straight stair ascent/descent;
+- native furnishing UI: on-demand category/search/symbol grid, add/swap confirmation, retained identities, modal wall setup/cancel, Tab/Ctrl+F/gamepad-B focus behavior, contextual actions and secondary save/export;
+- orthographic plan projection with parallel picking rays and no height parallax; native optional account/image creation through the exact authoring core using a mocked provider, explicit entrance, cancellation, redaction and no credentials in saved Projects;
 - native top-view semantic snapping and real pointer/Alt/toggle controls: grid, wall orientation/clearance, furniture guides, cancelled pose restoration, atomic save/reopen and compact native UI;
+- unlit plan materials and compiler-owned opening bands; separate ceiling-light layer, explicit mounting, constrained pointer/first-person edits, photometric settings, save/reopen and natural-light restoration (a displayed run separately checks rendered illumination);
 - native furniture Project entry through the shipped core: add, ray-drag, rotate, replace, collision rejection, delete, save/export/reopen and private-state cleanup; same-world camera/input isolation and fixed architecture;
 - product controls: explicit main-door spawn/facing, failed-load recovery and GLB pairing, keyboard/virtual-gamepad nudges, wall constraints, door obstruction and atomic-save failure recovery;
 - door/layout lifecycle: pointer and micro-step rejection at an open door's
   reserved closed pose, failed conflicting Project recovery, save/export/reopen
   with safe default door poses, persistent error messages and unobstructed walking
   through placement-only reservations;
+- native interaction at paired-door seams, actor exclusion, nearest-wall occlusion and the existing reach; architecture ownership checks resolve an existing GLB and match its compiler digest;
 - actual release executable startup with all eight dynamic presentations and no
   missing-asset/static proxies; native source unchanged. Assertions read the
   engine's `--log-file` output so Windows GUI builds do not require console stdout.
