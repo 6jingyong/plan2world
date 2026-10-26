@@ -2,6 +2,10 @@
 
 ## Mission
 
+For current completed milestones, deferred work and the next implementation
+priority, read [the development handoff](docs/development-handoff.md). It does not
+replace the invariants below or authorize future pushes/merges.
+
 Plan2World turns a floor-plan raster into an editable browser home and an engine-neutral compiled runtime. The existing openPlan3D `Project` remains the canonical authoring truth, with its editor, history, persistence and Three.js review/preview surfaces. Runtime experience is derived from that Project through deterministic artifacts and consumed by Godot or future engines. Do not create a competing canonical scene graph.
 
 ## Canonical reconstruction
