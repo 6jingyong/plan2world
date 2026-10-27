@@ -16,6 +16,9 @@ for (let i = 0; i < args.length; i += 2) {
 }
 if (!options['--input'] || !options['--source'] || !options['--output']) throw new Error('Input, source and a new output directory are required.');
 const inputPath = resolve(options['--input']), sourcePath = resolve(options['--source']), output = resolve(options['--output']);
+// Reserve once before decoding or loading the shared core. An existing run must
+// fail without a second browser/Vite startup, and partial failures stay visible.
+await mkdir(dirname(output), { recursive: true }); await mkdir(output);
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const inputBytes = await readFile(inputPath), sourceBytes = await readFile(sourcePath), raster = await readSourceRaster(sourceBytes);
 const server = await createServer({ root, configFile: false, logLevel: 'error', resolve: { alias: { '$lib': resolve(root, 'src/lib') } },
@@ -30,8 +33,6 @@ try {
     codeCommit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(),
     workingTreeDirty: execFileSync('git', ['status', '--porcelain'], { cwd: root, encoding: 'utf8' }).trim() !== '',
     limitation: 'Transport expansion only. No normalization, host acceptance, source-fidelity or recognition-quality verdict.' };
-  // Creating the whole directory exclusively also preserves partial failures.
-  await mkdir(dirname(output), { recursive: true }); await mkdir(output);
   for (const [name, value] of [['source-architecture.json', result.architecture], ['point-reference-audit.json', result.audit], ['provenance.json', provenance]]) {
     await writeFile(resolve(output, name), JSON.stringify(value, null, 2) + '\n', { flag: 'wx', mode: 0o444 });
   }
