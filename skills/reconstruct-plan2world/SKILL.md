@@ -29,6 +29,11 @@ An explicitly requested shared-coordinate representation experiment may use
 losslessly to the existing architecture contract and does not change the default
 prompt, normalization, closure, IDs, host matching or model-call count.
 
+An explicitly requested spatial-context/evidence-limit experiment may also use
+[spatial-context-review.md](references/spatial-context-review.md). It pairs detail
+with surrounding source context and records different evidence limits without
+changing geometry contracts or adding an architectural/model pass.
+
 ## Fresh validation workspace
 
 For a benchmark rerun, start from the original raster and create a new ignored directory before generating anything:
