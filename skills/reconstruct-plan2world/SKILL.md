@@ -24,6 +24,11 @@ browser provider uses this same architecture-first, furniture-only sequence.
 Its prompts load the portable stage references directly. Direct Skill validation
 does not establish the extraction quality of an external provider/model.
 
+An explicitly requested shared-coordinate representation experiment may use
+[source-point-references.md](references/source-point-references.md). It expands
+losslessly to the existing architecture contract and does not change the default
+prompt, normalization, closure, IDs, host matching or model-call count.
+
 ## Fresh validation workspace
 
 For a benchmark rerun, start from the original raster and create a new ignored directory before generating anything:
