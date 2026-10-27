@@ -3,9 +3,50 @@
 本页是新对话的当前开发入口，不是完成所有产品验收的声明。先读本页与
 [`AGENTS.md`](../AGENTS.md)，检查下列当前分支及本地提交；保留尚未推送的本轮成果。
 
-## 2026-10-26 后续本地实现
+## 2026-10-27 当前分支与识图试点
 
-当前工作区 `/workspace/plan2world`，分支
+当前工作区 `/workspace/plan2world`，分支 `experiment/shared-source-points`，
+包含下述原生分支截至 `ddefa9c` 的全部六个本地提交，以及共享原图点工具 `5dade34`
+和本次结果交接提交。基线仍为 main `0b917b7`；只在本地实现、验证和提交，未push/PR/合并。
+勿切回main后丢失未发表的原生与识图工作。
+
+- 用户重新提供YJ215原图，1280×855，SHA256
+  `de827282bce49c497eb5568efcd1283932346f1025ca770afa982f6adbc26013`，与历史原图一致。
+  **原图已恢复，旧私有保存Project及运行时证据仍未恢复。**本轮两份新重建Project
+  不是旧作者配置版本，不能据此宣称三处阳台门或旧8/3逐门案例已复验。
+- 新增可选 `source-architecture-pointrefs-v1` 观察传输与本地展开CLI，共享点名仅属于
+  本次像素观察；无损转回既有格式，不修几何、不产生native ID。默认浏览器/provider格式、
+  v23提示及闭合/宿主/组装代码未变；使用说明见
+  [可选引用协议](../skills/reconstruct-plan2world/references/source-point-references.md)。
+- E10各从原图新观察一组内联/引用建筑，建筑冻结后共用一次新家具观察作为控制。
+  两组都能严格组装，但功能区均11/13，主卧/公区仍合并、北卫无确认入口，
+  室内网格到达8/9；外挑窗台轮廓/退距/台面仍有表达缺口，不能称完整还原。
+  坐标书写198→104（少47.5%），同一内容JSON却大1.9%；仅证明表示机制，无识图收益结论。
+  一图非盲试点、源端点有约1.41px观察差异、无独立人工标注，不作因果准确率比较。
+- 同一引用观察展开前后stage/draft原始字节相同，20项源层/产物冻结哈希复核未变。
+  1,768单测/204文件、类型0错误0警告、生产构建通过。默认UI/runtime未变，
+  本轮未重跑完整浏览器矩阵或Godot案例验收；下述原生检查仍属于原生轮次。
+  无外部provider/付费调用。保留首版事后房间ID关联失误及最终修正报告，未改源观察。
+
+试点证据在 `.plan2world-validation/runs/20261026-shared-source-points-yj215/`：
+`index.html` / `RESULTS.md` / `evaluation.json` 是阅读入口；两组 `assembled/project.json`
+均保留原图背景，是**待审查**的可编辑工程。`case-evidence.zip` 保存私有案例，
+`implementation.bundle` 覆盖基线后的原生和试点全部本地提交，不把住宅图片/Project放入Git。
+在拥有基线 `0b917b7` 的clone中恢复：
+
+```sh
+git fetch /path/to/implementation.bundle \
+  refs/heads/experiment/shared-source-points:refs/heads/experiment/shared-source-points
+git switch experiment/shared-source-points
+```
+
+结论账本见E10；当前保持默认流程及可选工具。下一识图重点是关键净门框、主卧分隔和
+凸台的源证据/构件表达，不自动补门、补分隔或扩大吸附。旧原生Project恢复后的门型复验
+仍是独立任务，下文的历史缺口按此理解。
+
+## 2026-10-26 原生本地实现（保留历史范围）
+
+该轮工作区 `/workspace/plan2world`，分支
 `feat/native-door-and-layout-reliability`，基于 main `0b917b7`。
 本轮只做本地实现/验证/提交，没有 push、PR 或合并授权。
 原生实现头为 `1770b87`，后补内部3D Review 为 `4cf5e20`；后者未改变原生/core源码，
@@ -37,8 +78,8 @@
 本轮证据在 `.plan2world-validation/runs/20261026-native-door-layout/`，包括初始失败、
 固定输入、before/after性能与照明、正常保存工程、原生截图和打包日志。
 当前包为 `player-linux-verified.zip` / `player-windows-verified.zip`；首轮坏包和日志保留。
-旧 YJ215 原图/Project/证据未随 clone 带来，仍需恢复后另存作者配置版本复验。
-本轮没有运行识图或付费 API。复盘见 P5–P9。
+当时旧 YJ215 原图/Project/证据未随 clone 带来；原图现已重新上传，旧Project仍缺。
+该原生轮次没有运行识图或付费 API。复盘见 P5–P9。
 
 ## 本次交接与工作约定
 
