@@ -8,6 +8,7 @@ import { decodeSourceFloorPlanImage } from './sourceBackground';
 import type { SourceRasterPixels } from './rasterWallContinuation';
 import { imageSha256 } from './imagePreparation';
 import { buildArchitectureInstructions, buildReconstructionInstructions, PLAN2WORLD_RECONSTRUCTION_INSTRUCTIONS_VERSION, type ReconstructionOptions } from './reconstructionInstructions';
+import { SourceRecoverySession, type SourceRecoveryOptions, type SourceRecoveryAudit } from './sourceRecovery';
 export { buildArchitectureInstructions as buildFloorPlanVisionPrompt } from './reconstructionInstructions';
 
 export const FLOOR_PLAN_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp'] as const;
@@ -18,6 +19,7 @@ export const PLAN2WORLD_VISION_PROMPT_VERSION = PLAN2WORLD_RECONSTRUCTION_INSTRU
 export interface FloorPlanVisionOptions extends ReconstructionOptions {
   sourceWidthPx?: number;
   sourceHeightPx?: number;
+  recovery?: SourceRecoveryOptions;
 }
 
 export interface EncodedFloorPlanImage {
@@ -62,7 +64,8 @@ async function sourceForAssembly(image: EncodedFloorPlanImage, options: FloorPla
     return { context: { sourceWidthPx: source.width, sourceHeightPx: source.height,sourceImageSha256:await imageSha256(bytes) }, raster };
   }
   if (options.sourceWidthPx !== undefined || options.sourceHeightPx !== undefined) {
-    return { context: { sourceWidthPx: options.sourceWidthPx, sourceHeightPx: options.sourceHeightPx } };
+    return { context: { sourceWidthPx: options.sourceWidthPx, sourceHeightPx: options.sourceHeightPx,
+      ...(options.recovery ? { sourceImageSha256: await imageSha256(Uint8Array.from(atob(image.base64), c => c.charCodeAt(0))) } : {}) } };
   }
   return { context: {} };
 }
@@ -70,6 +73,7 @@ async function sourceForAssembly(image: EncodedFloorPlanImage, options: FloorPla
 export interface FloorPlanReconstructionResult {
   draft: Plan2WorldDraft;
   observationReview: ReconstructionObservationReview;
+  recoveryAudit?: SourceRecoveryAudit;
 }
 
 export async function reconstructFloorPlanImage(
@@ -79,11 +83,11 @@ export async function reconstructFloorPlanImage(
   customFetch: typeof fetch = fetch,
   signal?: AbortSignal,
 ): Promise<FloorPlanReconstructionResult> {
-  const { sourceWidthPx: _sourceWidthPx, sourceHeightPx: _sourceHeightPx, ...instructionOptions } = options;
+  const { sourceWidthPx: _sourceWidthPx, sourceHeightPx: _sourceHeightPx, recovery, ...instructionOptions } = options;
   const source = await sourceForAssembly(image, options);
   return reconstructFloorPlanWithObserver(
     prompt => generateOpenAIJsonFromImage(config, image.base64, image.mimeType, prompt, customFetch, signal),
-    source, instructionOptions,
+    source, instructionOptions, recovery,
   );
 }
 
@@ -94,14 +98,16 @@ export async function reconstructFloorPlanWithObserver(
   observe: (prompt: string) => Promise<unknown>,
   source: { context: { sourceWidthPx?: number; sourceHeightPx?: number;sourceImageSha256?:string }; raster?: SourceRasterPixels },
   options: ReconstructionOptions = {},
+  recovery?: SourceRecoveryOptions,
 ): Promise<FloorPlanReconstructionResult> {
   const architectureInput = await observe(buildArchitectureInstructions(options));
-  const architecture = preflightArchitectureObservation(architectureInput, source.context);
+  const session = recovery ? await SourceRecoverySession.create(architectureInput, source.context, recovery) : undefined;
+  const architecture = session ? await session.preflight() : preflightArchitectureObservation(architectureInput, source.context);
   const furnishing = await observe(
     `${buildReconstructionInstructions()}\n\nFROZEN_ARCHITECTURE_JSON:\n${JSON.stringify(architecture)}`,
   );
-  const stage = prepareArchitectureStage(architecture, source.context, furnishing, source.raster);
+  const stage = session ? await session.prepare(furnishing, source.raster) : prepareArchitectureStage(architecture, source.context, furnishing, source.raster);
   assertArchitectureHostsResolved(stage);
   return { draft: assembleFrozenArchitecture(stage, furnishing).draft,
-    observationReview: summarizeArchitectureObservation(stage) };
+    observationReview: summarizeArchitectureObservation(stage), ...(session ? { recoveryAudit: session.audit } : {}) };
 }

@@ -56,6 +56,27 @@ Plan2World turns a floor-plan raster into an editable browser home and an engine
 
 Core rule: **LLM observes; programs calculate and assemble.**
 
+### Explicit source recovery
+
+The normal two-observation path and strict parsers remain unchanged. An explicitly
+enabled recovery session may project immutable raw observations into a separate
+program input: union exactly coincident wall coverage, cancel zero-area straight
+wall-outline spurs, canonicalize an unambiguous wire alias, and derive an aperture
+gap only from accepted door jambs with unique exact opposing wall flanks. Retain
+the original records, transformations and failed initial stages; no coordinate
+fitting, larger snap tolerance, convex hull, inferred access or discarded feature.
+
+One explicitly supplied reviewer callback may confirm source evidence locally,
+before or after furnishing, with a shared budget of one for the entire execution.
+Keep unconfirmed/invalid answers pending. Bind the answer to source, observations
+and the failed stage; restrict edits to requested source records, preserve accepted
+features and zone seeds, then rerun strict preflight/host checks and create a new
+stage. Never edit the original observation, frozen stage, draft or native scene.
+An aperture-only host hypothesis needs actual source confirmation and spans only
+the accepted aperture. No native IDs or host matching are reviewer responsibilities.
+Default browser/desktop callers have no reviewer and no extra paid request.
+See [source recovery](docs/source-recovery.md).
+
 ## Furnished-space enclosure prior
 
 User-defined default: a furnished indoor space is expected to have a fully
