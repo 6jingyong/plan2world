@@ -3,9 +3,47 @@
 本页是新对话的当前开发入口，不是完成所有产品验收的声明。先读本页与
 [`AGENTS.md`](../AGENTS.md)，检查下列当前分支及本地提交；保留尚未推送的本轮成果。
 
-## 2026-10-27 当前分支与识图试点
+## 2026-10-27 当前分支：空间上下文与证据分类试点
 
-当前工作区 `/workspace/plan2world`，分支 `experiment/shared-source-points`，
+当前分支 `experiment/spatial-context-and-evidence`，包含下述原生及E10全部未推送提交，
+再加通用视图工具/可选Skill说明 `52f46c8` 及本次结果交接提交，基线仍为main `0b917b7`。
+本轮只做本地实现、验证和提交；勿只恢复main或旧分支而丢失新工作。
+
+- 用户明确保留共享点工具，但未验证token节省；本轮只授权试空间上下文与证据限制分类，
+  不加入同图符号字典或户型专用规则。新增 `tooling/plan2world-context-views.mjs`，
+  显式focus/context选择→原像素视图/坐标平移/哈希，拒绝覆写；没有自动邻接推断。
+  说明见 [可选工作流](../skills/reconstruct-plan2world/references/spatial-context-review.md)。
+- E11从同一原图新观察：建筑与源限制侧记冻结→新家具→既有闭合/组装→冻结后审查。
+  主卧阈值由上下框端和开启叶/弧支持，候选在家具前接受；程序分离主卧/公区，功能区
+  从历史11/13变为13/13。新工程52墙、12门/通口、10窗、13native区域、54个新家具标记。
+  源图净框仍需独立复核；13/13是程序支持指标，不是人工准确率或全屋通行。
+- 北卫仍无确认入口，室内网格到达9/10；几何0错误/7提示集中在同一4px接头。
+  可见凸台/飘窗平面外投影与退距仍未完整表达，单列建模缺口；高度、剖面、移门配置
+  未建立，不能混成图里没有平面信息。侧记不作为几何输入，不自动补门/修墙。
+- 两项辅助同时变化，执行者知历史且看过旧观察脚本文本，无独立人工标注；新家具也不同，
+  62→54不计识别收益。只有一图的局部候选改善，无通用准确率或token/成本结论。
+  默认provider提示、parser、normalizer、闭合、宿主及runtime未变，没有第三次建筑调用。
+- 1,770单测/205文件、类型0错误0警告、生产构建通过；类型注释首轮失败保留。
+  新16项/历史20项冻结产物与11幅源视图哈希复核通过。没有新Godot案例/完整运行时验收。
+  原图已恢复，旧私有保存Project仍缺，不借历史8门通过/3门受阻宣称新工程通过。
+
+新证据目录 `.plan2world-validation/runs/20261027-spatial-context-evidence-yj215/`：
+`index.html` / `RESULTS.md` / `evaluation.json`、`source-limit-review.json`、
+`assembled/project.json`（待审查、保留原图背景）。同目录 `case-evidence.zip` 为私有案例备份，
+`implementation.bundle` 覆盖基线后全部原生/E10/E11本地提交，恢复命令为：
+
+```sh
+git fetch /path/to/implementation.bundle \
+  refs/heads/experiment/spatial-context-and-evidence:refs/heads/experiment/spatial-context-and-evidence
+git switch experiment/spatial-context-and-evidence
+```
+
+当前保持可选，不切换默认流程。后续重点是独立核对新门框、补足凸台表达和跨画风实图验证；
+旧作者Project恢复后的三处阳台门复验仍属独立任务。详细结论与局限见账本E11。
+
+## 2026-10-27 共享点试点（E10，保留历史范围）
+
+该轮工作区 `/workspace/plan2world`，分支 `experiment/shared-source-points`，
 包含下述原生分支截至 `ddefa9c` 的全部六个本地提交，以及共享原图点工具 `5dade34`
 和本次结果交接提交。基线仍为 main `0b917b7`；只在本地实现、验证和提交，未push/PR/合并。
 勿切回main后丢失未发表的原生与识图工作。
