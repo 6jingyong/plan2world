@@ -1,5 +1,7 @@
 import architectureGuide from '../../../skills/reconstruct-plan2world/references/architecture-pass.md?raw';
 import furnishingGuide from '../../../skills/reconstruct-plan2world/references/furnishing-pass.md?raw';
+import recoveryGuide from '../../../skills/reconstruct-plan2world/references/recovery-pass.md?raw';
+import type { SourceRecoveryRequest } from './sourceRecovery';
 import { PLAN2WORLD_FURNITURE_TYPES } from './furnitureVocabulary';
 
 export const PLAN2WORLD_RECONSTRUCTION_INSTRUCTIONS_VERSION = 'plan2world-architecture-furnishing-instructions-v23' as const;
@@ -31,4 +33,9 @@ ${furnishingGuide}
 - Report only exact sourceCategory and approximate source-pixel centre.
 - Forbidden: catalogId, furniture size or rotation; walls, openings, scaleEvidence,
   floors, rooms, sourceRegistration or final draft fields.`;
+}
+
+/** Used only by an explicitly supplied one-shot reviewer, never a paid retry. */
+export function buildSourceRecoveryInstructions(request: SourceRecoveryRequest): string {
+  return `${recoveryGuide}\n\nLOCAL_SOURCE_REVIEW_REQUEST_JSON:\n${JSON.stringify(request)}`;
 }

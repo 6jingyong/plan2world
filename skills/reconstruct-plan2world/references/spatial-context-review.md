@@ -61,6 +61,9 @@ schema fields to architecture or consume this note as geometry/closure input.
 An **observation omission** is a post-hoc finding that a visible feature was
 missed in frozen observations. It is not "information absent from the image".
 Record it after freeze; correction requires a new run, never an edited JSON retry.
+An explicitly enabled [bounded recovery](recovery-pass.md) may instead record one
+local source revision alongside the original failure and regenerate a new stage.
+It is not a second independent recognition run or a retroactive first-pass success.
 Neither architectural plausibility, a room label, furniture nor desired
 reachability establishes a missing wall, jamb or aperture width.
 
