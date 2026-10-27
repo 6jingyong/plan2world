@@ -3,6 +3,29 @@
 本页是新对话的当前开发入口，不是完成所有产品验收的声明。先读本页与
 [`AGENTS.md`](../AGENTS.md)，再从最新 `origin/main` 创建实现分支。
 
+## 2026-10-27 条件合并门槛：等待其余四张原图
+
+用户已授权：另外四张原图复验没有新增问题后，将共享坐标与空间上下文/证据分类一起合并。
+当前仅恢复YJ215，其余`1000028463.jpg`–`1000028466.jpg`原图在当前附件、本地备份及Git中未找到，
+历史仅有源身份记录。已请求重新上传；四图新观察/源审查均`not_run`，**未push、开PR或合并**。
+这是缺少输入，不是缺少操作授权；收到原图后继续已记录协议，不重复询问合并确认。
+
+独立合并候选在`/workspace/plan2world-recognition-merge`，分支`feat/reconstruction-context-and-pointrefs`，
+基于main `0b917b7`，代码头`b314e1b`（摘取原`5dade34`、`52f46c8`）。仅两项识图工具，
+六项未推送原生开发及其完整交接仍在`experiment/spatial-context-and-evidence`，不得意外随本次合并。
+候选1,747单测/200文件、类型0错误0警告、生产构建通过；与完整分支1,770项的差别是代码范围，
+未删/跳过测试。冻结上下文试点（现E12，原报告E11）输入的候选机械重放stage/draft原始字节一致，不算四图识别验收。
+
+JSON增长已精确拆分：引用替换省447字节，点表增1,023、格式名增10，合计+586（1.9%）。
+同一紧凑JSON的离线文本token，cl100k为11,063→11,197（+1.21%），o200k为9,354→9,268（−0.92%）；
+仅计文本，不计图片/提示/推理或实际费用。省坐标填写与省字节/token分别判断，详见账本M2。
+
+新门槛/检查证据在`.plan2world-validation/runs/20261027-four-plan-merge-gate/`：
+`gate-status.json`、`four-source-protocol.json`、`candidate-replay-proof.json`、
+`json-byte-decomposition.json`、`offline-token-counts.json`及候选检查日志。
+收到原图后，以新目录完成每图建筑冻结→家具→闭合/组装→冻结叠加→源审查；
+不读历史候选/人工标注作生成输入，不靠减少功能区、补猜门或改生成JSON满足门槛。
+
 ## 本次交接与工作约定
 
 - 仓库：`6jingyong/plan2world`。本轮用户明确授权将 PR #81 合入 main。
