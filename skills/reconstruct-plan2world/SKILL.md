@@ -34,6 +34,15 @@ An explicitly requested spatial-context/evidence-limit experiment may also use
 with surrounding source context and records different evidence limits without
 changing geometry contracts or adding an architectural/model pass.
 
+An explicitly enabled rejection-recovery workflow may use
+[recovery-pass.md](references/recovery-pass.md) and the shared
+[source recovery API/CLI](../../docs/source-recovery.md). Programs first handle
+only deterministic redundant representations. At most one separately recorded
+local source confirmation is allowed for the entire execution; unknown means
+pending manual work. Preserve original failures and revised projection separately,
+then rerun the original checks. This does not change the default two observations
+or authorize extra provider requests in callers configured for two paid calls.
+
 ## Fresh validation workspace
 
 For a benchmark rerun, start from the original raster and create a new ignored directory before generating anything:
@@ -103,7 +112,8 @@ Separate aperture presence, extent and operation. Keep a visibly established
 aperture when its operation is unclear; retain uncertain/rejected candidates in
 the audit. Never invent access because a room should be reachable. Investigate
 every accepted observation whose program host match fails after closure. A wrong observation requires a
-new run from the original raster, never an in-place JSON repair.
+new run from the original raster, or an explicitly enabled, audited local recovery
+revision as described above; never an in-place JSON repair.
 
 Determine aperture direction from its jambs/visible interruption before reading
 door leaves. Perform the source-region coverage sweep inside this same observation.

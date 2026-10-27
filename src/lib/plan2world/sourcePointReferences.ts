@@ -19,7 +19,7 @@ function array(value: unknown, path: string): any[] {
 /** Opt-in observation transport only. Source names reuse literal pixel positions;
  * they never assign native IDs, choose hosts, snap, deduplicate or infer geometry.
  * Keep the raw source and returned audit alongside the expanded legacy input. */
-export function expandSourcePointReferences(input: unknown, dimensions?: { width: number; height: number }) {
+export function resolveSourcePointReferenceTransport(input: unknown, dimensions?: { width: number; height: number }) {
   const root = object(input, 'pointrefs');
   keys(root, ['schemaVersion', 'sourcePoints', 'scaleEvidence', 'walls', 'openings', 'doorGaps', 'junctions', 'assumptions', 'functionalZones'], 'pointrefs');
   if (root.schemaVersion !== SOURCE_POINT_REFERENCES_VERSION) throw new Error(`pointrefs requires ${SOURCE_POINT_REFERENCES_VERSION}`);
@@ -82,7 +82,7 @@ export function expandSourcePointReferences(input: unknown, dimensions?: { width
     }),
   };
   const used = [...points.values()].filter(point => point.paths.length).length;
-  return { architecture: parseSourceArchitecture(expanded), audit: {
+  return { architectureInput: expanded, audit: {
     schemaVersion: 'source-point-reference-audit-v1' as const,
     sourceSchemaVersion: SOURCE_POINT_REFERENCES_VERSION,
     topologyComputed: false, coordinatesChanged: false, nativeIdsAssigned: false,
@@ -93,4 +93,11 @@ export function expandSourcePointReferences(input: unknown, dimensions?: { width
     points: [...points].map(([label, { position, paths }]) => ({ label, position, paths })),
     unusedPointNames: [...points].filter(([, point]) => !point.paths.length).map(([name]) => name),
   } };
+}
+
+/** Default transport remains strict. Recovery may inspect the literal projection
+ * separately, but must pass the same parser/preflight before it becomes usable. */
+export function expandSourcePointReferences(input: unknown, dimensions?: { width: number; height: number }) {
+  const result = resolveSourcePointReferenceTransport(input, dimensions);
+  return { architecture: parseSourceArchitecture(result.architectureInput), audit: result.audit };
 }
