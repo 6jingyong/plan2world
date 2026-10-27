@@ -147,7 +147,7 @@ func refresh(scene: Dictionary, nodes: Dictionary, models: Dictionary, changed:A
 			var old:Node=_pick_areas[id];_areas.remove_child(old);old.queue_free();_pick_areas.erase(id)
 	for entity in scene["entities"]:
 		_entities[entity["id"]] = entity
-		if entity["kind"] != "furniture":
+		if entity["kind"] not in ["furniture","door","window"] or entity.get("doorType")=="opening":
 			continue
 		if not changed.is_empty() and not changed.has(entity["id"]):continue
 		var area := Area3D.new()
@@ -155,11 +155,14 @@ func refresh(scene: Dictionary, nodes: Dictionary, models: Dictionary, changed:A
 		area.collision_mask = 0
 		area.set_meta("furniture_id", entity["id"])
 		area.set_meta("floor_id", entity["floorId"])
-		area.position = _vec3(entity["position"])
-		area.rotation.y = -float(entity["yawClockwiseRadians"])
+		var furniture:bool=entity["kind"]=="furniture"
+		var pose:Dictionary=entity.get("closedPose",{})
+		area.position = _vec3(entity["position"] if furniture else pose.get("center",entity.get("center",[0,0,0])))
+		area.rotation.y = -float(entity["yawClockwiseRadians"] if furniture else pose.get("yawClockwiseRadians",entity.get("yawClockwiseRadians",0)))
 		var shape := CollisionShape3D.new()
 		var box := BoxShape3D.new()
-		box.size = _vec3(entity["size"]).max(Vector3(0.05, 0.05, 0.05))
+		var host:Dictionary=_entities.get(entity.get("hostWallId",""),{})
+		box.size = _vec3(entity["size"]).max(Vector3(0.05, 0.05, 0.05)) if furniture else Vector3(entity["width"],entity["height"],maxf(.08,host.get("thickness",.15)))
 		shape.shape = box
 		area.add_child(shape)
 		_areas.add_child(area)
@@ -295,7 +298,7 @@ func _animate(target: Transform3D) -> void:
 
 func update_floor_visibility(restyle:=true) -> void:
 	for area in _areas.get_children():
-		var ceiling:bool=_entities[area.get_meta("furniture_id")]["movement"]["kind"]=="ceiling"
+		var ceiling:bool=_entities[area.get_meta("furniture_id")].get("movement",{}).get("kind")=="ceiling"
 		area.collision_layer = 2 if not active or (area.get_meta("floor_id")==floor_id and ceiling==ceiling_editing) else 0
 	for saved in _visibility:
 		if is_instance_valid(saved[0]):
@@ -395,7 +398,7 @@ func begin_adjust(id: String) -> bool:
 	cancel_drag()
 	if _entities.has(id) and _entities[id]["floorId"] != floor_id:
 		select_floor(_entities[id]["floorId"])
-	selected_id = id if _entities.has(id) and _entities[id]["kind"] == "furniture" else ""
+	selected_id = id if _entities.has(id) and _entities[id]["kind"] in ["furniture","door","window"] else ""
 	furniture_selected.emit(selected_id)
 	if not editing or not _entities.has(id) or _entities[id]["kind"] != "furniture": return false
 	var entity: Dictionary = _entities[id]

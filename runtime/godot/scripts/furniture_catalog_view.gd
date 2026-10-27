@@ -18,6 +18,8 @@ var _description: Label
 var _empty: Label
 var _enabled := false
 var _ceiling := false
+var heading:Label
+var actions:HBoxContainer
 
 func _ready() -> void:
 	name = "FurnitureCatalog"
@@ -27,9 +29,9 @@ func _ready() -> void:
 	add_child(column)
 	var heading := HBoxContainer.new()
 	column.add_child(heading)
-	var title := UI.label("Furniture", 23)
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	heading.add_child(title)
+	self.heading = UI.label("Furniture", 23)
+	self.heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	heading.add_child(self.heading)
 	heading.add_child(UI.button("Close", "CloseCatalog", func(): close_requested.emit()))
 	_search = LineEdit.new()
 	_search.name = "SearchFurniture"
@@ -70,12 +72,26 @@ func _ready() -> void:
 	_description = UI.label("", 12, UI.MUTED)
 	_description.tooltip_text = "Width × depth × height. Preview is an illustration."
 	column.add_child(_description)
+	actions=HBoxContainer.new();actions.name="EditObjectActions";column.add_child(actions);actions.hide()
 	place = UI.button("Add at view centre", "AddFurniture", func(): place_requested.emit(), true)
 	column.add_child(place)
 
 func configure(catalog: Array) -> void:
+	if items!=catalog:
+		_textures.clear();selected_index=-1;_tabs.current_tab=0
 	items = catalog
 	set_ceiling_layer(_ceiling)
+
+func reveal(index:int) -> void:
+	if index<0 or index>=items.size():return
+	_search.clear()
+	var category:=_categories.find(str(items[index]["category"]))
+	if category>=0:_tabs.current_tab=category
+	_filter();choose(index)
+
+func set_purpose(text:String,editing:bool) -> void:
+	heading.text=text;_search.placeholder_text="Search choices…" if editing else "Search your furniture…"
+	actions.visible=editing
 
 func set_ceiling_layer(value:bool) -> void:
 	_ceiling=value;_search.clear();_categories=["All"];_tabs.set_block_signals(true)
@@ -130,8 +146,11 @@ func choose(index: int) -> void:
 	selected_index = index
 	var item: Dictionary = items[index]
 	_title.text = item["label"]
-	var size: Array = item["dimensions"]
-	_description.text = "%s × %s × %s cm" % [size[0], size[1], size[2]]
+	if item.has("dimensions"):
+		var size:Array=item["dimensions"]
+		_description.text = "%s × %s × %s cm" % [size[0], size[1], size[2]]
+	else:_description.text=item.get("description","")
+	_description.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	if item.get("presentation")=="placeholder":_description.text+=" · placeholder"
 	var visible_index := _visible_indices.find(index)
 	if visible_index >= 0:

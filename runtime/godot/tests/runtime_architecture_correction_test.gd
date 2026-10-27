@@ -62,11 +62,14 @@ func run() -> void:
 	main._show_walkthrough()
 	var assembly=body.get_parent();assembly.interact()
 	for i in range(40):await physics_frame
+	player.position=Vector3(1.5,0,1.4)
+	player.get_node("Camera3D").look_at(Vector3(1.5,1.05,0),Vector3.UP)
+	check(main._adjustment.aimed_id()==door_id,"walkthrough selection ray targets the actual door")
 	var opened:Transform3D=body.transform;var body_id:=body.get_instance_id();var assembly_id:=assembly.get_instance_id();var player_position:Vector3=player.position
 	var key:=InputEventKey.new();key.keycode=KEY_M;key.physical_keycode=KEY_M;key.pressed=true;root.push_input(key,true)
 	key.pressed=false;root.push_input(key,true);await idle()
-	check(main._view_mode==main.ViewMode.WALKTHROUGH and main._door_materials.visible and Input.mouse_mode==Input.MOUSE_MODE_VISIBLE,"M opens the appearance dialog during actual walkthrough")
-	main._door_materials._material.select(1);main._door_materials.confirmed.emit();main._door_materials.hide();await idle()
+	check(main._view_mode==main.ViewMode.WALKTHROUGH and main._object_editor.visible and Input.mouse_mode==Input.MOUSE_MODE_VISIBLE,"M opens the selected door's categorized editor during actual walkthrough")
+	main._object_editor.catalog.choose(1);main._object_editor.catalog.place.pressed.emit();await idle()
 	check(main._collider_nodes[leaf_id].get_instance_id()==body_id and body.transform.is_equal_approx(opened),"material swap preserves the same open leaf and collider")
 	check(body.get_parent().get_instance_id()==assembly_id and assembly._opened,"door motion state is preserved")
 	check(player==main._world.get_node("Player") and player.position.distance_to(player_position)<.01,"material swap keeps player and world")

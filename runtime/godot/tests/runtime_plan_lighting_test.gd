@@ -103,7 +103,7 @@ func _run():
 	_check(main._furniture_models.has(id) and main._furniture_models[id].get_meta("p2w_asset_ref")=="builtin:ceiling_light-v1","Ceiling fixture presentation must come from a packaged asset")
 	for area in controller._areas.get_children():
 		var item:Dictionary=controller._entities[area.get_meta("furniture_id")]
-		_check((area.collision_layer==2)==(item["floorId"]==controller.floor_id and item["movement"]["kind"]=="ceiling"),"Layer switching must filter native picking areas without altering physics")
+		_check((area.collision_layer==2)==(item["floorId"]==controller.floor_id and item.get("movement",{}).get("kind")=="ceiling"),"Layer switching must filter native picking areas, including openings, without altering physics")
 	await _capture("ceiling-layer")
 	var start:Vector3=controller._vec3(entity["position"])
 	_mouse(controller.camera.unproject_position(start),true)

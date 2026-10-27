@@ -34,8 +34,9 @@ func _ready() -> void:
 	form.add_child(UI.button("Reset default","ResetDoorPanels",func():_configuration=null;_draw()))
 	confirmed.connect(func():command_requested.emit({"type":"door-leaves","floorId":_door["floorId"],"id":_door["id"],"configuration":_configuration}))
 
-func show_doors(doors:Array,floor_id:String) -> void:
+func show_doors(doors:Array,floor_id:String,selected_id:="") -> void:
 	_doors=doors.filter(func(door):return door["floorId"]==floor_id)
+	if not selected_id.is_empty():_doors=_doors.filter(func(door):return door["id"]==selected_id)
 	_selector.clear()
 	for door in _doors:_selector.add_item("%s · %s · %.1f cm"%[door["id"],door["type"],door["width"]])
 	if _doors.is_empty():return

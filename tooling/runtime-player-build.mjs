@@ -44,7 +44,8 @@ try {
     'Place in room prepares a cancellable footprint preview; click a valid landing to accept. Swap uses the same preview. Wall/ceiling installation offers exact lists and direct host picking.\n' +
     'Add, rotate, replace or delete furniture; save native Project and export a runtime scene ZIP. No undo or operation history.\n' +
     'Correct walls and openings opens the retained plan with located source notes. Draw/move/split/delete native wall segments and add/rehost doors/windows; save incomplete Projects, and apply to space only after strict floor/entry/placement checks pass. Source observations remain intact; no model repair request is added.\n' +
-    'M / Door appearance changes wood, glass or metal/security-door presentation without changing the opening, motion, physics or current open state. Panels… retains advanced mechanical settings.\n' +
+    'Select furniture, a door or window, then click the compact Modify M action. The same categorized thumbnail catalog used for adding handles replacement, with an explicit preview/apply and cancellation. Rotation/removal/light actions live in the edit catalog. Add and Modify retain separate filters.\n' +
+    'In walkthrough aim and press M to modify that object. Door cards offer wood, glass or metal/security presentation while retaining physics and open state; window-type cards retain the aperture and physics. Size / position opens this opening in native correction; Panels… retains advanced settings for this door. Furniture replacement enters the existing plan placement preview.\n' +
     'Existing scenes, furniture editing and export run offline without an account. Only optional image creation/account connection uses the network and your OpenRouter credits.\n\n' +
     'WASD move | Ctrl slow | Shift fast | Mouse look | E door | Esc mouse | F1 scene menu\n' +
     'The scene menu pauses the current walkthrough. Failed scene opens can be dismissed by resuming it.\n\n' +

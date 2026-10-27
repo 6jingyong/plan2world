@@ -14,7 +14,7 @@ const STAIR_BASE_THICKNESS = 0.04;
 const CYLINDER_SEGMENTS = 24;
 
 export type StaticArchitectureKind = 'window' | 'column' | 'stair';
-export type StaticArchitectureMaterial = 'glass' | 'column' | 'stair';
+export type StaticArchitectureMaterial = 'glass' | 'column' | 'stair' | 'decor-frame';
 
 export interface StaticArchitecturePrimitive {
   id: string;
@@ -53,6 +53,17 @@ function compileWindow(entity: RuntimeWindowEntity): StaticArchitecturePrimitive
     `architecture:window:${entity.id}`, 'window', entity.id, entity.floorId,
     entity.center, [entity.width, entity.height, WINDOW_DEPTH], entity.yawClockwiseRadians, 'glass',
   );
+}
+
+function compileWindowFrame(entity: RuntimeWindowEntity): StaticArchitecturePrimitive | null {
+  if(entity.windowType==='standard' || !finitePositive(entity.width) || !finitePositive(entity.height))return null;
+  const builder:MeshBuilder={positions:[],normals:[],uvs:[],indices:[]},w=entity.width,h=entity.height,t=Math.min(.035,w/12,h/12),yaw=entity.yawClockwiseRadians;
+  const box=(x:number,y:number,width:number,height:number,depth=.05)=>appendBox(builder,[entity.center[0]+Math.cos(yaw)*x,entity.center[1]+y,entity.center[2]+Math.sin(yaw)*x],[width,height,depth],yaw);
+  box(-w/2+t/2,0,t,h);box(w/2-t/2,0,t,h);box(0,-h/2+t/2,w,t);box(0,h/2-t/2,w,t);
+  if(entity.windowType==='casement' || entity.windowType==='sliding')box(0,0,t,h);
+  if(entity.windowType==='sliding')box(0,-h/2+t*2,w,t,.07);
+  if(entity.windowType==='bay'){box(-w/4,0,t,h);box(w/4,0,t,h);}
+  return {id:`architecture:window-frame:${entity.id}`,kind:'window',ownerId:entity.id,floorId:entity.floorId,material:'decor-frame',...builder};
 }
 
 function compileSquareColumn(entity: RuntimeColumnEntity): StaticArchitecturePrimitive | null {
@@ -152,6 +163,7 @@ export function compileStaticArchitectureEntities(scene: Plan2WorldRuntimeSceneV
     else if (entity.kind === 'column') primitive = compileColumn(entity);
     else if (entity.kind === 'stair') primitive = compileStraightStair(entity);
     if (primitive) primitives.push(primitive);
+    if (entity.kind==='window' && primitive) {const frame=compileWindowFrame(entity);if(frame)primitives.push(frame);}
   }
   return primitives;
 }

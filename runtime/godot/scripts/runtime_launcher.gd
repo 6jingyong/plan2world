@@ -8,7 +8,7 @@ signal resume_requested
 signal respawn_requested
 signal authoring_requested(page: int)
 signal correction_requested(path:String)
-signal door_materials_requested
+signal object_edit_requested
 
 var _screen: Control
 var _resume: Button
@@ -65,7 +65,7 @@ func _ready() -> void:
 	edit.custom_minimum_size.y = 44
 	content.add_child(edit)
 	content.add_child(UI.button("Correct walls and openings…","CorrectProject",func():get_node("CorrectionPicker").popup_centered_ratio(.8)))
-	content.add_child(UI.button("Door appearance…","DoorAppearance",func():door_materials_requested.emit()))
+	content.add_child(UI.button("Modify selected object…","ModifySelection",func():object_edit_requested.emit()))
 	var project_dialog := FileDialog.new()
 	project_dialog.name = "ProjectPicker"
 	project_dialog.title = "Open Project for furniture layout"
@@ -124,5 +124,5 @@ func hide_menu() -> void:
 	_dialog.hide()
 
 func set_busy(busy: bool) -> void:
-	for name in ["OpenScene", "OpenProject", "Resume", "ReturnToStart", "CreateFromImage", "AIAccount", "UserGuide", "CorrectProject", "DoorAppearance"]:
+	for name in ["OpenScene", "OpenProject", "Resume", "ReturnToStart", "CreateFromImage", "AIAccount", "UserGuide", "CorrectProject", "ModifySelection"]:
 		find_child(name, true, false).disabled = busy

@@ -59,7 +59,7 @@ const correctionDirectory=path.join(directory,'architecture-correction');await m
 for (const [name,broken] of [['valid',false],['broken',true]]) await writeFile(path.join(correctionDirectory,name+'.project.json'),JSON.stringify(architectureCorrectionProject(broken)));
 const godot = process.env.GODOT_BIN || 'godot';
 if (!(await readFile(path.join(playerDirectory, 'README.zh-CN.md'), 'utf8')).includes('用法一：插件 / Skill')) throw new Error('Player is missing its two-entry user guide.');
-for (const filename of ['runtime_launcher_test.gd', 'runtime_walkthrough_test.gd', 'runtime_layout_test.gd', 'runtime_product_controls_test.gd', 'runtime_snapping_test.gd', 'runtime_snapping_controls_test.gd', 'runtime_layout_ui_test.gd', 'runtime_desktop_authoring_test.gd', 'runtime_plan_lighting_test.gd', 'runtime_interaction_test.gd', 'runtime_multileaf_test.gd', 'runtime_support_test.gd', 'runtime_placement_preview_test.gd', 'runtime_lighting_reference_test.gd', 'runtime_architecture_correction_test.gd']) {
+for (const filename of ['runtime_launcher_test.gd', 'runtime_walkthrough_test.gd', 'runtime_layout_test.gd', 'runtime_product_controls_test.gd', 'runtime_snapping_test.gd', 'runtime_snapping_controls_test.gd', 'runtime_layout_ui_test.gd', 'runtime_desktop_authoring_test.gd', 'runtime_plan_lighting_test.gd', 'runtime_interaction_test.gd', 'runtime_multileaf_test.gd', 'runtime_support_test.gd', 'runtime_placement_preview_test.gd', 'runtime_lighting_reference_test.gd', 'runtime_architecture_correction_test.gd', 'runtime_object_editing_test.gd']) {
   const script = path.join(directory, filename);
   await copyFile(path.join(root, 'runtime/godot/tests', filename), script);
   const args = filename === 'runtime_launcher_test.gd' ? [scene, '--require-packed']
@@ -74,6 +74,7 @@ for (const filename of ['runtime_launcher_test.gd', 'runtime_walkthrough_test.gd
     : filename === 'runtime_placement_preview_test.gd' ? [productInput,path.join(directory,'placement-preview')]
     : filename === 'runtime_lighting_reference_test.gd' ? [lightingInput,path.join(directory,'lighting-reference')]
     : filename === 'runtime_architecture_correction_test.gd' ? [correctionDirectory]
+    : filename === 'runtime_object_editing_test.gd' ? [productInput,path.join(directory,'object-editing')]
     : ['runtime_snapping_test.gd', 'runtime_interaction_test.gd'].includes(filename) ? []
     : ['--scene', scene];
   // Official release templates disable --script/path overrides. Use the pinned
@@ -110,4 +111,4 @@ if (!boot.includes('Plan2World runtime loaded:') || !boot.includes('assets=8') |
 }
 if (await readFile(input, 'utf8') !== source) throw new Error('Native source changed during export');
 if (await readFile(productInput, 'utf8') !== productSource) throw new Error('Native product source changed during editing');
-console.log('Relocated player/scene ZIPs: sixteen gate groups including native architecture correction, lighting/decor reference, spatial preview, footprint support, multi-leaf routes, local photo preparation, mocked recognition and every-door motion + offline shared core + release executable boot: PASS');
+console.log('Relocated player/scene ZIPs: seventeen gate groups including contextual object editing, native architecture correction, lighting/decor reference, spatial preview, footprint support, multi-leaf routes, local photo preparation, mocked recognition and every-door motion + offline shared core + release executable boot: PASS');

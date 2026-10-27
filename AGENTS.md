@@ -265,6 +265,12 @@ Use `schemas/plan2world-draft-v1.schema.json` and `docs/plan2world-draft-v1.md`.
 
 ## Product invariants
 
+- Selected furniture, doors and windows expose one compact Modify action. Reuse
+  the add catalog's category/search/thumbnail component for modification, bind
+  choices to that selected native object, and commit only after explicit apply
+  or accepted placement preview. Keep Add/Modify browse filters separate. Door
+  material and window presentation changes preserve physics/player state; native
+  opening geometry correction remains an explicit shared-core authoring command.
 - Keep 2D correction and browser 3D review/quick preview on the same native Project, then compile runtime artifacts from that Project.
 - The legacy browser FPS runtime is removed. Keep Three.js focused on authoring, review and quick preview. Do not reintroduce `ThreeViewer` into the target game/runtime layer with FPS controllers, runtime physics, door/furniture interaction state machines or equivalent engine responsibilities.
 - Keep Godot focused on runtime input, physics, interaction, animation, lighting/materials and future experience features. It must not redo AI reconstruction, room detection, wall inference or topology repair.

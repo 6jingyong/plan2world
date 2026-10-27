@@ -44,12 +44,21 @@ Project references, and the shared compiler regenerates surfaces and collision.
 Structural commits replace the derived world; interactive point previews stay in
 the native drawing window.
 
-In walkthrough, press **M** while looking at a door, or use **Door appearance…** in
-the menu / **Door finish** in plan view. Wood, glass and metal/security-door
-appearance change the presentation asset only. The same opening, leaf dimensions,
-body nodes, open state and motion remain. Existing multi-leaf/pocket configurations
-stay supported as advanced mechanical settings; material is not another door
-motion type. Material persists through native save/reopen and runtime export.
+Selecting furniture, a door or a window shows one compact **Modify M** action.
+Furniture modification uses the same categorized thumbnail catalog as addition,
+with the current asset selected and a cancellable placement preview. Door/window
+modification uses that catalog component in a native window bound to the selected
+object, without a whole-house ID selector. Choosing a thumbnail is provisional;
+the final button applies it. Add and Modify retain separate browse filters.
+
+In walkthrough, aim at the object and press **M** or release the pointer to click
+the contextual action. Furniture replacement enters plan placement mode. Wood,
+glass and metal/security-door cards change presentation only, keeping the same
+body nodes and open state. Window-type cards retain the aperture and physics;
+the shared compiler supplies simplified frame presentation. Neither card picker
+adds window animation or new motion mechanisms. **Size / position…** selects this
+opening in the correction window. Multi-leaf/pocket settings remain under this
+door's **Panels…** action. All accepted choices persist in the canonical Project.
 
 This is a native authoring change. Its synthetic fixture and frozen black-image
 replay do not establish new model extraction quality, real-house route coverage,

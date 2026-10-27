@@ -8,10 +8,9 @@ signal command_requested(command: Dictionary)
 signal save_requested(path: String)
 signal export_requested(path: String)
 signal light_requested(id:String)
-signal doors_requested
 signal walls_requested
-signal materials_requested
 signal preview_requested(command:Dictionary)
+signal opening_requested(id:String)
 var controller
 var _floor_selector: OptionButton
 var _layer_selector:OptionButton
@@ -47,8 +46,10 @@ var _files: MenuButton
 var _help: Label
 var _framed_size := Vector2.ZERO
 var _catalog_action := "AddFurniture"
-var _doors:Array=[]
 var _external_dialogs:Array[Window]=[]
+var _busy:=false
+var _add_filter:Dictionary={}
+var _replacement_id:=""
 
 func register_dialog(dialog:Window) -> void:
 	_external_dialogs.append(dialog)
@@ -102,9 +103,7 @@ func _ready() -> void:
 	_grid.tooltip_text = "10 cm grid · first-person steps remain 1 cm"
 	for button in [_snap, _grid]: button.toggled.connect(func(_value): _snapping_changed())
 	tools.add_child(UI.button("Fit", "FitFloor", func(): controller.fit_floor()))
-	tools.add_child(UI.button("Panels…", "DoorPanels", func(): doors_requested.emit()))
 	tools.add_child(UI.button("Walls…", "EditWalls", func():walls_requested.emit()))
-	tools.add_child(UI.button("Door finish\nM", "EditDoorAppearance", func():materials_requested.emit()))
 	for button in tools.get_children():
 		button.add_theme_font_size_override("font_size",14)
 		button.custom_minimum_size = Vector2(64,48)
@@ -147,9 +146,9 @@ func _ready() -> void:
 	_selection_card.add_child(selection_column)
 	_selection = UI.label("",15); selection_column.add_child(_selection)
 	var actions := HBoxContainer.new(); selection_column.add_child(actions)
-	for pair in [["RotateFurniture","Rotate  R"],["ReplaceFurniture","Swap  X"],["DeleteFurniture","Remove  Del"],["LightSettings","Light… L"]]:
+	for pair in [["ReplaceFurniture","Modify  M"],["RotateFurniture","Rotate  R"],["DeleteFurniture","Remove  Del"],["LightSettings","Light… L"]]:
 		var button := UI.button(pair[1],pair[0],_action.bind(pair[0]))
-		actions.add_child(button); _edit_buttons[pair[0]] = button
+		(actions if pair[0]=="ReplaceFurniture" else _catalog_view.actions).add_child(button); _edit_buttons[pair[0]] = button
 	_project_title = UI.label("Your space",22); _project_title.name = "ProjectTitle"
 	_project_title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_project_title.add_theme_color_override("font_shadow_color",UI.PAPER)
@@ -210,10 +209,8 @@ func configure(data: Dictionary, camera_controller) -> void:
 
 func set_editor(state: Dictionary, busy: bool, dirty: bool) -> void:
 	var editable := not state.is_empty()
-	_doors=state.get("doors",[])
-	find_child("DoorPanels",true,false).disabled=not editable or busy or _doors.filter(func(door):return door["floorId"]==controller.floor_id).is_empty()
+	_busy=busy
 	find_child("EditWalls",true,false).disabled=not editable or busy
-	find_child("EditDoorAppearance",true,false).disabled=not editable or busy
 	controller.editing = editable and not busy
 	for name in ["FirstPerson","FloorSelector","FitFloor","EditingLayer"]: find_child(name,true,false).disabled = busy
 	if _catalog.is_empty() and editable:
@@ -238,8 +235,21 @@ func set_catalog_open(open: bool, replacing := false) -> void:
 	controller.cancel_drag()
 	_catalog_view.visible = open
 	if open:
+		if replacing and _catalog_action!="ReplaceFurniture":
+			_add_filter={"category":_catalog_view._tabs.current_tab,"search":_catalog_view._search.text}
+		elif not replacing and _catalog_action=="ReplaceFurniture":
+			_catalog_view.set_ceiling_layer(controller.ceiling_editing)
+			_catalog_view._tabs.current_tab=mini(int(_add_filter.get("category",0)),_catalog_view._tabs.tab_count-1)
+			_catalog_view._search.text=_add_filter.get("search","");_catalog_view._filter()
 		_catalog_action = "ReplaceFurniture" if replacing else "AddFurniture"
+		if replacing:_replacement_id=controller.selected_id
+		_catalog_view.set_purpose("Modify furniture" if replacing else "Furniture",replacing)
 		_catalog_view.place.text = "Swap selected piece" if replacing else "Add at view centre"
+		if replacing:
+			var entity:Dictionary=controller._entities.get(controller.selected_id,{})
+			_catalog_view.set_ceiling_layer(entity.get("movement",{}).get("kind")=="ceiling")
+			for i in range(_catalog.size()):
+				if _catalog[i]["asset"].get("catalogId")==entity.get("catalogId"):_catalog_view.reveal(i);break
 	_catalog_toggle.set_pressed_no_signal(open)
 	if open: _catalog_view.list.grab_focus()
 	if not open:
@@ -266,8 +276,8 @@ func command_applied(command: Dictionary) -> void:
 
 func _context() -> void:
 	if controller == null: return
-	var chosen: bool = controller._entities.has(controller.selected_id) and controller._entities[controller.selected_id]["kind"] == "furniture"
-	_selection_card.visible = chosen and not _catalog_view.visible and not controller._moving
+	var chosen: bool = controller._entities.has(controller.selected_id) and controller._entities[controller.selected_id]["kind"] in ["furniture","door","window"]
+	_selection_card.visible = chosen and controller.editing and not _busy and not _catalog_view.visible and not controller._moving and not has_open_dialog()
 	_help.text = "Click to place · Esc cancel · Alt free" if controller.has_placement_preview() else ("Release to place · Esc cancel · Alt free" if controller._moving else ("Select a piece · Double-click to place · Esc close" if _catalog_view.visible else "Click select · Right drag pan · Scroll zoom"))
 	_snap_chip.visible = controller._moving and not _snap_status.text.is_empty()
 	_toast.visible = not _notice.is_empty()
@@ -275,12 +285,19 @@ func _context() -> void:
 func _process(_delta: float) -> void:
 	if not visible or controller == null or not controller.active: return
 	_context()
+	if _selection_card.visible:_position_selection()
 	if _snap_chip.visible:
 		_snap_chip.position = (get_viewport().get_mouse_position()+Vector2(18,20)).clamp(Vector2(100,96),_screen.size-_snap_chip.size-Vector2(16,90))
 
 func _selection_changed() -> void:
 	if _wall_floor_id != controller.floor_id: _fill_walls()
+	if _catalog_action=="ReplaceFurniture" and controller.selected_id!=_replacement_id:
+		set_catalog_open(false);_catalog_action="AddFurniture"
 	for action in _edit_buttons.values(): action.disabled = true
+	var selected:Dictionary=controller._entities.get(controller.selected_id,{})
+	if selected.get("kind") in ["door","window"]:
+		_selection.text="Door" if selected["kind"]=="door" else "Window"
+		_edit_buttons["ReplaceFurniture"].disabled=not controller.editing or _busy
 	if controller._entities.has(controller.selected_id) and controller._entities[controller.selected_id]["kind"] == "furniture":
 		var entity: Dictionary = controller._entities[controller.selected_id]
 		_selection.text = str(entity["catalogId"]).replace("_"," ").capitalize() + (" · locked" if entity["locked"] else "")
@@ -289,6 +306,7 @@ func _selection_changed() -> void:
 		for action in _edit_buttons.values(): action.disabled = not controller.editing or entity["locked"]
 		_edit_buttons["RotateFurniture"].disabled = not controller.editing or entity["locked"] or entity["movement"]["kind"] not in ["floor","ceiling"]
 		_edit_buttons["LightSettings"].visible=entity.has("light")
+		for name in ["RotateFurniture","DeleteFurniture"]:_edit_buttons[name].visible=_catalog_action=="ReplaceFurniture"
 		if entity["movement"]["kind"] == "wall":
 			var index := _wall_ids.find(entity["movement"]["wallId"])
 			if index>=0: _wall_selector.select(index)
@@ -298,6 +316,13 @@ func _selection_changed() -> void:
 		_catalog_action="AddFurniture"
 		_mount_fields()
 	_context()
+
+func _position_selection() -> void:
+	var entity:Dictionary=controller._entities[controller.selected_id]
+	var point:Array=entity.get("position",entity.get("closedPose",{}).get("center",entity.get("center",[0,0,0])))
+	var screen:Vector2=controller.camera.unproject_position(controller._vec3(point))
+	_selection_card.size=Vector2.ZERO
+	_selection_card.position=(screen+Vector2(20,16)).clamp(Vector2(100,90),(_screen.size-_selection_card.size-Vector2(16,96)).max(Vector2(100,90)))
 
 func _action(action: String,preview:=false) -> void:
 	var command := {"floorId":controller.floor_id,"id":controller.selected_id}
@@ -310,6 +335,8 @@ func _action(action: String,preview:=false) -> void:
 			command.merge({"type":"add","position":{"x":point.x*100,"y":point.y*100},"asset":_catalog[index]["asset"]})
 		"RotateFurniture": command.merge({"type":"rotate","rotation":rad_to_deg(controller._entities[controller.selected_id]["yawClockwiseRadians"])+90})
 		"ReplaceFurniture":
+			if not controller._entities.has(controller.selected_id):return
+			if controller._entities.get(controller.selected_id,{}).get("kind") in ["door","window"]:opening_requested.emit(controller.selected_id);return
 			if not _catalog_view.visible:
 				set_catalog_open(true,true); return
 			if index<0: return
