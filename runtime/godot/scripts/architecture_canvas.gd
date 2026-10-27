@@ -14,6 +14,8 @@ var _drag:=""
 var _draft_start:Variant=null
 var _pointer:=Vector2.ZERO
 var _wall:Dictionary={}
+var _drag_origin:=Vector2.ZERO
+var _drag_started:=false
 
 func configure(value:Dictionary,selection:="") -> void:
 	var first:bool=floor.is_empty() or floor.get("id")!=value["id"]
@@ -85,6 +87,8 @@ func _gui_input(event:InputEvent) -> void:
 		if event.button_index!=MOUSE_BUTTON_LEFT:return
 		if not event.pressed:
 			if not _drag.is_empty():
+				if not _drag_started:
+					_drag="";queue_redraw();return
 				var start:Dictionary=_plan(event.position) if _drag=="start" else _wall["start"]
 				var finish:Dictionary=_plan(event.position) if _drag=="end" else _wall["end"]
 				_drag="";wall_modified.emit(_wall["id"],start,finish);queue_redraw()
@@ -98,7 +102,7 @@ func _gui_input(event:InputEvent) -> void:
 		for wall in floor.get("walls",[]):
 			if wall["id"]!=selected_id:continue
 			for key in ["start","end"]:
-				if event.position.distance_to(_screen(wall[key]))<12:_wall=wall;_drag=key;accept_event();return
+				if event.position.distance_to(_screen(wall[key]))<12:_wall=wall;_drag=key;_drag_origin=event.position;_drag_started=false;accept_event();return
 		for issue in floor.get("issues",[]):
 			if not issue["resolved"] and issue.has("position") and event.position.distance_to(_screen(issue["position"]))<12:selected.emit("issue",issue["id"]);accept_event();return
 		for opening in floor.get("openings",[]):
@@ -114,5 +118,6 @@ func _gui_input(event:InputEvent) -> void:
 			if event.position.distance_to(_screen(item["position"]))<10:selected.emit("furniture",item["id"]);accept_event();return
 	if event is InputEventMouseMotion:
 		_pointer=event.position
+		if not _drag.is_empty() and event.position.distance_to(_drag_origin)>=3:_drag_started=true
 		if event.button_mask&MOUSE_BUTTON_MASK_MIDDLE:_offset+=event.relative
 		queue_redraw()

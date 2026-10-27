@@ -184,7 +184,10 @@ function compileFloor(
       mirror: [(item.scale?.x ?? 1) < 0 ? -1 : 1, 1, (item.scale?.y ?? 1) < 0 ? -1 : 1],
       position, yawClockwiseRadians: yaw, size: [m(size.width), m(size.height), m(size.depth)],
     });
-    if (size.width > 0 && size.depth > 0 && (ceiling || size.height >= 20)) {
+    // Source semantic markers remain selectable authoring anchors. Their
+    // arbitrary fallback block dimensions must not become walking obstacles.
+    const semanticMarker = item.catalogId === 'imported_object' && item.renderStyle === 'block' && !item.customModelId;
+    if (!semanticMarker && size.width > 0 && size.depth > 0 && (ceiling || size.height >= 20)) {
       colliders.push({
         id: `furniture:${item.id}`, ownerId: item.id, floorId: floor.id, dynamic: false, kind: 'box',
         center: position, size: [m(size.width), m(size.height), m(size.depth)], yawClockwiseRadians: yaw,

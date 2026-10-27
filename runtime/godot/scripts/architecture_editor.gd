@@ -17,6 +17,8 @@ var _tabs:TabContainer
 var _items:OptionButton
 var _fields:Dictionary={}
 var _door_type:OptionButton
+var _hinge:OptionButton
+var _flip:CheckButton
 var _side:OptionButton
 var _message:Label
 var _issues:ItemList
@@ -24,7 +26,7 @@ var _apply:Button
 var _save:FileDialog
 var _buttons:Array=[]
 var _discard:ConfirmationDialog
-var _pending_path:=""
+var _pending_discard:Callable
 
 func _ready() -> void:
 	name="ArchitectureEditor";title="Correct walls and openings";theme=UI.theme();min_size=Vector2i(980,620);size=Vector2i(1120,740);process_mode=Node.PROCESS_MODE_ALWAYS;transient=true;exclusive=true
@@ -62,6 +64,8 @@ func _ready() -> void:
 	openings.add_child(UI.label("Wall carrying this opening",13));_host_selector=OptionButton.new();_host_selector.name="CorrectionHostWall";openings.add_child(_host_selector)
 	_door_type=OptionButton.new();_door_type.name="CorrectionDoorMotion";openings.add_child(_door_type)
 	for item in [["Hinged · one leaf","single"],["Hinged · two leaves","double"],["Sliding","sliding"],["Passage · no leaf","opening"]]:_door_type.add_item(item[0]);_door_type.set_item_metadata(_door_type.item_count-1,item[1])
+	_hinge=OptionButton.new();_hinge.name="CorrectionHinge";_hinge.add_item("Hinge / travel · wall start");_hinge.add_item("Hinge / travel · wall end");openings.add_child(_hinge)
+	_flip=CheckButton.new();_flip.name="CorrectionSwingSide";_flip.text="Open to the other side";openings.add_child(_flip)
 	_add_button(openings,"Add door on chosen wall","AddCorrectionDoor",func():_add_opening("door"))
 	_add_button(openings,"Add window on chosen wall","AddCorrectionWindow",func():_add_opening("window"))
 	_add_button(openings,"Apply opening / host wall","ApplyOpeningCorrection",_apply_opening)
@@ -76,7 +80,7 @@ func _ready() -> void:
 	_message=UI.label("",13);_message.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;_message.custom_minimum_size.y=42;root.add_child(_message)
 	_save=FileDialog.new();_save.name="SaveCorrectedProject";_save.access=FileDialog.ACCESS_FILESYSTEM;_save.file_mode=FileDialog.FILE_MODE_SAVE_FILE;_save.filters=PackedStringArray(["*.json ; Editable Project"]);_save.use_native_dialog=true;add_child(_save)
 	_save.file_selected.connect(func(path:String):_message.text="Project saved." if session.save_project(path)==OK else "Could not save the Project.")
-	_discard=ConfirmationDialog.new();_discard.dialog_text="Discard the unsaved correction session and open another Project?";_discard.confirmed.connect(func():_load_project(_pending_path));add_child(_discard)
+	_discard=ConfirmationDialog.new();_discard.dialog_text="Discard the unsaved correction session and open another Project?";_discard.confirmed.connect(func():_pending_discard.call());add_child(_discard)
 	close_requested.connect(hide)
 
 func _add_button(parent:Node,label:String,node_name:String,action:Callable) -> void:
@@ -85,13 +89,22 @@ func _add_button(parent:Node,label:String,node_name:String,action:Callable) -> v
 func _spin_fields(parent:Node,entries:Array) -> void:
 	var grid:=GridContainer.new();grid.columns=2;parent.add_child(grid)
 	for entry in entries:
-		grid.add_child(UI.label(entry[1],13));var spin:=SpinBox.new();spin.name="Correction_"+entry[0];spin.min_value=-1000000;spin.max_value=1000000;spin.step=1;spin.size_flags_horizontal=Control.SIZE_EXPAND_FILL;grid.add_child(spin);_fields[entry[0]]=spin
+		grid.add_child(UI.label(entry[1],13));var spin:=SpinBox.new();spin.name="Correction_"+entry[0];spin.min_value=-1000000;spin.max_value=1000000;spin.step=0;spin.custom_arrow_step=1;spin.size_flags_horizontal=Control.SIZE_EXPAND_FILL;grid.add_child(spin);_fields[entry[0]]=spin
 
 func show_project(path:String) -> void:
 	popup_centered_ratio(.9)
 	if path==_source_path and not session.current().is_empty():return
-	if session.is_dirty():_pending_path=path;_discard.popup_centered();return
+	if session.is_dirty():confirm_discard(_load_project.bind(path),"Discard the unsaved correction session and open another Project?");return
 	_load_project(path)
+
+func confirm_discard(action:Callable,message:String) -> void:
+	_pending_discard=action;_discard.dialog_text=message
+	if not visible:popup_centered_ratio(.9)
+	_discard.popup_centered()
+
+func discard_session() -> void:
+	hide();session.clear();_source_path="";_floor={};_kind="";_id=""
+	canvas.floor={};canvas.selected_id="";canvas.queue_redraw()
 
 func _load_project(path:String) -> void:
 	_set_busy(true);var result:Dictionary=await session.open_plan_project(path);_set_busy(false)
@@ -158,10 +171,12 @@ func _select(kind:String,id:String) -> void:
 			for wi in range(_floor["walls"].size()):
 				if _floor["walls"][wi]["id"]==o["wallId"]:_host_selector.select(wi)
 			if o["kind"]=="door":
+				_hinge.select(0 if o["swingDirection"]=="right" else 1);_flip.set_pressed_no_signal(o["flipSide"])
 				var found:=false
 				for ti in range(_door_type.item_count):
 					if _door_type.get_item_metadata(ti)==o["type"]:_door_type.select(ti);found=true
 				if not found:_door_type.add_item("Keep existing motion");_door_type.set_item_metadata(_door_type.item_count-1,o["type"]);_door_type.select(_door_type.item_count-1)
+			_hinge.disabled=o["kind"]!="door";_flip.disabled=o["kind"]!="door";_door_type.disabled=o["kind"]!="door"
 	elif kind=="issue":
 		_tabs.current_tab=2
 		for i in range(_floor["issues"].size()):
@@ -173,7 +188,10 @@ func _add_opening(kind:String) -> void:
 
 func _apply_opening() -> void:
 	if _kind!="opening" or _host_selector.selected<0:return
-	_command({"type":"opening-update","id":_id,"wallId":_floor["walls"][_host_selector.selected]["id"],"position":_fields["position"].value/100,"width":_fields["width"].value,"height":_fields["opening_height"].value,"doorType":_door_type.get_selected_metadata()})
+	var position:float=_fields["position"].value/100
+	for opening in _floor["openings"]:
+		if opening["id"]==_id and _fields["position"].value==opening["position"]*100:position=opening["position"]
+	_command({"type":"opening-update","id":_id,"wallId":_floor["walls"][_host_selector.selected]["id"],"position":position,"width":_fields["width"].value,"height":_fields["opening_height"].value,"doorType":_door_type.get_selected_metadata(),"swingDirection":"right" if _hinge.selected==0 else "left","flipSide":_flip.button_pressed})
 
 func _command(command:Dictionary) -> void:
 	if session.busy or _floor.is_empty():return

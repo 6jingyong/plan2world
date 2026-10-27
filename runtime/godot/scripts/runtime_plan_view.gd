@@ -140,12 +140,15 @@ func _ready() -> void:
 	ceiling_fields.add_child(UI.label("Height follows the authored ceiling. No vertical offset.",14,UI.MUTED))
 	# Selected-piece actions appear only when useful, near the input prompts.
 	_selection_card = PanelContainer.new(); _selection_card.name = "SelectedPiece"
+	_selection_card.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	_selection_card.add_theme_stylebox_override("panel", UI.box(UI.PAPER, 20, 12, true))
 	_screen.add_child(_selection_card)
 	var selection_column := VBoxContainer.new(); selection_column.add_theme_constant_override("separation",6)
+	selection_column.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	_selection_card.add_child(selection_column)
 	_selection = UI.label("",15); selection_column.add_child(_selection)
 	var actions := HBoxContainer.new(); selection_column.add_child(actions)
+	actions.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	for pair in [["ReplaceFurniture","Modify  M"],["RotateFurniture","Rotate  R"],["DeleteFurniture","Remove  Del"],["LightSettings","Light… L"]]:
 		var button := UI.button(pair[1],pair[0],_action.bind(pair[0]))
 		(actions if pair[0]=="ReplaceFurniture" else _catalog_view.actions).add_child(button); _edit_buttons[pair[0]] = button
@@ -322,7 +325,21 @@ func _position_selection() -> void:
 	var point:Array=entity.get("position",entity.get("closedPose",{}).get("center",entity.get("center",[0,0,0])))
 	var screen:Vector2=controller.camera.unproject_position(controller._vec3(point))
 	_selection_card.size=Vector2.ZERO
-	_selection_card.position=(screen+Vector2(20,16)).clamp(Vector2(100,90),(_screen.size-_selection_card.size-Vector2(16,96)).max(Vector2(100,90)))
+	var size:Vector2=_selection_card.size
+	var upper:Vector2=(_screen.size-size-Vector2(16,96)).max(Vector2(100,90))
+	var neighbors:Array[Vector2]=[]
+	for other in controller._entities.values():
+		if other["id"]==controller.selected_id or other["floorId"]!=controller.floor_id or other["kind"] not in ["furniture","door","window"]:continue
+		var center:Array=other.get("position",other.get("closedPose",{}).get("center",other.get("center",[0,0,0])))
+		neighbors.append(controller.camera.unproject_position(controller._vec3(center)))
+	var best:=Vector2.ZERO;var best_score:=INF
+	for offset in [Vector2(20,-size.y-16),Vector2(20,16),Vector2(-size.x-20,-size.y-16),Vector2(-size.x-20,16)]:
+		var candidate:Vector2=(screen+offset).clamp(Vector2(100,90),upper)
+		var score:float=candidate.distance_squared_to(screen+offset)
+		for neighbor in neighbors:
+			if Rect2(candidate,size).grow(12).has_point(neighbor):score+=1000000
+		if score<best_score:best=candidate;best_score=score
+	_selection_card.position=best
 
 func _action(action: String,preview:=false) -> void:
 	var command := {"floorId":controller.floor_id,"id":controller.selected_id}

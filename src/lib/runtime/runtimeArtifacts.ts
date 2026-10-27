@@ -18,6 +18,8 @@ export async function compileRuntimeArtifacts(serializedProject: unknown, readCa
   validateFurnitureDoorClearance(runtime);
   validateFurnitureSupport(runtime);
   const architecture = compileArchitecturePresentation(runtime);
+  const invalidOpening = architecture.diagnostics.find(d => d.code === 'invalid-opening' || d.code === 'overlapping-openings');
+  if (invalidOpening) throw new Error(`Cannot compile runtime opening "${invalidOpening.entityId}": ${invalidOpening.message}`);
   const architectureGlb = serializeArchitectureGlb(architecture);
   runtime.source.architectureSha256 = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', Uint8Array.from(architectureGlb).buffer)), byte => byte.toString(16).padStart(2, '0')).join('');
   const assets = await compileRuntimeAssets(project, runtime, readCatalogAsset);

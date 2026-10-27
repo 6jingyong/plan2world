@@ -27,7 +27,9 @@ window has Walls, Openings and Notes tabs over the retained source image:
   references and opening positions are preserved. Cuts through openings or mounted
   furniture are refused; dependent objects are not silently removed.
 - Add a door/window or select an existing opening, choose its wall, position,
-  dimensions and basic motion, then apply. Choose the main door and inward arrow.
+  dimensions and basic motion, then apply. Hinge/travel endpoint and opening-side
+  controls retain the native door semantics; they are independent of the main
+  entrance's inward arrow. Choose the main door and inward arrow explicitly.
 - Click an error marker or a note to inspect it; mark it reviewed explicitly.
   Source snapshots remain in saved native JSON and Project packages.
 
@@ -37,6 +39,14 @@ a Project while ground/entry/placement still needs work. **Apply to space** beco
 available only when the normal strict runtime compiler can produce a valid world.
 The previous active world stays intact until that explicit commit. Godot does not
 derive topology or modify GLB triangles as authoring truth.
+
+Source fractional coordinates and dimensions survive selection and height-only
+edits. Endpoint clicking without a drag never rounds geometry or dirties the
+Project. App close/source replacement protects unsaved correction sessions as
+well as the active furniture Project. Invalid/overlapping apertures block shared
+runtime artifact compilation before a host wall could be omitted; native backup
+and correction remain available. Source semantic blocks remain visible/selectable
+without arbitrary proxy collision; real replacement furniture retains collision.
 
 Walls already have independent native IDs and compiler-owned owner metadata; a
 separate fragmentation of the building mesh is unnecessary. Logical splits update

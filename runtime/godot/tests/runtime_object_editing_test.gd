@@ -94,6 +94,14 @@ func run():
 	var saved:=directory.path_join("objects.project.json");check(main._session.save_project(saved)==OK,"Save the accepted canonical object choices")
 	check(await main._open_project(saved),"Reopen saved object choices");await idle()
 	check(project()["floors"][0]["windows"][0]["type"]=="sliding","Window choice survives reopen")
+	# A nearby selected chair must not cover the next door's pick target. This
+	# layout is deliberate synthetic authoring, not an image reconstruction.
+	main._edit_layout({"type":"add","floorId":"ground","position":{"x":240,"y":520},"asset":{"catalogId":"chair"}});await idle()
+	var nearby_id:String=main._session.current()["selectedId"]
+	await pick(nearby_id)
+	var door_center:Vector2=main._layout_camera.camera.unproject_position(main._layout_camera._vec3(main._layout_camera._entities["swing-door"]["closedPose"]["center"]))
+	check(not main._plan_view._selection_card.get_global_rect().grow(8).has_point(door_center),"Modify chip leaves a nearby door directly selectable")
+	await pick("swing-door")
 	main._show_walkthrough();await idle()
 	player=main._world.get_node("Player");player.position=Vector3(5,.4,3.4)
 	player.get_node("Camera3D").look_at(Vector3(5,.9,2),Vector3.UP)

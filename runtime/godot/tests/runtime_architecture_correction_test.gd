@@ -3,6 +3,7 @@ extends SceneTree
 var main
 var directory:=""
 var failures:=0
+var discard_ran:=false
 
 func _initialize() -> void:run.call_deferred()
 func check(ok:bool,message:String) -> void:
@@ -24,6 +25,34 @@ func run() -> void:
 		if Time.get_ticks_msec()>deadline:push_error("Architecture correction test exceeded 120 wall-clock seconds.");quit(1))
 	main=load("res://main.tscn").instantiate();root.add_child(main);await process_frame
 	check(not main._architecture_editor.visible,"correction window starts hidden and does not capture normal input")
+	main._show_plan_editor(directory.path_join("fractional.project.json"));await idle()
+	var fractional=main._architecture_editor
+	var before_path:String=fractional.session.current()["projectPath"]
+	fractional._select("wall","w0")
+	var endpoint:Dictionary=fractional._floor["walls"][0]["start"].duplicate()
+	for pressed in [true,false]:
+		var click:=InputEventMouseButton.new();click.button_index=MOUSE_BUTTON_LEFT;click.position=fractional.canvas._screen(endpoint);click.pressed=pressed;fractional.canvas._gui_input(click)
+	await idle()
+	check(fractional.session.current()["projectPath"]==before_path and not fractional.session.is_dirty() and fractional._floor["walls"][0]["start"]==endpoint,"clicking a fractional endpoint without dragging preserves exact geometry and clean state")
+	var press:=InputEventMouseButton.new();press.button_index=MOUSE_BUTTON_LEFT;press.pressed=true;press.position=fractional.canvas._screen(endpoint);fractional.canvas._gui_input(press)
+	var drag:=InputEventMouseMotion.new();drag.button_mask=MOUSE_BUTTON_MASK_LEFT;drag.position=press.position+Vector2(20,20);fractional.canvas._gui_input(drag)
+	press.position=drag.position;press.pressed=false;fractional.canvas._gui_input(press);await idle()
+	check(fractional._floor["walls"][0]["start"]!=endpoint and fractional.session.is_dirty(),"a real endpoint drag still submits the deliberate shared-core edit")
+	fractional._fields["height"].value=281;fractional.find_child("ApplyWallCorrection",true,false).pressed.emit();await idle()
+	fractional._select("opening","entry")
+	var opening:Dictionary=fractional._floor["openings"][0].duplicate()
+	fractional._fields["opening_height"].value=211;fractional.find_child("ApplyOpeningCorrection",true,false).pressed.emit();await idle()
+	check(fractional._floor["openings"][0]["width"]==opening["width"] and fractional._floor["openings"][0]["position"]==opening["position"],"height-only editing retains the exact fractional aperture width and position")
+	fractional._fields["width"].value=601;fractional.find_child("ApplyOpeningCorrection",true,false).pressed.emit();await idle()
+	check(not fractional.session.current()["walkthroughReady"] and fractional._apply.disabled,"an oversized opening remains editable but cannot silently drop its host from the walkthrough")
+	check(fractional.session.is_dirty(),"a deliberate correction is unsaved before closing")
+	main._notification(Node.NOTIFICATION_WM_CLOSE_REQUEST);await process_frame
+	check(fractional._discard.visible and not main._discard.visible,"app close protects unsaved corrections in the active editor window")
+	fractional._discard.get_cancel_button().pressed.emit();await process_frame
+	check(fractional.session.is_dirty() and fractional.visible,"cancel app close keeps the correction available for saving")
+	main._request_action(func():discard_ran=true);await process_frame
+	fractional._discard.confirmed.emit();fractional._discard.hide();await process_frame
+	check(discard_ran and not fractional.session.is_dirty() and fractional.session.current().is_empty(),"explicit discard releases the old correction before changing source")
 	var opened_ok:bool=await main._open_project(directory.path_join("valid.project.json"));check(opened_ok,"open valid canonical Project")
 	if not opened_ok:main.queue_free();await process_frame;quit(1);return
 	await idle();var old_world:Node=main._world;var old_player:Node=main._world.get_node("Player")

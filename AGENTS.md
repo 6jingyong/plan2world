@@ -243,6 +243,11 @@ Use `schemas/plan2world-draft-v1.schema.json` and `docs/plan2world-draft-v1.md`.
   closed colliders as placement-only Areas, never walking bodies or inferred swing
   envelopes. Engines still handle live door obstruction. Leafless openings remain
   unreserved. Re-export older snapshots to apply the current compiler checks.
+- Invalid/overlapping native apertures block shared runtime artifact compilation
+  before presentation could omit the host wall. Keep invalid native backups
+  editable. Source semantic blocks (`imported_object`, `renderStyle: block`, no
+  custom model) stay selectable without arbitrary proxy walking collision;
+  authored replacements and legacy ordinary objects retain normal collision.
 - Validate/load a candidate outside the active SceneTree before swapping worlds
   and editable source. Reject mismatched present GLBs using the compiler digest;
   failed loads must retain the previous scene. Missing assets remain explicit

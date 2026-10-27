@@ -65,7 +65,7 @@ func _ready() -> void:
 	_light_settings=LIGHT_SETTINGS.new();add_child(_light_settings)
 	_door_settings=DOOR_SETTINGS.new();add_child(_door_settings)
 	_architecture_editor=ARCHITECTURE_EDITOR.new();add_child(_architecture_editor)
-	_architecture_editor.project_ready.connect(func(path:String):_request_action(_open_corrected_project.bind(path)))
+	_architecture_editor.project_ready.connect(func(path:String):_request_action(_open_corrected_project.bind(path),false))
 	_object_editor=OBJECT_EDITOR.new();add_child(_object_editor)
 	_object_editor.command_requested.connect(_edit_layout)
 	_object_editor.preview_requested.connect(_preview_object_replacement)
@@ -198,13 +198,18 @@ func _open_scene(runtime_path: String, architecture_path: String = "", editor_st
 		" runtime=", runtime_stats, " assets=", asset_count, " presentation=", presentation_stats)
 	return true
 
-func _request_action(action: Callable) -> void:
-	if _session.busy:
+func _request_action(action: Callable, protect_correction:=true) -> void:
+	if _session.busy or _architecture_editor.session.busy:
 		return
-	if _session.is_dirty():
-		_pending_action = action
+	var correction_dirty:bool=protect_correction and _architecture_editor.session.is_dirty()
+	if _session.is_dirty() or correction_dirty:
+		_pending_action = func():
+			if correction_dirty:_architecture_editor.discard_session()
+			action.call()
 		_show_menu()
-		_discard.popup_centered()
+		if correction_dirty:
+			_architecture_editor.confirm_discard(_pending_action,"Discard unsaved Project and wall/opening changes? Cancel to save a Project backup first.")
+		else:_discard.popup_centered()
 	else:
 		action.call()
 
