@@ -582,8 +582,9 @@
   PR #82首轮CI的共享点CLI覆盖保护测试5秒超时（1,766/1,767）；audit及双平台Godot通过。
   后续只前移输出目录独占检查，避免无效解码/Vite启动，几何逻辑未改；保留首轮日志再验证。
   修正后1,767单测、类型及构建再次通过；新黑底共享点展开字节未变，原163项冻结哈希仍一致。
-- **决定**：本地条件满足，按用户授权在仓库CI通过后合并，无需再确认。实际PR/CI/merge状态
-  另记本轮交付文件，不把本地通过冒充远端合并或引擎实图验收。
+- **决定**：已按授权在必需CI全通过后合并[PR #82](https://github.com/6jingyong/plan2world/pull/82)，
+  候选头`830d9ac`，main squash `e948c58`。main核心检查也通过；三浏览器/benchmark最终状态
+  另记本轮`completion.json`，不把仓库固定场景CI当作黑底图引擎实图验收。
 - **证据**：[黑底报告](../.plan2world-validation/runs/20261027-source-recovery-black-only/index.html)、
   [结果](../.plan2world-validation/runs/20261027-source-recovery-black-only/RESULTS.md)、
   [物理几何证明](../.plan2world-validation/runs/20261027-source-recovery-black-only/geometry-equivalence.json)、

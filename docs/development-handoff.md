@@ -5,6 +5,10 @@
 
 ## 2026-10-27 E16：拒绝恢复实现与黑底验证（当前交付）
 
+**已发布**：[PR #82](https://github.com/6jingyong/plan2world/pull/82)，候选头`830d9ac`，
+main squash `e948c58`。PR必需CI和main核心检查全通过，main三浏览器/benchmark最终状态
+另见本轮`completion.json`。以下1,767项检查针对窄发布候选，不是六项原生功能的重新整体验收。
+
 用户要求实现失败复核、仅测黑底，并明确本图暗门本身画错，不再作为合并阻断；
 其他新增异常仍须检查。本轮只从原始999×1280黑底JPEG新观察一份建筑/家具，未读旧候选或人工参考。
 暗门矛盾保留为不确定和本图评价豁免，没有写入通用程序特例，也未强补暗门。
@@ -34,7 +38,7 @@
 `index.html` / `RESULTS.md` / `evaluation.json`、`geometry-equivalence.json`、`verified-artifact-freeze.json`；
 `one-review-pending/`保留原拒绝/初始stage/确认页，`local-model-decision.json`是唯一实际源确认，
 `one-review-confirmed/project.json`保留原图。发布/CI/合并结果保存在同目录交付记录并以GitHub/main为准。
-本地未见非豁免新增异常，按用户已有授权在仓库必需CI通过后合并；不重复求确认。
+本地未见非豁免新增异常，已按用户授权经必需CI后合并；原生开发提交仍仅保留在本地。
 PR #82首轮CI为1,766/1,767：共享点CLI的覆盖保护测试5秒超时，Linux/Windows Godot与audit通过。
 后续仅将CLI独占输出目录检查提前到图片解码/Vite加载前，既有目录立即拒绝；不改识图或几何。
 原失败保留，修正后重新执行检查，实际远端状态以本轮交付记录和PR为准。
