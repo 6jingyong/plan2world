@@ -50,7 +50,7 @@ export function cropSourcePixels(raster, box) {
 }
 
 /** @param {{width: number, height: number, data: Buffer}[]} pictures */
-async function encodePngs(pictures) {
+export async function encodePngs(pictures) {
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await browser.newPage();
