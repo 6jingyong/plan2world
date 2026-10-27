@@ -3,17 +3,40 @@
 本页是新对话的当前开发入口，不是完成所有产品验收的声明。先读本页与
 [`AGENTS.md`](../AGENTS.md)，检查下列当前分支及本地提交；保留尚未推送的本轮成果。
 
-## 2026-10-27 当前分支：空间上下文与证据分类试点
+## 2026-10-27 条件合并门槛：等待其余四张原图
 
-当前分支 `experiment/spatial-context-and-evidence`，包含下述原生及E10全部未推送提交，
+用户已授权：另外四张原图复验没有新增问题后，将共享坐标与空间上下文/证据分类一起合并。
+当前仅恢复YJ215，其余`1000028463.jpg`–`1000028466.jpg`原图在当前附件、本地备份及Git中未找到，
+历史仅有源身份记录。已请求重新上传；四图新观察/源审查均`not_run`，**未push、开PR或合并**。
+这是缺少输入，不是缺少操作授权；收到原图后继续已记录协议，不重复询问合并确认。
+
+独立合并候选在`/workspace/plan2world-recognition-merge`，分支`feat/reconstruction-context-and-pointrefs`，
+基于main `0b917b7`，代码头`b314e1b`（摘取原`5dade34`、`52f46c8`）。仅两项识图工具，
+六项未推送原生开发及其完整交接仍在`experiment/spatial-context-and-evidence`，不得意外随本次合并。
+候选1,747单测/200文件、类型0错误0警告、生产构建通过；与完整分支1,770项的差别是代码范围，
+未删/跳过测试。冻结上下文试点（现E12，原报告E11）输入的候选机械重放stage/draft原始字节一致，不算四图识别验收。
+
+JSON增长已精确拆分：引用替换省447字节，点表增1,023、格式名增10，合计+586（1.9%）。
+同一紧凑JSON的离线文本token，cl100k为11,063→11,197（+1.21%），o200k为9,354→9,268（−0.92%）；
+仅计文本，不计图片/提示/推理或实际费用。省坐标填写与省字节/token分别判断，详见账本M2。
+
+新门槛/检查证据在`.plan2world-validation/runs/20261027-four-plan-merge-gate/`：
+`gate-status.json`、`four-source-protocol.json`、`candidate-replay-proof.json`、
+`json-byte-decomposition.json`、`offline-token-counts.json`及候选检查日志。
+收到原图后，以新目录完成每图建筑冻结→家具→闭合/组装→冻结叠加→源审查；
+不读历史候选/人工标注作生成输入，不靠减少功能区、补猜门或改生成JSON满足门槛。
+
+## 2026-10-27 当前分支：空间上下文与证据分类试点（现E12，原报告E11）
+
+当前分支 `experiment/spatial-context-and-evidence`，包含下述原生及E11全部未推送提交，
 再加通用视图工具/可选Skill说明 `52f46c8` 及本次结果交接提交，基线仍为main `0b917b7`。
 本轮只做本地实现、验证和提交；勿只恢复main或旧分支而丢失新工作。
 
-- 用户明确保留共享点工具，但未验证token节省；本轮只授权试空间上下文与证据限制分类，
+- 当时用户保留共享点工具，token尚未实测；后补M2离线计数。本轮只试空间上下文与证据限制分类，
   不加入同图符号字典或户型专用规则。新增 `tooling/plan2world-context-views.mjs`，
   显式focus/context选择→原像素视图/坐标平移/哈希，拒绝覆写；没有自动邻接推断。
   说明见 [可选工作流](../skills/reconstruct-plan2world/references/spatial-context-review.md)。
-- E11从同一原图新观察：建筑与源限制侧记冻结→新家具→既有闭合/组装→冻结后审查。
+- E12从同一原图新观察：建筑与源限制侧记冻结→新家具→既有闭合/组装→冻结后审查。
   主卧阈值由上下框端和开启叶/弧支持，候选在家具前接受；程序分离主卧/公区，功能区
   从历史11/13变为13/13。新工程52墙、12门/通口、10窗、13native区域、54个新家具标记。
   源图净框仍需独立复核；13/13是程序支持指标，不是人工准确率或全屋通行。
@@ -30,7 +53,7 @@
 新证据目录 `.plan2world-validation/runs/20261027-spatial-context-evidence-yj215/`：
 `index.html` / `RESULTS.md` / `evaluation.json`、`source-limit-review.json`、
 `assembled/project.json`（待审查、保留原图背景）。同目录 `case-evidence.zip` 为私有案例备份，
-`implementation.bundle` 覆盖基线后全部原生/E10/E11本地提交，恢复命令为：
+`implementation.bundle` 覆盖基线后全部原生/E11/E12本地提交，恢复命令为：
 
 ```sh
 git fetch /path/to/implementation.bundle \
@@ -39,9 +62,9 @@ git switch experiment/spatial-context-and-evidence
 ```
 
 当前保持可选，不切换默认流程。后续重点是独立核对新门框、补足凸台表达和跨画风实图验证；
-旧作者Project恢复后的三处阳台门复验仍属独立任务。详细结论与局限见账本E11。
+旧作者Project恢复后的三处阳台门复验仍属独立任务。详细结论与局限见账本E12。
 
-## 2026-10-27 共享点试点（E10，保留历史范围）
+## 2026-10-27 共享点试点（E11，保留历史范围）
 
 该轮工作区 `/workspace/plan2world`，分支 `experiment/shared-source-points`，
 包含下述原生分支截至 `ddefa9c` 的全部六个本地提交，以及共享原图点工具 `5dade34`
@@ -56,7 +79,7 @@ git switch experiment/spatial-context-and-evidence
   本次像素观察；无损转回既有格式，不修几何、不产生native ID。默认浏览器/provider格式、
   v23提示及闭合/宿主/组装代码未变；使用说明见
   [可选引用协议](../skills/reconstruct-plan2world/references/source-point-references.md)。
-- E10各从原图新观察一组内联/引用建筑，建筑冻结后共用一次新家具观察作为控制。
+- E11各从原图新观察一组内联/引用建筑，建筑冻结后共用一次新家具观察作为控制。
   两组都能严格组装，但功能区均11/13，主卧/公区仍合并、北卫无确认入口，
   室内网格到达8/9；外挑窗台轮廓/退距/台面仍有表达缺口，不能称完整还原。
   坐标书写198→104（少47.5%），同一内容JSON却大1.9%；仅证明表示机制，无识图收益结论。
@@ -78,7 +101,7 @@ git fetch /path/to/implementation.bundle \
 git switch experiment/shared-source-points
 ```
 
-结论账本见E10；当前保持默认流程及可选工具。下一识图重点是关键净门框、主卧分隔和
+结论账本见E11；当前保持默认流程及可选工具。下一识图重点是关键净门框、主卧分隔和
 凸台的源证据/构件表达，不自动补门、补分隔或扩大吸附。旧原生Project恢复后的门型复验
 仍是独立任务，下文的历史缺口按此理解。
 
