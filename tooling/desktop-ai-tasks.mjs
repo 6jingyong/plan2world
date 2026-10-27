@@ -2,12 +2,12 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { authorizeOpenRouter, connectOpenRouter, observeOpenRouter } from './desktop-openrouter.mjs';
-import { reconstructFloorPlanWithObserver, MAX_FLOOR_PLAN_IMAGE_BYTES } from '../src/lib/plan2world/vision';
-import { draftToProjectWithSourceBackground } from '../src/lib/plan2world/sourceBackground';
+import { MAX_FLOOR_PLAN_IMAGE_BYTES } from '../src/lib/plan2world/vision';
 import { readProject } from '../src/lib/utils/projectValidation';
 import { wallPointAt, wallTangentAt } from '../src/lib/utils/wallPath';
 import { prepareFloorPlanImage,readPreparedImageEvidence } from './prepare-floorplan-image.mjs';
 import { PLAN2WORLD_RECONSTRUCTION_INSTRUCTIONS_VERSION } from '../src/lib/plan2world/reconstructionInstructions';
+import { reconstructFloorPlanForCorrection } from '../src/lib/plan2world/correction';
 
 
 /** Optional desktop authoring only; no engine runtime code depends on this.
@@ -45,7 +45,7 @@ export async function runDesktopAiTask(request, emit = () => {}, fetcher = fetch
     const identity={transport:'openrouter',modelId:request.model,instructionsVersion:PLAN2WORLD_RECONSTRUCTION_INSTRUCTIONS_VERSION,
       workingImageSha256:digest(bytes),workingPixelsSha256:digest(pixels),sourceImageSha256:preparation?.manifest.source.sha256??digest(bytes)};
     let pass = 0, cost = 0, knownCost = true;
-    const reconstruction = await reconstructFloorPlanWithObserver(async prompt => {
+    const reconstruction = await reconstructFloorPlanForCorrection(async prompt => {
       const stage = pass++ === 0 ? 'architecture' : 'furnishing';
       emit({ phase: stage === 'architecture' ? 'Observing architecture (1/2)…' : 'Observing furniture (2/2)…' });
       const observation = await observeOpenRouter(request, image, prompt, fetcher);
@@ -54,14 +54,14 @@ export async function runDesktopAiTask(request, emit = () => {}, fetcher = fetch
       await writeFile(path.join(output,`${stage}-freeze.json`),JSON.stringify({...identity,stage,promptSha256:digest(prompt),observationSha256:digest(serialized)},null,2)+'\n',{flag:'wx'});
       if (observation.cost === null) knownCost = false; else cost += observation.cost;
       return observation.value;
-    }, { context: { sourceWidthPx: width, sourceHeightPx: height,sourceImageSha256:digest(bytes) }, raster: { width, height, data: pixels } }, { scaleHint: request.scaleHint || '' });
+    }, { image: { dataUrl: image.dataUrl, width, height, name: preparation?.manifest.source.name??path.basename(request.imagePath), preparation }, sha256: digest(bytes), raster: { width, height, data: pixels } }, { scaleHint: request.scaleHint || '' });
     emit({ phase: 'Assembling the editable Project…' });
-    const project = draftToProjectWithSourceBackground(reconstruction.draft, { dataUrl: image.dataUrl, width, height, name: preparation?.manifest.source.name??path.basename(request.imagePath),preparation });
-    if (project.reconstruction) project.reconstruction.observationReview = reconstruction.observationReview;
+    const project = reconstruction.project;
     const projectPath = path.join(output, 'project.json');
     await writeFile(projectPath, JSON.stringify(readProject(project), null, 2) + '\n', { flag: 'wx' });
-    await writeFile(path.join(output, 'draft.json'), JSON.stringify(reconstruction.draft, null, 2) + '\n', { flag: 'wx' });
-    result = { projectPath, name: project.name, cost: knownCost ? cost : null, assumptions: reconstruction.draft.assumptions || [],
+    if (reconstruction.draft) await writeFile(path.join(output, 'draft.json'), JSON.stringify(reconstruction.draft, null, 2) + '\n', { flag: 'wx' });
+    await writeFile(path.join(output, 'source-correction-audit.json'), JSON.stringify(reconstruction.audit, null, 2) + '\n', { flag: 'wx' });
+    result = { projectPath, name: project.name, cost: knownCost ? cost : null, assumptions: project.reconstruction?.assumptions || [], correction: reconstruction.issueCount > 0, issueCount: reconstruction.issueCount,
       floors: project.floors.map(f => ({ id: f.id, name: f.name, wallCount: f.walls.length, furnitureCount: f.furniture.length, doors: f.doors.filter(d => d.type !== 'opening').map(d => {
         const wall = f.walls.find(w => w.id === d.wallId), background = f.backgroundImage;
         if (!wall) throw new Error('Source door has no authored wall.');

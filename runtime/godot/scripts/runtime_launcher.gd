@@ -7,6 +7,8 @@ signal project_selected(path: String)
 signal resume_requested
 signal respawn_requested
 signal authoring_requested(page: int)
+signal correction_requested(path:String)
+signal door_materials_requested
 
 var _screen: Control
 var _resume: Button
@@ -62,6 +64,8 @@ func _ready() -> void:
 	var edit := UI.button("Arrange a Project…", "OpenProject", func(): get_node("ProjectPicker").popup_centered_ratio(0.8), true)
 	edit.custom_minimum_size.y = 44
 	content.add_child(edit)
+	content.add_child(UI.button("Correct walls and openings…","CorrectProject",func():get_node("CorrectionPicker").popup_centered_ratio(.8)))
+	content.add_child(UI.button("Door appearance…","DoorAppearance",func():door_materials_requested.emit()))
 	var project_dialog := FileDialog.new()
 	project_dialog.name = "ProjectPicker"
 	project_dialog.title = "Open Project for furniture layout"
@@ -71,6 +75,8 @@ func _ready() -> void:
 	project_dialog.use_native_dialog = true
 	project_dialog.file_selected.connect(func(path: String): project_selected.emit(path))
 	add_child(project_dialog)
+	var correction:=FileDialog.new();correction.name="CorrectionPicker";correction.title="Open a Project for wall correction";correction.access=FileDialog.ACCESS_FILESYSTEM;correction.file_mode=FileDialog.FILE_MODE_OPEN_FILE;correction.filters=project_dialog.filters;correction.use_native_dialog=true
+	correction.file_selected.connect(func(path:String):correction_requested.emit(path));add_child(correction)
 	_resume = UI.button("Back to your space", "Resume", func(): resume_requested.emit(), true)
 	_resume.custom_minimum_size.y = 44
 	content.add_child(_resume)
@@ -118,5 +124,5 @@ func hide_menu() -> void:
 	_dialog.hide()
 
 func set_busy(busy: bool) -> void:
-	for name in ["OpenScene", "OpenProject", "Resume", "ReturnToStart", "CreateFromImage", "AIAccount", "UserGuide"]:
+	for name in ["OpenScene", "OpenProject", "Resume", "ReturnToStart", "CreateFromImage", "AIAccount", "UserGuide", "CorrectProject", "DoorAppearance"]:
 		find_child(name, true, false).disabled = busy

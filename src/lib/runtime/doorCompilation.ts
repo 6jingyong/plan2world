@@ -35,7 +35,7 @@ export function compileRuntimeDoor(floorId: string, elevation: number, door: Doo
     const track = panels ? panels[index].track * .01 : 0;
     const id = `door:${encodeURIComponent(door.id)}:leaf:${panels ? encodeURIComponent(panels[index].id) : index}`;
     return {
-      id, colliderId: id, assetRef: 'builtin:door-leaf-v1',
+      id, colliderId: id, assetRef: door.material === 'glass' ? 'builtin:door-glass-leaf-v1' : door.material === 'steel' ? 'builtin:door-steel-leaf-v1' : 'builtin:door-leaf-v1',
       size: [leafWidth, height, LEAF_THICKNESS],
       closedPose: { center: [center[0] + tangent[0] * offset-tangent[1]*track, center[1], center[2] + tangent[1] * offset+tangent[0]*track], yawClockwiseRadians: yaw },
     };

@@ -4,6 +4,7 @@ const UI := preload("res://scripts/runtime_ui.gd")
 const TASK := preload("res://scripts/authoring_task.gd")
 const PREVIEW := preload("res://scripts/source_plan_preview.gd")
 signal project_ready(path: String)
+signal correction_ready(path:String)
 var _screen: Control
 var _task
 var _api_key := ""
@@ -184,7 +185,8 @@ func _sync(working:=false) -> void:
 		for index in range(choice.item_count):choice.set_item_disabled(index,busy)
 	_preview.mouse_filter=Control.MOUSE_FILTER_IGNORE if busy else Control.MOUSE_FILTER_STOP
 	_generate.disabled=busy or _api_key.is_empty() or _model.text.strip_edges().is_empty() or _accepted_input.is_empty() or not _consent.button_pressed
-	_open.disabled=busy or _result.is_empty() or _entrance.selected<1
+	_open.disabled=busy or _result.is_empty() or (not _result.get("correction",false) and _entrance.selected<1)
+	_open.text="Correct annotated plan…" if _result.get("correction",false) else "Open arrangement"
 	_backup.disabled=busy or _result.is_empty()
 
 func _select_source(path:String) -> void:
@@ -248,12 +250,13 @@ func _generate_project() -> void:
 		for index in range(floor["doors"].size()):_entrance.add_item("%d · %s" % [index+1,floor["doors"][index]["label"]])
 		_preview.queue_redraw()
 		_summary.text="%s · %d walls / %d furniture markers\nAssumptions: %s" % [result["name"],floor["wallCount"],floor["furnitureCount"],"; ".join(result["assumptions"])]
-		_status.text="Reconstruction ready. Review it and choose an entrance. Reported model cost: %s" % ("not provided" if result["cost"]==null else "$"+str(result["cost"]))
+		_status.text=("%d source review notes. Open the correction plan to edit walls and openings. " % result["issueCount"] if result.get("correction",false) else "Reconstruction ready. Review it and choose an entrance. ")+"Reported model cost: "+("not provided" if result["cost"]==null else "$"+str(result["cost"]))
 	else:_status.text=result["error"]
 	_sync()
 
 func _open_result() -> void:
 	if _open.disabled:return
+	if _result.get("correction",false):_screen.hide();correction_ready.emit(_result["projectPath"]);return
 	_sync(true)
 	if await _prepare_entrance():_screen.hide();project_ready.emit(_result["projectPath"])
 	_sync()

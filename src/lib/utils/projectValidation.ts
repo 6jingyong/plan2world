@@ -58,6 +58,20 @@ export function readProject(value: unknown): Project {
   text(project!.name, 'name'); strings(project!, ['description'], 'document');
   if (project!.projectPackage !== undefined) validateRetainedDetailState(project!.projectPackage);
   if (project!.reconstruction !== undefined) validateReconstructionEvidence(project!.reconstruction);
+  if (project!.architectureReview !== undefined) {
+    const review = record(project!.architectureReview, 'architectureReview');
+    if (review.version !== 1 || !Array.isArray(review.issues) || review.issues.length > 4096) fail('architectureReview', 'has an unsupported version or issue list');
+    if (review.sourceObservations !== undefined) text(review.sourceObservations, 'architectureReview.sourceObservations');
+    if (review.workingImageSha256 !== undefined && !/^[a-f0-9]{64}$/.test(review.workingImageSha256)) fail('architectureReview.workingImageSha256', 'must be a SHA-256 digest');
+    const seen = new Set<string>();
+    for (const issue of review.issues) {
+      record(issue, 'architectureReview.issue'); text(issue.id, 'issue.id', true); text(issue.floorId, 'issue.floorId', true); text(issue.message, 'issue.message', true);
+      if (seen.has(issue.id) || typeof issue.resolved !== 'boolean') fail('architectureReview.issue', 'requires a unique ID and explicit resolution');
+      seen.add(issue.id);
+      if (issue.position !== undefined) point(issue.position, 'issue.position');
+      if (issue.sourceRecord !== undefined) text(issue.sourceRecord, 'issue.sourceRecord');
+    }
+  }
   const customModelIds = validateCustomModelDefinitions(project!.customModels, project!.projectPackage?.assets);
   if (project!.attachmentNames !== undefined) {
     record(project!.attachmentNames, 'attachmentNames');
@@ -119,6 +133,7 @@ export function readProject(value: unknown): Project {
       defaults(opening, kind === 'doors' ? { height: 210, type: 'single', swingDirection: 'left', flipSide: false } : { height: 120, type: 'standard', sillHeight: 90 });
       positive(opening.height, `${path}.height`);
       if (kind === 'doors') {
+        if (opening.material !== undefined) choice(opening.material, ['wood', 'glass', 'steel'], `${path}.material`);
         choice(opening.type, ['single', 'double', 'sliding', 'french', 'pocket', 'bifold', 'opening', 'garage'], `${path}.type`);
         choice(opening.swingDirection, ['left', 'right'], `${path}.swingDirection`);
         booleans(opening, ['flipSide'], path);

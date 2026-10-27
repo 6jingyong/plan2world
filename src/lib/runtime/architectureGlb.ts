@@ -13,7 +13,7 @@ const UNSIGNED_SHORT = 5123;
 const UNSIGNED_INT = 5125;
 const TRIANGLES = 4;
 
-type ArchitectureMaterialKey = 'wall' | 'floor' | 'ceiling' | 'glass' | 'column' | 'stair' | 'door' | 'plan-door' | 'plan-window' | 'lamp-body' | 'lamp-emitter' | 'decor-frame' | 'wall-art' | 'mirror-face';
+type ArchitectureMaterialKey = 'wall' | 'floor' | 'ceiling' | 'glass' | 'column' | 'stair' | 'door' | 'plan-door' | 'plan-window' | 'lamp-body' | 'lamp-emitter' | 'decor-frame' | 'wall-art' | 'mirror-face' | 'door-steel';
 
 interface GltfBufferView {
   buffer: number;
@@ -134,7 +134,7 @@ function materialKey(primitive: PresentationGlbPrimitive): ArchitectureMaterialK
   return 'wall';
 }
 
-const materialOrder: ArchitectureMaterialKey[] = ['wall', 'floor', 'ceiling', 'glass', 'column', 'stair', 'door', 'plan-door', 'plan-window', 'lamp-body', 'lamp-emitter', 'decor-frame', 'wall-art', 'mirror-face'];
+const materialOrder: ArchitectureMaterialKey[] = ['wall', 'floor', 'ceiling', 'glass', 'column', 'stair', 'door', 'plan-door', 'plan-window', 'lamp-body', 'lamp-emitter', 'decor-frame', 'wall-art', 'mirror-face', 'door-steel'];
 
 const gltfMaterials: Record<string, unknown>[] = [
   { name: 'p2w-wall', pbrMetallicRoughness: { baseColorFactor: [0.82, 0.81, 0.79, 1], metallicFactor: 0, roughnessFactor: 0.86 } },
@@ -156,6 +156,7 @@ const gltfMaterials: Record<string, unknown>[] = [
   { name: 'p2w-decor-frame', pbrMetallicRoughness: { baseColorFactor: [.22,.19,.16,1],metallicFactor:.15,roughnessFactor:.55 } },
   { name: 'p2w-wall-art', pbrMetallicRoughness: { baseColorFactor: [.24,.43,.48,1],metallicFactor:0,roughnessFactor:.9 } },
   { name: 'p2w-mirror-face', pbrMetallicRoughness: { baseColorFactor: [.78,.84,.88,1],metallicFactor:1,roughnessFactor:.08 } },
+  { name: 'p2w-door-steel', pbrMetallicRoughness: { baseColorFactor: [.24,.27,.3,1],metallicFactor:.85,roughnessFactor:.35 } },
 ];
 
 function padChunk(bytes: Uint8Array, paddingByte: number) {

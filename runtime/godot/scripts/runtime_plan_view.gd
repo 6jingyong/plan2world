@@ -9,6 +9,8 @@ signal save_requested(path: String)
 signal export_requested(path: String)
 signal light_requested(id:String)
 signal doors_requested
+signal walls_requested
+signal materials_requested
 signal preview_requested(command:Dictionary)
 var controller
 var _floor_selector: OptionButton
@@ -100,7 +102,9 @@ func _ready() -> void:
 	_grid.tooltip_text = "10 cm grid · first-person steps remain 1 cm"
 	for button in [_snap, _grid]: button.toggled.connect(func(_value): _snapping_changed())
 	tools.add_child(UI.button("Fit", "FitFloor", func(): controller.fit_floor()))
-	tools.add_child(UI.button("Doors…", "DoorPanels", func(): doors_requested.emit()))
+	tools.add_child(UI.button("Panels…", "DoorPanels", func(): doors_requested.emit()))
+	tools.add_child(UI.button("Walls…", "EditWalls", func():walls_requested.emit()))
+	tools.add_child(UI.button("Door finish\nM", "EditDoorAppearance", func():materials_requested.emit()))
 	for button in tools.get_children():
 		button.add_theme_font_size_override("font_size",14)
 		button.custom_minimum_size = Vector2(64,48)
@@ -208,6 +212,8 @@ func set_editor(state: Dictionary, busy: bool, dirty: bool) -> void:
 	var editable := not state.is_empty()
 	_doors=state.get("doors",[])
 	find_child("DoorPanels",true,false).disabled=not editable or busy or _doors.filter(func(door):return door["floorId"]==controller.floor_id).is_empty()
+	find_child("EditWalls",true,false).disabled=not editable or busy
+	find_child("EditDoorAppearance",true,false).disabled=not editable or busy
 	controller.editing = editable and not busy
 	for name in ["FirstPerson","FloorSelector","FitFloor","EditingLayer"]: find_child(name,true,false).disabled = busy
 	if _catalog.is_empty() and editable:

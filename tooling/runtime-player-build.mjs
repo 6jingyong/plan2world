@@ -42,7 +42,9 @@ try {
     'Top view: middle/right drag pans, wheel zooms, left drag moves furniture, Esc cancels a drag.\n' +
     'Top-view dragging: optional 10 cm grid, straight-wall alignment and nearby furniture guides. Hold Alt for free placement; first-person micro-adjustment never snaps.\n' +
     'Place in room prepares a cancellable footprint preview; click a valid landing to accept. Swap uses the same preview. Wall/ceiling installation offers exact lists and direct host picking.\n' +
-    'Add, rotate, replace or delete furniture; save native Project and export a runtime scene ZIP. No undo or operation history. Architectural apertures stay fixed; Doors… configures existing sliding/paired panels.\n' +
+    'Add, rotate, replace or delete furniture; save native Project and export a runtime scene ZIP. No undo or operation history.\n' +
+    'Correct walls and openings opens the retained plan with located source notes. Draw/move/split/delete native wall segments and add/rehost doors/windows; save incomplete Projects, and apply to space only after strict floor/entry/placement checks pass. Source observations remain intact; no model repair request is added.\n' +
+    'M / Door appearance changes wood, glass or metal/security-door presentation without changing the opening, motion, physics or current open state. Panels… retains advanced mechanical settings.\n' +
     'Existing scenes, furniture editing and export run offline without an account. Only optional image creation/account connection uses the network and your OpenRouter credits.\n\n' +
     'WASD move | Ctrl slow | Shift fast | Mouse look | E door | Esc mouse | F1 scene menu\n' +
     'The scene menu pauses the current walkthrough. Failed scene opens can be dismissed by resuming it.\n\n' +

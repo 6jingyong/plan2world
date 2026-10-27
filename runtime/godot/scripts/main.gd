@@ -14,6 +14,8 @@ const DESKTOP_AUTHORING := preload("res://scripts/desktop_authoring.gd")
 const VIEW_STYLE:=preload("res://scripts/runtime_view_style.gd")
 const LIGHT_SETTINGS:=preload("res://scripts/light_settings.gd")
 const DOOR_SETTINGS:=preload("res://scripts/door_settings.gd")
+const ARCHITECTURE_EDITOR:=preload("res://scripts/architecture_editor.gd")
+const DOOR_MATERIALS:=preload("res://scripts/door_materials.gd")
 
 enum ViewMode { WALKTHROUGH, PLAN }
 
@@ -22,6 +24,8 @@ var _launcher
 var _authoring
 var _light_settings
 var _door_settings
+var _architecture_editor
+var _door_materials
 var _daylight:=0
 var _spawn: Vector3
 var _spawn_yaw = null
@@ -50,7 +54,7 @@ func _ready() -> void:
 	add_child(_session)
 	_discard = ConfirmationDialog.new()
 	_discard.theme = UI.theme()
-	_discard.dialog_text = "Discard unsaved furniture layout changes?"
+	_discard.dialog_text = "Discard unsaved Project changes?"
 	_discard.ok_button_text = "Discard changes"
 	_discard.confirmed.connect(func(): _pending_action.call())
 	add_child(_discard)
@@ -60,6 +64,14 @@ func _ready() -> void:
 	add_child(_authoring)
 	_light_settings=LIGHT_SETTINGS.new();add_child(_light_settings)
 	_door_settings=DOOR_SETTINGS.new();add_child(_door_settings)
+	_architecture_editor=ARCHITECTURE_EDITOR.new();add_child(_architecture_editor)
+	_architecture_editor.project_ready.connect(func(path:String):_request_action(_open_corrected_project.bind(path)))
+	_door_materials=DOOR_MATERIALS.new();add_child(_door_materials)
+	_door_materials.command_requested.connect(_edit_layout)
+	_door_materials.visibility_changed.connect(func():
+		if _door_materials.visible:return
+		while _editing or _session.busy:await get_tree().process_frame
+		if _world!=null and not _menu_open:_resume())
 	_door_settings.command_requested.connect(_edit_layout)
 	_door_settings.visibility_changed.connect(func():
 		if _door_settings.visible:return
@@ -70,6 +82,9 @@ func _ready() -> void:
 		while _editing or _session.busy:await get_tree().process_frame
 		if _world!=null and not _menu_open:_resume())
 	_authoring.project_ready.connect(func(path:String):_request_action(_open_project.bind(path)))
+	_authoring.correction_ready.connect(_show_plan_editor)
+	_launcher.correction_requested.connect(_show_plan_editor)
+	_launcher.door_materials_requested.connect(_show_door_materials)
 	_launcher.authoring_requested.connect(func(page:int):_authoring.show_page(page))
 	_launcher.scene_selected.connect(func(path: String): _request_action(_open_scene.bind(path)))
 	_launcher.project_selected.connect(func(path: String): _request_action(_open_project.bind(path)))
@@ -139,7 +154,7 @@ func _open_scene(runtime_path: String, architecture_path: String = "", editor_st
 	_plan_view = RUNTIME_PLAN_VIEW.new()
 	_world.add_child(_plan_view)
 	_plan_view.configure(data, _layout_camera)
-	_plan_view.register_dialog(_door_settings);_plan_view.register_dialog(_light_settings.dialog)
+	_plan_view.register_dialog(_door_settings);_plan_view.register_dialog(_door_materials);_plan_view.register_dialog(_light_settings.dialog)
 	_layout_camera.view_started.connect(_sync_controls)
 	_layout_camera.view_settled.connect(_sync_controls)
 	_plan_view.walkthrough_requested.connect(_show_walkthrough)
@@ -148,6 +163,8 @@ func _open_scene(runtime_path: String, architecture_path: String = "", editor_st
 	_plan_view.preview_requested.connect(_begin_placement)
 	_plan_view.light_requested.connect(_show_light_settings)
 	_plan_view.doors_requested.connect(_show_door_settings)
+	_plan_view.walls_requested.connect(func():_show_plan_editor())
+	_plan_view.materials_requested.connect(_show_door_materials)
 	_plan_view.save_requested.connect(_save_layout)
 	_plan_view.export_requested.connect(func(path: String):
 		var error: Error = _session.export_runtime(path)
@@ -188,20 +205,33 @@ func _request_action(action: Callable) -> void:
 	else:
 		action.call()
 
-func _open_project(path: String) -> void:
+func _open_project(path: String) -> bool:
 	_show_menu("Opening Project…")
 	_launcher.set_busy(true)
 	var result: Dictionary = await _session.open_project(path)
 	_launcher.set_busy(false)
 	if not result.get("ok", false):
 		_show_menu(str(result["error"]))
-		return
+		return false
 	if not _open_scene(str(result["runtimePath"]), "", result):
 		_session.discard_candidate(result)
-		return
+		return false
 	_view_mode = ViewMode.PLAN
 	_resume()
 	_sync_editor()
+	return true
+
+func _show_plan_editor(path:="") -> void:
+	if _editing or _session.busy:return
+	if path.is_empty():
+		if _session.current().is_empty():return
+		path=_session.current()["projectPath"]
+	_show_menu();_architecture_editor.show_project(path)
+
+func _open_corrected_project(path:String) -> void:
+	if await _open_project(path):
+		_architecture_editor.session._dirty=false
+		_architecture_editor._source_path=_session.current()["projectPath"]
 
 func _edit_layout(command: Dictionary) -> void:
 	if _session.busy or _editing:
@@ -216,6 +246,10 @@ func _edit_layout(command: Dictionary) -> void:
 	_editing = false
 	if result.get("ok", false):
 		var candidate: Dictionary = RUNTIME_ARTIFACTS.new().load_runtime(str(result["runtimePath"]))
+		if result.get("updateKind")=="door-material":
+			if candidate.is_empty() or not _apply_door_material(result,candidate,str(command["id"])):
+				_session.discard_candidate(result);_sync_controls();_layout_message("Could not replace the door appearance. Previous door retained.");return
+			_session.accept(result);_sync_controls();return
 		if result.get("updateKind")=="doors":
 			if candidate.is_empty() or not _apply_door_state(result,candidate,str(command["id"])):
 				_session.discard_candidate(result);_sync_controls();_layout_message("Door panels overlap an obstacle or the player. Previous door retained.");return
@@ -261,6 +295,17 @@ func _apply_layout_state(state: Dictionary, data: Dictionary) -> void:
 	if not changed.is_empty():_layout_camera.refresh(data, _collider_nodes, _furniture_models,changed.keys())
 	_layout_camera.selected_id = "" if state.get("selectedId") == null else str(state["selectedId"])
 	_sync_editor()
+
+func _apply_door_material(state:Dictionary,data:Dictionary,id:String) -> bool:
+	if data["source"].get("architectureSha256")!=_runtime_data["source"].get("architectureSha256") or data["colliders"]!=_runtime_data["colliders"]:return false
+	var entity:Dictionary={}
+	for item in data["entities"]:
+		if item["id"]==id:entity=item
+	if entity.is_empty():return false
+	_layout_camera.display.prepare_update({id:true})
+	if not RUNTIME_ASSET_RENDERER.new().replace_door_appearance(entity,_collider_nodes,RUNTIME_ARTIFACTS.new().load_assets(str(state["runtimePath"]))):return false
+	_runtime_data=data;_layout_camera.display.refresh(data,_furniture_models)
+	return true
 
 func _apply_door_state(state:Dictionary,data:Dictionary,id:String) -> bool:
 	if data["source"].get("architectureSha256")!=_runtime_data["source"].get("architectureSha256"):return false
@@ -388,15 +433,16 @@ func _sync_editor() -> void:
 	_plan_view.set_editor(_session.current(), _session.busy or _editing or _layout_camera.transitioning, _session.is_dirty())
 
 func _sync_controls() -> void:
-	var walking: bool = not _menu_open and not _light_settings.dialog.visible and not _door_settings.visible and _view_mode == ViewMode.WALKTHROUGH and not _layout_camera.transitioning and not _adjustment.active and not _editing
+	var modal_open:bool=_light_settings.dialog.visible or _door_settings.visible or _door_materials.visible or _architecture_editor.visible
+	var walking: bool = not _menu_open and not modal_open and _view_mode == ViewMode.WALKTHROUGH and not _layout_camera.transitioning and not _adjustment.active and not _editing
 	var player := _world.get_node("Player") as P2WPlayer
 	player.set_physics_process(walking)
-	player.set_process_unhandled_input(not _menu_open and _view_mode == ViewMode.WALKTHROUGH and not _layout_camera.transitioning)
+	player.set_process_unhandled_input(not _menu_open and not modal_open and _view_mode == ViewMode.WALKTHROUGH and not _layout_camera.transitioning)
 	player.interaction_enabled = walking
-	_adjustment.set_process_unhandled_input(not _menu_open and not _editing)
-	_layout_camera.set_process_unhandled_input(not _menu_open and not _door_settings.visible)
+	_adjustment.set_process_unhandled_input(not _menu_open and not _editing and not modal_open)
+	_layout_camera.set_process_unhandled_input(not _menu_open and not modal_open)
 	if not _menu_open:
-		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED if _view_mode == ViewMode.WALKTHROUGH and not _layout_camera.transitioning else Input.MOUSE_MODE_VISIBLE
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED if _view_mode==ViewMode.WALKTHROUGH and not _layout_camera.transitioning and not modal_open else Input.MOUSE_MODE_VISIBLE
 	_sync_editor()
 
 func _save_layout(path: String) -> void:
@@ -406,13 +452,14 @@ func _save_layout(path: String) -> void:
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if _authoring._screen.visible:return
-	if _light_settings.dialog.visible or _door_settings.visible:return
+	if _light_settings.dialog.visible or _door_settings.visible or _door_materials.visible or _architecture_editor.visible:return
 	if event is InputEventKey and event.pressed and not event.echo and not _menu_open and _world!=null:
 		if event.keycode==KEY_T and _view_mode==ViewMode.WALKTHROUGH:
 			_set_daylight((_daylight+1)%4);get_viewport().set_input_as_handled();return
 		if event.keycode==KEY_L and not _session.current().is_empty():
 			_show_light_settings(_layout_camera.selected_id if _view_mode==ViewMode.PLAN or _adjustment.active else _adjustment.aimed_id())
 			get_viewport().set_input_as_handled();return
+		if event.keycode==KEY_M and not _session.current().is_empty():_show_door_materials();get_viewport().set_input_as_handled();return
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F1:
 		if _menu_open and _world != null:
 			_resume()
@@ -524,6 +571,18 @@ func _show_door_settings() -> void:
 	_adjustment.cancel();_layout_camera.cancel_drag();_release_actions()
 	_door_settings.show_doors(_session.current().get("doors",[]),_layout_camera.floor_id)
 	if _door_settings.visible:get_tree().paused=true;Input.mouse_mode=Input.MOUSE_MODE_VISIBLE;_sync_controls()
+
+func _show_door_materials() -> void:
+	if _editing or _session.busy or _session.current().is_empty():return
+	_adjustment.cancel();_layout_camera.cancel_drag();_release_actions()
+	var selected:=""
+	var floor_id:String=_layout_camera.floor_id
+	if _view_mode==ViewMode.WALKTHROUGH:
+		selected=_adjustment.aimed_id()
+		for entity in _runtime_data["entities"]:
+			if entity["id"]==selected and entity["kind"]=="door":floor_id=entity["floorId"];break
+	_door_materials.show_doors(_session.current().get("doorAppearances",[]),floor_id,selected)
+	if _door_materials.visible:get_tree().paused=true;Input.mouse_mode=Input.MOUSE_MODE_VISIBLE;_sync_controls()
 
 func _update_asset_notice() -> void:
 	var notes := _scene_notes.duplicate()

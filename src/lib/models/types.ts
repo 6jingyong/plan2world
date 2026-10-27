@@ -104,6 +104,8 @@ export type DoorLeafConfiguration =
   | { kind: 'sliding'; leaves: SlidingDoorLeaf[] };
 
 export interface Door {
+  /** Appearance only; does not change aperture, leaves, motion or collision. */
+  material?: 'wood' | 'glass' | 'steel';
   details?: ItemDetails;
   id: string;
   wallId: string;
@@ -330,6 +332,8 @@ export interface ReconstructionEvidence {
 }
 
 export interface Project {
+  /** Authoring review notes. Source records remain evidence, never live geometry. */
+  architectureReview?: { version: 1; sourceObservations?: string; workingImageSha256?: string; issues: { id: string; floorId: string; message: string; position?: Point; sourceRecord?: string; resolved: boolean }[] };
   reconstruction?: ReconstructionEvidence;
   customModels?: CustomModelDef[];
   attachmentNames?: Record<string, string>;

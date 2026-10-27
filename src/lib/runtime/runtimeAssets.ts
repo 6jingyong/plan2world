@@ -25,11 +25,12 @@ export type ReadCatalogAsset = (file: string) => Promise<Uint8Array | null>;
 
 /** A reusable centered unit leaf. Presentation is independent of collider shape;
  * instance width/height/thickness and motion all come from runtime semantics. */
-export function compileDefaultDoorAsset() {
+export function compileDefaultDoorAsset(material: 'wood' | 'glass' | 'steel' = 'wood') {
   const mesh: MeshBuilder = { positions: [], normals: [], uvs: [], indices: [] };
   appendBox(mesh, [0, 0, 0], [1, 1, 1], 0);
-  return serializePresentationGlb([{ ...mesh, id: 'builtin:door-leaf-v1', kind: 'door', material: 'door' }], {
-    artifact: 'runtime-asset', assetId: 'builtin:door-leaf-v1',
+  const id = material === 'wood' ? 'builtin:door-leaf-v1' : `builtin:door-${material}-leaf-v1`;
+  return serializePresentationGlb([{ ...mesh, id, kind: 'door', material: material === 'wood' ? 'door' : material === 'glass' ? 'glass' : 'door-steel' }], {
+    artifact: 'runtime-asset', assetId: id,
   });
 }
 
@@ -79,6 +80,8 @@ export async function compileRuntimeAssets(project: Project, runtime: Plan2World
     let bytes: Uint8Array | null = null;
     let reason: RuntimeAssetDiagnostic['reason'] = 'missing-source';
     if (id === 'builtin:door-leaf-v1') bytes = compileDefaultDoorAsset();
+    else if (id === 'builtin:door-glass-leaf-v1') bytes = compileDefaultDoorAsset('glass');
+    else if (id === 'builtin:door-steel-leaf-v1') bytes = compileDefaultDoorAsset('steel');
     else if (id.startsWith('builtin:') && id.endsWith('-v1') && needsCeilingMount(id.slice(8,-3))) bytes = compileCeilingLightAsset(id.slice(8,-3));
     else if (id.startsWith('builtin:') && id.endsWith('-v1') && hasBuiltinWallDecor(id.slice(8,-3))) bytes = compileWallDecorAsset(id.slice(8,-3));
     else if (id.startsWith('custom-model:')) {
