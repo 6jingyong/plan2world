@@ -110,6 +110,8 @@ export interface RuntimeFurnitureEntity extends RuntimeEntityBase {
   light?: { kind: 'omni' | 'spot'; enabled: boolean; lumens: number; temperatureKelvin: number; color: RuntimeVec3; range: number; spotAngleDegrees: number; localPosition: RuntimeVec3; direction: RuntimeVec3 };
   catalogId: string;
   sourceCategory?: string;
+  /** A position-only observation, whose presentation block is not measured furniture. */
+  representation?: 'source-marker';
   assetRef: string;
   position: RuntimeVec3;
   yawClockwiseRadians: number;

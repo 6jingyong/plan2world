@@ -25,6 +25,40 @@ func run() -> void:
 		if Time.get_ticks_msec()>deadline:push_error("Architecture correction test exceeded 120 wall-clock seconds.");quit(1))
 	main=load("res://main.tscn").instantiate();root.add_child(main);await process_frame
 	check(not main._architecture_editor.visible,"correction window starts hidden and does not capture normal input")
+	main._show_plan_editor(directory.path_join("entrance.project.json"));await idle()
+	var entry_editor=main._architecture_editor
+	var entry_path:String=entry_editor.session.current()["projectPath"]
+	check(entry_editor._tabs.current_tab==3 and entry_editor._entrance_selector.selected==0 and not entry_editor.session.current()["walkthroughReady"],"Missing entrance opens a dedicated choice without guessing a door")
+	check(not entry_editor._wall_permission.button_pressed and entry_editor.find_child("SetCorrectionEntrance",true,false).disabled,"Entrance preparation needs no wall-edit permission and requires an explicit choice")
+	entry_editor._entrance_selector.select(1);entry_editor._entrance_selector.item_selected.emit(1)
+	entry_editor._side.select(1);entry_editor._side.item_selected.emit(1)
+	check(entry_editor.canvas.entrance_preview=={"doorId":"entry","side":"right"} and entry_editor.session.current()["projectPath"]==entry_path and not entry_editor.session.is_dirty(),"Door and inward-arrow choices preview without writing the canonical Project")
+	await capture("entrance-preview")
+	entry_editor.find_child("CancelCorrectionEntrance",true,false).pressed.emit()
+	check(entry_editor._entrance_selector.selected==0 and entry_editor.canvas.entrance_preview.is_empty() and not entry_editor.session.is_dirty(),"Cancel clears only the pending entrance preview")
+	var door_click:=InputEventMouseButton.new();door_click.button_index=MOUSE_BUTTON_LEFT;door_click.pressed=true;door_click.position=entry_editor.canvas._screen(entry_editor._floor["openings"][0]["center"]);entry_editor.canvas._gui_input(door_click)
+	check(entry_editor._entrance_selector.selected==1 and entry_editor._tabs.current_tab==3 and not entry_editor.session.is_dirty(),"Clicking the actual door chooses an entrance preview without editing walls or following an overlapping source note")
+	entry_editor._side.select(1);entry_editor._side.item_selected.emit(1)
+	entry_editor.find_child("SetCorrectionEntrance",true,false).pressed.emit();await idle()
+	check(not entry_editor.session.current()["walkthroughReady"] and entry_editor._apply.disabled and entry_editor._floor["entrance"]["side"]=="right","Confirmed outward arrow remains editable but cannot create an unsupported walkthrough")
+	entry_editor._side.select(0);entry_editor._side.item_selected.emit(0)
+	entry_editor.find_child("SetCorrectionEntrance",true,false).pressed.emit();await idle()
+	check(entry_editor.session.current()["walkthroughReady"] and entry_editor._tabs.current_tab==3 and entry_editor.canvas.entrance_preview.is_empty(),"Explicit inward entrance compiles while the edge source marker keeps its observed anchor")
+	var entrance_saved:=directory.path_join("entrance-confirmed.project.json");check(entry_editor.session.save_project(entrance_saved)==OK,"Save explicitly confirmed entrance")
+	var entrance_project:Dictionary=JSON.parse_string(FileAccess.get_file_as_string(entrance_saved))
+	var entrance_input:Dictionary=JSON.parse_string(FileAccess.get_file_as_string(directory.path_join("entrance.project.json")))
+	check(entrance_project["floors"][0]["furniture"]==entrance_input["floors"][0]["furniture"],"Entrance preparation never relocates the source marker")
+	entry_editor.discard_session()
+	check(await main._open_project(entrance_saved),"Confirmed entrance reopens through the strict shared core")
+	await idle()
+	var marker:Dictionary={}
+	for entity in main._runtime_data["entities"]:
+		if entity["id"]=="edge-marker":marker=entity
+	check(marker.get("representation")=="source-marker" and main._layout_camera.placement_allowed(main._runtime_data,"edge-marker"),"Native source-marker preview accepts its supported anchor without the arbitrary block wall overlap")
+	check(not main._layout_camera.placement_allowed(main._runtime_data,"edge-marker",Vector3(-.02,0,0)),"Native preview rejects an anchor moved beyond the actual floor")
+	var marker_revision:String=main._session.current()["projectPath"];var marker_world:int=main._world.get_instance_id()
+	main._edit_layout({"type":"replace","floorId":"ground","id":"edge-marker","asset":{"catalogId":"chair"}});await idle()
+	check(main._session.current()["projectPath"]==marker_revision and main._world.get_instance_id()==marker_world,"A real replacement over the edge fails atomically and retains the marker and world")
 	main._show_plan_editor(directory.path_join("fractional.project.json"));await idle()
 	var fractional=main._architecture_editor
 	var before_path:String=fractional.session.current()["projectPath"]
@@ -69,7 +103,7 @@ func run() -> void:
 	# Exercise the native canvas two-point wall-drawing input rather than only
 	# invoking the shared command directly.
 	editor._wall_permission.button_pressed=true
-	editor.canvas.drawing=true
+	editor.find_child("DrawCorrectionWall",true,false).pressed.emit()
 	for point in [{"x":0,"y":0},{"x":600,"y":0}]:
 		var event:=InputEventMouseButton.new();event.button_index=MOUSE_BUTTON_LEFT;event.pressed=true;event.position=editor.canvas._screen(point);editor.canvas._gui_input(event)
 	await idle()

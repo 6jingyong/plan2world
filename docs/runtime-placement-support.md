@@ -7,6 +7,16 @@ floor surfaces cannot inflate coverage and conceal an aperture. Boundaries may
 touch; positive unsupported area blocks export with the item/floor identity.
 Native JSON remains readable for correction, including invalid older layouts.
 
+Position-only source markers (`imported_object`, `renderStyle: block`, no custom
+model) are explicitly emitted as `representation: source-marker`. Their default
+50cm display block is not an observed furniture size. The shared compiler and
+Godot therefore require the anchor itself to lie on the actual floor-triangle
+union, including boundary contact; anchors in holes or outside the floor fail.
+They have no walking collider and reserve no block against doors or placement
+obstacles. Replacing a marker with real furniture removes this representation
+and restores complete-footprint, obstacle and closed-door checks atomically.
+Legacy ordinary unrecognized items retain the complete-footprint policy.
+
 Godot previews use the same subtraction over the supplied runtime floor
 triangles, cached on scene changes. It does not triangulate rooms, sample only
 corners, infer floors from GLB or relocate furniture. Ceiling previews restrict

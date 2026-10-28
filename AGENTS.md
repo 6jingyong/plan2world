@@ -25,9 +25,11 @@ Plan2World turns a floor-plan raster into an editable browser home and an engine
 - The direct Skill records `source-architecture-v1` in original image pixels,
   including concise visual evidence, decisions and uncertain/rejected candidates.
 - Wall evidence `source-wall-trace-v1` is projected from that observation by code.
-- User geometry policy: source observation may prefer modest polygon approximations
-  of rounded outlines for walkthrough presentation. Preserve openings, recesses
-  and connectivity; never flatten already-authored native Project curves.
+- User geometry policy: new reconstruction and native authoring default to straight
+  polygon segments, including modest polygon approximations of rounded outlines.
+  Do not plan or add curve-editing/mounting features. Preserve openings, recesses
+  and connectivity; retain compatibility with already-authored native Project
+  curves without silently flattening or rewriting them.
 - The normalizer owns intersections, splitting, snapping and evidenced door-gap connectivity.
 - Optional visible junction points remain source-pixel evidence without wall IDs.
   Source-topology review reports near misses beyond conservative snapping; it
@@ -263,7 +265,11 @@ Use `schemas/plan2world-draft-v1.schema.json` and `docs/plan2world-draft-v1.md`.
   before presentation could omit the host wall. Keep invalid native backups
   editable. Source semantic blocks (`imported_object`, `renderStyle: block`, no
   custom model) stay selectable without arbitrary proxy walking collision;
-  authored replacements and legacy ordinary objects retain normal collision.
+  the compiler labels them `representation: source-marker`. Validate their observed
+  point against actual floor triangles, not their arbitrary display-block extent;
+  do not reserve that extent against doors or obstacles. Off-floor/hole anchors
+  still fail. Authored replacements and legacy ordinary objects retain complete
+  footprint support, door clearance and normal collision.
 - Validate/load a candidate outside the active SceneTree before swapping worlds
   and editable source. Reject mismatched present GLBs using the compiler digest;
   failed loads must retain the previous scene. Missing assets remain explicit

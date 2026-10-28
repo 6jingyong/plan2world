@@ -13,7 +13,13 @@ export function architectureCorrectionProject(broken=false,offset=0){
  if(!broken && offset){floor.doors[0].width=90.125;floor.doors[0].position=.251234567890123;}
  return {id:'architecture-correction-fixture',name:'Synthetic architecture correction',createdAt:new Date(0),updatedAt:new Date(0),activeFloorId:floor.id,floors:[floor],architectureReview:{version:1,issues:[{id:'source-entry',floorId:floor.id,message:'Synthetic unhosted entry: add the north wall and door.',position:{x:150,y:0},sourceRecord:'Original synthetic observation retained.',resolved:false}]}};
 }
+export function architectureEntranceProject(){
+ const project=architectureCorrectionProject();delete project.floors[0].entrance;
+ project.floors[0].furniture.push({id:'edge-marker',catalogId:'imported_object',sourceCategory:'nightstand',renderStyle:'block',position:{x:1,y:300},rotation:0,scale:{x:1,y:1,z:1}});
+ return project;
+}
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
  const directory=path.resolve(process.argv[2]);await mkdir(directory,{recursive:true});
  for(const [name,broken,offset]of [['valid',false,0],['broken',true,0],['fractional',false,.125]])await writeFile(path.join(directory,name+'.project.json'),JSON.stringify(architectureCorrectionProject(broken,offset),null,2)+'\n');
+ await writeFile(path.join(directory,'entrance.project.json'),JSON.stringify(architectureEntranceProject(),null,2)+'\n');
 }

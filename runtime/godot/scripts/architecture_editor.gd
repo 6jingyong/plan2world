@@ -20,6 +20,8 @@ var _door_type:OptionButton
 var _hinge:OptionButton
 var _flip:CheckButton
 var _side:OptionButton
+var _entrance_selector:OptionButton
+var _entrance_status:Label
 var _message:Label
 var _issues:ItemList
 var _apply:Button
@@ -39,6 +41,7 @@ func _ready() -> void:
 	var bar:=HBoxContainer.new();root.add_child(bar)
 	_floors=OptionButton.new();_floors.name="CorrectionFloor";bar.add_child(_floors);_floors.item_selected.connect(_choose_floor)
 	bar.add_child(UI.button("Fit plan","FitCorrectionPlan",func():canvas.fit_plan()))
+	bar.add_child(UI.button("Choose entrance…","ChooseCorrectionEntrance",func():_tabs.current_tab=3))
 	bar.add_child(UI.button("Draw wall","DrawCorrectionWall",func():_tabs.current_tab=0;canvas.drawing=true;_message.text="Click the two wall endpoints. Wheel zooms; middle button pans."))
 	bar.add_child(UI.button("Save Project…","SaveCorrectionProject",func():_save.popup_centered_ratio(.8)))
 	_apply=UI.button("Apply to space","ApplyCorrectedProject",func():hide();project_ready.emit(session.current()["projectPath"]),true);bar.add_child(_apply)
@@ -56,6 +59,17 @@ func _ready() -> void:
 	for permission in [_wall_permission,_marked_permission]:permission.toggled.connect(func(_v:bool):canvas.walls_enabled=_wall_permission.button_pressed;canvas.marked_walls_enabled=_marked_permission.button_pressed;_selection_controls();canvas.queue_redraw())
 	var openings:=VBoxContainer.new();openings.name="Openings";_tabs.add_child(openings)
 	var notes:=VBoxContainer.new();notes.name="Notes";_tabs.add_child(notes)
+	var start:=VBoxContainer.new();start.name="Start";_tabs.add_child(start)
+	start.add_child(UI.label("Choose where walkthrough begins",18))
+	_entrance_status=UI.label("",13);_entrance_status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;start.add_child(_entrance_status)
+	start.add_child(UI.label("Main door",13));_entrance_selector=OptionButton.new();_entrance_selector.name="CorrectionMainDoor";start.add_child(_entrance_selector)
+	_entrance_selector.item_selected.connect(func(_i:int):_preview_entrance())
+	_side=OptionButton.new();_side.name="CorrectionEntranceSide";_side.add_item("Inward arrow · left");_side.add_item("Inward arrow · right");start.add_child(_side)
+	_side.item_selected.connect(func(_i:int):_preview_entrance())
+	var hint:=UI.label("Click the main door on the plan and point the amber arrow into the home. Preview first; confirm to save this entrance.",13,UI.MUTED);hint.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;start.add_child(hint)
+	_add_button(start,"Confirm entrance","SetCorrectionEntrance",func():
+		if _entrance_selector.selected>0:_command({"type":"set-entrance","id":_entrance_selector.get_selected_metadata(),"side":"left" if _side.selected==0 else "right"}))
+	_add_button(start,"Cancel entrance preview","CancelCorrectionEntrance",_sync_entrance)
 	panel.add_child(UI.label("Wall segments",18));_wall_selector=OptionButton.new();_wall_selector.name="CorrectionWall";panel.add_child(_wall_selector)
 	_wall_selector.item_selected.connect(func(i:int):_select("wall",_floor["walls"][i]["id"]))
 	_spin_fields(panel,[["start_x","Start X"],["start_y","Start Y"],["end_x","End X"],["end_y","End Y"],["thickness","Thickness"],["height","Wall height"],["split","Split at %"]])
@@ -75,9 +89,9 @@ func _ready() -> void:
 	_add_button(openings,"Add door on chosen wall","AddCorrectionDoor",func():_add_opening("door"))
 	_add_button(openings,"Add window on chosen wall","AddCorrectionWindow",func():_add_opening("window"))
 	_add_button(openings,"Apply opening / host wall","ApplyOpeningCorrection",_apply_opening)
-	_side=OptionButton.new();_side.name="CorrectionEntranceSide";_side.add_item("Inward arrow · left");_side.add_item("Inward arrow · right");openings.add_child(_side)
-	_side.item_selected.connect(func(i:int):canvas.inward_side=1 if i==0 else -1;canvas.queue_redraw())
-	_add_button(openings,"Use selected door as entrance","SetCorrectionEntrance",func():if _kind=="opening":_command({"type":"set-entrance","id":_id,"side":"left" if _side.selected==0 else "right"}))
+	_add_button(openings,"Preview selected door as entrance…","PreviewCorrectionEntrance",func():
+		for i in range(1,_entrance_selector.item_count):
+			if _entrance_selector.get_item_metadata(i)==_id:_entrance_selector.select(i);_tabs.current_tab=3;_preview_entrance();break)
 	_add_button(openings,"Remove selected item","RemoveCorrectionItem",func():
 		if _kind in ["opening","furniture"]:_command({"type":"opening-remove" if _kind=="opening" else "remove","id":_id}))
 	notes.add_child(UI.label("Source review notes",18));_issues=ItemList.new();_issues.name="CorrectionIssues";_issues.custom_minimum_size.y=230;notes.add_child(_issues)
@@ -88,6 +102,9 @@ func _ready() -> void:
 	_save.file_selected.connect(func(path:String):_message.text="Project saved." if session.save_project(path)==OK else "Could not save the Project.")
 	_discard=ConfirmationDialog.new();_discard.dialog_text="Discard the unsaved correction session and open another Project?";_discard.confirmed.connect(func():_pending_discard.call());add_child(_discard)
 	close_requested.connect(hide)
+	_tabs.tab_changed.connect(func(index:int):
+		canvas.entrance_picking=index==3;canvas.drawing=false;canvas._draft_start=null
+		if index!=3 and not _floor.is_empty():_sync_entrance())
 
 func _add_button(parent:Node,label:String,node_name:String,action:Callable) -> void:
 	var button:=UI.button(label,node_name,action);parent.add_child(button);_buttons.append(button)
@@ -117,7 +134,8 @@ func _load_project(path:String) -> void:
 	_set_busy(true);var result:Dictionary=await session.open_plan_project(path);_set_busy(false)
 	if not result.get("ok",false):_message.text=result["error"];return
 	session.accept(result,true);_source_path=path;_kind="";_id="";_refresh()
-	if _floor["issues"].any(func(issue):return not issue["resolved"]):_tabs.current_tab=2
+	if not session.current()["editor"]["floors"].any(func(f):return f.get("entrance")!=null or f.get("walkthroughStart")!=null):_tabs.current_tab=3
+	elif _floor["issues"].any(func(issue):return not issue["resolved"]):_tabs.current_tab=2
 
 func _set_busy(value:bool) -> void:
 	canvas.mouse_filter=Control.MOUSE_FILTER_IGNORE if value else Control.MOUSE_FILTER_STOP
@@ -138,7 +156,8 @@ func _selection_controls() -> void:
 	for name in ["ApplyWallCorrection","SplitCorrectionWall","RemoveCorrectionWall"]:find_child(name,true,false).disabled=_kind!="wall" or not _wall_permission.button_pressed or (marked and not _marked_permission.button_pressed)
 	find_child("DrawCorrectionWall",true,false).disabled=not _wall_permission.button_pressed
 	find_child("ApplyOpeningCorrection",true,false).disabled=_kind!="opening"
-	find_child("SetCorrectionEntrance",true,false).disabled=_kind!="opening"
+	find_child("SetCorrectionEntrance",true,false).disabled=_entrance_selector.selected<=0
+	find_child("PreviewCorrectionEntrance",true,false).disabled=not _floor.get("openings",[]).any(func(o):return o["id"]==_id and o["kind"]=="door" and o["type"]!="opening")
 	find_child("ResolveCorrectionIssue",true,false).disabled=_kind!="issue"
 	find_child("RemoveCorrectionItem",true,false).disabled=not _kind in ["opening","furniture"]
 
@@ -150,16 +169,36 @@ func _refresh() -> void:
 	_message.text="Plan saved in the editing session. Review source notes; save a Project backup before closing." if session.current().get("walkthroughReady",false) else "Continue correcting the plan. "+str(session.current().get("runtimeError",""))
 
 func _choose_floor(index:int) -> void:
+	var tab:=_tabs.current_tab
 	_floor=session.current()["editor"]["floors"][index];_wall_selector.clear();_host_selector.clear();_items.clear();_issues.clear()
 	for wall in _floor["walls"]:_wall_selector.add_item(wall["id"]+(" · corrected / protected" if wall.get("authorModified",false) else ""));_host_selector.add_item(wall["id"])
 	for opening in _floor["openings"]:_items.add_item(opening["id"]+" · "+opening["kind"])
 	for issue in _floor["issues"]:_issues.add_item(("✓ " if issue["resolved"] else "! ")+issue["message"]);_issues.set_item_tooltip(_issues.item_count-1,issue["message"])
 	canvas.configure(_floor,_id)
+	_sync_entrance()
 	if _kind.is_empty() and not _floor["issues"].is_empty():_tabs.current_tab=2
 	if _kind=="wall" and _floor["walls"].any(func(w):return w["id"]==_id):_select(_kind,_id)
 	elif _kind=="opening" and _floor["openings"].any(func(o):return o["id"]==_id):_select(_kind,_id)
 	elif _kind=="issue" and _floor["issues"].any(func(i):return i["id"]==_id):_select(_kind,_id)
 	elif not _floor["walls"].is_empty():_select("wall",_floor["walls"][0]["id"])
+	_tabs.current_tab=tab
+	if tab==3:_sync_entrance()
+
+func _sync_entrance() -> void:
+	_entrance_selector.clear();_entrance_selector.add_item("Choose an existing door…");_entrance_selector.set_item_metadata(0,"")
+	var entrance=_floor.get("entrance")
+	for opening in _floor.get("openings",[]):
+		if opening["kind"]!="door" or opening["type"]=="opening":continue
+		_entrance_selector.add_item(opening["id"]);_entrance_selector.set_item_metadata(_entrance_selector.item_count-1,opening["id"])
+		if entrance is Dictionary and entrance["doorId"]==opening["id"]:_entrance_selector.select(_entrance_selector.item_count-1)
+	_side.select(1 if entrance is Dictionary and entrance["side"]=="right" else 0)
+	_entrance_status.text="Confirmed entrance: "+str(entrance["doorId"])+". The green arrow shows the saved inward side." if entrance is Dictionary else "No main door chosen on this floor. Choose the actual entrance and its inward arrow."
+	if _floor.get("walkthroughStart")!=null and entrance==null:_entrance_status.text="This floor has an explicitly saved start. Confirming a main door will replace that start."
+	canvas.entrance_preview={};canvas.queue_redraw();_selection_controls()
+
+func _preview_entrance() -> void:
+	canvas.entrance_preview={} if _entrance_selector.selected<=0 else {"doorId":_entrance_selector.get_selected_metadata(),"side":"left" if _side.selected==0 else "right"}
+	canvas.queue_redraw();_selection_controls()
 
 func _select(kind:String,id:String) -> void:
 	_kind=kind;_id=id;canvas.selected_id=id;canvas.queue_redraw()
@@ -174,7 +213,8 @@ func _select(kind:String,id:String) -> void:
 				_fields[key+"_x"].value=w[key]["x"];_fields[key+"_y"].value=w[key]["y"]
 			_fields["thickness"].value=w["thickness"];_fields["height"].value=w["height"]
 	elif kind=="opening":
-		_tabs.current_tab=1
+		var preparing_entrance:=_tabs.current_tab==3
+		if not preparing_entrance:_tabs.current_tab=1
 		for i in range(_floor["openings"].size()):
 			var o:Dictionary=_floor["openings"][i]
 			if o["id"]!=id:continue
@@ -188,6 +228,9 @@ func _select(kind:String,id:String) -> void:
 					if _door_type.get_item_metadata(ti)==o["type"]:_door_type.select(ti);found=true
 				if not found:_door_type.add_item("Keep existing motion");_door_type.set_item_metadata(_door_type.item_count-1,o["type"]);_door_type.select(_door_type.item_count-1)
 			_hinge.disabled=o["kind"]!="door";_flip.disabled=o["kind"]!="door";_door_type.disabled=o["kind"]!="door"
+		if preparing_entrance:
+			for i in range(1,_entrance_selector.item_count):
+				if _entrance_selector.get_item_metadata(i)==id:_entrance_selector.select(i);_preview_entrance();break
 	elif kind=="issue":
 		_tabs.current_tab=2
 		for i in range(_floor["issues"].size()):
@@ -217,4 +260,5 @@ func _command(command:Dictionary) -> void:
 	else:_id="";_kind=""
 	if command["type"]=="wall-add":_kind="wall"
 	if command["type"]=="opening-add":_kind="opening"
+	if command["type"]=="set-entrance":_kind="opening"
 	_refresh()

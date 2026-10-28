@@ -10,7 +10,7 @@ import { runtimeDoorAuditProject } from './runtime-door-audit-fixture.mjs';
 import { runtimeMultileafProject } from './runtime-multileaf-fixture.mjs';
 import { runtimeSupportProject } from './runtime-support-fixture.mjs';
 import {runtimeLightingReferenceProject} from './runtime-lighting-reference-fixture.mjs';
-import {architectureCorrectionProject} from './runtime-architecture-correction-fixture.mjs';
+import {architectureCorrectionProject,architectureEntranceProject} from './runtime-architecture-correction-fixture.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const [playerZip, output] = process.argv.slice(2);
@@ -57,6 +57,7 @@ const supportInput=path.join(directory,'support.project.json');await writeFile(s
 const lightingInput=path.join(directory,'lighting-reference.project.json');await writeFile(lightingInput,JSON.stringify(await runtimeLightingReferenceProject()));
 const correctionDirectory=path.join(directory,'architecture-correction');await mkdir(correctionDirectory);
 for (const [name,broken,offset] of [['valid',false,0],['broken',true,0],['fractional',false,.125]]) await writeFile(path.join(correctionDirectory,name+'.project.json'),JSON.stringify(architectureCorrectionProject(broken,offset)));
+await writeFile(path.join(correctionDirectory,'entrance.project.json'),JSON.stringify(architectureEntranceProject()));
 const godot = process.env.GODOT_BIN || 'godot';
 if (!(await readFile(path.join(playerDirectory, 'README.zh-CN.md'), 'utf8')).includes('用法一：插件 / Skill')) throw new Error('Player is missing its two-entry user guide.');
 for (const filename of ['runtime_launcher_test.gd', 'runtime_walkthrough_test.gd', 'runtime_layout_test.gd', 'runtime_product_controls_test.gd', 'runtime_snapping_test.gd', 'runtime_snapping_controls_test.gd', 'runtime_layout_ui_test.gd', 'runtime_desktop_authoring_test.gd', 'runtime_plan_lighting_test.gd', 'runtime_interaction_test.gd', 'runtime_multileaf_test.gd', 'runtime_support_test.gd', 'runtime_placement_preview_test.gd', 'runtime_lighting_reference_test.gd', 'runtime_architecture_correction_test.gd', 'runtime_object_editing_test.gd', 'runtime_spatial_authoring_test.gd']) {
