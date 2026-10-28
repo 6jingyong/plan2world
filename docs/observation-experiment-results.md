@@ -671,3 +671,30 @@
 - **证据**：`.plan2world-validation/runs/20261028-web-floorplans-and-wall-art/`中
   `source-manifest.json`、`source-evaluation.json`、各新图原图/观察/前后输出/叠图、
   `web-native-first/`、`art-rendered-first/`；最终交付/CI状态另记，不借用旧发布结果。
+
+
+## P18/E19 — 失败隔离、结构合同与评估（2026-10-28）
+
+- **变量与身份**：固定P17五份建筑/家具观察及原图，比较main `7c87844`冻结程序bundle
+  与P18；不是新的图像提取A/B。Schema和付费传输仅用模拟提供方、标准JSON Schema
+  校验器验证；实际外部付费请求0，指引仍v24，容差/栅格修正/闭合未改。
+- **结果**：NASA原23墙/0门窗变为相同23墙、8门2窗；逐条校验揭示两条非法
+  `sliding-door`，不改名或补宿主。办公室22墙保留，新增保留3开口，墙冲突仍在。
+  Peale/Kumaya/FOCSA既有几何保持；全部待审，标注21/11/17/1/5→10/9/16/1/5。
+  直接问题分别2/2/15/1/4，不等于独立物理缺陷数或人工修正次数。无源准确率/F1结论。
+- **验证边界**：四旧图工程字节与严格拒绝一致，黑底工程/runtime/GLB字节一致。五新图
+  实际Godot窗口打开、保存、重开保留标注/原观察/门窗，墙修改仍默认关闭。编译、源图
+  审查、入口选择和漫游验收分别记录；NASA/FOCSA支撑和Peale三角化拒绝保留。
+- **负例**：首轮辅助投影误把观察字段送入墙trace，聚焦测试发现并修正；初期类型检查
+  和离线原图按钮脚本错误均保留日志。补原图/前后切换的真实浏览器回归。显示服务器
+  不可用及无root安装失败有记录，最终使用已有便携Xvfb完成实际窗口验证，无系统安装。
+- **下一步**：独立参考缺失仍`not_run`；本轮证明合法结果保留和诊断改善，不证明视觉
+  提取变准或token节省。后续门窗局部证据、多缺口联合判断、专用模型仍需独立对照。
+- **证据**：`.plan2world-validation/runs/20261028-isolated-source-import/`的
+  `baseline.json`、`release-replay/web-comparison.json`、`old-regression.json`、
+  `native-web-current/`、`native-current-gates.log`、`report-browser-final/`与最终验证日志。
+
+- **最终检查/清理**：1,865单测/216文件、类型0/0、生产构建、4项浏览器回归、当前
+  Linux包20组与release启动通过；最终五新图实际窗口保存/重开通过。精确校对ZIP的
+  文件SHA及可执行位后移除4份重复解压树，释放815,313,948字节，权限差异另记供恢复。
+  初次清理因ZIP默认读写权限差异拒绝且未删文件；源图、冻结观察、工程、检查点和负例保留。

@@ -118,6 +118,8 @@ the accepted aperture. No native IDs or host matching are reviewer responsibilit
 Default browser/desktop callers have no reviewer and no extra paid request.
 See [source recovery](docs/source-recovery.md).
 
+Correction-only partial import may retain individually validated openings and furniture after a failed source stage. Preserve disputed walls and block dependent/ambiguous apertures; do not run closure or invent rooms on incomplete evidence. Structured diagnostics and checkpoint-bound provider schemas are authoring-only. See [source reliability](docs/source-reliability.md).
+
 ## Furnished-space enclosure prior
 
 User-defined default: a furnished indoor space is expected to have a fully
@@ -197,7 +199,7 @@ Every image-quality rerun starts from the original raster and a new ignored dire
 
 Do not use an older run as input. Do not write generated wall traces, annotations, drafts, overlays or reports under `tests/fixtures`.
 
-`tests/fixtures/real-floorplans/reconstruction-corpus/manifest.json` contains source identity only. Human source references live separately under `tests/evaluation/plan2world/source-references/` and may be read only after the fresh wall evidence, Bare House, annotations, draft and source overlay are generated and frozen.
+`tests/fixtures/real-floorplans/web-source-manifest.json` contains public source identity and attribution only. Human source references live separately under `tests/evaluation/plan2world/source-references/` and may be read only after the fresh wall evidence, Bare House, annotations, draft and source overlay are generated and frozen. Missing independent references remain `not_run`.
 
 Historical runs and development diaries belong in Git history, not the active tree.
 Per user instruction, retain the compact versioned experiment ledger at

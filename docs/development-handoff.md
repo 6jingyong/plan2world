@@ -1,17 +1,44 @@
 # Plan2World 开发交接
 
-更新：2026-10-28，P17网上新图与画作图片。先读本页、[`AGENTS.md`](../AGENTS.md)和
+更新：2026-10-28，P18失败隔离、结构约束与评估。先读本页、[`AGENTS.md`](../AGENTS.md)和
 [当前问题](current-issues.md)。本页保留当前实现与证据入口；旧逐轮开发日志已在Git历史
 `c02dfc37547094ac52317f12d848288ed8f65777:docs/development-handoff.md`完整保留。
 [实验记录](observation-experiment-results.md)按用户要求继续保留，不删除失败。
 
 ## 当前任务与发布边界
 
-用户本轮明确要求：网上找住宅/公司/博物馆图自行测试，补齐贴墙画作本地图片导入，完成后
-清理确认无效文件并合并GitHub。因此本轮可推送、建PR和正常合并；不得绕过检查或强推。
-后续新任务仍默认本地，授权不自动延续。上一已发布版本是PR[#83](https://github.com/6jingyong/plan2world/pull/83)，
-main `d63c532`；本轮包含此前本地P15 `d2f4e7a`、P16 `c02dfc3`与P17，最终提交/PR/CI以
-GitHub及本轮私有`completion.json`为准，不借旧25项CI替代新版本验证。
+上一轮P17已合并PR[#84](https://github.com/6jingyong/plan2world/pull/84)，main
+`7c8784418a8d307309264218818566f6ef09da22`。本轮用户选择“先完成基础改造”，并授权
+替换/清理无用旧代码；本轮保持本地，不推送、不建PR、不合并。
+
+## P18已实现与真实边界
+
+- **局部隔离**：正常流程保持；纠错投影逐条复用严格解析，保留独立合法墙、门窗、家具。
+  争议墙可见，依赖开口受阻；多宿主/重叠开口不选一个，未知影响仍保守阻塞。部分投影
+  不闭合、不拟合、不推导房间，不返回完整draft。门运动警告、完整观察和失败审计保留。
+- **诊断与兼容**：直接问题/受阻/不确定分开记录，包含阶段、源记录路径和阻塞关系。
+  原生Project兼容保存可选元数据，审计绑定工程内容SHA。替换原有只救墙的重复回退及
+  重叠墙文案正则；旧工程、严格源API和运行时编译规则保留。
+- **结构输出**：新任务先免费查询端点能力，支持时使用阶段Schema与参数路由要求；未知
+  时在观察前选旧JSON模式。无付费失败后的降级重试。Schema复用重复定义；检查点绑定
+  合同和Schema SHA，旧任务按原JSON合同续跑。字节、提供方token/费用分别记录。
+- **同观察对照**：NASA保留8门2窗（之前0），两条非法滑门记录继续待审；办公室保留
+  3开口（之前0），22墙及争议保留。Peale/Kumaya/FOCSA几何保持。五图仍全部
+  `review_required`，标注分别10/9/16/1/5。没有独立人工参考、真实provider新观察或
+  整屋漫游结论。NASA/FOCSA缺地面支撑、Peale三角化拒绝继续保留。
+- **评估入口**：`npm run source:evaluate -- replay|evaluate ...`，零模型调用，先冻结工程
+  再读可选参考。JSON及独立HTML原图/前后叠图，分类统计程序结果和源审查；缺少参考
+  保持`not_run`，不估算人工操作次数。旧审计不能用于改过的工程。
+
+实现与命令见[源可靠性](source-reliability.md)。本轮证据目录
+`.plan2world-validation/runs/20261028-isolated-source-import/`；以`release-replay/`、
+`native-web-current/`、`native-current-gates/`和最终日志为准，早期失败不覆盖。
+最终1,865单测/216文件、类型0/0、生产构建、4项浏览器回归及Linux20组包门禁通过；
+实际Mesa窗口五图保存/重开通过。`schema-validation-final.json`验证结构合同，实际付费
+请求0。精确比对归档ZIP后删除4份重复解压树，释放815,313,948字节；权限差异可从
+`cleanup.json`恢复，原图/工程/检查点/失败不删。Windows未实机验证。
+当前开发播放器为该目录下`player-current/`，其ZIP可搬移使用。四旧图严格拒绝/工程字节
+及黑底工程/runtime/建筑GLB对照在`old-regression.json`；不是新识图或新增漫游路线。
 
 ## P17已实现与真实边界
 

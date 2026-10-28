@@ -10,7 +10,7 @@ This directory contains reconstruction inputs and deterministic downstream basel
 
 ## Fresh reconstruction corpus
 
-`reconstruction-corpus/manifest.json` contains only source identity and challenge metadata for the five difficult owner-provided rasters. The rasters themselves are not redistributed because their reuse rights are not established.
+`web-source-manifest.json` contains source identity and attribution for the five public residential, office and museum inputs. Historical owner-provided rasters and frozen runs remain private validation evidence; their reuse rights are not established, so they are not redistributed here.
 
 The reconstruction manifest deliberately contains no reference path, prior draft, wall trace, annotation, candidate ID or score. A fresh run starts only from a raster whose dimensions and SHA-256 match that manifest.
 

@@ -28,6 +28,21 @@ export interface BareHouseV1 {
   limitation: string;
 }
 
+export interface WallGeometryConflict {
+  kind: 'duplicate' | 'overlap';
+  wallIds: string[];
+  sourceWallIds: string[];
+}
+
+/** Keep source identity available to correction without parsing error prose. */
+export class WallGeometryConflictError extends Error {
+  constructor(public conflicts: WallGeometryConflict[]) {
+    const first = conflicts[0];
+    super(`${first.kind === 'duplicate' ? 'Duplicate' : 'Overlapping'} normalized wall geometry: ${first.wallIds.join(' and ')}. Review overlapping source-wall evidence before annotation.`);
+    this.name = 'WallGeometryConflictError';
+  }
+}
+
 function record(value: unknown, path: string): Record<string, any> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${path} must be an object`);
   return value as Record<string, any>;
@@ -85,12 +100,15 @@ export function buildBareHouse(input: unknown): BareHouseV1 {
   // splitting. Reject that evidence before a second model pass or native room
   // conversion; do not silently discard a wall or repair the generated output.
   const geometryIds = new Map<string, string>();
+  const conflicts: WallGeometryConflict[] = [];
+  const conflict = (kind: WallGeometryConflict['kind'], wallIds: string[]) => conflicts.push({ kind, wallIds,
+    sourceWallIds: Object.entries(normalized.sourceWallMap).filter(([, ids]) => ids.some(id => wallIds.includes(id))).map(([id]) => id) });
   const pointKey = (point: DraftPoint) => `${Math.round(point.x * 1e6)},${Math.round(point.y * 1e6)}`;
   for (const wall of normalized.walls) {
     const ends = [pointKey(wall.start), pointKey(wall.end)].sort();
     const key = JSON.stringify([ends, wall.curvePoint ? pointKey(wall.curvePoint) : null]);
     const previous = geometryIds.get(key);
-    if (previous) throw new Error(`Duplicate normalized wall geometry: ${previous} and ${wall.id}. Review overlapping source-wall evidence before annotation.`);
+    if (previous) conflict('duplicate', [previous, wall.id]);
     geometryIds.set(key, wall.id);
   }
   // Collinear source runs can overlap only partly when no third wall splits the
@@ -105,7 +123,8 @@ export function buildBareHouse(input: unknown): BareHouseV1 {
     if (offsets.some(point => Math.abs(dx * point.y - dy * point.x) / length > 1e-6)) continue;
     const positions = offsets.map(point => (dx * point.x + dy * point.y) / length);
     const overlap = Math.min(length, Math.max(...positions)) - Math.max(0, Math.min(...positions));
-    if (overlap > 1e-6) throw new Error(`Overlapping normalized wall geometry: ${a.id} and ${b.id}. Review shared source-wall evidence before annotation.`);
+    if (overlap > 1e-6 && !conflicts.some(c => c.wallIds.includes(a.id) && c.wallIds.includes(b.id))) conflict('overlap', [a.id, b.id]);
   }
+  if (conflicts.length) throw new WallGeometryConflictError(conflicts);
   return { schemaVersion: BARE_HOUSE_VERSION, sourceSchemaVersion: SOURCE_WALL_TRACE_VERSION, ...normalized };
 }

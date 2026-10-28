@@ -70,7 +70,14 @@ export function readProject(value: unknown): Project {
       seen.add(issue.id);
       if (issue.position !== undefined) point(issue.position, 'issue.position');
       if (issue.sourceRecord !== undefined) text(issue.sourceRecord, 'issue.sourceRecord');
+      if (issue.code !== undefined) text(issue.code, 'issue.code', true);
+      if (issue.phase !== undefined && !['observation', 'preflight', 'opening-hosts', 'assembly'].includes(issue.phase)) fail('issue.phase', 'is unsupported');
+      if (issue.category !== undefined && !['root', 'blocked', 'uncertain'].includes(issue.category)) fail('issue.category', 'is unsupported');
+      for (const key of ['sourcePaths', 'blockedBy'] as const) if (issue[key] !== undefined) {
+        if (!Array.isArray(issue[key]) || issue[key].some((v: unknown) => typeof v !== 'string' || !v.trim())) fail(`issue.${key}`, 'requires text paths or IDs');
+      }
     }
+    for (const issue of review.issues) if (issue.blockedBy?.some((id: string) => id === issue.id || !seen.has(id))) fail('issue.blockedBy', 'must reference another retained issue');
   }
   const customModelIds = validateCustomModelDefinitions(project!.customModels, project!.projectPackage?.assets);
   if (project!.attachmentNames !== undefined) {
