@@ -1,5 +1,6 @@
 import { randomBytes, createHash, timingSafeEqual } from 'node:crypto';
 import { createServer } from 'node:http';
+import { observationUsage } from './observation-usage.mjs';
 
 const api = 'https://openrouter.ai/api/v1';
 const jsonLimit = 24 * 1024 * 1024;
@@ -97,14 +98,17 @@ export async function authorizeOpenRouter(onAuthorize, fetcher = fetch, signal, 
 
 /** @param {{apiKey:string,model:string}} config @param {{dataUrl:string}} image
  * @param {string} prompt @param {ProviderFetch} [fetcher] */
-export async function observeOpenRouter(config, image, prompt, fetcher = fetch) {
+export async function observeOpenRouter(config, image, prompt, fetcher = fetch, onResponse = async (/** @type {any} */ _response) => {}) {
   if (!config.apiKey || !config.model?.trim()) throw new Error('Connect OpenRouter and select a vision model first.');
   const result = await openRouterRequest('chat/completions', config.apiKey, {
-    model: config.model, stream: false, response_format: { type: 'json_object' },
+    model: config.model.trim(), stream: false, response_format: { type: 'json_object' },
     messages: [{ role: 'user', content: [{ type: 'image_url', image_url: { url: image.dataUrl } }, { type: 'text', text: prompt }] }],
   }, fetcher);
   const choice = result?.choices?.[0];
+  const usage = observationUsage(result?.usage);
+  await onResponse({ usage, content: typeof choice?.message?.content === 'string' ? choice.message.content : null,
+    finishReason: ['stop','length','content_filter','error','tool_calls'].includes(choice?.finish_reason) ? choice.finish_reason : 'unknown' });
   if (choice?.finish_reason !== 'stop' || typeof choice?.message?.content !== 'string') throw new Error('OpenRouter did not complete the observation. Choose a vision model with sufficient output capacity.');
-  try { return { value: JSON.parse(choice.message.content), cost: typeof result.usage?.cost === 'number' ? result.usage.cost : null }; }
+  try { return { value: JSON.parse(choice.message.content), cost: usage.cost, usage }; }
   catch { throw new Error('The model returned invalid observation JSON. No automatic retry was made.'); }
 }

@@ -1,5 +1,6 @@
 import { createInterface } from 'node:readline';
 import { runDesktopAiTask } from './desktop-ai-tasks.mjs';
+import { safeDesktopError } from './desktop-ai-errors.mjs';
 
 // Optional desktop AUTHORING task, never used by the runtime scene loader.
 // Secrets cross private stdio only; no keys in arguments, requests, projects or logs.
@@ -15,9 +16,7 @@ try {
 } catch (error) {
   // Provider/network internals may contain secrets: only known product errors
   // leave this process. Unexpected details never become engine console output.
-  const message = error instanceof Error ? error.message : '';
-  const safe = /^(Image preparation |OpenRouter |Account |Enter a valid |Connect OpenRouter |Choose |Unsupported |Original raster |Invalid native |The model |Unresolved |Architecture |Duplicate |Overlapping |Source )/.test(message);
-  emit({ done: true, result: { ok: false, error: safe ? message : 'Reconstruction could not finish. Existing work was retained; check model capability and source observations before trying again.' } });
+  emit({ done: true, result: { ok: false, error: safeDesktopError(error) } });
   process.exitCode = 1;
 }
 }

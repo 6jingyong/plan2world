@@ -25,7 +25,9 @@ func run() -> void:
 		if Time.get_ticks_msec()>deadline:push_error("Architecture correction test exceeded 120 wall-clock seconds.");quit(1))
 	main=load("res://main.tscn").instantiate();root.add_child(main);await process_frame
 	check(not main._architecture_editor.visible,"correction window starts hidden and does not capture normal input")
-	main._show_plan_editor(directory.path_join("entrance.project.json"));await idle()
+	check(not await main._open_project(directory.path_join("entrance.project.json")),"Incomplete Project stays rejected by strict walkthrough compilation")
+	check(main._launcher.find_child("RecoverProject",true,false).visible and not main._architecture_editor.visible,"A valid incomplete Project offers explicit correction without an automatic popup")
+	main._launcher.find_child("RecoverProject",true,false).pressed.emit();await idle()
 	var entry_editor=main._architecture_editor
 	var entry_path:String=entry_editor.session.current()["projectPath"]
 	check(entry_editor._tabs.current_tab==3 and entry_editor._entrance_selector.selected==0 and not entry_editor.session.current()["walkthroughReady"],"Missing entrance opens a dedicated choice without guessing a door")
@@ -92,10 +94,19 @@ func run() -> void:
 	var opened_ok:bool=await main._open_project(directory.path_join("valid.project.json"));check(opened_ok,"open valid canonical Project")
 	if not opened_ok:main.queue_free();await process_frame;quit(1);return
 	await idle();var old_world:Node=main._world;var old_player:Node=main._world.get_node("Player")
+	var bad_file:=directory.path_join("not-a-project.json");var stream:=FileAccess.open(bad_file,FileAccess.WRITE);stream.store_string("{}");stream.close()
+	check(not await main._open_project(bad_file),"Invalid native file is an operational failure")
+	check(not main._launcher.find_child("RecoverProject",true,false).visible and not main._architecture_editor.visible and main._world==old_world,"Invalid files do not offer geometry recovery or replace the old world")
 	var original:=FileAccess.get_file_as_string(directory.path_join("broken.project.json"))
-	main._show_plan_editor(directory.path_join("broken.project.json"));await idle()
+	check(not await main._open_project(directory.path_join("broken.project.json")),"Broken geometry still cannot replace the previous world")
+	# Explicitly stage the dirty-state guard without changing this fixture's geometry.
+	main._session._dirty=true;main._launcher.find_child("RecoverProject",true,false).pressed.emit();await process_frame
+	check(main._discard.visible and not main._architecture_editor.visible,"The recovery action protects unsaved layout changes")
+	main._discard.get_cancel_button().pressed.emit();main._discard.hide();await process_frame
+	check(main._session.is_dirty() and main._world==old_world and main._launcher.find_child("RecoverProject",true,false).visible,"Cancelling recovery keeps unsaved Project, world and the exact recovery target")
+	main._session._dirty=false;main._launcher.find_child("RecoverProject",true,false).pressed.emit();await idle()
 	var editor=main._architecture_editor
-	check(editor.visible and editor.session.current().get("ok",false),"broken plan opens in native correction UI")
+	check(editor.visible and editor.session.current().get("ok",false) and editor._source_path==directory.path_join("broken.project.json"),"the exact failed Project opens in native correction UI without choosing its file again")
 	check(not editor.session.current()["walkthroughReady"] and editor._apply.disabled,"incomplete ground stays editable without a fake walkthrough")
 	check(main._world==old_world and old_player==main._world.get_node("Player"),"correction candidate keeps active world and player")
 	check(editor.canvas.floor["walls"].size()==3 and editor._issues.item_count==1,"source notes and individual wall segments are visible")

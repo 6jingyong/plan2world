@@ -88,7 +88,7 @@ func _ready() -> void:
 		if _world!=null and not _menu_open:_resume())
 	_authoring.project_ready.connect(func(path:String):_request_action(_open_project.bind(path)))
 	_authoring.correction_ready.connect(_show_plan_editor)
-	_launcher.correction_requested.connect(_show_plan_editor)
+	_launcher.correction_requested.connect(func(path:String):_request_action(_show_plan_editor.bind(path)))
 	_launcher.object_edit_requested.connect(_show_object_editor)
 	_launcher.authoring_requested.connect(func(page:int):_authoring.show_page(page))
 	_launcher.scene_selected.connect(func(path: String): _request_action(_open_scene.bind(path)))
@@ -211,7 +211,7 @@ func _request_action(action: Callable, protect_correction:=true) -> void:
 		_pending_action = func():
 			if correction_dirty:_architecture_editor.discard_session()
 			action.call()
-		_show_menu()
+		_show_menu("",true)
 		if correction_dirty:
 			_architecture_editor.confirm_discard(_pending_action,"Discard unsaved Project and wall/opening changes? Cancel to save a Project backup first.")
 		else:_discard.popup_centered()
@@ -225,6 +225,7 @@ func _open_project(path: String) -> bool:
 	_launcher.set_busy(false)
 	if not result.get("ok", false):
 		_show_menu(str(result["error"]))
+		_launcher.offer_correction(result.get("recovery",{}))
 		return false
 	if not _open_scene(str(result["runtimePath"]), "", result):
 		_session.discard_candidate(result)
@@ -526,7 +527,7 @@ func _release_actions() -> void:
 	for action in InputMap.get_actions():
 		Input.action_release(action)
 
-func _show_menu(message: String = "") -> void:
+func _show_menu(message: String = "", preserve_recovery:=false) -> void:
 	get_tree().paused = true
 	_menu_open = true
 	# A key-up can be lost when the desktop switches windows. Clear action state
@@ -537,7 +538,7 @@ func _show_menu(message: String = "") -> void:
 		_plan_view.cancel_drag()
 		_plan_view.hide()
 		_sync_controls()
-	_launcher.show_menu(_world != null, message)
+	_launcher.show_menu(_world != null, message,preserve_recovery)
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST and is_node_ready():

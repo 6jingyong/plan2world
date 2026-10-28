@@ -255,6 +255,17 @@ Use `schemas/plan2world-draft-v1.schema.json` and `docs/plan2world-draft-v1.md`.
 - Plan presentation reuses the same Godot world with unlit materials and disabled sun/fixture lights/shadows/AO. Compiler-owned aperture bands in architecture GLB carry `view: "plan"`; engines hide them in walkthrough and never reconstruct them from wall/collider meshes. Restore materials, world state and the selected natural-light preset on return.
 - Ceiling fixtures bind an explicit native enclosure wall-ID set, using the same native ceiling-height policy as the compiler. Shared code validates the whole footprint and holes; do not guess a ceiling, flatten a sloped roof, change room topology or move the fixture to recover invalid source data. Runtime movement names the emitted ceiling room/elevation. Native plane dragging and first-person nudges never change height/host. Saved light settings and compiler-owned local source position/direction drive real engine lights independently of asset meshes/colliders. Lamp assets stay dynamic, not baked in architecture; natural-light presets are session view state, not edit history.
 - Optional desktop image creation is an authoring surface, separate from the offline runtime loader and offline edit core. Its private stdio task delegates the same two-observation/raster/assembly pipeline to the shared TypeScript core. OpenRouter credentials stay in process memory, never argv, request files, Project, artifacts or logs; explicit image consent precedes paid work, with no automatic retry. The user selects the main door/inward side; never infer or relocate spawn. Native source-preview door markers are read-only projections, not engine topology.
+- Desktop continuation is explicit, bound to copied original/working inputs,
+  preparation, pixels, model, scale hint and actual prompt hashes. New tasks do
+  not silently reuse observations; continuations call the same shared pipeline
+  through a replaying observer, with 2/1/0 missing requests. Publish inherited
+  freezes before advertising the next checkpoint. Preserve old attempts and
+  unknown billing after interruption; usage/checkpoints stay authoring-only.
+  See [desktop continuation](docs/desktop-reconstruction-resume.md).
+- Runtime geometry failures on a valid native Project may offer a contextual
+  correction action. Keep file/asset/write failures operational, preserve the
+  previous world, and never open correction automatically. Unsaved-change
+  cancellation retains the exact recovery target.
 - Furniture must leave every explicit door leaf's default closed volume clear.
   Shared artifact compilation validates this independently of transient engine
   door state; native JSON backup stays editable. Godot previews reuse the emitted

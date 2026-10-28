@@ -15,6 +15,8 @@ var _resume: Button
 var _return: Button
 var _message: Label
 var _dialog: FileDialog
+var _correction:Button
+var _correction_path:=""
 
 func _ready() -> void:
 	name = "SceneMenu"
@@ -91,6 +93,8 @@ func _ready() -> void:
 	_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_message.add_theme_color_override("font_color", UI.AMBER)
 	content.add_child(_message)
+	_correction=UI.button("Open this Project for correction…","RecoverProject",func():correction_requested.emit(_correction_path))
+	_correction.hide();content.add_child(_correction)
 	var controls := UI.label("WASD to wander   ·   F2 to arrange   ·   F1 to pause", 13, UI.MUTED)
 	controls.add_theme_font_size_override("font_size", 14)
 	content.add_child(controls)
@@ -109,7 +113,8 @@ func _ready() -> void:
 	content.minimum_size_changed.connect(func(): fit.call_deferred())
 	fit.call_deferred()
 
-func show_menu(can_resume: bool, message: String = "") -> void:
+func show_menu(can_resume: bool, message: String = "", preserve_recovery:=false) -> void:
+	if not preserve_recovery:_correction_path="";_correction.hide()
 	_screen.show()
 	_resume.visible = can_resume
 	_return.visible = can_resume
@@ -123,6 +128,10 @@ func hide_menu() -> void:
 	_screen.hide()
 	_dialog.hide()
 
+func offer_correction(recovery:Dictionary) -> void:
+	_correction_path=str(recovery.get("projectPath","")) if recovery.get("kind")=="edit-project" else ""
+	_correction.visible=not _correction_path.is_empty()
+
 func set_busy(busy: bool) -> void:
-	for name in ["OpenScene", "OpenProject", "Resume", "ReturnToStart", "CreateFromImage", "AIAccount", "UserGuide", "CorrectProject", "ModifySelection"]:
+	for name in ["OpenScene", "OpenProject", "Resume", "ReturnToStart", "CreateFromImage", "AIAccount", "UserGuide", "CorrectProject", "ModifySelection", "RecoverProject"]:
 		find_child(name, true, false).disabled = busy

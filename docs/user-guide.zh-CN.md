@@ -72,6 +72,12 @@ Disconnect 只清除本机凭据，不撤销 OpenRouter 上的 Key。授权生�
 
 入口过窄、出生点被阻挡或落在楼板洞上时，漫游编译保留之前的世界；不会猜门、移动出生点或填洞。有源图问题时点击 **Correct annotated plan…**，也可随时从菜单 **Correct walls and openings…** 打开 Project 纠错。
 
+若从 **Arrange a Project…** 打开的合法工程因入口/地面/布置问题无法漫游，报错旁会出现 **Open this Project for correction…**；点击即可纠错，无需重新选文件。它不会自动弹窗，取消未保存提示后仍保留该目标。文件损坏或读取失败不伪装成几何问题。
+
+识图中途失败或取消后，**Continue saved task** 会显示还需几次请求：建筑观察已完成时只补家具；两份观察都有时可离线 **Rebuild from saved observations · no requests**。应用重启后可点 **Restore last task**，也可用 **Choose saved task…** 选 `checkpoint.json`。恢复检查本身免费；需要补观察时仍须重新连接账户并确认。更换图片、模型或比例提示不能悄悄复用；**Start a new task** 会保留旧证据，并重新选择图片。
+
+消耗面板分别显示提供方报告的输入/输出/总 token、缓存/推理子项和本次尝试费用；没有报告的值显示 **not provided**，不是零。缓存/推理子项不额外加到总数。**Text bytes (not tokens)** 是文本字节，不是 token；本地格式化 JSON 变大不等于模型消耗增加。复用观察不会产生新请求，先前费用及失败记录仍保留。已发出但被取消的请求可能仍计费，不会自动重试。
+
 缺少入口的工程默认打开 **Start** 页；也可点 **Choose entrance…**。在原图上点实际大门，调整朝内箭头，预览为琥珀色；点 **Confirm entrance** 才保存选择，绿色箭头表示已确认。**Cancel entrance preview** 不修改工程。这一步不需要开启改墙权限；即使确认了入口，地面或碰撞检查未通过时仍不能应用漫游。
 
 尚未替换的源图语义标记只有位置证据，展示方块的默认尺寸不代表真实家具。程序检查其位置是否有地面，不用展示方块假定占地；换成真实家具后仍严格检查完整占地、障碍物和门的关闭空间。地面外或孔洞内的标记位置仍需核对。

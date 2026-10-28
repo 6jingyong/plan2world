@@ -49,11 +49,22 @@ var _source_raster := ""
 var _input_count := 0
 var _pending_input: Dictionary={}
 var _accepted_input: Dictionary={}
+var _checkpoint_path:=""
+var _checkpoint_info:Dictionary={}
+var _last_task_path:=""
+var _restore:Button
+var _browse_task:Button
+var _resume_task:Button
+var _new_task:Button
+var _usage_summary:Label
+var _checkpoint_label:Label
 
 func _ready() -> void:
 	name="DesktopAuthoring";layer=20;process_mode=Node.PROCESS_MODE_ALWAYS
 	_task=TASK.new();add_child(_task)
 	_task.progress.connect(func(message: String):_status.text=message)
+	_task.checkpoint_ready.connect(_remember_checkpoint)
+	_task.usage_reported.connect(_show_usage)
 	_task.authorization_requested.connect(func(url: String):
 		if not url.begins_with("https://openrouter.ai/auth?"):return
 		if OS.shell_open(url)!=OK: _task.cancel("Could not open the system browser. Use your API key instead."))
@@ -85,6 +96,10 @@ func _ready() -> void:
 	_model=LineEdit.new();_model.name="VisionModel";_model.placeholder_text="Select a vision model";_model.text_changed.connect(func(_text):_sync());account.add_child(_model)
 	account.add_child(_text("ChatGPT account: use the reconstruction Skill in your ChatGPT/Codex host. This desktop version connects to OpenRouter; it does not reuse your ChatGPT browser session.",14))
 	var create:=VBoxContainer.new();create.name="From an image";_tabs.add_child(create)
+	var saved_actions:=HBoxContainer.new();create.add_child(saved_actions)
+	_browse_task=UI.button("Choose saved task…","ChooseSavedTask",func():get_node("CheckpointPicker").popup_centered_ratio(.8));saved_actions.add_child(_browse_task)
+	_restore=UI.button("Restore last task","RestoreLastTask",func():_load_checkpoint(_last_task_path));saved_actions.add_child(_restore)
+	_checkpoint_label=_text("",14);create.add_child(_checkpoint_label)
 	_pick=UI.button("Choose floor-plan image…","ChooseImage",func():get_node("SourcePicker").popup_centered_ratio(.8));create.add_child(_pick)
 	_source_name=_text("PNG / JPEG / WebP · up to 12 MB / 24 million pixels",14);create.add_child(_source_name)
 	_perspective=CheckBox.new();_perspective.name="CorrectPerspective";_perspective.text="Correct a photographed rectangle"
@@ -116,9 +131,13 @@ func _ready() -> void:
 	_preview=PREVIEW.new();_preview.name="SourcePreview";_preview.custom_minimum_size=Vector2(0,220);_preview.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	_preview.resized.connect(func():_preview.queue_redraw());create.add_child(_preview)
 	_scale=LineEdit.new();_scale.name="ScaleHint";_scale.placeholder_text="Optional known measurement, e.g. lower wall = 600 cm";create.add_child(_scale)
+	_scale.text_changed.connect(func(_value:String):if not _checkpoint_path.is_empty():_consent.button_pressed=false;_sync())
 	_consent=CheckBox.new();_consent.name="ConfirmPaidRequests";_consent.text="Send this image for two observations using my OpenRouter credits."
 	_consent.toggled.connect(func(_value):_sync());create.add_child(_consent)
 	_generate=UI.button("Reconstruct floor plan","ReconstructImage",_generate_project,true);create.add_child(_generate)
+	_resume_task=UI.button("Continue saved task","ResumeReconstruction",_resume_project,true);create.add_child(_resume_task)
+	_new_task=UI.button("Start a new task","StartNewReconstruction",_start_new_task);create.add_child(_new_task)
+	_usage_summary=_text("",14);_usage_summary.name="ObservationUsage";create.add_child(_usage_summary)
 	_summary=_text("Review the result before opening it. The model observes; shared code assembles the Project.",14);create.add_child(_summary)
 	_entrance=OptionButton.new();_entrance.name="MainEntrance";_entrance.fit_to_longest_item=false
 	_entrance.item_selected.connect(func(index:int):_preview.selected=index-1;_preview.queue_redraw();_sync());create.add_child(_entrance)
@@ -143,6 +162,11 @@ func _ready() -> void:
 	_save=FileDialog.new();_save.name="ProjectBackup";_save.access=FileDialog.ACCESS_FILESYSTEM;_save.file_mode=FileDialog.FILE_MODE_SAVE_FILE;_save.filters=PackedStringArray(["*.json ; Native Project"]);_save.use_native_dialog=true
 	_save.file_selected.connect(_save_backup)
 	add_child(_save)
+	var checkpoints:=FileDialog.new();checkpoints.name="CheckpointPicker";checkpoints.title="Choose a saved reconstruction checkpoint.json";checkpoints.access=FileDialog.ACCESS_FILESYSTEM;checkpoints.file_mode=FileDialog.FILE_MODE_OPEN_FILE;checkpoints.filters=PackedStringArray(["*.json ; Saved reconstruction"]);checkpoints.use_native_dialog=true;checkpoints.file_selected.connect(_load_checkpoint);add_child(checkpoints)
+	var previous:=ConfigFile.new()
+	if previous.load("user://last-reconstruction.cfg")==OK:_last_task_path=str(previous.get_value("task","path",""))
+	var saved_root:=ProjectSettings.globalize_path("user://creation-sessions")
+	if DirAccess.dir_exists_absolute(saved_root):checkpoints.current_dir=saved_root
 	_screen.hide();_sync();fit.call_deferred()
 
 func _text(value:String,size:=16) -> Label:
@@ -159,7 +183,7 @@ func _account_action(request:Dictionary) -> void:
 		_api_key=result["apiKey"];result.erase("apiKey");_models.clear()
 		for model in result["models"]:
 			_models.add_item(model["name"]);_models.set_item_metadata(_models.item_count-1,model["id"])
-		_models.select(-1);_model.clear()
+		_models.select(-1);_model.text=_checkpoint_info.get("input",{}).get("model","")
 		_account_status.text="OpenRouter connected · session only\nAt connection: key usage $%s · key budget remaining %s" % [result["usage"],"unspecified" if result["remaining"]==null else "$"+str(result["remaining"])]
 		_status.text="Choose a vision model, then open From an image."
 	else:_status.text=result["error"]
@@ -172,6 +196,7 @@ func _sync(working:=false) -> void:
 	var busy:bool=working or _task.busy
 	_cancel.disabled=not busy
 	for button in [_login,_connect,_disconnect,_pick]:button.disabled=busy
+	_restore.disabled=busy;_restore.visible=not _last_task_path.is_empty();_browse_task.disabled=busy;_new_task.disabled=busy
 	_perspective.disabled=busy or _source_path.is_empty()
 	for spin in [_reference_width,_reference_height,_output_width]:spin.editable=not busy
 	for index in range(_proportion.item_count):_proportion.set_item_disabled(index,busy)
@@ -184,7 +209,17 @@ func _sync(working:=false) -> void:
 	for choice in [_entrance,_side]:
 		for index in range(choice.item_count):choice.set_item_disabled(index,busy)
 	_preview.mouse_filter=Control.MOUSE_FILTER_IGNORE if busy else Control.MOUSE_FILTER_STOP
-	_generate.disabled=busy or _api_key.is_empty() or _model.text.strip_edges().is_empty() or _accepted_input.is_empty() or not _consent.button_pressed
+	var saved:=not _checkpoint_path.is_empty()
+	var remaining:int=_checkpoint_info.get("remainingRequests",2)
+	var binding:Dictionary=_checkpoint_info.get("input",{})
+	var matching:bool=not binding.is_empty() and _model.text.strip_edges()==binding.get("model") and _scale.text==binding.get("scaleHint")
+	_generate.disabled=busy or saved or _api_key.is_empty() or _model.text.strip_edges().is_empty() or _accepted_input.is_empty() or not _consent.button_pressed
+	_resume_task.visible=saved and _result.is_empty();_new_task.visible=saved;_checkpoint_label.visible=saved
+	_resume_task.text="Rebuild from saved observations · no requests" if remaining==0 else "Continue saved task · %d request(s)" % remaining
+	_resume_task.disabled=busy or not matching or (remaining>0 and (_api_key.is_empty() or not _consent.button_pressed))
+	_consent.visible=not saved or remaining>0
+	_consent.text="Send this image for two observations using my OpenRouter credits." if not saved else "Send only the %d missing observation(s) using my OpenRouter credits." % remaining
+	_checkpoint_label.text="Saved observations available. Continue uses the same image, model and scale hint." if matching else "A saved task is retained. Restore it to continue, or start a new task after changing inputs."
 	_open.disabled=busy or _result.is_empty() or (not _result.get("correction",false) and _entrance.selected<1)
 	_open.text="Correct annotated plan…" if _result.get("correction",false) else "Open arrangement"
 	_backup.disabled=busy or _result.is_empty()
@@ -195,7 +230,7 @@ func _select_source(path:String) -> void:
 	if file==null or file.get_length()>12*1024*1024:_status.text="Choose a readable image up to 12 MB.";return
 	var image:=Image.load_from_file(path)
 	if image==null or image.is_empty() or image.get_width()*image.get_height()>24000000:_status.text="Choose an image up to 24 million pixels.";return
-	image.convert(Image.FORMAT_RGBA8);_ensure_creation_session();_input_count+=1
+	_clear_checkpoint();image.convert(Image.FORMAT_RGBA8);_ensure_creation_session();_input_count+=1
 	var raster:=_session_dir.path_join("decoded-%d.rgba" % _input_count)
 	file=FileAccess.open(raster,FileAccess.WRITE)
 	if file==null:_status.text="Could not prepare image pixels.";return
@@ -214,7 +249,7 @@ func _ensure_creation_session() -> void:
 
 func _invalidate_input() -> void:
 	if _preview==null or _consent==null:return
-	_pending_input={};_accepted_input={};_result={};_entrance.clear();_preview.doors=[];_preview.selected=-1;_preview.queue_redraw();_consent.button_pressed=false;_sync()
+	_clear_checkpoint();_pending_input={};_accepted_input={};_result={};_entrance.clear();_preview.doors=[];_preview.selected=-1;_preview.queue_redraw();_consent.button_pressed=false;_sync()
 	_summary.text="Input changed. Preview and confirm it before recognition."
 
 func _set_input_preview(result:Dictionary) -> void:
@@ -242,17 +277,73 @@ func _generate_project() -> void:
 	var stem:=_session_dir.path_join("run-%d" % _attempt)
 	_sync(true);_status.text="Starting reconstruction…"
 	var result:Dictionary=await _task.run({"op":"reconstruct","apiKey":_api_key,"model":_model.text.strip_edges(),"imagePath":_accepted_input["imagePath"],"rasterPath":_accepted_input["rasterPath"],"width":_accepted_input["width"],"height":_accepted_input["height"],"preparationManifestPath":_accepted_input["manifestPath"],"originalImagePath":_accepted_input["originalPath"],"scaleHint":_scale.text,"outputDirectory":stem})
+	await _finish_reconstruction(result)
+
+func _finish_reconstruction(result:Dictionary) -> void:
 	_consent.button_pressed=false
+	if result.get("usage") is Dictionary:_show_usage(result["usage"])
 	if result.get("ok",false):
 		_result=result;_entrance.clear();_entrance.add_item("Choose the main entrance…");_preview.doors=[];_preview.selected=-1
+		_checkpoint_info={"remainingRequests":0,"input":{"model":_model.text.strip_edges(),"scaleHint":_scale.text}}
 		var floor:Dictionary=result["floors"][0]
 		_preview.doors=floor["doors"]
 		for index in range(floor["doors"].size()):_entrance.add_item("%d · %s" % [index+1,floor["doors"][index]["label"]])
 		_preview.queue_redraw()
 		_summary.text="%s · %d walls / %d furniture markers\nAssumptions: %s" % [result["name"],floor["wallCount"],floor["furnitureCount"],"; ".join(result["assumptions"])]
-		_status.text=("%d source review notes. Open the correction plan to edit walls and openings. " % result["issueCount"] if result.get("correction",false) else "Reconstruction ready. Review it and choose an entrance. ")+"Reported model cost: "+("not provided" if result["cost"]==null else "$"+str(result["cost"]))
-	else:_status.text=result["error"]
+		_status.text=("%d source review notes. Open the correction plan to edit walls and openings. " % result["issueCount"] if result.get("correction",false) else "Reconstruction ready. Review it and choose an entrance. ")+"Reported cost this attempt: "+("not provided" if result["cost"]==null else "$"+str(result["cost"]))
+	else:
+		var failure:String=result["error"]
+		if result.get("checkpointPath") is String:await _load_checkpoint(result["checkpointPath"])
+		_status.text=failure
 	_sync()
+
+func _remember_checkpoint(path:String) -> void:
+	_checkpoint_path=path;_last_task_path=path
+	var config:=ConfigFile.new();config.set_value("task","path",path)
+	if config.save("user://last-reconstruction.cfg.tmp")==OK:DirAccess.rename_absolute(ProjectSettings.globalize_path("user://last-reconstruction.cfg.tmp"),ProjectSettings.globalize_path("user://last-reconstruction.cfg"))
+
+func _clear_checkpoint() -> void:
+	_checkpoint_path="";_checkpoint_info={}
+	if _consent!=null:_consent.button_pressed=false
+	if _usage_summary!=null:_usage_summary.text=""
+
+func _start_new_task() -> void:
+	_clear_checkpoint();_source_path="";_source_raster="";_pending_input={};_accepted_input={};_result={}
+	_preview.texture=null;_preview.doors=[];_preview.selected=-1;_preview.queue_redraw();_entrance.clear()
+	_perspective.set_pressed_no_signal(false);_input_preview.hide();_input_preview.texture=null;_proportion.get_parent().hide()
+	_source_name.text="Choose an image for the new task. Previous saved tasks are retained.";_summary.text="No request has been sent.";_sync()
+
+func _load_checkpoint(path:String) -> void:
+	if _task.busy:return
+	_sync(true);_status.text="Checking saved image and observations locally…"
+	var result:Dictionary=await _task.run({"op":"inspect-reconstruction","checkpointPath":path})
+	if not result.get("ok",false):_status.text=result["error"];_sync();return
+	_checkpoint_info=result;_remember_checkpoint(result["checkpointPath"])
+	var saved:Dictionary=result["input"]
+	_source_path="";_source_raster="";_pending_input={};_accepted_input={"imagePath":saved["imagePath"],"rasterPath":saved["rasterPath"],"width":saved["width"],"height":saved["height"]}
+	_model.text=saved["model"];_scale.text=saved["scaleHint"];_source_name.text=saved.get("sourceName","Saved image")
+	_preview.texture=ImageTexture.create_from_image(Image.load_from_file(saved["imagePath"]));_preview.doors=[];_preview.selected=-1;_preview.queue_redraw();_result={};_entrance.clear()
+	_perspective.set_pressed_no_signal(false);_input_preview.hide();_proportion.get_parent().hide();_consent.button_pressed=false
+	_show_usage(result["usage"]);_summary.text="Saved image and completed observations verified. %d new request(s) needed." % result["remainingRequests"]
+	_status.text="Saved task ready. No request has been sent.";_sync()
+
+func _resume_project() -> void:
+	if _resume_task.disabled:return
+	_ensure_creation_session();_attempt+=1;_sync(true);_status.text="Continuing the saved task…"
+	var result:Dictionary=await _task.run({"op":"resume-reconstruction","checkpointPath":_checkpoint_path,"apiKey":_api_key,"model":_model.text.strip_edges(),"scaleHint":_scale.text,"outputDirectory":_session_dir.path_join("run-%d" % _attempt)})
+	await _finish_reconstruction(result)
+
+func _show_usage(summary:Dictionary) -> void:
+	var lines:PackedStringArray=[]
+	for entry in summary.get("stages",[]):
+		var usage:Dictionary=entry.get("usage",{})
+		var token_text:PackedStringArray=[]
+		for metric in [["inputTokens","input"],["outputTokens","output"],["totalTokens","total"],["cachedTokens","cached subset"],["reasoningTokens","reasoning subset"]]:
+			token_text.append(metric[1]+": "+("not provided" if usage.get(metric[0])==null else str(usage[metric[0]])))
+		lines.append(str(entry["stage"])+" · "+str(entry["status"])+" · "+", ".join(token_text))
+		lines.append("Text bytes (not tokens) · prompt: "+("not provided" if entry.get("promptBytes")==null else str(entry["promptBytes"]))+" / response: "+("not provided" if entry.get("responseBytes")==null else str(entry["responseBytes"])))
+	lines.append("New requests this attempt: "+str(summary.get("requestsStarted",0))+" · reported cost: "+("not provided; started requests may still be charged" if summary.get("cost")==null else "$"+str(summary["cost"])))
+	_usage_summary.text="\n".join(lines)
 
 func _open_result() -> void:
 	if _open.disabled:return

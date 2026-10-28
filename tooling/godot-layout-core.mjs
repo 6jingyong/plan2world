@@ -10,15 +10,18 @@ import { spatialAuthoringPreview } from '../src/lib/runtime/spatialAuthoring';
 import {furniturePlacementPreview} from '../src/lib/runtime/placementPreview';
 import { compileRuntimeArtifacts } from '../src/lib/runtime/runtimeArtifacts';
 import { runtimePackageFiles, serializeRuntimePackage } from '../src/lib/runtime/runtimePackage';
+import { RuntimeProjectError } from '../src/lib/runtime/runtimeProjectError';
 
 // Private desktop-core transport. No AI/network/browser and no Godot types.
 const [requestPath, responsePath] = process.argv.slice(2);
 async function run() {
+  let correctionPath;
   try {
     const request = JSON.parse(await readFile(requestPath, 'utf8'));
     const bytes = await readFile(request.projectPath);
     const source = path.extname(request.projectPath).toLowerCase() === '.zip'
       ? readProjectPackage(new Uint8Array(bytes)).project : readProject(JSON.parse(bytes.toString('utf8')));
+    if (request.op === 'open') correctionPath = request.projectPath;
     if(request.op==='spatial-preview') {
       await writeFile(responsePath,JSON.stringify({ok:true,preview:spatialAuthoringPreview(source,request.command)}));return;
     }
@@ -53,14 +56,14 @@ async function run() {
     let project = source, selectedId = null, updateKind = 'world';
     if (request.op === 'command') ({ project, selectedId, updateKind } = applyNativeEditCommand(source, request.command));
     else if (request.op !== 'open') throw new Error('Unsupported authoring operation.');
-    if (project.architectureReview && !project.floors.some(f => f.entrance || f.walkthroughStart)) throw new Error('Choose a main entrance in Correct walls and openings before entering walkthrough.');
+    if (project.architectureReview && !project.floors.some(f => f.entrance || f.walkthroughStart)) throw new RuntimeProjectError('Choose a main entrance in Correct walls and openings before entering walkthrough.');
     const modelDirectory = path.join(path.dirname(process.argv[1]), 'models');
     const artifacts = await compileRuntimeArtifacts(project, async file => {
       try { return new Uint8Array(await readFile(path.join(modelDirectory, `${file}.glb`))); }
       catch (error) { if (error.code === 'ENOENT') return null; throw error; }
     });
     const zip = await serializeRuntimePackage(artifacts);
-    if (!artifacts.runtime.floors.some(floor => floor.walkthroughStart)) throw new Error('The Project has no valid compiled player start.');
+    if (!artifacts.runtime.floors.some(floor => floor.walkthroughStart)) throw new RuntimeProjectError('The Project has no valid compiled player start.');
     const output = path.resolve(request.outputDirectory);
     // Compile completely before creating the isolated candidate. Never write
     // into the source Project or replace the active scene on an invalid command.
@@ -74,7 +77,8 @@ async function run() {
     await writeFile(responsePath, JSON.stringify({ ok: true, projectPath: path.join(output, 'project.json'), runtimePath: path.join(output, 'scene.runtime.json'), packagePath: path.join(output, 'scene.runtime.zip'), selectedId,
       updateKind, authoring: nativeArchitectureEditor(project), doors: nativeDoorEditor(project), doorAppearances: nativeDoorAppearances(project), openings: nativeOpeningEditor(project), openingCatalog: nativeOpeningCatalog(), catalog: furnitureLayoutCatalog(project) }));
   } catch (error) {
-    await writeFile(responsePath, JSON.stringify({ ok: false, error: error instanceof Error ? error.message : String(error) }));
+    await writeFile(responsePath, JSON.stringify({ ok: false, error: error instanceof Error ? error.message : String(error),
+      ...(correctionPath && error instanceof RuntimeProjectError ? { recovery: { kind: 'edit-project', projectPath: correctionPath } } : {}) }));
     process.exitCode = 1;
   }
 

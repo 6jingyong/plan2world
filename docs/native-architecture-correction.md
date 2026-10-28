@@ -20,6 +20,13 @@ Use **Correct walls and openings…** from the scene menu, **Fix plan…** from 
 or **Correct annotated plan…** after desktop reconstruction. The native correction
 window has Walls, Openings, Notes and Start tabs over the retained source image:
 
+If opening a valid Project for arrangement fails a geometry/entrance check, the
+scene menu offers **Open this Project for correction…** for that exact file.
+It opens only on explicit click, respects unsaved-change guards and preserves
+the previous world. Cancelling a guard keeps the same recovery target. Invalid
+files, asset IO and write errors remain operational failures. See also
+[desktop continuation and usage](desktop-reconstruction-resume.md).
+
 - **Choose entrance… → Start** lets you click an existing door on the plan or
   choose it from the list, then point the amber inward arrow into the home.
   Door/side choices are previews only. **Confirm entrance** explicitly saves the
