@@ -60,6 +60,8 @@ and operation. Missing a swing arc may leave operation unresolved while a clear
 jamb-to-jamb aperture remains accepted. Omit `doorType`/`typeEvidence` when their
 evidence is unresolved; do not discard a source-supported aperture for that reason.
 Use `opening` only for a visibly leafless passage, not as a synonym for uncertainty.
+The wire `kind` is always `door` or `window`. A sliding door is
+`kind: "door", doorType: "sliding"`; never invent a `sliding-door` kind.
 
 ## Aperture geometry before operation
 

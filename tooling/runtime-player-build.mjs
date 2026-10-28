@@ -50,6 +50,7 @@ try {
     'Desktop reconstruction can restore the last saved task or open a checkpoint.json. Continue requests only missing observations (2/1/0); complete observations reassemble offline without an account. Every paid continuation requires consent. Original inputs/observations and previous attempts are retained, and credentials stay session-only. Reported tokens/cached/reasoning subsets, text bytes and current-attempt cost are shown separately; absent usage or interrupted billing is unknown, with no automatic retry.\n' +
     'Choose entrance / Start previews the actual main door and an amber inward arrow; Confirm entrance saves it, Cancel only clears the preview. No wall-edit permission is needed. Source marker blocks carry position-only evidence and reserve no arbitrary furniture footprint; real replacements retain complete support and door clearance. New geometry defaults to polygons; existing Project curves remain compatible.\n' +
     'Select furniture, a door or window, then click the compact Modify M action. The same categorized thumbnail catalog used for adding handles replacement, with an explicit preview/apply and cancellation. Rotation/removal/light actions live in the edit catalog. Add and Modify retain separate filters.\n' +
+    'Wall Art: Modify -> Import picture opens a local PNG/JPG preview with rotation and explicit Apply/cancel. Images fit inside the current frame and travel in Project/runtime attachments; Remove picture retains the frame. No network or model request.\n' +
     'In walkthrough aim and press M to modify that object. Door cards offer wood, glass or metal/security presentation while retaining physics and open state; window-type cards retain the aperture and physics. Size / position enters the same-world host/position/width/height preview; Panels… retains advanced settings for this door. Furniture replacement enters the existing plan placement preview.\n' +
     'Existing scenes, furniture editing and export run offline without an account. Only optional image creation/account connection uses the network and your OpenRouter credits.\n\n' +
     'WASD move | Ctrl slow | Shift fast | Mouse look | E door | Esc mouse | F1 scene menu\n' +
@@ -64,7 +65,8 @@ try {
   await writeFile(path.join(directory, 'LICENSE-Plan2World.txt'), await readFile(path.join(root, 'LICENSE')));
   const guide = (await readFile(path.join(root, 'docs/user-guide.zh-CN.md'), 'utf8'))
     .replaceAll('](../skills/', '](https://github.com/6jingyong/plan2world/blob/main/skills/')
-    .replace('](godot-furniture-layout.md)', '](https://github.com/6jingyong/plan2world/blob/main/docs/godot-furniture-layout.md)');
+    .replace('](godot-furniture-layout.md)', '](https://github.com/6jingyong/plan2world/blob/main/docs/godot-furniture-layout.md)')
+    .replace('](wall-art-images.md)', '](https://github.com/6jingyong/plan2world/blob/main/docs/wall-art-images.md)');
   await writeFile(path.join(directory, 'README.zh-CN.md'), guide);
   // Godot's generated copyright text includes its bundled third-party notices.
   const noticeScript = path.join(root, 'tooling/runtime-player-notices.gd');

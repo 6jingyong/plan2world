@@ -2,7 +2,7 @@ import type { Project } from '../models/types';
 import { readCustomModelSource } from '../services/customModelSource';
 import { getModelFile } from '../utils/furnitureModelFiles';
 import { compileAssetNormalization, type AssetNormalization } from './assetNormalization';
-import { appendBox, type MeshBuilder } from './presentationGeometry';
+import { addQuad, appendBox, type MeshBuilder } from './presentationGeometry';
 import { serializePresentationGlb } from './architectureGlb';
 import type { Plan2WorldRuntimeSceneV1 } from './types';
 import { needsCeilingMount } from '../utils/ceilingFurniture';
@@ -54,15 +54,21 @@ export function compileCeilingLightAsset(id: string) {
 
 /** Reusable generic wall decoration, front +Z. Fit, mounting and collider size
  * remain compiler-owned and independent of this presentation geometry. */
-export function compileWallDecorAsset(id:string){
+export function compileWallDecorAsset(id:string, image?:{bytes:Uint8Array;mime:string;width:number;height:number;frameAspect:number}){
   const frame:MeshBuilder={positions:[],normals:[],uvs:[],indices:[]},face:MeshBuilder={positions:[],normals:[],uvs:[],indices:[]};
   for(const x of [-.47,.47])appendBox(frame,[x,0,0],[.06,1,1],0);
   for(const y of [-.47,.47])appendBox(frame,[0,y,0],[.88,.06,1],0);
   appendBox(frame,[0,0,-.4],[.88,.88,.2],0);
-  appendBox(face,[0,0,.3],[.88,.88,.2],0);
+  if(image){
+    // Fit inside the frame without stretching/cropping or changing its collider.
+    appendBox(frame,[0,0,.3],[.88,.88,.2],0);
+    const ratio=image.width/image.height/image.frameAspect;
+    const x=.44*Math.min(1,ratio),y=.44*Math.min(1,1/ratio);
+    addQuad(face,[[-x,-y,.401],[x,-y,.401],[x,y,.401],[-x,y,.401]],[[0,1],[1,1],[1,0],[0,0]]);
+  }else appendBox(face,[0,0,.3],[.88,.88,.2],0);
   const ref=`builtin:${id}-v1`;
   return serializePresentationGlb([{...frame,id:ref+':frame',kind:'furniture',material:'decor-frame'},
-    {...face,id:ref+':face',kind:'furniture',material:id==='mirror'?'mirror-face':'wall-art'}],{artifact:'runtime-asset',assetId:ref});
+    {...face,id:ref+':face',kind:'furniture',material:id==='mirror'?'mirror-face':'wall-art'}],{artifact:'runtime-asset',assetId:ref},image?{bytes:image.bytes,mime:image.mime,material:'wall-art'}:undefined);
 }
 
 /** Resolve only referenced assets. Source bytes remain immutable and are shared

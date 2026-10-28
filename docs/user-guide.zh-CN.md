@@ -174,3 +174,11 @@ Disconnect 只清除本机凭据，不撤销 OpenRouter 上的 Key。授权生�
 账户 GUI 和独立作者进程负责可选的在线生成；场景加载、物理和交互只消费编译产物。自动测试覆盖登录流程、PKCE、取消、共享组装、入口、正交拾取、编辑和保存，但账户/推理使用模拟提供方，不代表真实账户授权或外部模型质量验收。系统浏览器、实际授权、显卡、DPI、原生文件对话框和物理手柄仍需实机验收。
 
 参考：[OpenRouter 官方授权](https://openrouter.ai/docs/guides/overview/auth/oauth)、[Key 使用信息](https://openrouter.ai/docs/api/api-reference/api-keys/get-current-api-key)、[家具布置范围](godot-furniture-layout.md)。
+
+## 本地图片放入贴墙画作
+
+添加 Wall Art，选择墙与安装高度。选中后点击 **Modify → Import picture…**，选择PNG/JPG，
+检查方向并按需旋转，点击 **Apply image**。取消不写工程；**Remove picture**恢复通用画框。
+图片等比留边，位置/尺寸不变；随工程和运行时导出保存，原文件移动后仍能显示。
+限制8MiB、4096像素/边和1600万像素，转成PNG后仍需满足8MiB。照片EXIF方向请以预览为准。
+离线完成，不消耗token。见[画作图片说明](wall-art-images.md)。

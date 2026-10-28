@@ -1453,6 +1453,7 @@ export const en = {
   "customModelValidation.130": "Local furniture import does not support animations yet. Export a static mesh.",
   "customModelValidation.131": "Local furniture import does not support skins yet. Export a static mesh.",
   "customModelValidation.132": "Local furniture import does not support cameras yet. Export a static mesh.",
+  "customModelValidation.133": "Invalid custom model: Invalid model purpose.",
   "customModelValidation.attributeFormat": "Invalid GLB geometry: Unsupported format for {name}.",
   "customModelValidation.unsupportedExtension": "Unsupported GLB extension: {name} is not supported by local model import yet.",
   "customModelValidation.undeclaredExtension": "Unsupported GLB extension: {name} is missing from extensionsUsed.",

@@ -323,7 +323,7 @@ in ignored validation runs; use Git history for implementation diaries.
   Ceiling commands additionally validate the full footprint against their native
   enclosure and holes in the shared core.
 - Wall attachment supports straight solid walls only. Legacy unbound items need
-  explicit attachment; new model-file import is outside this scope.
+  explicit attachment; general model-file import is outside this scope. Local PNG/JPG artwork import is available through the selected Wall Art Modify catalog; see [artwork images](wall-art-images.md).
 - Ceiling fixtures currently support four built-in asset types on horizontal
   native ceilings. Unbound legacy lights need explicit attachment; custom-model
   ceiling capability, slope mounting and calibrated photometry are not provided.
@@ -335,3 +335,8 @@ in ignored validation runs; use Git history for implementation diaries.
   Main-push full browser/benchmark coverage and the current publication/checks
   belong in the evidence record rather than inferred from older runs. Complex
   stairs/special doors and optional low-yield observation experiments stay deferred.
+
+Image-backed wall artwork uses the same selected-object catalog in plan and walkthrough.
+Import picture opens a local preview; Apply embeds a textured GLB using existing Project
+attachments. Cancel is read-only; Remove picture keeps the frame and retained assets.
+See [artwork images](wall-art-images.md).

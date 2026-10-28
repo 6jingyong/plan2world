@@ -160,6 +160,7 @@ export const customModelMessages: Record<string, TranslationKey> = {
   "Local furniture import does not support animations yet. Export a static mesh.": "customModelValidation.130",
   "Local furniture import does not support skins yet. Export a static mesh.": "customModelValidation.131",
   "Local furniture import does not support cameras yet. Export a static mesh.": "customModelValidation.132",
+  "Invalid custom model: Invalid model purpose.": "customModelValidation.133",
 };
 
 /** Preserve variable glTF identifiers and unknown external decoder diagnostics. */

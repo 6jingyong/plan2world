@@ -2,6 +2,7 @@ extends Window
 
 const UI:=preload("res://scripts/runtime_ui.gd")
 const CATALOG:=preload("res://scripts/furniture_catalog_view.gd")
+const ART_IMAGE:=preload("res://scripts/wall_art_image.gd")
 signal command_requested(command:Dictionary)
 signal preview_requested(command:Dictionary)
 signal geometry_requested(id:String)
@@ -17,6 +18,9 @@ var _remove:Button
 var _rotate:Button
 var _light:Button
 var _adding:=false
+var image_dialog
+var _art_image:Button
+var _clear_image:Button
 
 func _ready() -> void:
 	name="ObjectEditor";title="Modify selected object";theme=UI.theme();process_mode=Node.PROCESS_MODE_ALWAYS;exclusive=true;transient=true
@@ -29,7 +33,13 @@ func _ready() -> void:
 	_light=UI.button("Light…","EditObjectLight",func():var id:String=target["id"];hide();light_requested.emit(id));catalog.actions.add_child(_light)
 	_geometry=UI.button("Size / position…","EditOpeningGeometry",func():var id:String=target["id"];hide();geometry_requested.emit(id));catalog.actions.add_child(_geometry)
 	_panels=UI.button("Panels…","EditOpeningPanels",func():var id:String=target["id"];hide();panels_requested.emit(id));catalog.actions.add_child(_panels)
-	visibility_changed.connect(func():if not visible:closed.emit())
+	image_dialog=ART_IMAGE.new();add_child(image_dialog)
+	image_dialog.image_confirmed.connect(func(image):_emit({"type":"wall-art-image","image":image}))
+	# A second row keeps the same categorized editor usable on small desktops.
+	var image_actions:=HBoxContainer.new();catalog.get_child(0).add_child(image_actions)
+	_art_image=UI.button("Import picture…","ImportArtworkImage",func():image_dialog.show_image());image_actions.add_child(_art_image)
+	_clear_image=UI.button("Remove picture","ClearArtworkImage",func():_emit({"type":"wall-art-image","image":null}));image_actions.add_child(_clear_image)
+	visibility_changed.connect(func():if not visible:image_dialog.hide();closed.emit())
 
 func show_object(state:Dictionary,entity:Dictionary) -> void:
 	_adding=false
@@ -49,6 +59,8 @@ func show_object(state:Dictionary,entity:Dictionary) -> void:
 	_rotate.visible=furniture and entity.get("movement",{}).get("kind") in ["floor","ceiling"]
 	_remove.visible=true;_light.visible=entity.has("light");_geometry.visible=not furniture
 	_panels.visible=kind=="door" and entity.get("doorType") in ["double","french","sliding","pocket"]
+	_art_image.visible=furniture and entity.get("catalogId")=="wall_art" and entity.get("movement",{}).get("kind")=="wall"
+	_clear_image.visible=_art_image.visible and str(entity.get("assetRef","")).begins_with("custom-model:")
 	catalog.place.text="Preview replacement" if furniture else "Apply choice"
 	var viewport:Vector2=get_tree().root.get_visible_rect().size
 	size=Vector2i(mini(440,int(viewport.x)-32),mini(640,int(viewport.y)-48));popup_centered()
@@ -58,7 +70,7 @@ func show_new_opening(state:Dictionary,kind:String) -> void:
 	catalog.set_ceiling_layer(false)
 	catalog.configure(state.get("openingCatalog",[]).filter(func(item):return item["kind"]==kind))
 	catalog.set_editable(true);catalog.set_purpose("Add "+kind,false);catalog.place.text="Choose wall & preview"
-	for button in [_rotate,_remove,_light,_geometry,_panels]:button.hide()
+	for button in [_rotate,_remove,_light,_geometry,_panels,_art_image,_clear_image]:button.hide()
 	if not catalog.items.is_empty():catalog.reveal(0)
 	popup_centered()
 

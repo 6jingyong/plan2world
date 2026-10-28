@@ -4,7 +4,7 @@ import recoveryGuide from '../../../skills/reconstruct-plan2world/references/rec
 import type { SourceRecoveryRequest } from './sourceRecovery';
 import { PLAN2WORLD_FURNITURE_TYPES } from './furnitureVocabulary';
 
-export const PLAN2WORLD_RECONSTRUCTION_INSTRUCTIONS_VERSION = 'plan2world-architecture-furnishing-instructions-v23' as const;
+export const PLAN2WORLD_RECONSTRUCTION_INSTRUCTIONS_VERSION = 'plan2world-architecture-furnishing-instructions-v24' as const;
 export interface ReconstructionOptions { scaleHint?: string }
 
 /** The portable Skill is also the source for the browser's observation prompt. */

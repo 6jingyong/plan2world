@@ -1,0 +1,70 @@
+{
+  "schemaVersion": "plan2world-web-source-identities-v1",
+  "sources": [
+    {
+      "id": "residential-nasa",
+      "title": "File:Apartment plan-Space Settlements A Design Study.png",
+      "page": "https://commons.wikimedia.org/wiki/File:Apartment_plan-Space_Settlements_A_Design_Study.png",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/9/9b/Apartment_plan-Space_Settlements_A_Design_Study.png",
+      "width": 822,
+      "height": 443,
+      "sha256": "d04625e8291520834eb8731372e9309f0f2f13f898743eca5afb4ef34c0ef37c",
+      "license": "Public domain",
+      "licenseURL": null,
+      "artistHTML": "Richard D. Johnson, Charles Holbrow (1977). \"Space Settlements: A Design Study\". National Aeronautics and Space Administration.",
+      "downloadedAtUTC": "2026-10-28"
+    },
+    {
+      "id": "office-insurance",
+      "title": "File:Insurance Exchange Building large office floor plan.png",
+      "page": "https://commons.wikimedia.org/wiki/File:Insurance_Exchange_Building_large_office_floor_plan.png",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/3/32/Insurance_Exchange_Building_large_office_floor_plan.png",
+      "width": 476,
+      "height": 469,
+      "sha256": "66f58624788c2629f56a27f519da324ab314f3926fd63a36e7726673f71f665b",
+      "license": "Public domain",
+      "licenseURL": null,
+      "artistHTML": "Architect:  David Jerome Spence",
+      "downloadedAtUTC": "2026-10-28"
+    },
+    {
+      "id": "museum-peale",
+      "title": "File:PSM V75 D233 Ground plan of peale museum 1821.png",
+      "page": "https://commons.wikimedia.org/wiki/File:PSM_V75_D233_Ground_plan_of_peale_museum_1821.png",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/0/0c/PSM_V75_D233_Ground_plan_of_peale_museum_1821.png",
+      "width": 2459,
+      "height": 1786,
+      "sha256": "4773aaeb2c2b9e2c14cdcca26f5e8c826a07dab35c8fb9af471825cd826cb886",
+      "license": "Public domain",
+      "licenseURL": null,
+      "artistHTML": "Unknown author<span style=\"display: none;\">Unknown author</span>",
+      "downloadedAtUTC": "2026-10-28"
+    },
+    {
+      "id": "museum-kumaya",
+      "title": "File:Kumaya Museum Plan.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Kumaya_Museum_Plan.jpg",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/9/98/Kumaya_Museum_Plan.jpg",
+      "width": 1050,
+      "height": 693,
+      "sha256": "b655dff111d73aba67ed926d5db1c13658d54054467286108e9f1f2f0249a7d8",
+      "license": "CC BY-SA 4.0",
+      "licenseURL": "https://creativecommons.org/licenses/by-sa/4.0",
+      "artistHTML": "<a href=\"//commons.wikimedia.org/wiki/User:Fraxinus2\" title=\"User:Fraxinus2\">Fraxinus2</a>",
+      "downloadedAtUTC": "2026-10-28"
+    },
+    {
+      "id": "residential-focsa",
+      "title": "File:Typical apartment floor plan FOCSA Building.jpeg",
+      "page": "https://commons.wikimedia.org/wiki/File:Typical_apartment_floor_plan_FOCSA_Building.jpeg",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/1/14/Typical_apartment_floor_plan_FOCSA_Building.jpeg",
+      "width": 551,
+      "height": 711,
+      "sha256": "cee6684b9d68e229ab5dbbbe06f9dc9cc4c9038f13572a2bac1da8ad79802cea",
+      "license": "CC BY-SA 4.0",
+      "licenseURL": "https://creativecommons.org/licenses/by-sa/4.0",
+      "artistHTML": "<a href=\"https://en.wikipedia.org/wiki/User:Osvaldo_valdes_165443\" class=\"extiw\" title=\"w:User:Osvaldo valdes 165443\">Osvaldo valdes 165443</a>",
+      "downloadedAtUTC": "2026-10-28"
+    }
+  ]
+}

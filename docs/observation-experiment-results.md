@@ -648,3 +648,26 @@
   player/core，均有清单。证据`.plan2world-validation/runs/20261028-ground-opening-acceptance/`的
   `evaluation.json`、`paired-native-regression.json`、`black-walk-first/`、`black-mechanical/`、`RESULTS.md`。
   通用validator仍`review_required`，未跑范围仍`not_run`；真实原生范围另证，不改原报告。
+
+## P17/E18 — 网上新图、报警含义与画作图片（2026-10-28）
+
+- **问题与变量**：不再只用五张历史图。下载NASA住宅、Insurance Exchange办公室、Peale
+  博物馆、Kumaya博物馆导览图；一次建筑观察冻结后，再做家具观察。另在指引明确
+  `kind: door/window`、滑门为`doorType: sliding`（v24）后，从新FOCSA住宅原图完整执行。
+  这是组合探索/直接Skill试用，不是外部provider准确率A/B；外部付费请求0，未读历史参考。
+- **真实负例**：NASA观察把滑门写成非法kind；办公观察有重叠墙；Peale窗端点与所观察
+  宿主基线不一致；FOCSA仍有2处宿主失败、1处不确定柜门和2处分区待审。原记录不改，
+  不放宽容差、不发修复请求。楼梯/展陈阶梯、独立柱、未画室内细节仍不支持可靠自动建模。
+- **报警修复**：前序源阶段失败时，门窗改为“未组装，尚未评估宿主”，不再误称全部
+  无宿主。闭合但零已确认门窗的轮廓新增检查源图类型的提示；Kumaya从0标记变为1，
+  不造门窗。回退工程保留原观察里的假设。四份固定观察前后几何与背景一致。
+- **结果**：五图分别21/11/17/1/5待审项，全部为`review_required`，不能报识图通过或
+  整屋可漫游。五份原生纠错工程实际打开/保存/重开精确保持，墙编辑默认禁用；完整
+  原图/观察/源叠图/失败保存。NASA/FOCSA家具锚点缺地面、Peale楼面三角化拒绝也保留，
+  没有移动锚点、填楼板孔洞或猜入口。新图说明普通住宅之外仍存在明显识图/表达局限。
+- **并行功能范围**：本地PNG/JPG画作导入复用既有墙挂/分类修改和附件；共享编译后才
+  接受，图片不进运行时语义。实际Godot检验解码/旋转/取消/应用、真实材质像素、删除
+  原图后的保存重开、导出和移除图片。它是离线作者功能，不计识图准确率收益。
+- **证据**：`.plan2world-validation/runs/20261028-web-floorplans-and-wall-art/`中
+  `source-manifest.json`、`source-evaluation.json`、各新图原图/观察/前后输出/叠图、
+  `web-native-first/`、`art-rendered-first/`；最终交付/CI状态另记，不借用旧发布结果。

@@ -22,8 +22,9 @@ export type FurnitureLayoutCommand =
 export function layoutAssetFields(project:Project,asset:Asset):Partial<FurnitureItem> {
     if (asset.customModelId !== undefined) {
       const model = project.customModels?.find(m => m.id === asset.customModelId);
-      if (!model || asset.catalogId !== 'custom-model') throw new Error('Choose an existing custom model.');
-      return { catalogId: 'custom-model', customModelId: model.id, width: model.width, depth: model.depth, height: model.height };
+      const catalogId = model?.purpose === 'wall-art-image' ? 'wall_art' : 'custom-model';
+      if (!model || asset.catalogId !== catalogId) throw new Error('Choose an existing custom model.');
+      return { catalogId, customModelId: model.id, width: model.width, depth: model.depth, height: model.height };
     }
     const catalog = getCatalogItem(asset.catalogId);
     if (!catalog || catalog.symbol) throw new Error('Choose a supported furniture catalog item.');
@@ -141,9 +142,9 @@ export function furnitureLayoutCatalog(project: Project) {
     ...(project.customModels ?? []).map(model => ({
       label: model.name, category: 'Custom models', dimensions: [model.width, model.depth, model.height],
       presentation:'model',
-      mounting: 'floor' as const,
+      mounting: model.purpose === 'wall-art-image' ? 'wall' : 'floor',
       symbolSvg: illustration('imported_object', model.width, model.depth, '#63756c'),
-      asset: { catalogId: 'custom-model', customModelId: model.id } as Asset,
+      asset: { catalogId: model.purpose === 'wall-art-image' ? 'wall_art' : 'custom-model', customModelId: model.id } as Asset,
     })),
   ];
 }

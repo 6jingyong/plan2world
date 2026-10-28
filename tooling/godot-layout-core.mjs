@@ -11,6 +11,7 @@ import {furniturePlacementPreview} from '../src/lib/runtime/placementPreview';
 import { compileRuntimeArtifacts } from '../src/lib/runtime/runtimeArtifacts';
 import { runtimePackageFiles, serializeRuntimePackage } from '../src/lib/runtime/runtimePackage';
 import { RuntimeProjectError } from '../src/lib/runtime/runtimeProjectError';
+import { applyWallArtImage } from '../src/lib/runtime/wallArtImage';
 
 // Private desktop-core transport. No AI/network/browser and no Godot types.
 const [requestPath, responsePath] = process.argv.slice(2);
@@ -54,7 +55,8 @@ async function run() {
       return;
     }
     let project = source, selectedId = null, updateKind = 'world';
-    if (request.op === 'command') ({ project, selectedId, updateKind } = applyNativeEditCommand(source, request.command));
+    if (request.op === 'command') ({ project, selectedId, updateKind } = request.command?.type === 'wall-art-image'
+      ? await applyWallArtImage(source,request.command) : applyNativeEditCommand(source, request.command));
     else if (request.op !== 'open') throw new Error('Unsupported authoring operation.');
     if (project.architectureReview && !project.floors.some(f => f.entrance || f.walkthroughStart)) throw new RuntimeProjectError('Choose a main entrance in Correct walls and openings before entering walkthrough.');
     const modelDirectory = path.join(path.dirname(process.argv[1]), 'models');

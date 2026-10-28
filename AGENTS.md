@@ -303,6 +303,13 @@ Use `schemas/plan2world-draft-v1.schema.json` and `docs/plan2world-draft-v1.md`.
 
 ## Product invariants
 
+- Local artwork PNG/JPG import belongs to the selected wall-art Modify catalog.
+  Decode/preview locally, explicitly apply through the shared authoring core, and
+  retain the embedded texture using existing custom-model Project attachments.
+  Preserve frame dimensions, wall mount and physics. Runtime consumes the compiled
+  asset; never persist a machine path, fetch an image URL, or infer attachment from
+  texture/model geometry. Removing the picture keeps the frame and shared assets.
+
 - Selected furniture, doors and windows expose one compact Modify action. Reuse
   the add catalog's category/search/thumbnail component for modification, bind
   choices to that selected native object, and commit only after explicit apply

@@ -17,6 +17,7 @@ export function validateCustomModelDefinitions(value: unknown, assets?: Record<s
   if (!Array.isArray(value) || value.length > 64) fail('Use at most 64 model definitions per project.');
   for (const model of value) {
     if (!object(model)) fail('A model definition must be an object.');
+    if (model.purpose !== undefined && model.purpose !== 'wall-art-image') fail('Invalid model purpose.');
     text(model.id, 128, 'model ID'); text(model.name, 256, 'model name');
     if (!/^[A-Za-z0-9_-]+$/.test(model.id) || ids.has(model.id)) fail('Model IDs must be unique identifiers.');
     ids.add(model.id);

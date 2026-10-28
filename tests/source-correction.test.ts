@@ -32,6 +32,15 @@ describe('annotated source correction without another model call',()=>{
     const a=architecture();a.walls.push({...a.walls[0],label:'nearby disputed line',start:p(0,1),end:p(100,1)});
     const out=await reconstructFloorPlanForCorrection(vi.fn().mockResolvedValueOnce(a).mockResolvedValueOnce(furnishing),source());
     expect(out.issueCount).toBeGreaterThan(0);expect(out.project.floors[0].walls).toHaveLength(5);expect(readProject(out.project)).toBeDefined();
+    expect(out.project.architectureReview!.issues.some(i=>i.message.includes('has not been assessed'))).toBe(true);
+    expect(out.project.architectureReview!.issues.some(i=>i.message.includes('needs a wall host'))).toBe(false);
+  });
+  it('does not present a closed footprint with zero confirmed apertures as a source pass',async()=>{
+    const a=architecture();a.openings=[];
+    const out=await reconstructFloorPlanForCorrection(vi.fn().mockResolvedValueOnce(a).mockResolvedValueOnce(furnishing),source());
+    expect(out.draft).toBeDefined();expect(out.issueCount).toBe(1);
+    expect(out.project.architectureReview!.issues[0].message).toContain('site/footprint');
+    expect(out.project.floors[0].doors).toHaveLength(0);expect(out.project.floors[0].windows).toHaveLength(0);
   });
   it('retains malformed source data as an annotated canvas while operational provider failures still propagate',async()=>{
     const out=await reconstructFloorPlanForCorrection(vi.fn().mockResolvedValueOnce({unexpected:'source'}).mockResolvedValueOnce(furnishing),source());
