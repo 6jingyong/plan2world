@@ -8,17 +8,22 @@ import { wallPointAt, wallTangentAt } from '../utils/wallPath';
 import { projectOntoWall } from '../utils/wallProjection';
 import { analyzeFloor } from '../utils/floorAnalysis';
 import { getFurnitureSize } from '../utils/furnitureCatalog';
+import { floorBoundaryProblem, polygonAreaCm2 } from '../utils/floorBoundary';
 
-export type ArchitectureEditCommand =
+export type ArchitectureEditCommand = (
   | { type: 'wall-add'; floorId: string; start: Point; end: Point; thickness?: number; height?: number }
   | { type: 'wall-update'; floorId: string; id: string; start: Point; end: Point; thickness: number; height: number; keepJunctions?: boolean }
   | { type: 'wall-remove'; floorId: string; id: string }
   | { type: 'wall-split'; floorId: string; id: string; at: number }
-  | { type: 'opening-add'; floorId: string; wallId: string; position: number; width: number; kind: 'door' | 'window'; doorType?: Door['type'] }
-  | { type: 'opening-update'; floorId: string; id: string; wallId: string; position: number; width: number; height: number; doorType?: Door['type']; swingDirection?: Door['swingDirection']; flipSide?: boolean }
+  | { type: 'opening-add'; floorId: string; wallId: string; position: number; width: number; kind: 'door' | 'window'; doorType?: Door['type']; material?: Door['material']; windowType?: import('../models/types').Window['type']; height?: number; sillHeight?: number }
+  | { type: 'opening-update'; floorId: string; id: string; wallId: string; position: number; width: number; height: number; sillHeight?:number; doorType?: Door['type']; swingDirection?: Door['swingDirection']; flipSide?: boolean }
   | { type: 'opening-remove'; floorId: string; id: string }
   | { type: 'set-entrance'; floorId: string; id: string; side: 'left' | 'right' }
-  | { type: 'resolve-architecture-issue'; floorId: string; id: string; resolved: boolean };
+  | { type: 'resolve-architecture-issue'; floorId: string; id: string; resolved: boolean }
+  | { type: 'floor-area-add'; floorId: string; points: Point[] }
+  | { type: 'floor-area-update'; floorId: string; id: string; points: Point[] }
+  | { type: 'floor-area-remove'; floorId: string; id: string }
+) & { confirmWallEdit?: boolean };
 
 const same = (a: Point, b: Point) => a.x === b.x && a.y === b.y;
 const point = (p: Point) => {
@@ -37,8 +42,24 @@ export function applyArchitectureEditCommand(input: unknown, command: Architectu
   const id = (prefix: string) => { let n = 1; while (ids.has(`${prefix}-${n}`)) n++; const value = `${prefix}-${n}`; ids.add(value); return value; };
   const selected = 'id' in command ? command.id : null;
   const oldRooms = floor.rooms;
+  const oldWalls = new Map(floor.walls.map(w => [w.id, structuredClone(w)]));
   let selectedId: string | null = selected;
-  if (command.type === 'wall-add') {
+  if (command.type.startsWith('floor-area-')) {
+    const c = command as Extract<ArchitectureEditCommand, { type: 'floor-area-add' | 'floor-area-update' | 'floor-area-remove' }>;
+    const existing = 'id' in c ? floor.rooms.find(r => r.id === c.id && r.boundary && !r.floorOpening) : undefined;
+    if (c.type !== 'floor-area-add' && !existing) throw new Error('Choose an explicitly authored ground area.');
+    if (c.type === 'floor-area-update' && existing?.boundary?.some(p => 'wallId' in p || p.curvePoint)) throw new Error('Keep this ground\'s live wall/curve boundary. Use a new polygon area for paving.');
+    if (c.type === 'floor-area-remove') {
+      floor.rooms = floor.rooms.filter(r => r !== existing); selectedId = null;
+    } else {
+      if (!Array.isArray(c.points) || c.points.length < 3 || c.points.length > 256) throw new Error('Ground needs 3–256 boundary corners.');
+      const points = c.points.map(point), boundary = points.map(point => ({ point }));
+      if (floorBoundaryProblem(boundary, floor.walls)) throw new Error('Ground needs a non-crossing boundary with a real area.');
+      selectedId = existing?.id ?? id('edited-ground');
+      const room = { ...(existing ?? { id: selectedId, name: 'Paved ground', floorTexture: 'concrete', roomType: 'outdoor' as const }), walls: [], boundary, area: polygonAreaCm2(points) / 10000 };
+      if (existing) Object.assign(existing, room); else floor.rooms.push(room);
+    }
+  } else if (command.type === 'wall-add') {
     const start = point(command.start), end = point(command.end);
     if (same(start, end)) throw new Error('A wall needs two different endpoints.');
     selectedId = id('edited-wall');
@@ -110,8 +131,8 @@ export function applyArchitectureEditCommand(input: unknown, command: Architectu
     if (!floor.walls.some(w => w.id === command.wallId)) throw new Error('Choose the wall that carries this opening.');
     selectedId = id('edited-opening');
     const base = { id: selectedId, wallId: command.wallId, position: command.position, width: positive(command.width) };
-    if (command.kind === 'door') floor.doors.push({ ...base, type: command.doorType ?? 'single', height: 210, swingDirection: 'left', flipSide: false });
-    else if (command.kind === 'window') floor.windows.push({ ...base, type: 'standard', height: 120, sillHeight: 90 });
+    if (command.kind === 'door') floor.doors.push({ ...base, type: command.doorType ?? 'single', height: positive(command.height ?? 210), material: command.material ?? 'wood', swingDirection: 'left', flipSide: false });
+    else if (command.kind === 'window') floor.windows.push({ ...base, type: command.windowType ?? 'standard', height: positive(command.height ?? 120), sillHeight: command.sillHeight ?? 90 });
     else throw new Error('Choose a door or window opening.');
   } else if (command.type === 'opening-update' || command.type === 'opening-remove') {
     const opening = [...floor.doors, ...floor.windows].find(o => o.id === command.id);
@@ -122,6 +143,7 @@ export function applyArchitectureEditCommand(input: unknown, command: Architectu
       selectedId = null;
     } else {
       Object.assign(opening, { wallId: command.wallId, position: command.position, width: positive(command.width), height: positive(command.height) });
+      if ('sillHeight' in opening && command.sillHeight !== undefined) opening.sillHeight = command.sillHeight;
       if ('swingDirection' in opening) {
         if (command.doorType && command.doorType !== opening.type) { opening.type = command.doorType; delete opening.leafConfiguration; }
         if (command.swingDirection !== undefined) opening.swingDirection = command.swingDirection;
@@ -137,6 +159,12 @@ export function applyArchitectureEditCommand(input: unknown, command: Architectu
     if (!issue || typeof command.resolved !== 'boolean') throw new Error('Choose a source issue to mark as reviewed.');
     issue.resolved = command.resolved;
   } else throw new Error('Unsupported architecture edit.');
+  if (command.type.startsWith('wall-')) {
+    const changed = floor.walls.filter(w => !oldWalls.has(w.id) || JSON.stringify(w) !== JSON.stringify(oldWalls.get(w.id)));
+    const removed = [...oldWalls.values()].filter(w => !floor.walls.some(v => v.id === w.id));
+    if ([...changed, ...removed].some(w => oldWalls.get(w.id)?.authorModified) && !command.confirmWallEdit) throw new Error('This wall was manually corrected and is protected. Explicitly enable correction of marked walls first.');
+    changed.forEach(w => w.authorModified = true);
+  }
   if (['wall-add', 'wall-update', 'wall-remove', 'wall-split'].includes(command.type)) floor.rooms = analyzeFloor(floor, oldRooms).rooms;
   project.updatedAt = now;
   return { project: readProject(project), selectedId, updateKind: 'architecture' as const };
@@ -156,6 +184,7 @@ export function nativeArchitectureEditor(project: Project) {
       return { ...o, kind: floor.doors.includes(o as Door) ? 'door' : 'window', center: wallPointAt(wall, o.position), inwardLeft: { x: -tangent.y, y: tangent.x } };
     }),
     furniture: floor.furniture.map(f => ({ id: f.id, position: f.position })),
+    groundAreas: analyzeFloor(floor).geometry.filter(({ room }) => room.boundary && !room.floorOpening).map(({ room, polygon }) => ({ id: room.id, name: room.name, points: polygon, editable: room.boundary!.every(p => 'point' in p && !p.curvePoint) })),
     entrance: floor.entrance ?? null,
     issues: project.architectureReview?.issues.filter(i => i.floorId === floor.id) ?? [],
   })) };

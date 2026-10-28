@@ -28,6 +28,8 @@ func run() -> void:
 	main._show_plan_editor(directory.path_join("fractional.project.json"));await idle()
 	var fractional=main._architecture_editor
 	var before_path:String=fractional.session.current()["projectPath"]
+	fractional._wall_permission.button_pressed=true
+	fractional._marked_permission.button_pressed=true
 	fractional._select("wall","w0")
 	var endpoint:Dictionary=fractional._floor["walls"][0]["start"].duplicate()
 	for pressed in [true,false]:
@@ -66,6 +68,7 @@ func run() -> void:
 	await capture("correction-before")
 	# Exercise the native canvas two-point wall-drawing input rather than only
 	# invoking the shared command directly.
+	editor._wall_permission.button_pressed=true
 	editor.canvas.drawing=true
 	for point in [{"x":0,"y":0},{"x":600,"y":0}]:
 		var event:=InputEventMouseButton.new();event.button_index=MOUSE_BUTTON_LEFT;event.pressed=true;event.position=editor.canvas._screen(point);editor.canvas._gui_input(event)

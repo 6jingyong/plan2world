@@ -112,6 +112,7 @@ export function readProject(value: unknown): Project {
       point(item.position, `${path}.position`); defaults(item, { rotation: 0 }); number(item.rotation, `${path}.rotation`);
     };
     elements('walls', (wall, path) => {
+      booleans(wall, ['authorModified'], path);
       point(wall.start, `${path}.start`); point(wall.end, `${path}.end`);
       positive(wall.thickness, `${path}.thickness`);
       for (const key of ['startHeight', 'endHeight']) if (wall[key] !== undefined) number(wall[key], `${path}.${key}`, 0);

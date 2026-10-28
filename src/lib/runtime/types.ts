@@ -162,6 +162,8 @@ interface RuntimeColliderBase {
 }
 
 export interface RuntimeBoxCollider extends RuntimeColliderBase {
+  /** Invisible floor-envelope guard: blocks locomotion, not moving door leaves. */
+  purpose?: 'perimeter';
   kind: 'box';
   center: RuntimeVec3;
   size: RuntimeVec3;

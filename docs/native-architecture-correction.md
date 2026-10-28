@@ -16,10 +16,14 @@ with unusable scale opens an annotated drawing canvas instead of pretending to
 have a measured reconstruction. Provider, file and image-identity failures remain
 operational errors.
 
-Use **Correct walls and openings…** from the scene menu, **Walls…** from plan view,
+Use **Correct walls and openings…** from the scene menu, **Fix plan…** from plan view,
 or **Correct annotated plan…** after desktop reconstruction. The native correction
 window has Walls, Openings and Notes tabs over the retained source image:
 
+- Walls start protected. Explicitly enable **Enable wall correction** for advanced
+  correction. Changed walls retain `authorModified`, show amber in top view, and
+  require **Also allow marked walls** for another correction; source notes stay
+  independent and no operation history is retained.
 - Click a wall or choose its segment ID. Drag an endpoint, or enter centimetre
   coordinates, thickness and height. Exact adjoining endpoints move together.
 - Draw a missing wall with two clicks. Wheel zooms; middle-button dragging pans.
@@ -73,3 +77,27 @@ door's **Panels…** action. All accepted choices persist in the canonical Proje
 This is a native authoring change. Its synthetic fixture and frozen black-image
 replay do not establish new model extraction quality, real-house route coverage,
 or Windows hardware acceptance.
+
+## Same-world ground and opening placement
+
+Use **Build… → Pave ground** in the normal native top view. Click the polygon
+corners, preview, then Confirm or Cancel. **Last corner** edits only the pending
+outline. **Adjust existing corners** enables dragging; choose an existing explicit
+polygon ground to adjust it. Live wall/curve floor boundaries are read-only in
+this polygon tool and stay intact. No accepted operation history or Undo is added.
+
+A confirmed ground is a native `Room.boundary` with outdoor semantics. The shared
+compiler derives invisible outer guards from the union of accepted surfaces,
+including exposed edges without physical walls. Shared/overlapping interior seams
+are passable and slab holes stay holes. Guards stop the player at the outer edge;
+actual architectural air walls remain distinct. Source geometry is not inferred
+or completed by this safety policy.
+
+**Build… → Add door / Add window** uses the same categorized thumbnails as Modify.
+Pick a solid host wall, drag the opening or its end handles, adjust width/height
+and window sill, then Confirm. **Size / position…** for an existing opening uses
+this same tool and preserves material, motion, hinge and identity. Preview checks
+use the shared core, and acceptance runs the full compiler again. Invalid openings
+remain unconfirmed, with the previous world and Project retained. Ground and
+aperture geometry rebuild the derived world; appearance-only changes retain
+existing player and door state. Source-error correction remains separately editable.

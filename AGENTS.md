@@ -74,6 +74,22 @@ Do not split presentation triangles into another authoring model. The strict
 runtime compiler still owns floors, openings, collision and safe entry; commit a
 new world only after it compiles. Keep the previous world until then.
 
+Per the latest user policy, normal top-view work is ground, furniture and openings.
+Advanced wall correction starts disabled; every actually changed surviving wall
+(including moved junction neighbours and split segments) retains `authorModified`.
+Show these walls in amber in top view and protect repeat corrections unless the
+user explicitly enables marked-wall editing. This is current authoring metadata,
+not operation history; do not add product Undo/Redo.
+
+Accepted floor surfaces have default invisible outer air guards, including exposed
+paved ground. Derive their union perimeter in the shared runtime compiler; no
+internal seam barriers, outline hull, source-wall insertion or filling slab holes.
+`box.purpose: perimeter` blocks locomotion only, independently of actual door
+obstruction; native architectural air walls retain their existing full collision.
+Ground is an explicit canonical `Room.boundary`, edited in the same Godot world.
+Opening placement projects an explicitly picked host in shared code and stages
+a cancellable width/position/height preview. Godot does not own geometric acceptance.
+
 Door material (`wood`, `glass`, `steel`) is presentation, separate from opening
 motion. Appearance swaps must preserve the existing physics bodies, open state,
 player and other doors. Existing mechanical configurations remain compatible.

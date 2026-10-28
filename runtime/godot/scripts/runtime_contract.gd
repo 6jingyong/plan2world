@@ -104,6 +104,7 @@ static func valid(data: Dictionary) -> bool:
 	for collider in data["colliders"]:
 		if not collider is Dictionary or not _unique(collider.get("id"), colliders) or not collider.get("dynamic") is bool or not floors.has(collider.get("floorId")) or owners.get(collider.get("ownerId")) != collider["floorId"]: return false
 		colliders[collider["id"]] = collider
+		if collider.has("purpose") and (collider["purpose"]!="perimeter" or collider.get("kind")!="box" or collider["dynamic"] or not rooms.has(collider["ownerId"])):return false
 		match collider.get("kind"):
 			"box":
 				if not vector(collider.get("center"), 3) or not vector(collider.get("size"), 3, true) or not _number(collider.get("yawClockwiseRadians")): return false

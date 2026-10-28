@@ -6,6 +6,7 @@ import { furnitureLayoutCatalog } from '../src/lib/runtime/furnitureLayout';
 import { applyNativeEditCommand, nativeDoorEditor, nativeDoorAppearances } from '../src/lib/runtime/nativeEditing';
 import { nativeArchitectureEditor } from '../src/lib/runtime/architectureEditing';
 import { nativeOpeningCatalog, nativeOpeningEditor } from '../src/lib/runtime/objectCatalog';
+import { spatialAuthoringPreview } from '../src/lib/runtime/spatialAuthoring';
 import {furniturePlacementPreview} from '../src/lib/runtime/placementPreview';
 import { compileRuntimeArtifacts } from '../src/lib/runtime/runtimeArtifacts';
 import { runtimePackageFiles, serializeRuntimePackage } from '../src/lib/runtime/runtimePackage';
@@ -18,6 +19,9 @@ async function run() {
     const bytes = await readFile(request.projectPath);
     const source = path.extname(request.projectPath).toLowerCase() === '.zip'
       ? readProjectPackage(new Uint8Array(bytes)).project : readProject(JSON.parse(bytes.toString('utf8')));
+    if(request.op==='spatial-preview') {
+      await writeFile(responsePath,JSON.stringify({ok:true,preview:spatialAuthoringPreview(source,request.command)}));return;
+    }
     if(request.op==='preview'){
       await writeFile(responsePath,JSON.stringify({ok:true,preview:furniturePlacementPreview(source,request.command)}));return;
     }
@@ -68,7 +72,7 @@ async function run() {
     await writeFile(path.join(output, 'project.json'), JSON.stringify(project, null, 2) + '\n', { flag: 'wx' });
     await writeFile(path.join(output, 'scene.runtime.zip'), zip, { flag: 'wx' });
     await writeFile(responsePath, JSON.stringify({ ok: true, projectPath: path.join(output, 'project.json'), runtimePath: path.join(output, 'scene.runtime.json'), packagePath: path.join(output, 'scene.runtime.zip'), selectedId,
-      updateKind, doors: nativeDoorEditor(project), doorAppearances: nativeDoorAppearances(project), openings: nativeOpeningEditor(project), openingCatalog: nativeOpeningCatalog(), catalog: furnitureLayoutCatalog(project) }));
+      updateKind, authoring: nativeArchitectureEditor(project), doors: nativeDoorEditor(project), doorAppearances: nativeDoorAppearances(project), openings: nativeOpeningEditor(project), openingCatalog: nativeOpeningCatalog(), catalog: furnitureLayoutCatalog(project) }));
   } catch (error) {
     await writeFile(responsePath, JSON.stringify({ ok: false, error: error instanceof Error ? error.message : String(error) }));
     process.exitCode = 1;

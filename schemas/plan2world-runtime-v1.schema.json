@@ -249,6 +249,7 @@
       "type": "object", "additionalProperties": false,
       "required": ["id", "ownerId", "floorId", "dynamic", "kind", "center", "size", "yawClockwiseRadians"],
       "properties": {
+        "purpose": { "const": "perimeter" },
         "id": { "$ref": "#/$defs/id" }, "ownerId": { "$ref": "#/$defs/id" }, "floorId": { "$ref": "#/$defs/id" },
         "dynamic": { "type": "boolean" }, "kind": { "const": "box" }, "center": { "$ref": "#/$defs/vec3" },
         "size": { "$ref": "#/$defs/positiveVec3" }, "yawClockwiseRadians": { "type": "number" }

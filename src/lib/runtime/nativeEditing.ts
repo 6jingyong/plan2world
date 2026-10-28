@@ -18,7 +18,7 @@ export function applyNativeEditCommand(input: unknown, command: NativeEditComman
     window.type=command.windowType;project.updatedAt=now;
     return {project:readProject(project),selectedId:window.id,updateKind:'window-style' as const};
   }
-  if (['wall-add','wall-update','wall-remove','wall-split','opening-add','opening-update','opening-remove','set-entrance','resolve-architecture-issue'].includes(command.type)) return applyArchitectureEditCommand(input, command as ArchitectureEditCommand, now);
+  if (['floor-area-add','floor-area-update','floor-area-remove','wall-add','wall-update','wall-remove','wall-split','opening-add','opening-update','opening-remove','set-entrance','resolve-architecture-issue'].includes(command.type)) return applyArchitectureEditCommand(input, command as ArchitectureEditCommand, now);
   if (command.type === 'door-material') {
     const project = readProject(input), door = project.floors.find(f => f.id === command.floorId)?.doors.find(d => d.id === command.id);
     if (!door || door.type === 'opening' || !['wood','glass','steel'].includes(command.material)) throw new Error('Choose a door and its surface material.');

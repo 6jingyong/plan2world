@@ -13,6 +13,7 @@ import { entranceSpawn } from './playerSpawn';
 import { compileRuntimeStair, type RuntimeStairTarget } from './stairTraversal';
 import { compileRuntimeDoor } from './doorCompilation';
 import {runtimeWallMovement} from './furnitureMovement';
+import { floorPerimeter } from './floorPerimeter';
 import {hasBuiltinWallDecor} from '../utils/builtinWallDecor';
 import type {
   Plan2WorldRuntimeSceneV1,
@@ -242,6 +243,7 @@ function compileFloor(
   for (const room of rooms) {
     colliders.push(compileRoomFloorCollider(room, floor.id, elevation));
   }
+  colliders.push(...floorPerimeter(rooms, floor.id, elevation));
 
   return {
     floor: {

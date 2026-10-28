@@ -21,6 +21,8 @@ export interface ProjectPackageState {
 }
 
 export interface Wall {
+  /** Explicit human correction; retained across saves, never image evidence. */
+  authorModified?: boolean;
   /** Logical air boundaries are invisible but retain native collision/closure. */
   boundaryType?: 'solid' | 'railing' | 'air';
   details?: ItemDetails;

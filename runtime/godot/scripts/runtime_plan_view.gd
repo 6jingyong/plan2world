@@ -2,6 +2,7 @@ extends CanvasLayer
 
 const UI := preload("res://scripts/runtime_ui.gd")
 const CATALOG_VIEW := preload("res://scripts/furniture_catalog_view.gd")
+const SPATIAL:=preload("res://scripts/spatial_authoring.gd")
 signal menu_requested
 signal walkthrough_requested
 signal command_requested(command: Dictionary)
@@ -11,6 +12,9 @@ signal light_requested(id:String)
 signal walls_requested
 signal preview_requested(command:Dictionary)
 signal opening_requested(id:String)
+signal add_opening_requested(kind:String)
+var spatial
+var _editor_state:Dictionary={}
 var controller
 var _floor_selector: OptionButton
 var _layer_selector:OptionButton
@@ -63,6 +67,10 @@ func _ready() -> void:
 	_screen.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	UI.fill(_screen)
 	add_child(_screen)
+	spatial=SPATIAL.new();_screen.add_child(spatial)
+	spatial.command_requested.connect(func(command:Dictionary):command_requested.emit(command))
+	spatial.mode_changed.connect(func():_frame_view.call_deferred())
+	register_dialog(spatial._areas.get_popup())
 	# Small mode/floor chip. The house, not a permanent inspector, fills the view.
 	var mode := PanelContainer.new()
 	mode.name = "Toolbar"; mode.position = Vector2(16,16)
@@ -71,11 +79,13 @@ func _ready() -> void:
 	var mode_row := HBoxContainer.new(); mode.add_child(mode_row)
 	mode_row.add_child(UI.label("Arrange", 20))
 	_floor_selector = OptionButton.new(); _floor_selector.name = "FloorSelector"
+	register_dialog(_floor_selector.get_popup())
 	_floor_selector.custom_minimum_size.x = 108; _floor_selector.fit_to_longest_item = false
-	_floor_selector.item_selected.connect(func(index: int): controller.select_floor(_floor_ids[index]); _fill_walls())
+	_floor_selector.item_selected.connect(func(index: int): spatial.cancel();controller.select_floor(_floor_ids[index]); _fill_walls())
 	mode_row.add_child(_floor_selector)
 	_layer_selector=OptionButton.new();_layer_selector.name="EditingLayer";_layer_selector.add_item("Furniture");_layer_selector.add_item("Ceiling lights")
-	_layer_selector.item_selected.connect(func(index:int):controller.set_ceiling_layer(index==1);_catalog_view.set_ceiling_layer(index==1);_catalog_action="AddFurniture";_fill_ceilings();_selection_changed())
+	register_dialog(_layer_selector.get_popup())
+	_layer_selector.item_selected.connect(func(index:int):spatial.cancel();controller.set_ceiling_layer(index==1);_catalog_view.set_ceiling_layer(index==1);_catalog_action="AddFurniture";_fill_ceilings();_selection_changed())
 	mode_row.add_child(_layer_selector)
 	var navigation := HBoxContainer.new(); navigation.name = "Navigation"
 	navigation.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
@@ -103,7 +113,15 @@ func _ready() -> void:
 	_grid.tooltip_text = "10 cm grid · first-person steps remain 1 cm"
 	for button in [_snap, _grid]: button.toggled.connect(func(_value): _snapping_changed())
 	tools.add_child(UI.button("Fit", "FitFloor", func(): controller.fit_floor()))
-	tools.add_child(UI.button("Walls…", "EditWalls", func():walls_requested.emit()))
+	var build:=MenuButton.new();build.name="BuildTools";build.text="Build…";tools.add_child(build)
+	register_dialog(build.get_popup())
+	for item in ["Pave ground","Add door","Add window"]:build.get_popup().add_item(item)
+	build.get_popup().index_pressed.connect(func(index:int):
+		spatial.cancel()
+		set_catalog_open(false)
+		if index==0:spatial.start_ground(_editor_state,controller.floor_id)
+		else:add_opening_requested.emit("door" if index==1 else "window"))
+	tools.add_child(UI.button("Fix plan…", "EditWalls", func():walls_requested.emit()))
 	for button in tools.get_children():
 		button.add_theme_font_size_override("font_size",14)
 		button.custom_minimum_size = Vector2(64,48)
@@ -211,10 +229,13 @@ func configure(data: Dictionary, camera_controller) -> void:
 	set_editor({},false,false)
 
 func set_editor(state: Dictionary, busy: bool, dirty: bool) -> void:
+	_editor_state=state
 	var editable := not state.is_empty()
 	_busy=busy
 	find_child("EditWalls",true,false).disabled=not editable or busy
 	controller.editing = editable and not busy
+	if not spatial.mode.is_empty():controller.editing=false
+	find_child("BuildTools",true,false).disabled=not editable or busy or not state.has("authoring")
 	for name in ["FirstPerson","FloorSelector","FitFloor","EditingLayer"]: find_child(name,true,false).disabled = busy
 	if _catalog.is_empty() and editable:
 		_catalog = state["catalog"]; _catalog_view.configure(_catalog)
@@ -235,6 +256,7 @@ func show_message(text: String) -> void:
 	_toast.visible = not text.is_empty()
 
 func set_catalog_open(open: bool, replacing := false) -> void:
+	if open:spatial.cancel()
 	controller.cancel_drag()
 	_catalog_view.visible = open
 	if open:
@@ -415,6 +437,7 @@ func _frame_view() -> void:
 	_toast.size.x = minf(680,screen.x-32)
 	_toast.position = Vector2((screen.x-_toast.size.x)/2,screen.y-270)
 	var right := width+32 if _catalog_view.visible else 16.0
+	if not spatial.mode.is_empty():right=maxf(right,spatial._panel.size.x+32)
 	var resized := _framed_size!=screen
 	if resized or controller.inset_left!=100 or controller.inset_right!=right or controller.inset_top!=90 or controller.inset_bottom!=96:
 		_framed_size=screen

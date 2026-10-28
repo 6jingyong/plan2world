@@ -39,6 +39,10 @@ func preview(command:Dictionary) -> Dictionary:
 	if _current.is_empty():return {"ok":false,"error":"Open an editable Project first."}
 	return await _execute(_current["projectPath"],command,true)
 
+func spatial_preview(command:Dictionary) -> Dictionary:
+	if _current.is_empty():return {"ok":false,"error":"Open an editable Project first."}
+	return await _execute(_current["projectPath"],command,true,"spatial-preview")
+
 func accept(candidate: Dictionary, opened := false) -> void:
 	var previous := _current
 	_current = candidate

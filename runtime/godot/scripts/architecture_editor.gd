@@ -27,6 +27,8 @@ var _save:FileDialog
 var _buttons:Array=[]
 var _discard:ConfirmationDialog
 var _pending_discard:Callable
+var _wall_permission:CheckButton
+var _marked_permission:CheckButton
 
 func _ready() -> void:
 	name="ArchitectureEditor";title="Correct walls and openings";theme=UI.theme();min_size=Vector2i(980,620);size=Vector2i(1120,740);process_mode=Node.PROCESS_MODE_ALWAYS;transient=true;exclusive=true
@@ -48,6 +50,10 @@ func _ready() -> void:
 	var scroll:=ScrollContainer.new();scroll.custom_minimum_size.x=330;scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED;body.add_child(scroll)
 	_tabs=TabContainer.new();_tabs.name="CorrectionTabs";_tabs.use_hidden_tabs_for_min_size=false;_tabs.size_flags_horizontal=Control.SIZE_EXPAND_FILL;scroll.add_child(_tabs)
 	var panel:=VBoxContainer.new();panel.name="Walls";_tabs.add_child(panel)
+	panel.add_child(UI.label("Wall correction is an advanced action.",13,UI.MUTED))
+	_wall_permission=CheckButton.new();_wall_permission.name="EnableWallCorrection";_wall_permission.text="Enable wall correction";panel.add_child(_wall_permission)
+	_marked_permission=CheckButton.new();_marked_permission.name="EnableMarkedWallCorrection";_marked_permission.text="Also allow marked walls";panel.add_child(_marked_permission)
+	for permission in [_wall_permission,_marked_permission]:permission.toggled.connect(func(_v:bool):canvas.walls_enabled=_wall_permission.button_pressed;canvas.marked_walls_enabled=_marked_permission.button_pressed;_selection_controls();canvas.queue_redraw())
 	var openings:=VBoxContainer.new();openings.name="Openings";_tabs.add_child(openings)
 	var notes:=VBoxContainer.new();notes.name="Notes";_tabs.add_child(notes)
 	panel.add_child(UI.label("Wall segments",18));_wall_selector=OptionButton.new();_wall_selector.name="CorrectionWall";panel.add_child(_wall_selector)
@@ -107,6 +113,7 @@ func discard_session() -> void:
 	canvas.floor={};canvas.selected_id="";canvas.queue_redraw()
 
 func _load_project(path:String) -> void:
+	_wall_permission.set_pressed_no_signal(false);_marked_permission.set_pressed_no_signal(false);canvas.walls_enabled=false;canvas.marked_walls_enabled=false
 	_set_busy(true);var result:Dictionary=await session.open_plan_project(path);_set_busy(false)
 	if not result.get("ok",false):_message.text=result["error"];return
 	session.accept(result,true);_source_path=path;_kind="";_id="";_refresh()
@@ -125,7 +132,11 @@ func _lock_controls(node:Node,value:bool) -> void:
 	for child in node.get_children():_lock_controls(child,value)
 
 func _selection_controls() -> void:
-	for name in ["ApplyWallCorrection","SplitCorrectionWall","RemoveCorrectionWall"]:find_child(name,true,false).disabled=_kind!="wall"
+	var marked:=false
+	for wall in _floor.get("walls",[]):
+		if wall["id"]==_id:marked=wall.get("authorModified",false)
+	for name in ["ApplyWallCorrection","SplitCorrectionWall","RemoveCorrectionWall"]:find_child(name,true,false).disabled=_kind!="wall" or not _wall_permission.button_pressed or (marked and not _marked_permission.button_pressed)
+	find_child("DrawCorrectionWall",true,false).disabled=not _wall_permission.button_pressed
 	find_child("ApplyOpeningCorrection",true,false).disabled=_kind!="opening"
 	find_child("SetCorrectionEntrance",true,false).disabled=_kind!="opening"
 	find_child("ResolveCorrectionIssue",true,false).disabled=_kind!="issue"
@@ -140,7 +151,7 @@ func _refresh() -> void:
 
 func _choose_floor(index:int) -> void:
 	_floor=session.current()["editor"]["floors"][index];_wall_selector.clear();_host_selector.clear();_items.clear();_issues.clear()
-	for wall in _floor["walls"]:_wall_selector.add_item(wall["id"]);_host_selector.add_item(wall["id"])
+	for wall in _floor["walls"]:_wall_selector.add_item(wall["id"]+(" · corrected / protected" if wall.get("authorModified",false) else ""));_host_selector.add_item(wall["id"])
 	for opening in _floor["openings"]:_items.add_item(opening["id"]+" · "+opening["kind"])
 	for issue in _floor["issues"]:_issues.add_item(("✓ " if issue["resolved"] else "! ")+issue["message"]);_issues.set_item_tooltip(_issues.item_count-1,issue["message"])
 	canvas.configure(_floor,_id)
@@ -195,6 +206,9 @@ func _apply_opening() -> void:
 
 func _command(command:Dictionary) -> void:
 	if session.busy or _floor.is_empty():return
+	if str(command["type"]).begins_with("wall-"):
+		if not _wall_permission.button_pressed:_message.text="Enable advanced wall correction first.";return
+		command["confirmWallEdit"]=_marked_permission.button_pressed
 	command["floorId"]=_floor["id"];_set_busy(true)
 	var result:Dictionary=await session.apply_plan_command(command);_set_busy(false)
 	if not result.get("ok",false):_message.text=result["error"];canvas.configure(_floor,_id);return

@@ -6,6 +6,8 @@ signal wall_drawn(start:Dictionary,finish:Dictionary)
 var floor:Dictionary={}
 var selected_id:=""
 var drawing:=false
+var walls_enabled:=false
+var marked_walls_enabled:=false
 var inward_side:=1
 var _texture:Texture2D
 var _zoom:=1.0
@@ -57,14 +59,14 @@ func _draw() -> void:
 		draw_set_transform(_screen(bg["position"]),deg_to_rad(bg["rotation"]),Vector2.ONE*bg["scale"]*_zoom)
 		draw_texture_rect(_texture,Rect2(-Vector2(_texture.get_size())*.5,Vector2(_texture.get_size())),false,Color(1,1,1,clampf(bg.get("opacity",.35),.15,.65)));draw_set_transform(Vector2.ZERO)
 	for wall in floor.get("walls",[]):
-		var color:=Color("397b67") if wall["id"]==selected_id else Color("314b43")
+		var color:=Color("cd8739") if wall.get("authorModified",false) else Color("397b67") if wall["id"]==selected_id else Color("314b43")
 		var points:PackedVector2Array=[]
 		for point in wall["points"]:points.append(_screen(point))
 		if _drag!="" and _wall.get("id")==wall["id"]:
 			if _drag=="start":points[0]=_pointer
 			else:points[points.size()-1]=_pointer
 		if points.size()>1:draw_polyline(points,color,clampf(wall["thickness"]*_zoom,3,18),true)
-		if wall["id"]==selected_id:
+		if wall["id"]==selected_id and walls_enabled and (not wall.get("authorModified",false) or marked_walls_enabled):
 			for point in [points[0],points[points.size()-1]]:draw_circle(point,7,Color("e8b35e"));draw_arc(point,7,0,TAU,20,color,2,true)
 	for opening in floor.get("openings",[]):
 		var p:=_screen(opening["center"]);var color:=Color("ed792e") if opening["kind"]=="door" else Color("138cc5")
@@ -94,13 +96,14 @@ func _gui_input(event:InputEvent) -> void:
 				_drag="";wall_modified.emit(_wall["id"],start,finish);queue_redraw()
 			return
 		_pointer=event.position
-		if drawing:
+		if drawing and walls_enabled:
 			if _draft_start==null:_draft_start=_plan(event.position)
 			else:
 				var start:Dictionary=_draft_start;_draft_start=null;drawing=false;wall_drawn.emit(start,_plan(event.position))
 			queue_redraw();accept_event();return
 		for wall in floor.get("walls",[]):
 			if wall["id"]!=selected_id:continue
+			if not walls_enabled or (wall.get("authorModified",false) and not marked_walls_enabled):continue
 			for key in ["start","end"]:
 				if event.position.distance_to(_screen(wall[key]))<12:_wall=wall;_drag=key;_drag_origin=event.position;_drag_started=false;accept_event();return
 		for issue in floor.get("issues",[]):

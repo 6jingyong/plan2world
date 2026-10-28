@@ -30,6 +30,7 @@ func render(
 		if typeof(raw_collider) != TYPE_DICTIONARY:
 			continue
 		var collider: Dictionary = raw_collider
+		if collider.get("purpose")=="perimeter":continue
 		var node = collider_nodes.get(str(collider.get("id", "")), null)
 		if node == null or not (node is Node3D):
 			continue

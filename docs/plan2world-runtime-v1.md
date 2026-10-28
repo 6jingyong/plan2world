@@ -282,3 +282,18 @@ enough information to determine their real geometry and motion.
 
 Implement native editing/persistence before compiler geometry or engine behavior.
 Never substitute straight ramps or swing doors to conceal missing semantics.
+
+## Default outside air guards
+
+Static box colliders may carry `purpose: "perimeter"`. These compiler-owned,
+invisible guards follow only exposed outer edges of accepted floor-surface unions.
+They reference a room owner and are not architectural wall entities or source
+evidence. Adjacent/overlapping surfaces have no internal guard; explicit slab
+holes remain apertures. No new native wall or ground is inferred.
+
+Backends must block player locomotion on these guards while excluding them from
+door-motion obstruction and rendering. Godot uses collision layer 8 for perimeter
+guards and a player mask of 1|8; actual architectural walls, air boundaries and
+door obstruction retain layer 1. This keeps safety enclosure independent of an
+existing exterior door's motion. Runtime snapshots must be re-exported to gain
+the new guards.

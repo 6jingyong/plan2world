@@ -66,6 +66,9 @@ func _build_static_collider(collider: Dictionary, root: Node3D) -> Node3D:
 
 func _build_static_box(collider: Dictionary, root: Node3D) -> StaticBody3D:
 	var body := StaticBody3D.new()
+	if collider.get("purpose")=="perimeter":
+		body.collision_layer=8
+		body.set_meta("p2w_perimeter",true)
 	body.name = "Collider_%s" % str(collider.get("id", "box")).validate_node_name()
 	body.position = _vec3(collider.get("center", []))
 	body.rotation.y = _yaw(collider.get("yawClockwiseRadians", 0.0))

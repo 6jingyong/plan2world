@@ -70,6 +70,7 @@ func _ready() -> void:
 	_object_editor.command_requested.connect(_edit_layout)
 	_object_editor.preview_requested.connect(_preview_object_replacement)
 	_object_editor.geometry_requested.connect(_show_opening_geometry)
+	_object_editor.opening_placement_requested.connect(_place_new_opening)
 	_object_editor.panels_requested.connect(_show_door_settings)
 	_object_editor.light_requested.connect(_show_light_settings)
 	_object_editor.closed.connect(func():
@@ -158,6 +159,8 @@ func _open_scene(runtime_path: String, architecture_path: String = "", editor_st
 	_plan_view = RUNTIME_PLAN_VIEW.new()
 	_world.add_child(_plan_view)
 	_plan_view.configure(data, _layout_camera)
+	_plan_view.spatial.configure(_layout_camera,_session)
+	_plan_view.spatial.activity_changed.connect(_sync_controls)
 	_plan_view.register_dialog(_door_settings);_plan_view.register_dialog(_object_editor);_plan_view.register_dialog(_light_settings.dialog)
 	_layout_camera.view_started.connect(_sync_controls)
 	_layout_camera.view_settled.connect(_sync_controls)
@@ -168,6 +171,8 @@ func _open_scene(runtime_path: String, architecture_path: String = "", editor_st
 	_plan_view.light_requested.connect(_show_light_settings)
 	_plan_view.walls_requested.connect(func():_show_plan_editor())
 	_plan_view.opening_requested.connect(_show_object_editor)
+	_plan_view.add_opening_requested.connect(func(kind:String):
+		_layout_camera.cancel_drag();_object_editor.show_new_opening(_session.current(),kind);get_tree().paused=true;Input.mouse_mode=Input.MOUSE_MODE_VISIBLE;_sync_controls())
 	_plan_view.save_requested.connect(_save_layout)
 	_plan_view.export_requested.connect(func(path: String):
 		var error: Error = _session.export_runtime(path)
@@ -231,6 +236,7 @@ func _open_project(path: String) -> bool:
 
 func _show_plan_editor(path:="") -> void:
 	if _editing or _session.busy:return
+	if _world!=null:_plan_view.spatial.cancel()
 	if path.is_empty():
 		if _session.current().is_empty():return
 		path=_session.current()["projectPath"]
@@ -254,6 +260,12 @@ func _edit_layout(command: Dictionary) -> void:
 	_editing = false
 	if result.get("ok", false):
 		var candidate: Dictionary = RUNTIME_ARTIFACTS.new().load_runtime(str(result["runtimePath"]))
+		if result.get("updateKind")=="architecture":
+			var floor_id:String=_layout_camera.floor_id
+			if _open_scene(str(result["runtimePath"]),"",result):
+				_session._dirty=true;_layout_camera.select_floor(floor_id);_view_mode=ViewMode.PLAN;_resume();_sync_editor()
+			else:_session.discard_candidate(result);_sync_controls()
+			return
 		if result.get("updateKind")=="window-style":
 			var artifacts:=RUNTIME_ARTIFACTS.new()
 			var architecture_path:String=artifacts.default_architecture_path(str(result["runtimePath"]))
@@ -505,6 +517,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 func _show_walkthrough() -> void:
 	if _session.busy:
 		return
+	_plan_view.spatial.cancel()
 	_view_mode = ViewMode.WALKTHROUGH
 	_release_actions()
 	_resume()
@@ -601,6 +614,7 @@ func _show_door_settings(id:="") -> void:
 
 func _show_object_editor(id:="") -> void:
 	if _editing or _session.busy or _session.current().is_empty():return
+	_plan_view.spatial.cancel()
 	if id.is_empty():id=_layout_camera.selected_id if _view_mode==ViewMode.PLAN else _adjustment.aimed_id()
 	var entity:Dictionary=_layout_camera._entities.get(id,{})
 	if entity.get("kind") not in ["furniture","door","window"] or entity.get("locked",false) or entity.get("doorType")=="opening":
@@ -621,13 +635,15 @@ func _preview_object_replacement(command:Dictionary) -> void:
 func _show_opening_geometry(id:String) -> void:
 	var entity:Dictionary=_layout_camera._entities.get(id,{})
 	if entity.is_empty():return
-	var path:String=_session.current()["projectPath"]
-	_show_plan_editor(path)
-	while _architecture_editor.session.busy:await get_tree().process_frame
-	if _architecture_editor._source_path!=path:return
-	for i in range(_architecture_editor.session.current()["editor"]["floors"].size()):
-		if _architecture_editor.session.current()["editor"]["floors"][i]["id"]==entity["floorId"]:
-			_architecture_editor._floors.select(i);_architecture_editor._choose_floor(i);_architecture_editor._tabs.current_tab=1;_architecture_editor._select("opening",id);return
+	_view_mode=ViewMode.PLAN;_resume()
+	while _layout_camera.transitioning:await get_tree().process_frame
+	_layout_camera.select_floor(entity["floorId"])
+	_plan_view.spatial.start_opening(_session.current(),entity["floorId"],entity["kind"],id)
+
+func _place_new_opening(kind:String,choice:Dictionary) -> void:
+	_view_mode=ViewMode.PLAN;_resume()
+	while _layout_camera.transitioning:await get_tree().process_frame
+	_plan_view.spatial.start_opening(_session.current(),_layout_camera.floor_id,kind,"",choice)
 
 func _process(_delta:float) -> void:
 	if _world==null:return
