@@ -375,7 +375,8 @@ func _action(action: String,preview:=false) -> void:
 		"RotateFurniture": command.merge({"type":"rotate","rotation":rad_to_deg(controller._entities[controller.selected_id]["yawClockwiseRadians"])+90})
 		"ReplaceFurniture":
 			if not controller._entities.has(controller.selected_id):return
-			if controller._entities.get(controller.selected_id,{}).get("kind") in ["door","window"]:opening_requested.emit(controller.selected_id);return
+			var selected:Dictionary=controller._entities.get(controller.selected_id,{})
+			if selected.get("kind") in ["door","window"] or selected.get("catalogId")=="wall_art":opening_requested.emit(controller.selected_id);return
 			if not _catalog_view.visible:
 				set_catalog_open(true,true); return
 			if index<0: return

@@ -59,6 +59,7 @@ static func valid(data: Dictionary) -> bool:
 					if motion["along"][0] > motion["along"][1] or motion["bottom"][0] > motion["bottom"][1]: return false
 				elif motion.get("kind") != "unbound-wall": return false
 				if entity.has("mirror") and not vector(entity["mirror"], 3): return false
+				if entity.has("representation") and (entity["representation"]!="source-marker" or entity.get("catalogId")!="imported_object" or entity.get("assetRef")!="catalog:imported_object"):return false
 				if entity.has("light"):
 					var light=entity["light"]
 					if motion.get("kind")!="ceiling" or not light is Dictionary or light.get("kind") not in ["omni","spot"] or not light.get("enabled") is bool:return false

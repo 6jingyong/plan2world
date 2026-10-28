@@ -295,6 +295,8 @@ export interface Floor {
 }
 
 export interface CustomModelDef {
+  /** Generated image-backed frame; remains an embedded portable GLB. */
+  purpose?: 'wall-art-image';
   id: string;
   name: string;
   assetName: string; // filename within projectPackage.assets, without assets/

@@ -169,12 +169,14 @@ function compileFloor(
     const position = point3(item.position, elevationCm + (ceiling?.bottom ?? item.wallMount?.elevation ?? 0) + size.height / 2);
     const yaw = item.rotation * Math.PI / 180;
     const frame = item.wallMount ? validateWallPlacement(floor, { ...item, width: item.width ?? custom?.width, depth: item.depth ?? custom?.depth, height: item.height ?? custom?.height }) : null;
+    const semanticMarker = item.catalogId === 'imported_object' && item.renderStyle === 'block' && !item.customModelId;
     entities.push({
       locked: !!item.locked,
       movement: ceiling ? { kind: 'ceiling', roomId: ceiling.id, elevation: m(elevationCm+ceiling.height) } : frame ? runtimeWallMovement(frame,item.wallMount!,elevationCm)
         : needsWallMount(item.catalogId) ? { kind: 'unbound-wall' } : { kind: 'floor', elevation: m(elevationCm) },
       id: item.id, floorId: floor.id, kind: 'furniture', catalogId: item.catalogId,
       ...(item.sourceCategory ? { sourceCategory: item.sourceCategory } : {}),
+      ...(semanticMarker ? { representation: 'source-marker' as const } : {}),
       assetRef: item.customModelId ? `custom-model:${item.customModelId}` : ceiling || hasBuiltinWallDecor(item.catalogId) ? `builtin:${item.catalogId}-v1` : `catalog:${item.catalogId}`,
       ...(ceiling ? { light: (() => {
         const profile = ceilingLightProfile(item.catalogId)!;
@@ -187,7 +189,6 @@ function compileFloor(
     });
     // Source semantic markers remain selectable authoring anchors. Their
     // arbitrary fallback block dimensions must not become walking obstacles.
-    const semanticMarker = item.catalogId === 'imported_object' && item.renderStyle === 'block' && !item.customModelId;
     if (!semanticMarker && size.width > 0 && size.depth > 0 && (ceiling || size.height >= 20)) {
       colliders.push({
         id: `furniture:${item.id}`, ownerId: item.id, floorId: floor.id, dynamic: false, kind: 'box',

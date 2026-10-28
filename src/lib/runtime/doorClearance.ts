@@ -26,7 +26,7 @@ export function validateFurnitureDoorClearance(scene: Plan2WorldRuntimeSceneV1):
   const doors = new Set(scene.entities.filter(e => e.kind === 'door').map(e => e.id));
   const closedLeaves = scene.colliders.filter((c): c is RuntimeBoxCollider => c.kind === 'box' && doors.has(c.ownerId));
   for (const item of scene.entities) {
-    if (item.kind !== 'furniture') continue;
+    if (item.kind !== 'furniture' || item.representation === 'source-marker') continue;
     for (const leaf of closedLeaves) {
       if (overlaps({ center: item.position, size: item.size, yawClockwiseRadians: item.yawClockwiseRadians }, leaf)) {
         throw new Error(`Furniture "${item.id}" overlaps the closed pose of door "${leaf.ownerId}" (leaf "${leaf.id}"). Correct the native furniture placement before runtime export.`);

@@ -551,6 +551,9 @@ func placement_allowed(scene: Dictionary, id: String, offset := Vector3.ZERO, ya
 	var yaw := float(entity["yawClockwiseRadians"]) if yaw_override == null else float(yaw_override)
 	var movement: Dictionary = entity["movement"]
 	if movement["kind"] in ["floor","ceiling"] and not _floor_support(entity, pose, yaw): return false
+	# Source anchors have no observed physical extent. Their arbitrary selectable
+	# block must not acquire an obstacle query during editing either.
+	if entity.get("representation")=="source-marker" and movement["kind"]=="floor":return true
 	if movement["kind"]=="ceiling" and absf(pose.y+float(entity["size"][1])/2-float(movement["elevation"]))>.00001:return false
 	if movement["kind"] == "wall":
 		var origin := _vec3(movement["origin"])
@@ -566,8 +569,7 @@ func placement_allowed(scene: Dictionary, id: String, offset := Vector3.ZERO, ya
 	for collider in data["colliders"]:
 		if (room_ids.has(collider["ownerId"]) or collider["ownerId"] == id) and _nodes.has(collider["id"]):
 			exclusions.append(_nodes[collider["id"]].get_rid())
-	# The semantic size also constrains placement of rugs/non-walking markers;
-	# it does not add any collider to the runtime world.
+	# Real furniture, including thin rugs, retains its complete placement bounds.
 	var shape := BoxShape3D.new()
 	shape.size = _vec3(entity["size"]).max(Vector3(0.001,0.001,0.001)) * 0.999
 	var query := PhysicsShapeQueryParameters3D.new()

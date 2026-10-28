@@ -10,7 +10,7 @@ import { runtimeDoorAuditProject } from './runtime-door-audit-fixture.mjs';
 import { runtimeMultileafProject } from './runtime-multileaf-fixture.mjs';
 import { runtimeSupportProject } from './runtime-support-fixture.mjs';
 import {runtimeLightingReferenceProject} from './runtime-lighting-reference-fixture.mjs';
-import {architectureCorrectionProject} from './runtime-architecture-correction-fixture.mjs';
+import {architectureCorrectionProject,architectureEntranceProject} from './runtime-architecture-correction-fixture.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const [playerZip, output] = process.argv.slice(2);
@@ -57,9 +57,10 @@ const supportInput=path.join(directory,'support.project.json');await writeFile(s
 const lightingInput=path.join(directory,'lighting-reference.project.json');await writeFile(lightingInput,JSON.stringify(await runtimeLightingReferenceProject()));
 const correctionDirectory=path.join(directory,'architecture-correction');await mkdir(correctionDirectory);
 for (const [name,broken,offset] of [['valid',false,0],['broken',true,0],['fractional',false,.125]]) await writeFile(path.join(correctionDirectory,name+'.project.json'),JSON.stringify(architectureCorrectionProject(broken,offset)));
+await writeFile(path.join(correctionDirectory,'entrance.project.json'),JSON.stringify(architectureEntranceProject()));
 const godot = process.env.GODOT_BIN || 'godot';
 if (!(await readFile(path.join(playerDirectory, 'README.zh-CN.md'), 'utf8')).includes('用法一：插件 / Skill')) throw new Error('Player is missing its two-entry user guide.');
-for (const filename of ['runtime_launcher_test.gd', 'runtime_walkthrough_test.gd', 'runtime_layout_test.gd', 'runtime_product_controls_test.gd', 'runtime_snapping_test.gd', 'runtime_snapping_controls_test.gd', 'runtime_layout_ui_test.gd', 'runtime_desktop_authoring_test.gd', 'runtime_plan_lighting_test.gd', 'runtime_interaction_test.gd', 'runtime_multileaf_test.gd', 'runtime_support_test.gd', 'runtime_placement_preview_test.gd', 'runtime_lighting_reference_test.gd', 'runtime_architecture_correction_test.gd', 'runtime_object_editing_test.gd', 'runtime_spatial_authoring_test.gd']) {
+for (const filename of ['runtime_launcher_test.gd', 'runtime_walkthrough_test.gd', 'runtime_layout_test.gd', 'runtime_product_controls_test.gd', 'runtime_snapping_test.gd', 'runtime_snapping_controls_test.gd', 'runtime_layout_ui_test.gd', 'runtime_desktop_authoring_test.gd', 'runtime_reconstruction_resume_test.gd', 'runtime_plan_lighting_test.gd', 'runtime_interaction_test.gd', 'runtime_multileaf_test.gd', 'runtime_support_test.gd', 'runtime_placement_preview_test.gd', 'runtime_lighting_reference_test.gd', 'runtime_architecture_correction_test.gd', 'runtime_object_editing_test.gd', 'runtime_wall_art_image_test.gd', 'runtime_spatial_authoring_test.gd']) {
   const script = path.join(directory, filename);
   await copyFile(path.join(root, 'runtime/godot/tests', filename), script);
   const args = filename === 'runtime_launcher_test.gd' ? [scene, '--require-packed']
@@ -68,6 +69,7 @@ for (const filename of ['runtime_launcher_test.gd', 'runtime_walkthrough_test.gd
     : filename === 'runtime_snapping_controls_test.gd' ? [productInput, path.join(directory, 'snapping')]
     : filename === 'runtime_layout_ui_test.gd' ? [productInput, path.join(directory, 'furnishing-ui')]
     : filename === 'runtime_desktop_authoring_test.gd' ? [productInput, path.join(directory, 'desktop-authoring')]
+    : filename === 'runtime_reconstruction_resume_test.gd' ? [productInput, path.join(directory, 'reconstruction-resume'),'prepare']
     : filename === 'runtime_plan_lighting_test.gd' ? [productInput, path.join(directory, 'plan-lighting')]
     : filename === 'runtime_multileaf_test.gd' ? [multileafScene,multileafInput]
     : filename === 'runtime_support_test.gd' ? [supportInput]
@@ -75,12 +77,14 @@ for (const filename of ['runtime_launcher_test.gd', 'runtime_walkthrough_test.gd
     : filename === 'runtime_lighting_reference_test.gd' ? [lightingInput,path.join(directory,'lighting-reference')]
     : filename === 'runtime_architecture_correction_test.gd' ? [correctionDirectory]
     : filename === 'runtime_object_editing_test.gd' ? [productInput,path.join(directory,'object-editing')]
+    : filename === 'runtime_wall_art_image_test.gd' ? [productInput,path.join(directory,'wall-art-image')]
     : filename === 'runtime_spatial_authoring_test.gd' ? [path.join(correctionDirectory,'valid.project.json'),path.join(directory,'spatial-authoring')]
     : ['runtime_snapping_test.gd', 'runtime_interaction_test.gd'].includes(filename) ? []
     : ['--scene', scene];
   // Official release templates disable --script/path overrides. Use the pinned
   // editor to exercise the exact shipped PCK; do not add test hooks to the game.
   execFileSync(godot, ['--headless', '--main-pack', path.join(playerDirectory, 'Plan2World.pck'), '--fixed-fps', '60', '--script', script, '--', ...args], { cwd: directory, stdio: 'inherit', timeout: 180_000, env: { ...process.env, P2W_AUTHORING_CORE: path.join(playerDirectory, 'core') } });
+  if(filename==='runtime_reconstruction_resume_test.gd') execFileSync(godot,['--headless','--main-pack',path.join(playerDirectory,'Plan2World.pck'),'--fixed-fps','60','--script',script,'--',productInput,path.join(directory,'reconstruction-resume'),'resume'],{cwd:directory,stdio:'inherit',timeout:180_000,env:{...process.env,P2W_AUTHORING_CORE:path.join(playerDirectory,'core')}});
 }
 // A real per-door audit must distinguish healthy motion, physical obstruction,
 // explicit unsupported motion and a leafless passage. Use the shipped loader
@@ -112,4 +116,4 @@ if (!boot.includes('Plan2World runtime loaded:') || !boot.includes('assets=8') |
 }
 if (await readFile(input, 'utf8') !== source) throw new Error('Native source changed during export');
 if (await readFile(productInput, 'utf8') !== productSource) throw new Error('Native product source changed during editing');
-console.log('Relocated player/scene ZIPs: eighteen gate groups including spatial paving/opening preview and protected wall marks, contextual object editing, native architecture correction, lighting/decor reference, spatial preview, footprint support, multi-leaf routes, local photo preparation, mocked recognition and every-door motion + offline shared core + release executable boot: PASS');
+console.log('Relocated player/scene ZIPs: twenty gate groups including embedded artwork PNG/JPG import, cross-process reconstruction resume and usage, spatial paving/opening preview and protected wall marks, contextual object editing, native architecture correction, lighting/decor reference, spatial preview, footprint support, multi-leaf routes, local photo preparation, mocked recognition and every-door motion + offline shared core + release executable boot: PASS');

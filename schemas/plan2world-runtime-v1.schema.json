@@ -204,9 +204,13 @@
         "light": { "$ref": "#/$defs/furnitureLight" },
         "id": { "$ref": "#/$defs/id" }, "floorId": { "$ref": "#/$defs/id" }, "kind": { "const": "furniture" },
         "catalogId": { "$ref": "#/$defs/id" }, "sourceCategory": { "type": "string" }, "assetRef": { "type": "string", "minLength": 1 },
+        "representation": { "const": "source-marker" },
         "mirror": { "type": "array", "prefixItems": [{ "enum": [-1, 1] }, { "const": 1 }, { "enum": [-1, 1] }], "minItems": 3, "maxItems": 3 },
         "position": { "$ref": "#/$defs/vec3" }, "yawClockwiseRadians": { "type": "number" }, "size": { "$ref": "#/$defs/positiveVec3" }
-      }
+      },
+      "allOf": [{ "if": { "required": ["representation"] }, "then": { "properties": {
+        "catalogId": { "const": "imported_object" }, "assetRef": { "const": "catalog:imported_object" }
+      } } }]
     },
     "furnitureLight": {
       "type": "object", "additionalProperties": false,

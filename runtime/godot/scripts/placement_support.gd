@@ -28,7 +28,18 @@ func allowed(entity:Dictionary,pose:Vector3,yaw:float) -> bool:
 	var supports:Array=[]
 	for triangle in _triangles.get(entity["floorId"],[]):
 		if entity["movement"]["kind"]!="ceiling" or triangle["owner"]==entity["movement"]["roomId"]:supports.append(triangle["points"])
+	if entity.get("representation")=="source-marker" and entity["movement"]["kind"]=="floor":return anchor_supported([pose.x,pose.z],supports)
 	return covered(footprint,supports)
+
+static func anchor_supported(point:Array,triangles:Array) -> bool:
+	for triangle in triangles:
+		if absf(_cross(triangle[0],triangle[1],triangle[2]))<=EPS:continue
+		var positive:=true;var negative:=true
+		for i in range(3):
+			var side:=_cross(triangle[i],triangle[(i+1)%3],point)
+			positive=positive and side>=-EPS;negative=negative and side<=EPS
+		if positive or negative:return true
+	return false
 
 # Vector2 uses 32-bit components in the shipped engine. Keep clipping vertices
 # as double scalar arrays so valid triangulation seams leave no false slivers.

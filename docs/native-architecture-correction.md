@@ -18,7 +18,22 @@ operational errors.
 
 Use **Correct walls and openings…** from the scene menu, **Fix plan…** from plan view,
 or **Correct annotated plan…** after desktop reconstruction. The native correction
-window has Walls, Openings and Notes tabs over the retained source image:
+window has Walls, Openings, Notes and Start tabs over the retained source image:
+
+If opening a valid Project for arrangement fails a geometry/entrance check, the
+scene menu offers **Open this Project for correction…** for that exact file.
+It opens only on explicit click, respects unsaved-change guards and preserves
+the previous world. Cancelling a guard keeps the same recovery target. Invalid
+files, asset IO and write errors remain operational failures. See also
+[desktop continuation and usage](desktop-reconstruction-resume.md).
+
+- **Choose entrance… → Start** lets you click an existing door on the plan or
+  choose it from the list, then point the amber inward arrow into the home.
+  Door/side choices are previews only. **Confirm entrance** explicitly saves the
+  choice; **Cancel entrance preview** restores the saved choice. Missing-entry
+  Projects open this tab automatically. No wall-edit permission is needed.
+  The green arrow denotes the confirmed entry. An outward, obstructed or too
+  narrow entry remains editable but cannot enable **Apply to space**.
 
 - Walls start protected. Explicitly enable **Enable wall correction** for advanced
   correction. Changed walls retain `authorModified`, show amber in top view, and
@@ -33,7 +48,7 @@ window has Walls, Openings and Notes tabs over the retained source image:
 - Add a door/window or select an existing opening, choose its wall, position,
   dimensions and basic motion, then apply. Hinge/travel endpoint and opening-side
   controls retain the native door semantics; they are independent of the main
-  entrance's inward arrow. Choose the main door and inward arrow explicitly.
+  entrance's inward arrow. **Preview selected door as entrance…** opens Start.
 - Click an error marker or a note to inspect it; mark it reviewed explicitly.
   Source snapshots remain in saved native JSON and Project packages.
 
@@ -70,8 +85,8 @@ the contextual action. Furniture replacement enters plan placement mode. Wood,
 glass and metal/security-door cards change presentation only, keeping the same
 body nodes and open state. Window-type cards retain the aperture and physics;
 the shared compiler supplies simplified frame presentation. Neither card picker
-adds window animation or new motion mechanisms. **Size / position…** selects this
-opening in the correction window. Multi-leaf/pocket settings remain under this
+adds window animation or new motion mechanisms. **Size / position…** previews this
+opening in the same Godot world. Multi-leaf/pocket settings remain under this
 door's **Panels…** action. All accepted choices persist in the canonical Project.
 
 This is a native authoring change. Its synthetic fixture and frozen black-image
@@ -85,6 +100,8 @@ corners, preview, then Confirm or Cancel. **Last corner** edits only the pending
 outline. **Adjust existing corners** enables dragging; choose an existing explicit
 polygon ground to adjust it. Live wall/curve floor boundaries are read-only in
 this polygon tool and stay intact. No accepted operation history or Undo is added.
+New authoring uses polygons; curve editing and curved mounting are outside the
+current product scope, while older Project curves remain compatible.
 
 A confirmed ground is a native `Room.boundary` with outdoor semantics. The shared
 compiler derives invisible outer guards from the union of accepted surfaces,

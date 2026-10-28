@@ -19,7 +19,7 @@ interface GltfBufferView {
   buffer: number;
   byteOffset: number;
   byteLength: number;
-  target: number;
+  target?: number;
 }
 
 interface GltfAccessor {
@@ -192,7 +192,7 @@ export interface PresentationGlbPrimitive {
 }
 
 /** Shared deterministic glTF writer for static architecture and reusable dynamic assets. */
-export function serializePresentationGlb(primitives: readonly PresentationGlbPrimitive[], metadata: Record<string, unknown>): Uint8Array {
+export function serializePresentationGlb(primitives: readonly PresentationGlbPrimitive[], metadata: Record<string, unknown>, texture?: { bytes: Uint8Array; mime: string; material: ArchitectureMaterialKey }): Uint8Array {
   const binary = new BinaryBuilder();
   const bufferViews: GltfBufferView[] = [];
   const accessors: GltfAccessor[] = [];
@@ -280,6 +280,15 @@ export function serializePresentationGlb(primitives: readonly PresentationGlbPri
     });
   }
 
+  let imageView: number | undefined;
+  if (texture) {
+    binary.align4(); imageView = bufferViews.length;
+    bufferViews.push({ buffer: 0, byteOffset: binary.append(texture.bytes), byteLength: texture.bytes.length });
+  }
+  const materials = gltfMaterials.slice(0,Math.max(5,...primitives.map(p=>materialOrder.indexOf(materialKey(p))))+1).map(m=>structuredClone(m));
+  if (texture) materials[materialOrder.indexOf(texture.material)] = {
+    name:'p2w-wall-art-image', pbrMetallicRoughness:{baseColorFactor:[1,1,1,1],baseColorTexture:{index:0},metallicFactor:0,roughnessFactor:.9}, alphaMode:'BLEND',
+  };
   binary.align4();
   const binaryChunk = binary.finish();
   const gltf = {
@@ -288,7 +297,8 @@ export function serializePresentationGlb(primitives: readonly PresentationGlbPri
     scenes: [{ nodes: nodes.map((_, index) => index) }],
     nodes,
     meshes: gltfMeshes,
-    materials: gltfMaterials.slice(0,Math.max(5,...primitives.map(p=>materialOrder.indexOf(materialKey(p))))+1),
+    materials,
+    ...(texture ? { images:[{bufferView:imageView,mimeType:texture.mime}],textures:[{source:0,sampler:0}],samplers:[{wrapS:33071,wrapT:33071,magFilter:9729,minFilter:9987}] } : {}),
     accessors,
     bufferViews,
     buffers: [{ byteLength: binaryChunk.byteLength }],

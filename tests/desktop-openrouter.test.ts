@@ -77,7 +77,7 @@ describe('native desktop OpenRouter account boundary', () => {
   });
   it('sends only one explicit image observation to the fixed provider, with model JSON and provider cost', async () => {
     const fetcher = vi.fn(async () => json({ choices: [{ finish_reason: 'stop', message: { content: '{"observed":true}' } }], usage: { cost: .002 } }));
-    expect(await observeOpenRouter({ apiKey:key,model:'vision/b' },{ dataUrl:'data:image/png;base64,aA==' },'Observe',fetcher)).toEqual({ value: { observed:true }, cost: .002 });
+    expect(await observeOpenRouter({ apiKey:key,model:'vision/b' },{ dataUrl:'data:image/png;base64,aA==' },'Observe',fetcher)).toMatchObject({ value: { observed:true }, cost: .002, usage:{inputTokens:null,outputTokens:null,totalTokens:null} });
     const [url, init] = fetcher.mock.calls[0] as unknown as [string,RequestInit];
     expect(url).toBe('https://openrouter.ai/api/v1/chat/completions');
     expect(init).toMatchObject({ redirect:'error',credentials:'omit',cache:'no-store' });

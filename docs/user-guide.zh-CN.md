@@ -72,6 +72,16 @@ Disconnect 只清除本机凭据，不撤销 OpenRouter 上的 Key。授权生�
 
 入口过窄、出生点被阻挡或落在楼板洞上时，漫游编译保留之前的世界；不会猜门、移动出生点或填洞。有源图问题时点击 **Correct annotated plan…**，也可随时从菜单 **Correct walls and openings…** 打开 Project 纠错。
 
+若从 **Arrange a Project…** 打开的合法工程因入口/地面/布置问题无法漫游，报错旁会出现 **Open this Project for correction…**；点击即可纠错，无需重新选文件。它不会自动弹窗，取消未保存提示后仍保留该目标。文件损坏或读取失败不伪装成几何问题。
+
+识图中途失败或取消后，**Continue saved task** 会显示还需几次请求：建筑观察已完成时只补家具；两份观察都有时可离线 **Rebuild from saved observations · no requests**。应用重启后可点 **Restore last task**，也可用 **Choose saved task…** 选 `checkpoint.json`。恢复检查本身免费；需要补观察时仍须重新连接账户并确认。更换图片、模型或比例提示不能悄悄复用；**Start a new task** 会保留旧证据，并重新选择图片。
+
+消耗面板分别显示提供方报告的输入/输出/总 token、缓存/推理子项和本次尝试费用；没有报告的值显示 **not provided**，不是零。缓存/推理子项不额外加到总数。**Text bytes (not tokens)** 是文本字节，不是 token；本地格式化 JSON 变大不等于模型消耗增加。复用观察不会产生新请求，先前费用及失败记录仍保留。已发出但被取消的请求可能仍计费，不会自动重试。
+
+缺少入口的工程默认打开 **Start** 页；也可点 **Choose entrance…**。在原图上点实际大门，调整朝内箭头，预览为琥珀色；点 **Confirm entrance** 才保存选择，绿色箭头表示已确认。**Cancel entrance preview** 不修改工程。这一步不需要开启改墙权限；即使确认了入口，地面或碰撞检查未通过时仍不能应用漫游。
+
+尚未替换的源图语义标记只有位置证据，展示方块的默认尺寸不代表真实家具。程序检查其位置是否有地面，不用展示方块假定占地；换成真实家具后仍严格检查完整占地、障碍物和门的关闭空间。地面外或孔洞内的标记位置仍需核对。
+
 ### 4. 在 Godot 修正墙和门窗
 
 纠错窗口保留原图，分为 **Walls / Openings / Notes** 三页。有错误标记时先展示 Notes；点击图上的红色标记可查看说明。可以先保存尚未修好的 Project，完成后再 **Apply to space**。
@@ -121,7 +131,7 @@ Disconnect 只清除本机凭据，不撤销 OpenRouter 上的 Key。授权生�
 
 ### 铺设地面与添加门窗
 
-俯视点击 **Build… → Pave ground**，依次点出边界角点，预览后 **Confirm**；取消不修改工程。**Last corner** 只删除尚未确认的最后一个角点；勾选 **Adjust existing corners** 后可拖角点。下拉选择已有多边形地面可以调整范围；已有曲线/依附墙面的地面边界保持原样。
+俯视点击 **Build… → Pave ground**，依次点出边界角点，预览后 **Confirm**；取消不修改工程。**Last corner** 只删除尚未确认的最后一个角点；勾选 **Adjust existing corners** 后可拖角点。下拉选择已有多边形地面可以调整范围；后续新建默认多边形，不扩展曲线功能；已有曲线/依附墙面的地面边界保持原样。
 
 地面最外沿默认有不可见空气墙，没有实体墙的区域同样封闭。新增地面与旧地面接通后，中间不会留下空气墙；楼板孔洞仍保留。俯视以青色虚线显示外沿，漫游中不显示。
 
@@ -164,3 +174,11 @@ Disconnect 只清除本机凭据，不撤销 OpenRouter 上的 Key。授权生�
 账户 GUI 和独立作者进程负责可选的在线生成；场景加载、物理和交互只消费编译产物。自动测试覆盖登录流程、PKCE、取消、共享组装、入口、正交拾取、编辑和保存，但账户/推理使用模拟提供方，不代表真实账户授权或外部模型质量验收。系统浏览器、实际授权、显卡、DPI、原生文件对话框和物理手柄仍需实机验收。
 
 参考：[OpenRouter 官方授权](https://openrouter.ai/docs/guides/overview/auth/oauth)、[Key 使用信息](https://openrouter.ai/docs/api/api-reference/api-keys/get-current-api-key)、[家具布置范围](godot-furniture-layout.md)。
+
+## 本地图片放入贴墙画作
+
+添加 Wall Art，选择墙与安装高度。选中后点击 **Modify → Import picture…**，选择PNG/JPG，
+检查方向并按需旋转，点击 **Apply image**。取消不写工程；**Remove picture**恢复通用画框。
+图片等比留边，位置/尺寸不变；随工程和运行时导出保存，原文件移动后仍能显示。
+限制8MiB、4096像素/边和1600万像素，转成PNG后仍需满足8MiB。照片EXIF方向请以预览为准。
+离线完成，不消耗token。见[画作图片说明](wall-art-images.md)。

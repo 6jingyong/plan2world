@@ -42,6 +42,16 @@ export function furnitureFootprint(item:RuntimeFurnitureEntity):Polygon {
   return [[-1,-1],[1,-1],[1,1],[-1,1]].map(([x,y])=>[item.position[0]+c*x*item.size[0]/2-s*y*item.size[2]/2,item.position[2]+s*x*item.size[0]/2+c*y*item.size[2]/2]);
 }
 
+/** Inclusive point support for position-only source observations. Their fallback
+ * block dimensions are presentation, not an observed or accepted footprint. */
+export function anchorSupported(point:RuntimeVec2,triangles:Polygon[]):boolean {
+  return triangles.some(t=>{
+    if(Math.abs(cross(t[0],t[1],t[2]))<=EPS)return false;
+    const sides=t.map((a,i)=>cross(a,t[(i+1)%3],point));
+    return sides.every(v=>v>=-EPS)||sides.every(v=>v<=EPS);
+  });
+}
+
 export function validateFurnitureSupport(scene:Plan2WorldRuntimeSceneV1):void {
   const supports=new Map<string,Polygon[]>();
   for(const floor of scene.floors){
@@ -57,6 +67,10 @@ export function validateFurnitureSupport(scene:Plan2WorldRuntimeSceneV1):void {
   }
   for(const item of scene.entities){
     if(item.kind!=='furniture'||item.movement.kind!=='floor'||item.size[0]<=0||item.size[2]<=0)continue;
+    if(item.representation==='source-marker'){
+      if(!anchorSupported([item.position[0],item.position[2]],supports.get(item.floorId)??[]))throw new Error(`Source marker "${item.id}" has no floor at its observed position on floor "${item.floorId}". Review its position or the authored ground; do not infer furniture dimensions from the marker block.`);
+      continue;
+    }
     if(!footprintSupported(furnitureFootprint(item),supports.get(item.floorId)??[]))throw new Error(`Furniture "${item.id}" is not fully supported by floor "${item.floorId}". Keep its entire footprint clear of floor holes and outside edges.`);
   }
 }

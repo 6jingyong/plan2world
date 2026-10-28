@@ -60,6 +60,16 @@ The first contract carries only runtime-relevant native semantics:
 
 IDs remain stable native/runtime references. Saved native room IDs are preserved; unsaved detected-room runtime IDs derive from the floor and sorted boundary wall IDs rather than transient editor timestamps. `floorId`, door `hostWallId`, stair `targetFloorId` and collider `ownerId` refer back to compiled runtime objects rather than engine nodes.
 
+Furniture may carry `representation: "source-marker"` only for native
+`imported_object` blocks without custom models. It identifies an observed
+position with an arbitrary selectable display block, not measured furniture.
+The compiler emits no walking collider, validates its anchor against actual
+same-floor support triangles, and does not reserve the display block against
+doors or placement obstacles. Real replacements remove this field and retain
+complete-footprint support and normal clearance. Absence of the field preserves
+the ordinary furniture contract; adapters must not infer markers from size,
+source category, missing models or missing colliders.
+
 ## Door interaction
 
 Door motion is a discriminated contract. Backends switch on `interaction.kind` and must not infer a hinge, slide direction or animation from unrelated fields.

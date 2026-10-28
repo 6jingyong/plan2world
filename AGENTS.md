@@ -25,9 +25,11 @@ Plan2World turns a floor-plan raster into an editable browser home and an engine
 - The direct Skill records `source-architecture-v1` in original image pixels,
   including concise visual evidence, decisions and uncertain/rejected candidates.
 - Wall evidence `source-wall-trace-v1` is projected from that observation by code.
-- User geometry policy: source observation may prefer modest polygon approximations
-  of rounded outlines for walkthrough presentation. Preserve openings, recesses
-  and connectivity; never flatten already-authored native Project curves.
+- User geometry policy: new reconstruction and native authoring default to straight
+  polygon segments, including modest polygon approximations of rounded outlines.
+  Do not plan or add curve-editing/mounting features. Preserve openings, recesses
+  and connectivity; retain compatibility with already-authored native Project
+  curves without silently flattening or rewriting them.
 - The normalizer owns intersections, splitting, snapping and evidenced door-gap connectivity.
 - Optional visible junction points remain source-pixel evidence without wall IDs.
   Source-topology review reports near misses beyond conservative snapping; it
@@ -253,6 +255,17 @@ Use `schemas/plan2world-draft-v1.schema.json` and `docs/plan2world-draft-v1.md`.
 - Plan presentation reuses the same Godot world with unlit materials and disabled sun/fixture lights/shadows/AO. Compiler-owned aperture bands in architecture GLB carry `view: "plan"`; engines hide them in walkthrough and never reconstruct them from wall/collider meshes. Restore materials, world state and the selected natural-light preset on return.
 - Ceiling fixtures bind an explicit native enclosure wall-ID set, using the same native ceiling-height policy as the compiler. Shared code validates the whole footprint and holes; do not guess a ceiling, flatten a sloped roof, change room topology or move the fixture to recover invalid source data. Runtime movement names the emitted ceiling room/elevation. Native plane dragging and first-person nudges never change height/host. Saved light settings and compiler-owned local source position/direction drive real engine lights independently of asset meshes/colliders. Lamp assets stay dynamic, not baked in architecture; natural-light presets are session view state, not edit history.
 - Optional desktop image creation is an authoring surface, separate from the offline runtime loader and offline edit core. Its private stdio task delegates the same two-observation/raster/assembly pipeline to the shared TypeScript core. OpenRouter credentials stay in process memory, never argv, request files, Project, artifacts or logs; explicit image consent precedes paid work, with no automatic retry. The user selects the main door/inward side; never infer or relocate spawn. Native source-preview door markers are read-only projections, not engine topology.
+- Desktop continuation is explicit, bound to copied original/working inputs,
+  preparation, pixels, model, scale hint and actual prompt hashes. New tasks do
+  not silently reuse observations; continuations call the same shared pipeline
+  through a replaying observer, with 2/1/0 missing requests. Publish inherited
+  freezes before advertising the next checkpoint. Preserve old attempts and
+  unknown billing after interruption; usage/checkpoints stay authoring-only.
+  See [desktop continuation](docs/desktop-reconstruction-resume.md).
+- Runtime geometry failures on a valid native Project may offer a contextual
+  correction action. Keep file/asset/write failures operational, preserve the
+  previous world, and never open correction automatically. Unsaved-change
+  cancellation retains the exact recovery target.
 - Furniture must leave every explicit door leaf's default closed volume clear.
   Shared artifact compilation validates this independently of transient engine
   door state; native JSON backup stays editable. Godot previews reuse the emitted
@@ -263,7 +276,11 @@ Use `schemas/plan2world-draft-v1.schema.json` and `docs/plan2world-draft-v1.md`.
   before presentation could omit the host wall. Keep invalid native backups
   editable. Source semantic blocks (`imported_object`, `renderStyle: block`, no
   custom model) stay selectable without arbitrary proxy walking collision;
-  authored replacements and legacy ordinary objects retain normal collision.
+  the compiler labels them `representation: source-marker`. Validate their observed
+  point against actual floor triangles, not their arbitrary display-block extent;
+  do not reserve that extent against doors or obstacles. Off-floor/hole anchors
+  still fail. Authored replacements and legacy ordinary objects retain complete
+  footprint support, door clearance and normal collision.
 - Validate/load a candidate outside the active SceneTree before swapping worlds
   and editable source. Reject mismatched present GLBs using the compiler digest;
   failed loads must retain the previous scene. Missing assets remain explicit
@@ -285,6 +302,13 @@ Use `schemas/plan2world-draft-v1.schema.json` and `docs/plan2world-draft-v1.md`.
 - Sliding or unsupported door motion must remain explicit. Never fake a sliding/bifold/garage door as a hinged door to make a demo look functional.
 
 ## Product invariants
+
+- Local artwork PNG/JPG import belongs to the selected wall-art Modify catalog.
+  Decode/preview locally, explicitly apply through the shared authoring core, and
+  retain the embedded texture using existing custom-model Project attachments.
+  Preserve frame dimensions, wall mount and physics. Runtime consumes the compiled
+  asset; never persist a machine path, fetch an image URL, or infer attachment from
+  texture/model geometry. Removing the picture keeps the frame and shared assets.
 
 - Selected furniture, doors and windows expose one compact Modify action. Reuse
   the add catalog's category/search/thumbnail component for modification, bind

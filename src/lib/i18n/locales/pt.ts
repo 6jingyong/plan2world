@@ -1453,6 +1453,7 @@ export const pt = {
   "customModelValidation.130": "A importação local de móveis ainda não aceita animações. Exporte uma malha estática.",
   "customModelValidation.131": "A importação local de móveis ainda não aceita esqueletos. Exporte uma malha estática.",
   "customModelValidation.132": "A importação local de móveis ainda não aceita câmeras. Exporte uma malha estática.",
+  "customModelValidation.133": "Modelo personalizado inválido: finalidade do modelo inválida.",
   "customModelValidation.attributeFormat": "Geometria GLB inválida: formato não suportado para {name}.",
   "customModelValidation.unsupportedExtension": "Extensão GLB não suportada: a importação local de modelos ainda não aceita {name}.",
   "customModelValidation.undeclaredExtension": "Extensão GLB não suportada: {name} não está declarada em extensionsUsed.",

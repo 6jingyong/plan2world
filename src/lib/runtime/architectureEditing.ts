@@ -186,6 +186,7 @@ export function nativeArchitectureEditor(project: Project) {
     furniture: floor.furniture.map(f => ({ id: f.id, position: f.position })),
     groundAreas: analyzeFloor(floor).geometry.filter(({ room }) => room.boundary && !room.floorOpening).map(({ room, polygon }) => ({ id: room.id, name: room.name, points: polygon, editable: room.boundary!.every(p => 'point' in p && !p.curvePoint) })),
     entrance: floor.entrance ?? null,
+    walkthroughStart: floor.walkthroughStart ?? null,
     issues: project.architectureReview?.issues.filter(i => i.floorId === floor.id) ?? [],
   })) };
 }

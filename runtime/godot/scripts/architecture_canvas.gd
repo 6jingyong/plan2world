@@ -8,7 +8,8 @@ var selected_id:=""
 var drawing:=false
 var walls_enabled:=false
 var marked_walls_enabled:=false
-var inward_side:=1
+var entrance_preview:Dictionary={}
+var entrance_picking:=false
 var _texture:Texture2D
 var _zoom:=1.0
 var _offset:=Vector2.ZERO
@@ -40,7 +41,8 @@ func fit_plan() -> void:
 	if points.is_empty():points=[Vector2.ZERO,Vector2(1000,1000)]
 	var lo:Vector2=points[0];var hi:=lo
 	for point in points:lo=lo.min(point);hi=hi.max(point)
-	var span:Vector2=(hi-lo).max(Vector2(100,100));_zoom=minf(maxf(100,size.x-50)/span.x,maxf(100,size.y-50)/span.y);_offset=size*.5-(lo+hi)*.5*_zoom
+	# Reserve space for an inward/outward entrance arrow at an outer wall.
+	var span:Vector2=(hi-lo).max(Vector2(100,100));_zoom=minf(maxf(100,size.x-128)/span.x,maxf(100,size.y-128)/span.y);_offset=size*.5-(lo+hi)*.5*_zoom
 	queue_redraw()
 
 func _ready() -> void:
@@ -73,8 +75,15 @@ func _draw() -> void:
 		draw_rect(Rect2(p-Vector2(6,6),Vector2(12,12)),color)
 		if opening["id"]==selected_id:
 			draw_arc(p,12,0,TAU,24,Color("397b67"),3,true)
-			if opening.has("inwardLeft"):
-				var direction:=_v(opening["inwardLeft"])*inward_side;draw_line(p,p+direction*34,Color("397b67"),3,true);draw_circle(p+direction*34,4,Color("397b67"))
+	var entrance:Dictionary=entrance_preview if not entrance_preview.is_empty() else floor.get("entrance",{}) if floor.get("entrance") is Dictionary else {}
+	for opening in floor.get("openings",[]):
+		if entrance.get("doorId")!=opening["id"]:continue
+		var p:=_screen(opening["center"]);var direction:=_v(opening["inwardLeft"])*(1 if entrance["side"]=="left" else -1)
+		var color:=Color("cd8739") if not entrance_preview.is_empty() else Color("397b67")
+		var tip:=p+direction*42;draw_line(p,tip,color,4,true)
+		draw_line(tip,tip-direction.rotated(.55)*13,color,3,true);draw_line(tip,tip-direction.rotated(-.55)*13,color,3,true)
+		var label_position:=Vector2(clampf(p.x+14,4,maxf(4,size.x-140)),clampf(p.y-12,18,maxf(18,size.y-4)))
+		draw_string(ThemeDB.fallback_font,label_position,"Entrance preview" if not entrance_preview.is_empty() else "Entrance",HORIZONTAL_ALIGNMENT_LEFT,-1,14,color)
 	for item in floor.get("furniture",[]):
 		var p:=_screen(item["position"]);draw_rect(Rect2(p-Vector2(4,4),Vector2(8,8)),Color("8c8496"),false,2)
 	for issue in floor.get("issues",[]):
@@ -96,6 +105,10 @@ func _gui_input(event:InputEvent) -> void:
 				_drag="";wall_modified.emit(_wall["id"],start,finish);queue_redraw()
 			return
 		_pointer=event.position
+		if entrance_picking:
+			for opening in floor.get("openings",[]):
+				if opening["kind"]=="door" and opening["type"]!="opening" and event.position.distance_to(_screen(opening["center"]))<13:selected.emit("opening",opening["id"]);accept_event();return
+			return
 		if drawing and walls_enabled:
 			if _draft_start==null:_draft_start=_plan(event.position)
 			else:

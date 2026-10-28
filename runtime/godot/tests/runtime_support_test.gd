@@ -21,6 +21,11 @@ func run():
 		for i in range(polygon.size()):polygon[i]=polygon[i].rotated(.6)
 	for i in range(footprint.size()):footprint[i]=footprint[i].rotated(.6)
 	check(not SUPPORT.covered(footprint,ring),"Rotated footprint/holes must retain the same result")
+	var triangle:Array=[[0.0,0.0],[2.0,0.0],[0.0,2.0]]
+	check(SUPPORT.anchor_supported([0.0,1.0],[triangle]),"Source anchor may touch the true floor boundary")
+	triangle.reverse();check(SUPPORT.anchor_supported([0.0,1.0],[triangle]),"Anchor support is independent of triangle winding")
+	check(not SUPPORT.anchor_supported([1.1,1.1],[triangle]),"Anchor outside a support triangle is not accepted")
+	check(not SUPPORT.anchor_supported([0.0,0.0],[[[0.0,0.0],[0.0,0.0],[0.0,0.0]]]),"Degenerate triangles never support anchors")
 	var args:=OS.get_cmdline_user_args()
 	if args.size()!=1:push_error("Expected valid native support Project");quit(2);return
 	var main=MAIN.instantiate();root.add_child(main);await process_frame

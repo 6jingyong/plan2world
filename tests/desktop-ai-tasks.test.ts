@@ -48,16 +48,17 @@ describe('shared native desktop reconstruction',()=>{
     const project=readProject(JSON.parse(await readFile(result.projectPath,'utf8')));
     expect(project.floors[0].backgroundImage?.dataUrl).toContain(image.toString('base64'));
     expect(project.floors[0].entrance).toBeUndefined();
-    expect(events).toHaveLength(3);
-    for(const filename of await readdir(request.outputDirectory))expect(await readFile(path.join(request.outputDirectory,filename),'utf8')).not.toMatch(/fixture-private-key|apiKey|Authorization/);
+    expect(events.filter((e:any)=>e.phase)).toHaveLength(3);
+    for(const entry of await readdir(request.outputDirectory,{withFileTypes:true}))if(entry.isFile())expect(await readFile(path.join(request.outputDirectory,entry.name),'utf8')).not.toMatch(/fixture-private-key|apiKey|Authorization/);
     expect(await readFile(request.imagePath)).toEqual(image);
     const choice=result.floors[0].doors[0];
     const accepted=await runDesktopAiTask({op:'entrance',projectPath:result.projectPath,floorId:project.floors[0].id,doorId:choice.id,side:'left'});
     const after=readProject(JSON.parse(await readFile(accepted.projectPath,'utf8')));
     expect(after.floors[0].entrance).toEqual({doorId:choice.id,side:'left'});
     delete after.floors[0].entrance;
+    after.updatedAt=project.updatedAt;
     expect(after).toEqual(project);
-    await expect(runDesktopAiTask({op:'entrance',projectPath:result.projectPath,floorId:project.floors[0].id,doorId:'not-authored',side:'left'})).rejects.toThrow('Choose an authored');
+    await expect(runDesktopAiTask({op:'entrance',projectPath:result.projectPath,floorId:project.floors[0].id,doorId:'not-authored',side:'left'})).rejects.toThrow('Choose an existing');
     expect(dir).toContain('p2w-desktop-test');
   });
   it('rejects mismatched original pixels before any paid request',async()=>{

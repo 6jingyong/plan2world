@@ -83,7 +83,9 @@ export async function reconstructFloorPlanForCorrection(
     } catch (e) { failures.push(errorMessage(e)); }
     if (!scale) failures.push('Scale could not be read. This correction canvas uses 1 cm per source pixel; establish the real dimensions before walkthrough.');
     project.reconstruction = { version: 1, scale: { mode: scale?.kind === 'provided_length' ? 'provided' : 'estimated', confidence: scale ? .5 : 0 },
-      assumptions: ['Editable correction projection. Source errors have not been certified or silently repaired.', ...failures],
+      assumptions: ['Editable correction projection. Source errors have not been certified or silently repaired.', ...failures,
+        ...(Array.isArray(raw?.assumptions) ? raw.assumptions.filter((v:unknown)=>typeof v==='string') : []),
+        ...(Array.isArray((furnishing as any)?.assumptions) ? (furnishing as any).assumptions.filter((v:unknown)=>typeof v==='string') : [])],
       floors: [{ floorId: floor.id, walls: floor.walls.map(w => ({ id: w.id })), doors: [], windows: [] }] };
     if (source.image.preparation) project.reconstruction.inputPreparation = structuredClone(source.image.preparation);
   }
@@ -99,6 +101,7 @@ export async function reconstructFloorPlanForCorrection(
     ...(position ? { position: sourcePoint(position) } : {}), ...(record === undefined ? {} : { sourceRecord: JSON.stringify(record) }), resolved: false });
   for (const text of [...new Set(failures)]) issue(text);
   for (const note of localNotes) issue(note.message, note.record, note.position);
+  if(architecture && !architecture.openings.some(o=>o.decision==='accept')) issue('No confirmed door or window was observed. Check whether this is an interior floor plan rather than a site/footprint map; add only source-supported openings.', architecture.openings);
   for (const wall of Array.isArray(raw?.walls) ? raw.walls : []) if (wall?.decision === 'uncertain') {
     const middle = isPoint(wall.start) && isPoint(wall.end) ? { x: (wall.start.x + wall.end.x) / 2, y: (wall.start.y + wall.end.y) / 2 } : undefined;
     issue(`${wall.label ?? 'Wall'}: uncertain source wall.`, wall, middle);
@@ -108,7 +111,11 @@ export async function reconstructFloorPlanForCorrection(
     if (opening?.decision === 'reject' || !unresolved && opening?.decision !== 'uncertain') continue;
     const endpoints = opening?.endpoints, middle = Array.isArray(endpoints) && endpoints.length === 2 && endpoints.every(isPoint)
       ? { x: (endpoints[0].x + endpoints[1].x) / 2, y: (endpoints[0].y + endpoints[1].y) / 2 } : undefined;
-    issue(`${opening?.label ?? 'Opening'}: ${opening?.decision === 'uncertain' ? 'source interpretation is uncertain' : 'needs a wall host; add or correct this opening in the plan editor'}.`, opening, middle);
+    const message = opening?.decision === 'uncertain' ? 'source interpretation is uncertain'
+      : stage?.openingAudit[i]?.programStatus === 'unresolved-host' ? 'needs a wall host; add or correct this opening in the plan editor'
+      : stage?.openingAudit[i]?.programStatus === 'assembled' ? 'retained because a later assembly stage failed; its wall host was matched'
+      : 'not assembled because an earlier source stage failed; wall-host matching has not been assessed';
+    issue(`${opening?.label ?? 'Opening'}: ${message}.`, opening, middle);
   }
   for (const zone of Array.isArray(raw?.functionalZones) ? raw.functionalZones : []) if (zone?.decision === 'uncertain' || !draft && zone?.decision === 'accept') issue(`${zone.label}: source boundary needs review.`, zone, isPoint(zone.position) ? zone.position : undefined);
   const unresolvedZones = stage?.functionalZoneReview?.finalMetrics.zones.filter(z => !z.resolved) ?? [];
