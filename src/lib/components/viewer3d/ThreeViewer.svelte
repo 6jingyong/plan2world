@@ -25,6 +25,7 @@
   import { ARCHITECTURAL_CUT_HEIGHT_CM, architecturalCutPlanes } from '$lib/utils/architecturalCut';
   import { updateOrbitDamping } from '$lib/utils/orbitDamping';
   import { portableRenderSceneJSON } from '$lib/utils/portableRenderScene';
+  import { compileRuntimeDoor } from '$lib/runtime/doorCompilation';
   import { sceneSignature } from '$lib/utils/sceneSignature';
   import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
   import { getCatalogItem, furnitureCatalog, furnitureCategories } from '$lib/utils/furnitureCatalog';
@@ -1090,6 +1091,26 @@
     }
   }
 
+  /** Authoring preview only: draw the compiler's explicit closed parts. */
+  function addConfiguredDoorPanels(floor: Floor, wall: Wall, door: Door, group: THREE.Group, height = door.height, yOffset = 0, opacity = 1) {
+    const point = (p: { x: number; y: number }): [number, number] => [p.x * .01, p.y * .01];
+    const { interaction } = compileRuntimeDoor(floor.id, 0, { ...door, height }, {
+      id: wall.id, floorId: floor.id, kind: 'wall',
+      path: { start: point(wall.start), end: point(wall.end), ...(wall.curvePoint ? { control: point(wall.curvePoint) } : {}) },
+      thickness: wall.thickness * .01, startHeight: getWallStartHeight(wall) * .01, endHeight: getWallEndHeight(wall) * .01,
+      boundaryType: wall.boundaryType ?? 'solid', visible: wall.boundaryType !== 'air',
+    }).entity;
+    if (!('leaves' in interaction)) return;
+    const material = new THREE.MeshStandardMaterial({ color: 0x8b6914, roughness: .5, transparent: opacity < 1, opacity });
+    for (const leaf of interaction.leaves) {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(leaf.size[0] * 100, leaf.size[1] * 100, leaf.size[2] * 100), material);
+      mesh.position.set(leaf.closedPose.center[0] * 100, leaf.closedPose.center[1] * 100 + yOffset, leaf.closedPose.center[2] * 100);
+      mesh.rotation.y = -leaf.closedPose.yawClockwiseRadians;
+      mesh.castShadow = true;
+      group.add(mesh);
+    }
+  }
+
   function buildWalls(floor: Floor) {
     wallHighlight.clear();
     clearGroup(wallGroup);
@@ -1295,7 +1316,9 @@
       addOpeningFrame(wall, (opening.right + jamb / 2) / length, jamb, 0, doorHeight, wt + 2, frameMat);
       addOpeningFrame(wall, t, opening.right - opening.left + jamb * 2, doorHeight, jamb, wt + 2, frameMat);
 
-      if (door.type === 'opening') {
+      if (sourceDoor.leafConfiguration) {
+        addConfiguredDoorPanels(floor, wall, sourceDoor, wallGroup, doorHeight);
+      } else if (door.type === 'opening') {
         // Plain doorway — jambs and header only, no door leaf
       } else if (door.type === 'garage') {
         // Sectional overhead door: stacked horizontal panels filling the opening
@@ -1660,6 +1683,14 @@
         }
     }
 
+    }
+    for (const door of floor.doors) {
+      if (!door.leafConfiguration) continue;
+      const wall = floor.walls.find(w => w.id === door.wallId);
+      if (!wall) continue;
+      const path = wallPathProfile(wall);
+      const opening = pathOpening(path, path.distanceAt(door.position), door.width, 0, door.height);
+      if (opening && opening.top >= 6 && opening.right - opening.left > 2) addConfiguredDoorPanels(floor, wall, door, group, opening.top, yOffset, opacity);
     }
     // Match active-floor footprints instead of bridging recesses and separate rooms.
     const analysis = get(projectFloorAnalysis).floors.get(floor.id)!;

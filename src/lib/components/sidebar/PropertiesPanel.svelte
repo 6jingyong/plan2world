@@ -1,5 +1,6 @@
 <script lang="ts">
   import FloorBoundaryProperties from './FloorBoundaryProperties.svelte';
+  import DoorLeafProperties from './DoorLeafProperties.svelte';
   import { wallMaterialLabels } from '$lib/i18n/wallMaterialLabels';
   import { entourageLabels } from '$lib/i18n/entourageLabels';
   import { roomTypeLabels, roomColorLabels, floorGroupLabels, floorMaterialLabels } from '$lib/i18n/roomPropertyLabels';
@@ -563,7 +564,10 @@
           <option value="garage">{$t('openingCatalog.garage')}</option>
         </select>
       </label>
-      {#if selectedDoor.type !== 'opening' && selectedDoor.type !== 'garage'}
+      {#if ['double','french','sliding','pocket'].includes(selectedDoor.type)}
+        <DoorLeafProperties door={selectedDoor} onchange={(leafConfiguration)=>{if(selectedDoor)updateDoor(selectedDoor.id,{leafConfiguration});}} />
+      {/if}
+      {#if selectedDoor.type !== 'opening' && selectedDoor.type !== 'garage' && selectedDoor.leafConfiguration?.kind !== 'sliding'}
       <div role="group" aria-label={$t('openingProperties.hinge')}>
         <span class="text-xs text-gray-500">{$t('openingProperties.hinge')}</span>
         <div class="flex gap-2">

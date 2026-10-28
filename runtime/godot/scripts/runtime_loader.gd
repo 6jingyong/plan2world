@@ -66,6 +66,9 @@ func _build_static_collider(collider: Dictionary, root: Node3D) -> Node3D:
 
 func _build_static_box(collider: Dictionary, root: Node3D) -> StaticBody3D:
 	var body := StaticBody3D.new()
+	if collider.get("purpose")=="perimeter":
+		body.collision_layer=8
+		body.set_meta("p2w_perimeter",true)
 	body.name = "Collider_%s" % str(collider.get("id", "box")).validate_node_name()
 	body.position = _vec3(collider.get("center", []))
 	body.rotation.y = _yaw(collider.get("yawClockwiseRadians", 0.0))
@@ -137,7 +140,7 @@ func _build_door(entity: Dictionary, colliders: Dictionary, collider_nodes: Dict
 	assembly.name = "Door_%s" % str(entity["id"]).validate_node_name()
 	assembly.set_meta("p2w_owner_id", str(entity["id"]))
 	root.add_child(assembly)
-	if supported:
+	if supported and (motion == "swing" or interaction.get("allowHostOverlap", true)):
 		# A leaf is joined to its explicit host. Ignore that connected wall in
 		# obstruction queries (including pocket/slide travel inside the host).
 		for node in collider_nodes.values():
@@ -145,7 +148,8 @@ func _build_door(entity: Dictionary, colliders: Dictionary, collider_nodes: Dict
 				assembly.host_exclusions.append(node.get_rid())
 	for leaf in interaction["leaves"]:
 		var collider: Dictionary = colliders[str(leaf["colliderId"])]
-		var body: PhysicsBody3D = AnimatableBody3D.new() if supported else StaticBody3D.new()
+		var moving: bool = supported and not leaf.get("fixed", false)
+		var body: PhysicsBody3D = AnimatableBody3D.new() if moving else StaticBody3D.new()
 		body.name = str(leaf["id"]).validate_node_name()
 		body.set_meta("p2w_owner_id", str(entity["id"]))
 		body.set_meta("p2w_leaf_id", str(leaf["id"]))
@@ -160,8 +164,9 @@ func _build_door(entity: Dictionary, colliders: Dictionary, collider_nodes: Dict
 		var closed_collider := Transform3D(Basis(Vector3.UP, _yaw(collider["yawClockwiseRadians"])), _vec3(collider["center"]))
 		collision_shape.transform = body.transform.affine_inverse() * closed_collider
 		if supported:
-			body.sync_to_physics = true
 			body.set_meta("p2w_interaction_target", assembly)
+		if moving:
+			body.sync_to_physics = true
 			if motion == "swing":
 				assembly.configure_swing(body, float(leaf["openAngleRadians"]))
 			else:

@@ -13,7 +13,7 @@ const UNSIGNED_SHORT = 5123;
 const UNSIGNED_INT = 5125;
 const TRIANGLES = 4;
 
-type ArchitectureMaterialKey = 'wall' | 'floor' | 'ceiling' | 'glass' | 'column' | 'stair' | 'door' | 'plan-door' | 'plan-window' | 'lamp-body' | 'lamp-emitter';
+type ArchitectureMaterialKey = 'wall' | 'floor' | 'ceiling' | 'glass' | 'column' | 'stair' | 'door' | 'plan-door' | 'plan-window' | 'lamp-body' | 'lamp-emitter' | 'decor-frame' | 'wall-art' | 'mirror-face' | 'door-steel';
 
 interface GltfBufferView {
   buffer: number;
@@ -134,7 +134,7 @@ function materialKey(primitive: PresentationGlbPrimitive): ArchitectureMaterialK
   return 'wall';
 }
 
-const materialOrder: ArchitectureMaterialKey[] = ['wall', 'floor', 'ceiling', 'glass', 'column', 'stair', 'door', 'plan-door', 'plan-window', 'lamp-body', 'lamp-emitter'];
+const materialOrder: ArchitectureMaterialKey[] = ['wall', 'floor', 'ceiling', 'glass', 'column', 'stair', 'door', 'plan-door', 'plan-window', 'lamp-body', 'lamp-emitter', 'decor-frame', 'wall-art', 'mirror-face', 'door-steel'];
 
 const gltfMaterials: Record<string, unknown>[] = [
   { name: 'p2w-wall', pbrMetallicRoughness: { baseColorFactor: [0.82, 0.81, 0.79, 1], metallicFactor: 0, roughnessFactor: 0.86 } },
@@ -153,6 +153,10 @@ const gltfMaterials: Record<string, unknown>[] = [
   { name: 'p2w-plan-window', pbrMetallicRoughness: { baseColorFactor: [0.05,0.52,0.78,1],metallicFactor:0,roughnessFactor:1 } },
   { name: 'p2w-lamp-body', pbrMetallicRoughness: { baseColorFactor: [.38,.40,.42,1],metallicFactor:.15,roughnessFactor:.5 } },
   { name: 'p2w-lamp-emitter', pbrMetallicRoughness: { baseColorFactor: [.98,.97,.86,1],metallicFactor:0,roughnessFactor:.7 } },
+  { name: 'p2w-decor-frame', pbrMetallicRoughness: { baseColorFactor: [.22,.19,.16,1],metallicFactor:.15,roughnessFactor:.55 } },
+  { name: 'p2w-wall-art', pbrMetallicRoughness: { baseColorFactor: [.24,.43,.48,1],metallicFactor:0,roughnessFactor:.9 } },
+  { name: 'p2w-mirror-face', pbrMetallicRoughness: { baseColorFactor: [.78,.84,.88,1],metallicFactor:1,roughnessFactor:.08 } },
+  { name: 'p2w-door-steel', pbrMetallicRoughness: { baseColorFactor: [.24,.27,.3,1],metallicFactor:.85,roughnessFactor:.35 } },
 ];
 
 function padChunk(bytes: Uint8Array, paddingByte: number) {

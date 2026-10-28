@@ -104,6 +104,7 @@ static func valid(data: Dictionary) -> bool:
 	for collider in data["colliders"]:
 		if not collider is Dictionary or not _unique(collider.get("id"), colliders) or not collider.get("dynamic") is bool or not floors.has(collider.get("floorId")) or owners.get(collider.get("ownerId")) != collider["floorId"]: return false
 		colliders[collider["id"]] = collider
+		if collider.has("purpose") and (collider["purpose"]!="perimeter" or collider.get("kind")!="box" or collider["dynamic"] or not rooms.has(collider["ownerId"])):return false
 		match collider.get("kind"):
 			"box":
 				if not vector(collider.get("center"), 3) or not vector(collider.get("size"), 3, true) or not _number(collider.get("yawClockwiseRadians")): return false
@@ -139,7 +140,12 @@ static func _valid_doors(data: Dictionary) -> bool:
 			var collider: Dictionary = colliders.get(leaf.get("colliderId"), {})
 			if collider.get("ownerId") != entity.get("id") or collider.get("kind") != "box" or collider.get("dynamic") != true: return false
 			if kind == "swing" and (not vector(leaf.get("pivot"), 3) or not vector(leaf.get("axis"), 3) or Vector3(leaf["axis"][0], leaf["axis"][1], leaf["axis"][2]) != Vector3.UP or not _number(leaf.get("openAngleRadians"))): return false
-			if kind == "slide" and (not vector(leaf.get("axis"), 3) or not _positive(leaf.get("travel"))): return false
+			if kind == "slide":
+				if not vector(leaf.get("axis"), 3): return false
+				if leaf.has("fixed"):
+					if leaf["fixed"] != true or not _number(leaf.get("travel")) or leaf["travel"] != 0 or Vector3(leaf["axis"][0],leaf["axis"][1],leaf["axis"][2]) != Vector3.ZERO: return false
+				elif not _positive(leaf.get("travel")) or not is_equal_approx(Vector3(leaf["axis"][0],leaf["axis"][1],leaf["axis"][2]).length(),1.0): return false
+		if motion.has("allowHostOverlap") and not motion["allowHostOverlap"] is bool: return false
 	return true
 
 static func _pose(value) -> bool:

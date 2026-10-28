@@ -2,12 +2,19 @@ extends CanvasLayer
 
 const UI := preload("res://scripts/runtime_ui.gd")
 const CATALOG_VIEW := preload("res://scripts/furniture_catalog_view.gd")
+const SPATIAL:=preload("res://scripts/spatial_authoring.gd")
 signal menu_requested
 signal walkthrough_requested
 signal command_requested(command: Dictionary)
 signal save_requested(path: String)
 signal export_requested(path: String)
 signal light_requested(id:String)
+signal walls_requested
+signal preview_requested(command:Dictionary)
+signal opening_requested(id:String)
+signal add_opening_requested(kind:String)
+var spatial
+var _editor_state:Dictionary={}
 var controller
 var _floor_selector: OptionButton
 var _layer_selector:OptionButton
@@ -43,6 +50,13 @@ var _files: MenuButton
 var _help: Label
 var _framed_size := Vector2.ZERO
 var _catalog_action := "AddFurniture"
+var _external_dialogs:Array[Window]=[]
+var _busy:=false
+var _add_filter:Dictionary={}
+var _replacement_id:=""
+
+func register_dialog(dialog:Window) -> void:
+	_external_dialogs.append(dialog)
 
 func _ready() -> void:
 	name = "PlanView"
@@ -53,6 +67,10 @@ func _ready() -> void:
 	_screen.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	UI.fill(_screen)
 	add_child(_screen)
+	spatial=SPATIAL.new();_screen.add_child(spatial)
+	spatial.command_requested.connect(func(command:Dictionary):command_requested.emit(command))
+	spatial.mode_changed.connect(func():_frame_view.call_deferred())
+	register_dialog(spatial._areas.get_popup())
 	# Small mode/floor chip. The house, not a permanent inspector, fills the view.
 	var mode := PanelContainer.new()
 	mode.name = "Toolbar"; mode.position = Vector2(16,16)
@@ -61,11 +79,13 @@ func _ready() -> void:
 	var mode_row := HBoxContainer.new(); mode.add_child(mode_row)
 	mode_row.add_child(UI.label("Arrange", 20))
 	_floor_selector = OptionButton.new(); _floor_selector.name = "FloorSelector"
+	register_dialog(_floor_selector.get_popup())
 	_floor_selector.custom_minimum_size.x = 108; _floor_selector.fit_to_longest_item = false
-	_floor_selector.item_selected.connect(func(index: int): controller.select_floor(_floor_ids[index]); _fill_walls())
+	_floor_selector.item_selected.connect(func(index: int): spatial.cancel();controller.select_floor(_floor_ids[index]); _fill_walls())
 	mode_row.add_child(_floor_selector)
 	_layer_selector=OptionButton.new();_layer_selector.name="EditingLayer";_layer_selector.add_item("Furniture");_layer_selector.add_item("Ceiling lights")
-	_layer_selector.item_selected.connect(func(index:int):controller.set_ceiling_layer(index==1);_catalog_view.set_ceiling_layer(index==1);_catalog_action="AddFurniture";_fill_ceilings();_selection_changed())
+	register_dialog(_layer_selector.get_popup())
+	_layer_selector.item_selected.connect(func(index:int):spatial.cancel();controller.set_ceiling_layer(index==1);_catalog_view.set_ceiling_layer(index==1);_catalog_action="AddFurniture";_fill_ceilings();_selection_changed())
 	mode_row.add_child(_layer_selector)
 	var navigation := HBoxContainer.new(); navigation.name = "Navigation"
 	navigation.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
@@ -93,6 +113,15 @@ func _ready() -> void:
 	_grid.tooltip_text = "10 cm grid · first-person steps remain 1 cm"
 	for button in [_snap, _grid]: button.toggled.connect(func(_value): _snapping_changed())
 	tools.add_child(UI.button("Fit", "FitFloor", func(): controller.fit_floor()))
+	var build:=MenuButton.new();build.name="BuildTools";build.text="Build…";tools.add_child(build)
+	register_dialog(build.get_popup())
+	for item in ["Pave ground","Add door","Add window"]:build.get_popup().add_item(item)
+	build.get_popup().index_pressed.connect(func(index:int):
+		spatial.cancel()
+		set_catalog_open(false)
+		if index==0:spatial.start_ground(_editor_state,controller.floor_id)
+		else:add_opening_requested.emit("door" if index==1 else "window"))
+	tools.add_child(UI.button("Fix plan…", "EditWalls", func():walls_requested.emit()))
 	for button in tools.get_children():
 		button.add_theme_font_size_override("font_size",14)
 		button.custom_minimum_size = Vector2(64,48)
@@ -103,7 +132,7 @@ func _ready() -> void:
 	_catalog_view.piece_chosen.connect(func(_index): _mount_fields())
 	_mount_dialog = ConfirmationDialog.new(); _mount_dialog.name = "MountingDialog"
 	_mount_dialog.title = "Wall installation"; _mount_dialog.theme = UI.theme()
-	_mount_dialog.confirmed.connect(func(): _action(_catalog_action))
+	_mount_dialog.confirmed.connect(func(): _action(_catalog_action,true))
 	add_child(_mount_dialog)
 	var fields := VBoxContainer.new(); fields.custom_minimum_size.x = 320
 	_mount_dialog.add_child(fields)
@@ -112,6 +141,7 @@ func _ready() -> void:
 	_wall_selector.fit_to_longest_item = false
 	_wall_selector.tooltip_text = "Explicit installation wall; dragging keeps this binding."
 	fields.add_child(_wall_selector)
+	fields.add_child(UI.button("Pick wall in plan","PickMountWall",func():_mount_dialog.hide();_catalog_view.hide();controller.begin_host_pick("wall");show_message("Click the installation wall. Then choose its side and height.")))
 	_mount_side = OptionButton.new(); _mount_side.name = "MountSide"
 	_mount_side.add_item("Wall · left side"); _mount_side.add_item("Wall · right side")
 	fields.add_child(_mount_side)
@@ -120,22 +150,26 @@ func _ready() -> void:
 	_mount_height.suffix = "cm"; _mount_height.tooltip_text = "Bottom height above the floor"
 	fields.add_child(_mount_height)
 	_ceiling_dialog=ConfirmationDialog.new();_ceiling_dialog.name="CeilingMountDialog";_ceiling_dialog.title="Ceiling installation";_ceiling_dialog.theme=UI.theme();_ceiling_dialog.ok_button_text="Attach to ceiling"
-	_ceiling_dialog.confirmed.connect(func():_action(_catalog_action));add_child(_ceiling_dialog)
+	_ceiling_dialog.confirmed.connect(func():_action(_catalog_action,true));add_child(_ceiling_dialog)
 	var ceiling_fields:=VBoxContainer.new();ceiling_fields.custom_minimum_size.x=340;_ceiling_dialog.add_child(ceiling_fields)
 	ceiling_fields.add_child(UI.label("Choose the ceiling that supports this light.",14,UI.MUTED))
 	_ceiling_selector=OptionButton.new();_ceiling_selector.name="CeilingHost";_ceiling_selector.fit_to_longest_item=false;ceiling_fields.add_child(_ceiling_selector)
+	ceiling_fields.add_child(UI.button("Pick ceiling in plan","PickMountCeiling",func():_ceiling_dialog.hide();_catalog_view.hide();controller.begin_host_pick("ceiling");show_message("Click inside the installation ceiling.")))
 	ceiling_fields.add_child(UI.label("Height follows the authored ceiling. No vertical offset.",14,UI.MUTED))
 	# Selected-piece actions appear only when useful, near the input prompts.
 	_selection_card = PanelContainer.new(); _selection_card.name = "SelectedPiece"
+	_selection_card.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	_selection_card.add_theme_stylebox_override("panel", UI.box(UI.PAPER, 20, 12, true))
 	_screen.add_child(_selection_card)
 	var selection_column := VBoxContainer.new(); selection_column.add_theme_constant_override("separation",6)
+	selection_column.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	_selection_card.add_child(selection_column)
 	_selection = UI.label("",15); selection_column.add_child(_selection)
 	var actions := HBoxContainer.new(); selection_column.add_child(actions)
-	for pair in [["RotateFurniture","Rotate  R"],["ReplaceFurniture","Swap  X"],["DeleteFurniture","Remove  Del"],["LightSettings","Light… L"]]:
+	actions.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	for pair in [["ReplaceFurniture","Modify  M"],["RotateFurniture","Rotate  R"],["DeleteFurniture","Remove  Del"],["LightSettings","Light… L"]]:
 		var button := UI.button(pair[1],pair[0],_action.bind(pair[0]))
-		actions.add_child(button); _edit_buttons[pair[0]] = button
+		(actions if pair[0]=="ReplaceFurniture" else _catalog_view.actions).add_child(button); _edit_buttons[pair[0]] = button
 	_project_title = UI.label("Your space",22); _project_title.name = "ProjectTitle"
 	_project_title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_project_title.add_theme_color_override("font_shadow_color",UI.PAPER)
@@ -170,7 +204,7 @@ func _save_dialog(title: String, filter: String, filename: String) -> FileDialog
 	return dialog
 
 func has_open_dialog() -> bool:
-	return _save.visible or _export.visible or _files.get_popup().visible or _mount_dialog.visible or _ceiling_dialog.visible
+	return _save.visible or _export.visible or _files.get_popup().visible or _mount_dialog.visible or _ceiling_dialog.visible or _external_dialogs.any(func(dialog):return is_instance_valid(dialog) and dialog.visible)
 
 func configure(data: Dictionary, camera_controller) -> void:
 	controller = camera_controller
@@ -178,6 +212,15 @@ func configure(data: Dictionary, camera_controller) -> void:
 	controller.furniture_selected.connect(func(_id: String): _selection_changed())
 	controller.gesture_changed.connect(func(_moving: bool): _context())
 	controller.furniture_moved.connect(func(id: String, point: Vector3): command_requested.emit(controller.move_command(id,point)))
+	controller.placement_requested.connect(func(command:Dictionary):command_requested.emit(command))
+	controller.host_picked.connect(func(kind:String,id:String):
+		if kind=="wall":
+			_wall_selector.select(_wall_ids.find(id));_mount_dialog.popup_centered()
+		else:
+			for i in range(_ceiling_hosts.size()):
+				if _ceiling_hosts[i]["id"]==id:_ceiling_selector.select(i)
+			_ceiling_dialog.popup_centered()
+		show_message(""))
 	controller.placement_blocked.connect(func(): show_message("Placement blocked. Keep furniture clear of obstacles, doorways and floor holes."))
 	for floor in data["floors"]:
 		_floor_ids.append(str(floor["id"])); _floor_selector.add_item(str(floor["name"]))
@@ -186,8 +229,13 @@ func configure(data: Dictionary, camera_controller) -> void:
 	set_editor({},false,false)
 
 func set_editor(state: Dictionary, busy: bool, dirty: bool) -> void:
+	_editor_state=state
 	var editable := not state.is_empty()
+	_busy=busy
+	find_child("EditWalls",true,false).disabled=not editable or busy
 	controller.editing = editable and not busy
+	if not spatial.mode.is_empty():controller.editing=false
+	find_child("BuildTools",true,false).disabled=not editable or busy or not state.has("authoring")
 	for name in ["FirstPerson","FloorSelector","FitFloor","EditingLayer"]: find_child(name,true,false).disabled = busy
 	if _catalog.is_empty() and editable:
 		_catalog = state["catalog"]; _catalog_view.configure(_catalog)
@@ -208,11 +256,25 @@ func show_message(text: String) -> void:
 	_toast.visible = not text.is_empty()
 
 func set_catalog_open(open: bool, replacing := false) -> void:
+	if open:spatial.cancel()
 	controller.cancel_drag()
 	_catalog_view.visible = open
 	if open:
+		if replacing and _catalog_action!="ReplaceFurniture":
+			_add_filter={"category":_catalog_view._tabs.current_tab,"search":_catalog_view._search.text}
+		elif not replacing and _catalog_action=="ReplaceFurniture":
+			_catalog_view.set_ceiling_layer(controller.ceiling_editing)
+			_catalog_view._tabs.current_tab=mini(int(_add_filter.get("category",0)),_catalog_view._tabs.tab_count-1)
+			_catalog_view._search.text=_add_filter.get("search","");_catalog_view._filter()
 		_catalog_action = "ReplaceFurniture" if replacing else "AddFurniture"
+		if replacing:_replacement_id=controller.selected_id
+		_catalog_view.set_purpose("Modify furniture" if replacing else "Furniture",replacing)
 		_catalog_view.place.text = "Swap selected piece" if replacing else "Add at view centre"
+		if replacing:
+			var entity:Dictionary=controller._entities.get(controller.selected_id,{})
+			_catalog_view.set_ceiling_layer(entity.get("movement",{}).get("kind")=="ceiling")
+			for i in range(_catalog.size()):
+				if _catalog[i]["asset"].get("catalogId")==entity.get("catalogId"):_catalog_view.reveal(i);break
 	_catalog_toggle.set_pressed_no_signal(open)
 	if open: _catalog_view.list.grab_focus()
 	if not open:
@@ -231,7 +293,7 @@ func _request_piece() -> void:
 		_fill_ceilings()
 		if _ceiling_hosts.is_empty():show_message("This floor has no supported horizontal ceiling. Correct the native Project before attaching a light.");return
 		_ceiling_dialog.popup_centered()
-	else: _action(_catalog_action)
+	else: _action(_catalog_action,true)
 
 func command_applied(command: Dictionary) -> void:
 	if command["type"] in ["add","replace"]: set_catalog_open(false)
@@ -239,27 +301,37 @@ func command_applied(command: Dictionary) -> void:
 
 func _context() -> void:
 	if controller == null: return
-	var chosen: bool = controller._entities.has(controller.selected_id) and controller._entities[controller.selected_id]["kind"] == "furniture"
-	_selection_card.visible = chosen and not _catalog_view.visible and not controller._moving
-	_help.text = "Release to place · Esc cancel · Alt free" if controller._moving else ("Select a piece · Double-click to add · Esc close" if _catalog_view.visible else "Click select · Right drag pan · Scroll zoom")
+	var chosen: bool = controller._entities.has(controller.selected_id) and controller._entities[controller.selected_id]["kind"] in ["furniture","door","window"]
+	_selection_card.visible = chosen and controller.editing and not _busy and not _catalog_view.visible and not controller._moving and not has_open_dialog()
+	_help.text = "Click to place · Esc cancel · Alt free" if controller.has_placement_preview() else ("Release to place · Esc cancel · Alt free" if controller._moving else ("Select a piece · Double-click to place · Esc close" if _catalog_view.visible else "Click select · Right drag pan · Scroll zoom"))
 	_snap_chip.visible = controller._moving and not _snap_status.text.is_empty()
 	_toast.visible = not _notice.is_empty()
 
 func _process(_delta: float) -> void:
 	if not visible or controller == null or not controller.active: return
 	_context()
+	if _selection_card.visible:_position_selection()
 	if _snap_chip.visible:
 		_snap_chip.position = (get_viewport().get_mouse_position()+Vector2(18,20)).clamp(Vector2(100,96),_screen.size-_snap_chip.size-Vector2(16,90))
 
 func _selection_changed() -> void:
 	if _wall_floor_id != controller.floor_id: _fill_walls()
+	if _catalog_action=="ReplaceFurniture" and controller.selected_id!=_replacement_id:
+		set_catalog_open(false);_catalog_action="AddFurniture"
 	for action in _edit_buttons.values(): action.disabled = true
+	var selected:Dictionary=controller._entities.get(controller.selected_id,{})
+	if selected.get("kind") in ["door","window"]:
+		_selection.text="Door" if selected["kind"]=="door" else "Window"
+		_edit_buttons["ReplaceFurniture"].disabled=not controller.editing or _busy
 	if controller._entities.has(controller.selected_id) and controller._entities[controller.selected_id]["kind"] == "furniture":
 		var entity: Dictionary = controller._entities[controller.selected_id]
 		_selection.text = str(entity["catalogId"]).replace("_"," ").capitalize() + (" · locked" if entity["locked"] else "")
+		if controller._models.has(entity["id"]) and not controller._models[entity["id"]].has_meta("p2w_asset_ref"):
+			_selection.text=str(entity.get("sourceCategory",entity["catalogId"])).replace("_"," ").capitalize()+" · placeholder"+(" · locked" if entity["locked"] else "")
 		for action in _edit_buttons.values(): action.disabled = not controller.editing or entity["locked"]
 		_edit_buttons["RotateFurniture"].disabled = not controller.editing or entity["locked"] or entity["movement"]["kind"] not in ["floor","ceiling"]
 		_edit_buttons["LightSettings"].visible=entity.has("light")
+		for name in ["RotateFurniture","DeleteFurniture"]:_edit_buttons[name].visible=_catalog_action=="ReplaceFurniture"
 		if entity["movement"]["kind"] == "wall":
 			var index := _wall_ids.find(entity["movement"]["wallId"])
 			if index>=0: _wall_selector.select(index)
@@ -270,7 +342,28 @@ func _selection_changed() -> void:
 		_mount_fields()
 	_context()
 
-func _action(action: String) -> void:
+func _position_selection() -> void:
+	var entity:Dictionary=controller._entities[controller.selected_id]
+	var point:Array=entity.get("position",entity.get("closedPose",{}).get("center",entity.get("center",[0,0,0])))
+	var screen:Vector2=controller.camera.unproject_position(controller._vec3(point))
+	_selection_card.size=Vector2.ZERO
+	var size:Vector2=_selection_card.size
+	var upper:Vector2=(_screen.size-size-Vector2(16,96)).max(Vector2(100,90))
+	var neighbors:Array[Vector2]=[]
+	for other in controller._entities.values():
+		if other["id"]==controller.selected_id or other["floorId"]!=controller.floor_id or other["kind"] not in ["furniture","door","window"]:continue
+		var center:Array=other.get("position",other.get("closedPose",{}).get("center",other.get("center",[0,0,0])))
+		neighbors.append(controller.camera.unproject_position(controller._vec3(center)))
+	var best:=Vector2.ZERO;var best_score:=INF
+	for offset in [Vector2(20,-size.y-16),Vector2(20,16),Vector2(-size.x-20,-size.y-16),Vector2(-size.x-20,16)]:
+		var candidate:Vector2=(screen+offset).clamp(Vector2(100,90),upper)
+		var score:float=candidate.distance_squared_to(screen+offset)
+		for neighbor in neighbors:
+			if Rect2(candidate,size).grow(12).has_point(neighbor):score+=1000000
+		if score<best_score:best=candidate;best_score=score
+	_selection_card.position=best
+
+func _action(action: String,preview:=false) -> void:
 	var command := {"floorId":controller.floor_id,"id":controller.selected_id}
 	var index: int = _catalog_view.selected_index
 	match action:
@@ -281,6 +374,8 @@ func _action(action: String) -> void:
 			command.merge({"type":"add","position":{"x":point.x*100,"y":point.y*100},"asset":_catalog[index]["asset"]})
 		"RotateFurniture": command.merge({"type":"rotate","rotation":rad_to_deg(controller._entities[controller.selected_id]["yawClockwiseRadians"])+90})
 		"ReplaceFurniture":
+			if not controller._entities.has(controller.selected_id):return
+			if controller._entities.get(controller.selected_id,{}).get("kind") in ["door","window"]:opening_requested.emit(controller.selected_id);return
 			if not _catalog_view.visible:
 				set_catalog_open(true,true); return
 			if index<0: return
@@ -294,7 +389,8 @@ func _action(action: String) -> void:
 	if action in ["AddFurniture","ReplaceFurniture"] and _catalog[index].get("mounting")=="ceiling":
 		if _ceiling_hosts.is_empty():return
 		command["ceilingMount"]={"wallIds":_ceiling_hosts[_ceiling_selector.selected]["ceilingWallIds"]}
-	command_requested.emit(command)
+	if preview:preview_requested.emit(command)
+	else:command_requested.emit(command)
 
 func _fill_ceilings() -> void:
 	var previous:Variant=_ceiling_selector.get_item_metadata(_ceiling_selector.selected) if _ceiling_selector.selected>=0 else null
@@ -322,8 +418,8 @@ func _fill_walls() -> void:
 func _mount_fields() -> void:
 	var index: int = _catalog_view.selected_index
 	var mounted: bool = index>=0 and _catalog[index].get("mounting")=="wall"
-	_catalog_view.place.text = ("Choose wall & swap…" if mounted else "Swap selected piece") if _catalog_action=="ReplaceFurniture" else ("Choose wall & add…" if mounted else "Add at view centre")
-	if index>=0 and _catalog[index].get("mounting")=="ceiling":_catalog_view.place.text="Choose ceiling & swap…" if _catalog_action=="ReplaceFurniture" else "Choose ceiling & add…"
+	_catalog_view.place.text = ("Choose wall & preview…" if mounted else "Preview replacement") if _catalog_action=="ReplaceFurniture" else ("Choose wall & preview…" if mounted else "Place in room…")
+	if index>=0 and _catalog[index].get("mounting")=="ceiling":_catalog_view.place.text="Choose ceiling & preview…"
 
 func _frame_view() -> void:
 	if not visible or not controller.active: return
@@ -341,6 +437,7 @@ func _frame_view() -> void:
 	_toast.size.x = minf(680,screen.x-32)
 	_toast.position = Vector2((screen.x-_toast.size.x)/2,screen.y-270)
 	var right := width+32 if _catalog_view.visible else 16.0
+	if not spatial.mode.is_empty():right=maxf(right,spatial._panel.size.x+32)
 	var resized := _framed_size!=screen
 	if resized or controller.inset_left!=100 or controller.inset_right!=right or controller.inset_top!=90 or controller.inset_bottom!=96:
 		_framed_size=screen

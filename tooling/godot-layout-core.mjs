@@ -2,7 +2,12 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { readProject } from '../src/lib/utils/projectValidation';
 import { readProjectPackage } from '../src/lib/utils/projectPackageCodec';
-import { applyFurnitureLayoutCommand, furnitureLayoutCatalog } from '../src/lib/runtime/furnitureLayout';
+import { furnitureLayoutCatalog } from '../src/lib/runtime/furnitureLayout';
+import { applyNativeEditCommand, nativeDoorEditor, nativeDoorAppearances } from '../src/lib/runtime/nativeEditing';
+import { nativeArchitectureEditor } from '../src/lib/runtime/architectureEditing';
+import { nativeOpeningCatalog, nativeOpeningEditor } from '../src/lib/runtime/objectCatalog';
+import { spatialAuthoringPreview } from '../src/lib/runtime/spatialAuthoring';
+import {furniturePlacementPreview} from '../src/lib/runtime/placementPreview';
 import { compileRuntimeArtifacts } from '../src/lib/runtime/runtimeArtifacts';
 import { runtimePackageFiles, serializeRuntimePackage } from '../src/lib/runtime/runtimePackage';
 
@@ -14,9 +19,41 @@ async function run() {
     const bytes = await readFile(request.projectPath);
     const source = path.extname(request.projectPath).toLowerCase() === '.zip'
       ? readProjectPackage(new Uint8Array(bytes)).project : readProject(JSON.parse(bytes.toString('utf8')));
-    let project = source, selectedId = null;
-    if (request.op === 'command') ({ project, selectedId } = applyFurnitureLayoutCommand(source, request.command));
+    if(request.op==='spatial-preview') {
+      await writeFile(responsePath,JSON.stringify({ok:true,preview:spatialAuthoringPreview(source,request.command)}));return;
+    }
+    if(request.op==='preview'){
+      await writeFile(responsePath,JSON.stringify({ok:true,preview:furniturePlacementPreview(source,request.command)}));return;
+    }
+    if (request.op === 'edit-plan' || request.op === 'edit-plan-command') {
+      const edited = request.op === 'edit-plan-command' ? applyNativeEditCommand(source, request.command) : { project: source, selectedId: null };
+      const project = edited.project;
+      let artifacts, runtimeError = '';
+      try {
+        artifacts = await compileRuntimeArtifacts(project, async file => {
+          try { return new Uint8Array(await readFile(path.join(path.dirname(process.argv[1]), 'models', `${file}.glb`))); }
+          catch (e) { if (e.code === 'ENOENT') return null; throw e; }
+        });
+        if (!project.floors.some(f => f.entrance || f.walkthroughStart)) throw new Error('Choose a main entrance before entering walkthrough.');
+        if (!artifacts.runtime.floors.some(f => f.walkthroughStart)) throw new Error('Choose a main entrance before entering walkthrough.');
+      } catch (e) { runtimeError = e instanceof Error ? e.message : String(e); artifacts = undefined; }
+      const output = path.resolve(request.outputDirectory); await mkdir(output);
+      await writeFile(path.join(output, 'project.json'), JSON.stringify(project, null, 2) + '\n', { flag: 'wx' });
+      if (artifacts) {
+        for (const [name, content] of runtimePackageFiles(artifacts)) {
+          await mkdir(path.dirname(path.join(output, name)), { recursive: true }); await writeFile(path.join(output, name), content, { flag: 'wx' });
+        }
+        await writeFile(path.join(output, 'scene.runtime.zip'), await serializeRuntimePackage(artifacts), { flag: 'wx' });
+      }
+      await writeFile(responsePath, JSON.stringify({ ok: true, projectPath: path.join(output, 'project.json'), editor: nativeArchitectureEditor(project),
+        selectedId: edited.selectedId, walkthroughReady: !!artifacts, runtimeError,
+        ...(artifacts ? { runtimePath: path.join(output, 'scene.runtime.json'), packagePath: path.join(output, 'scene.runtime.zip') } : {}) }));
+      return;
+    }
+    let project = source, selectedId = null, updateKind = 'world';
+    if (request.op === 'command') ({ project, selectedId, updateKind } = applyNativeEditCommand(source, request.command));
     else if (request.op !== 'open') throw new Error('Unsupported authoring operation.');
+    if (project.architectureReview && !project.floors.some(f => f.entrance || f.walkthroughStart)) throw new Error('Choose a main entrance in Correct walls and openings before entering walkthrough.');
     const modelDirectory = path.join(path.dirname(process.argv[1]), 'models');
     const artifacts = await compileRuntimeArtifacts(project, async file => {
       try { return new Uint8Array(await readFile(path.join(modelDirectory, `${file}.glb`))); }
@@ -35,7 +72,7 @@ async function run() {
     await writeFile(path.join(output, 'project.json'), JSON.stringify(project, null, 2) + '\n', { flag: 'wx' });
     await writeFile(path.join(output, 'scene.runtime.zip'), zip, { flag: 'wx' });
     await writeFile(responsePath, JSON.stringify({ ok: true, projectPath: path.join(output, 'project.json'), runtimePath: path.join(output, 'scene.runtime.json'), packagePath: path.join(output, 'scene.runtime.zip'), selectedId,
-      catalog: furnitureLayoutCatalog(project) }));
+      updateKind, authoring: nativeArchitectureEditor(project), doors: nativeDoorEditor(project), doorAppearances: nativeDoorAppearances(project), openings: nativeOpeningEditor(project), openingCatalog: nativeOpeningCatalog(), catalog: furnitureLayoutCatalog(project) }));
   } catch (error) {
     await writeFile(responsePath, JSON.stringify({ ok: false, error: error instanceof Error ? error.message : String(error) }));
     process.exitCode = 1;

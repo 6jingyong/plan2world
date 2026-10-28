@@ -9,6 +9,8 @@ signal placement_blocked
 signal snap_changed(text: String)
 signal gesture_changed(moving: bool)
 signal pose_previewed(id:String, position:Vector3, yaw:float)
+signal placement_requested(command:Dictionary)
+signal host_picked(kind:String,id:String)
 
 var camera: Camera3D
 var data: Dictionary
@@ -24,6 +26,7 @@ var inset_left := 96.0
 var inset_right := 0.0
 var inset_bottom := 96.0
 var snapping := preload("res://scripts/furniture_snapping.gd").new()
+var support := preload("res://scripts/placement_support.gd").new()
 var _guides: MeshInstance3D
 var _preview_yaw := 0.0
 var _drag_point := Vector3.ZERO
@@ -33,6 +36,7 @@ var _nodes: Dictionary
 var _models: Dictionary
 var _entities := {}
 var _areas: Node3D
+var _pick_areas:Dictionary={}
 var _door_clearance: Node3D
 var _highlight: MeshInstance3D
 var _bounds := Rect2()
@@ -50,6 +54,61 @@ var _grab_offset := Vector3.ZERO
 var _model: Node3D
 var _model_pose := Transform3D.IDENTITY
 var _visibility: Array = []
+var _pending_command:Dictionary={}
+var _pending_scene:Dictionary={}
+var _pending_previous:=""
+var _pending_model:Node3D
+var _pending_visible:=true
+var _host_pick:=""
+
+func has_placement_preview() -> bool:return not _pending_command.is_empty()
+
+func begin_placement(command:Dictionary,entity:Dictionary) -> void:
+	cancel_drag();_pending_previous=selected_id
+	_pending_command=command.duplicate(true);selected_id=entity["id"]
+	_pending_scene=data.duplicate();_pending_scene["entities"]=data["entities"].filter(func(item):return item["id"]!=selected_id)+[entity]
+	_entities[selected_id]=entity;_origin=_vec3(entity["position"]);_preview=_origin;_drag_point=_origin;_preview_yaw=entity["yawClockwiseRadians"]
+	_grab_offset=Vector3(0,_floor_y-_origin.y,0);_model=null;_moving=true
+	_pending_model=_models.get(selected_id)
+	if is_instance_valid(_pending_model):_pending_visible=_pending_model.visible;_pending_model.hide()
+	snapping.clear();gesture_changed.emit(true);_show_preview()
+
+func begin_host_pick(kind:String) -> void:
+	cancel_drag();_host_pick=kind
+
+func _pick_host(screen:Vector2) -> void:
+	if _host_pick=="wall":
+		var from:=camera.project_ray_origin(screen)
+		var query:=PhysicsRayQueryParameters3D.create(from,from+camera.project_ray_normal(screen)*1000,1)
+		# Top view can see through other floors. Only a hit on an explicit solid,
+		# straight wall of this floor can select a wall; no nearest-host fallback.
+		var excluded:Array[RID]=[]
+		for collider in data["colliders"]:
+			var owner:Dictionary=_entities.get(collider["ownerId"],{})
+			if owner.get("kind")!="wall" or owner.get("floorId")!=floor_id:
+				if _nodes.has(collider["id"]):excluded.append(_nodes[collider["id"]].get_rid())
+		query.exclude=excluded
+		var hit:=get_world_3d().direct_space_state.intersect_ray(query)
+		if hit.is_empty():placement_blocked.emit();return
+		var id:String=hit["collider"].get_meta("p2w_owner_id","");var wall:Dictionary=_entities.get(id,{})
+		if wall.get("boundaryType")!="solid" or wall["path"].has("control"):placement_blocked.emit();return
+		_host_pick="";host_picked.emit("wall",id)
+	else:
+		var point=_plane_point(screen);if point==null:return
+		var matches:Array=[]
+		for floor in data["floors"]:
+			if floor["id"]!=floor_id:continue
+			for room in floor["rooms"]:
+				if room["ceilingHeight"]==null or not room.has("ceilingWallIds"):continue
+				var polygon:=PackedVector2Array();for p in room["polygon"]:polygon.append(Vector2(p[0],p[1]))
+				if not Geometry2D.is_point_in_polygon(Vector2(point.x,point.z),polygon):continue
+				var in_hole:=false
+				for hole in room["holes"]:
+					var ring:=PackedVector2Array();for p in hole:ring.append(Vector2(p[0],p[1]))
+					in_hole=in_hole or Geometry2D.is_point_in_polygon(Vector2(point.x,point.z),ring)
+				if not in_hole:matches.append(room["id"])
+		if matches.size()!=1:placement_blocked.emit();return
+		_host_pick="";host_picked.emit("ceiling",matches[0])
 
 func configure(scene: Dictionary, nodes: Dictionary, models: Dictionary, player: P2WPlayer) -> void:
 	name = "LayoutCamera"
@@ -70,37 +129,48 @@ func configure(scene: Dictionary, nodes: Dictionary, models: Dictionary, player:
 	refresh(scene, nodes, models)
 	select_floor(str(scene["floors"][0]["id"]))
 
-func refresh(scene: Dictionary, nodes: Dictionary, models: Dictionary) -> void:
+func refresh(scene: Dictionary, nodes: Dictionary, models: Dictionary, changed:Array=[]) -> void:
 	cancel_drag()
 	data = scene
+	if changed.is_empty():support.configure(scene)
 	_nodes = nodes
 	_models = models
 	_entities.clear()
-	if _areas != null:
+	if _areas != null and changed.is_empty():
 		remove_child(_areas)
 		_areas.queue_free()
-	_areas = Node3D.new()
-	add_child(_areas)
+		_areas=null;_pick_areas.clear()
+	if _areas==null:
+		_areas = Node3D.new();add_child(_areas)
+	for id in changed:
+		if _pick_areas.has(id):
+			var old:Node=_pick_areas[id];_areas.remove_child(old);old.queue_free();_pick_areas.erase(id)
 	for entity in scene["entities"]:
 		_entities[entity["id"]] = entity
-		if entity["kind"] != "furniture":
+		if entity["kind"] not in ["furniture","door","window"] or entity.get("doorType")=="opening":
 			continue
+		if not changed.is_empty() and not changed.has(entity["id"]):continue
 		var area := Area3D.new()
 		area.collision_layer = 2 if not active or entity["floorId"] == floor_id else 0
 		area.collision_mask = 0
 		area.set_meta("furniture_id", entity["id"])
 		area.set_meta("floor_id", entity["floorId"])
-		area.position = _vec3(entity["position"])
-		area.rotation.y = -float(entity["yawClockwiseRadians"])
+		var furniture:bool=entity["kind"]=="furniture"
+		var pose:Dictionary=entity.get("closedPose",{})
+		area.position = _vec3(entity["position"] if furniture else pose.get("center",entity.get("center",[0,0,0])))
+		area.rotation.y = -float(entity["yawClockwiseRadians"] if furniture else pose.get("yawClockwiseRadians",entity.get("yawClockwiseRadians",0)))
 		var shape := CollisionShape3D.new()
 		var box := BoxShape3D.new()
-		box.size = _vec3(entity["size"]).max(Vector3(0.05, 0.05, 0.05))
+		var host:Dictionary=_entities.get(entity.get("hostWallId",""),{})
+		box.size = _vec3(entity["size"]).max(Vector3(0.05, 0.05, 0.05)) if furniture else Vector3(entity["width"],entity["height"],maxf(.08,host.get("thickness",.15)))
 		shape.shape = box
 		area.add_child(shape)
 		_areas.add_child(area)
-	update_floor_visibility()
+		_pick_areas[entity["id"]]=area
+	update_floor_visibility(changed.is_empty())
 
 func _build_door_clearance(scene: Dictionary) -> void:
+	if _door_clearance!=null:remove_child(_door_clearance);_door_clearance.queue_free()
 	# Placement-only copies of the compiler's closed-pose colliders. Layer 4
 	# never blocks locomotion, door animation, floor rays or furniture picking.
 	_door_clearance = Node3D.new()
@@ -124,9 +194,9 @@ func _build_door_clearance(scene: Dictionary) -> void:
 		_door_clearance.add_child(area)
 
 func select_floor(id: String) -> void:
+	cancel_drag()
 	floor_id = id
 	selected_id = ""
-	cancel_drag()
 	furniture_selected.emit("")
 	var points: Array[Vector2] = []
 	_building_height = 0.0
@@ -226,15 +296,15 @@ func _animate(target: Transform3D) -> void:
 			_player.get_node("Camera3D").make_current()
 		view_settled.emit())
 
-func update_floor_visibility() -> void:
+func update_floor_visibility(restyle:=true) -> void:
 	for area in _areas.get_children():
-		var ceiling:bool=_entities[area.get_meta("furniture_id")]["movement"]["kind"]=="ceiling"
+		var ceiling:bool=_entities[area.get_meta("furniture_id")].get("movement",{}).get("kind")=="ceiling"
 		area.collision_layer = 2 if not active or (area.get_meta("floor_id")==floor_id and ceiling==ceiling_editing) else 0
 	for saved in _visibility:
 		if is_instance_valid(saved[0]):
 			saved[0].visible = saved[1]
 	_visibility.clear()
-	if display!=null:display.apply(active)
+	if display!=null and restyle:display.apply(active)
 	if not active or data.is_empty():
 		return
 	var owners := {}
@@ -294,7 +364,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			camera.global_transform = _top_pose()
 		elif event.button_index == MOUSE_BUTTON_LEFT and editing:
 			if event.pressed:
-				_pick(event.position)
+				if not _host_pick.is_empty():_pick_host(event.position)
+				elif has_placement_preview():commit_move()
+				else:_pick(event.position)
 			elif _moving:
 				commit_move()
 		get_viewport().set_input_as_handled()
@@ -326,7 +398,7 @@ func begin_adjust(id: String) -> bool:
 	cancel_drag()
 	if _entities.has(id) and _entities[id]["floorId"] != floor_id:
 		select_floor(_entities[id]["floorId"])
-	selected_id = id if _entities.has(id) and _entities[id]["kind"] == "furniture" else ""
+	selected_id = id if _entities.has(id) and _entities[id]["kind"] in ["furniture","door","window"] else ""
 	furniture_selected.emit(selected_id)
 	if not editing or not _entities.has(id) or _entities[id]["kind"] != "furniture": return false
 	var entity: Dictionary = _entities[id]
@@ -406,12 +478,19 @@ func _draw_guides(lines: Array) -> void:
 	_guides.show()
 
 func _show_preview() -> void:
-	pose_previewed.emit(selected_id,_preview,_preview_yaw)
+	if not has_placement_preview():pose_previewed.emit(selected_id,_preview,_preview_yaw)
 	if is_instance_valid(_model):
 		_model.global_transform = Transform3D(Basis(Vector3.UP, -(_preview_yaw - float(_entities[selected_id]["yawClockwiseRadians"]))) * _model_pose.basis, _model_pose.origin + _preview - _origin)
 	_highlight_selected(Color.GREEN if _preview_allowed() else Color.RED)
 
 func commit_move() -> void:
+	if not _moving or not _entities.has(selected_id):return
+	if has_placement_preview():
+		if not _preview_allowed():placement_blocked.emit();return
+		var command:=_pending_command.duplicate(true)
+		command["position"]={"x":_preview.x*100,"y":_preview.z*100}
+		if _entities[selected_id]["movement"]["kind"]!="wall":command["rotation"]=rad_to_deg(_preview_yaw)
+		cancel_drag();placement_requested.emit(command);return
 	_moving = false
 	gesture_changed.emit(false)
 	if _preview.distance_to(_origin) <= 0.00001 and is_equal_approx(_preview_yaw, float(_entities[selected_id]["yawClockwiseRadians"])):
@@ -434,6 +513,16 @@ func move_command(id: String, point: Vector3) -> Dictionary:
 
 func cancel_drag() -> void:
 	var was_moving := _moving
+	_host_pick=""
+	if has_placement_preview():
+		if is_instance_valid(_pending_model):_pending_model.visible=_pending_visible
+		var old:Dictionary={}
+		for entity in data["entities"]:
+			if entity["id"]==selected_id:old=entity;break
+		if old.is_empty():_entities.erase(selected_id)
+		else:_entities[selected_id]=old
+		selected_id=_pending_previous if _entities.has(_pending_previous) else ""
+		_pending_command={};_pending_scene={};_pending_model=null
 	_panning = false
 	_moving = false
 	if is_instance_valid(_model):
@@ -451,7 +540,7 @@ func cancel_drag() -> void:
 		preview_cancelled.emit()
 
 func _preview_allowed() -> bool:
-	return placement_allowed(data, selected_id, (_preview - _origin), _preview_yaw)
+	return placement_allowed(_pending_scene if has_placement_preview() else data, selected_id, (_preview - _origin), _preview_yaw)
 
 func placement_allowed(scene: Dictionary, id: String, offset := Vector3.ZERO, yaw_override = null) -> bool:
 	var entity: Dictionary = {}
@@ -491,27 +580,7 @@ func placement_allowed(scene: Dictionary, id: String, offset := Vector3.ZERO, ya
 	return get_world_3d().direct_space_state.intersect_shape(query, 1).is_empty()
 
 func _floor_support(entity: Dictionary, pose: Vector3, yaw: float) -> bool:
-	var angle := -yaw
-	var frame := Basis(Vector3.UP, angle)
-	var size := _vec3(entity["size"])
-	var elevation := float(entity["movement"]["elevation"])
-	var ceiling:bool=entity["movement"]["kind"]=="ceiling"
-	var floor_owners := {}
-	for floor in data["floors"]:
-		if floor["id"] == entity["floorId"]:
-			if ceiling:elevation=floor["elevation"]
-			for room in floor["rooms"]:
-				if not ceiling or room["id"]==entity["movement"]["roomId"]:floor_owners[room["id"]] = true
-	var exclusions: Array[RID] = []
-	for collider in data["colliders"]:
-		if collider["ownerId"] == entity["id"] and _nodes.has(collider["id"]): exclusions.append(_nodes[collider["id"]].get_rid())
-	for corner in [Vector3.ZERO, Vector3(-0.49,0,-0.49), Vector3(-0.49,0,0.49), Vector3(0.49,0,-0.49), Vector3(0.49,0,0.49)]:
-		var point: Vector3 = Vector3(pose.x, elevation, pose.z) + frame * (corner * size)
-		var ray := PhysicsRayQueryParameters3D.create(point + Vector3.UP * 0.01, point - Vector3.UP * 0.02, 1)
-		ray.exclude = exclusions
-		var hit := get_world_3d().direct_space_state.intersect_ray(ray)
-		if hit.is_empty() or not floor_owners.has(hit["collider"].get_meta("p2w_owner_id", "")): return false
-	return true
+	return support.allowed(entity,pose,yaw)
 
 func set_ceiling_layer(value:bool) -> void:
 	cancel_drag();ceiling_editing=value;selected_id="";furniture_selected.emit("");update_floor_visibility()

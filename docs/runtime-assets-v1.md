@@ -30,6 +30,13 @@ brightness and temperature changes leave model bytes and collision unchanged.
 Ceiling attachment is required in native Project data. See
 [ceiling lighting](runtime-plan-lighting.md) for the contract and current scope.
 
+Explicitly chosen `wall_art` and `mirror` use deterministic generic
+`builtin:<catalogId>-v1` framed assets through the same fit/hash/package path.
+The mirror uses a metallic surface with the renderer's sky reflection reference;
+it is not a local planar reflection of inferred room geometry. Neither asset
+changes mounting or collision. Unreplaced `imported_object` source markers keep
+their source category and explicit placeholder presentation.
+
 The sibling directory follows the runtime filename: `house.runtime.json` (or
 `house.json`) resolves to `house.assets/manifest.json`; a filename without `.json`
 resolves to `<filename>.assets/manifest.json`. Architecture overrides do not change

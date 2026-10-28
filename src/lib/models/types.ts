@@ -21,6 +21,8 @@ export interface ProjectPackageState {
 }
 
 export interface Wall {
+  /** Explicit human correction; retained across saves, never image evidence. */
+  authorModified?: boolean;
   /** Logical air boundaries are invisible but retain native collision/closure. */
   boundaryType?: 'solid' | 'railing' | 'air';
   details?: ItemDetails;
@@ -89,7 +91,23 @@ export interface Room {
   labelOffset?: Point;
 }
 
+/** Author input in native cm, in the opening chord frame (A to B, normal left).
+ * A fixed panel retains a real collider; it is never an inferred moving leaf. */
+export interface SlidingDoorLeaf {
+  id: string;
+  width: number;
+  center: number;
+  track: number;
+  motion: 'fixed' | 'slide';
+  travel: number; // signed cm along the opening chord; fixed panels require 0
+}
+export type DoorLeafConfiguration =
+  | { kind: 'paired'; firstLeafRatio: number }
+  | { kind: 'sliding'; leaves: SlidingDoorLeaf[] };
+
 export interface Door {
+  /** Appearance only; does not change aperture, leaves, motion or collision. */
+  material?: 'wood' | 'glass' | 'steel';
   details?: ItemDetails;
   id: string;
   wallId: string;
@@ -99,6 +117,7 @@ export interface Door {
   type: 'single' | 'double' | 'sliding' | 'french' | 'pocket' | 'bifold' | 'opening' | 'garage';
   swingDirection: 'left' | 'right';
   flipSide: boolean; // flip which side of wall the door opens to (vertical flip)
+  leafConfiguration?: DoorLeafConfiguration;
 }
 
 export interface Window {
@@ -315,6 +334,8 @@ export interface ReconstructionEvidence {
 }
 
 export interface Project {
+  /** Authoring review notes. Source records remain evidence, never live geometry. */
+  architectureReview?: { version: 1; sourceObservations?: string; workingImageSha256?: string; issues: { id: string; floorId: string; message: string; position?: Point; sourceRecord?: string; resolved: boolean }[] };
   reconstruction?: ReconstructionEvidence;
   customModels?: CustomModelDef[];
   attachmentNames?: Record<string, string>;

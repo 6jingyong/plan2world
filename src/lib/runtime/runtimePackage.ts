@@ -30,6 +30,7 @@ export function runtimePackageFiles(artifacts: RuntimeArtifacts): Map<string, Ui
       'Open editable Project enables furniture layout from your native Project JSON/package.\n' +
       'First person: F / X focuses furniture; arrows / left stick nudge; F / Enter / A places; Esc / B cancels preview.\n' +
       'Top view: left drag moves furniture, middle/right drag pans, wheel zooms. No undo/history.\n\n' +
+      'New furniture/replacements: preview the footprint, click a valid landing, or Esc to cancel. Wall/ceiling hosts are explicit. Doors… configures existing sliding/paired panels.\n\n' +
       'This is a compiled scene. Keep the native Project JSON/project package for editing.\n' +
       (notes.length ? `\nExport notes\n${notes.join('\n')}\n` : ''),
     )],

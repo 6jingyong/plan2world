@@ -56,6 +56,7 @@ describe('static architecture presentation', () => {
     const primitives = compileStaticArchitectureEntities(scene());
     expect(primitives.map(primitive => [primitive.kind, primitive.id, primitive.material])).toEqual([
       ['window', 'architecture:window:window-1', 'glass'],
+      ['window', 'architecture:window-frame:window-1', 'decor-frame'],
       ['column', 'architecture:column:column-square', 'column'],
       ['column', 'architecture:column:column-round', 'column'],
       ['stair', 'architecture:stair:stair-up', 'stair'],
@@ -95,6 +96,7 @@ describe('static architecture presentation', () => {
     expect(presentation.diagnostics).toEqual([]);
     expect(presentation.primitives.map(primitive => primitive.id)).toEqual([
       'architecture:window:window-1',
+      'architecture:window-frame:window-1',
       'architecture:column:column-square',
       'architecture:column:column-round',
       'architecture:stair:stair-up',

@@ -1884,6 +1884,443 @@
       ]
     },
     {
+      "id": "perimeter:ground:0.00000000,0.00000000:12.00000000,0.00000000",
+      "ownerId": "room:ground:double-wall,french-wall,ground-w0,ground-w1,ground-w2,ground-w3,slide,swing",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "purpose": "perimeter",
+      "center": [
+        6,
+        1.7999999999999998,
+        -0.01
+      ],
+      "size": [
+        12.002,
+        2.8,
+        0.02
+      ],
+      "yawClockwiseRadians": 0
+    },
+    {
+      "id": "perimeter:ground:12.00000000,0.00000000:12.11718750,0.75000000",
+      "ownerId": "room:ground:double-wall,french-wall,ground-w0,ground-w1,ground-w2,ground-w3,slide,swing",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "purpose": "perimeter",
+      "center": [
+        12.068473870337511,
+        1.7999999999999998,
+        0.3734562311972639
+      ],
+      "size": [
+        0.7611000659703897,
+        2.8,
+        0.02
+      ],
+      "yawClockwiseRadians": 1.4157995848709557
+    },
+    {
+      "id": "perimeter:ground:12.11718750,0.75000000:12.21875000,1.50000000",
+      "ownerId": "room:ground:double-wall,french-wall,ground-w0,ground-w1,ground-w2,ground-w3,slide,swing",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "purpose": "perimeter",
+      "center": [
+        12.177878303679602,
+        1.7999999999999998,
+        1.1236580812725538
+      ],
+      "size": [
+        0.7588453880458345,
+        2.8,
+        0.02
+      ],
+      "yawClockwiseRadians": 1.4361984126344298
+    },
+    {
+      "id": "perimeter:ground:12.21875000,1.50000000:12.30468750,2.25000000",
+      "ownerId": "room:ground:double-wall,french-wall,ground-w0,ground-w1,ground-w2,ground-w3,slide,swing",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "purpose": "perimeter",
+      "center": [
+        12.27165374272973,
+        1.7999999999999998,
+        1.8738616154163852
+      ],
+      "size": [
+        0.7569074472451904,
+        2.8,
+        0.02
+      ],
+      "yawClockwiseRadians": 1.456710547626737
+    },
+    {
+      "id": "perimeter:ground:12.30468750,2.25000000:12.37500000,3.00000000",
+      "ownerId": "room:ground:double-wall,french-wall,ground-w0,ground-w1,ground-w2,ground-w3,slide,swing",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "purpose": "perimeter",
+      "center": [
+        12.349800092260592,
+        1.7999999999999998,
+        2.6240665929130693
+      ],
+      "size": [
+        0.7552886881244467,
+        2.8,
+        0.02
+      ],
+      "yawClockwiseRadians": 1.477319545636307
+    },
+    {
+      "id": "perimeter:ground:12.37500000,3.00000000:12.42968750,3.75000000",
+      "ownerId": "room:ground:double-wall,french-wall,ground-w0,ground-w1,ground-w2,ground-w3,slide,swing",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "purpose": "perimeter",
+      "center": [
+        12.412317271339061,
+        1.7999999999999998,
+        3.3742727640690267
+      ],
+      "size": [
+        0.7539911719270713,
+        2.8,
+        0.02
+      ],
+      "yawClockwiseRadians": 1.4980084781909715
+    },
+    {
+      "id": "perimeter:ground:12.42968750,3.75000000:12.46875000,4.50000000",
+      "ownerId": "room:ground:double-wall,french-wall,ground-w0,ground-w1,ground-w2,ground-w3,slide,swing",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "purpose": "perimeter",
+      "center": [
+        12.459205214164456,
+        1.7999999999999998,
+        4.124479871658101
+      ],
+      "size": [
+        0.7530165636697037,
+        2.8,
+        0.02
+      ],
+      "yawClockwiseRadians": 1.5187600119856803
+    },
+    {
+      "id": "perimeter:ground:12.46875000,4.50000000:12.49218750,5.25000000",
+      "ownerId": "room:ground:double-wall,french-wall,ground-w0,ground-w1,ground-w2,ground-w3,slide,swing",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "purpose": "perimeter",
+      "center": [
+        12.490463870760872,
+        1.7999999999999998,
+        4.874687652476223
+      ],
+      "size": [
+        0.7523661215741619,
+        2.8,
+        0.02
+      ],
+      "yawClockwiseRadians": 1.5395564933646284
+    },
+    {
+      "id": "perimeter:ground:12.49218750,5.25000000:12.50000000,6.00000000",
+      "ownerId": "room:ground:double-wall,french-wall,ground-w0,ground-w1,ground-w2,ground-w3,slide,swing",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "purpose": "perimeter",
+      "center": [
+        12.506093207509425,
+        1.7999999999999998,
+        5.624895838984277
+      ],
+      "size": [
+        0.7520406890004367,
+        2.8,
+        0.02
+      ],
+      "yawClockwiseRadians": 1.560380036863927
+    },
+    {
+      "id": "perimeter:ground:12.49218750,6.75000000:12.50000000,6.00000000",
+      "ownerId": "room:ground:double-wall,french-wall,ground-w0,ground-w1,ground-w2,ground-w3,slide,swing",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "purpose": "perimeter",
+      "center": [
+        12.506093207509425,
+        1.7999999999999998,
+        6.375104161015723
+      ],
+      "size": [
+        0.7520406890004367,
+        2.8,
+        0.02
+      ],
+      "yawClockwiseRadians": 1.5812126167258664
+    },
+    {
+      "id": "perimeter:ground:12.46875000,7.50000000:12.49218750,6.75000000",
+      "ownerId": "room:ground:double-wall,french-wall,ground-w0,ground-w1,ground-w2,ground-w3,slide,swing",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "purpose": "perimeter",
+      "center": [
+        12.490463870760872,
+        1.7999999999999998,
+        7.125312347523777
+      ],
+      "size": [
+        0.7523661215741619,
+        2.8,
+        0.02
+      ],
+      "yawClockwiseRadians": 1.602036160225165
+    },
+    {
+      "id": "perimeter:ground:12.42968750,8.25000000:12.46875000,7.50000000",
+      "ownerId": "room:ground:double-wall,french-wall,ground-w0,ground-w1,ground-w2,ground-w3,slide,swing",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "purpose": "perimeter",
+      "center": [
+        12.459205214164456,
+        1.7999999999999998,
+        7.875520128341899
+      ],
+      "size": [
+        0.7530165636697037,
+        2.8,
+        0.02
+      ],
+      "yawClockwiseRadians": 1.622832641604113
+    },
+    {
+      "id": "perimeter:ground:12.37500000,9.00000000:12.42968750,8.25000000",
+      "ownerId": "room:ground:double-wall,french-wall,ground-w0,ground-w1,ground-w2,ground-w3,slide,swing",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "purpose": "perimeter",
+      "center": [
+        12.412317271339061,
+        1.7999999999999998,
+        8.625727235930974
+      ],
+      "size": [
+        0.7539911719270713,
+        2.8,
+        0.02
+      ],
+      "yawClockwiseRadians": 1.6435841753988218
+    },
+    {
+      "id": "perimeter:ground:12.30468750,9.75000000:12.37500000,9.00000000",
+      "ownerId": "room:ground:double-wall,french-wall,ground-w0,ground-w1,ground-w2,ground-w3,slide,swing",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "purpose": "perimeter",
+      "center": [
+        12.349800092260592,
+        1.7999999999999998,
+        9.375933407086931
+      ],
+      "size": [
+        0.7552886881244467,
+        2.8,
+        0.02
+      ],
+      "yawClockwiseRadians": 1.6642731079534863
+    },
+    {
+      "id": "perimeter:ground:12.21875000,10.50000000:12.30468750,9.75000000",
+      "ownerId": "room:ground:double-wall,french-wall,ground-w0,ground-w1,ground-w2,ground-w3,slide,swing",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "purpose": "perimeter",
+      "center": [
+        12.27165374272973,
+        1.7999999999999998,
+        10.126138384583616
+      ],
+      "size": [
+        0.7569074472451904,
+        2.8,
+        0.02
+      ],
+      "yawClockwiseRadians": 1.6848821059630563
+    },
+    {
+      "id": "perimeter:ground:12.11718750,11.25000000:12.21875000,10.50000000",
+      "ownerId": "room:ground:double-wall,french-wall,ground-w0,ground-w1,ground-w2,ground-w3,slide,swing",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "purpose": "perimeter",
+      "center": [
+        12.177878303679602,
+        1.7999999999999998,
+        10.876341918727446
+      ],
+      "size": [
+        0.7588453880458347,
+        2.8,
+        0.02
+      ],
+      "yawClockwiseRadians": 1.7053942409553635
+    },
+    {
+      "id": "perimeter:ground:12.00000000,12.00000000:12.11718750,11.25000000",
+      "ownerId": "room:ground:double-wall,french-wall,ground-w0,ground-w1,ground-w2,ground-w3,slide,swing",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "purpose": "perimeter",
+      "center": [
+        12.068473870337511,
+        1.7999999999999998,
+        11.626543768802737
+      ],
+      "size": [
+        0.7611000659703897,
+        2.8,
+        0.02
+      ],
+      "yawClockwiseRadians": 1.7257930687188376
+    },
+    {
+      "id": "perimeter:ground:0.00000000,12.00000000:12.00000000,12.00000000",
+      "ownerId": "room:ground:double-wall,french-wall,ground-w0,ground-w1,ground-w2,ground-w3,slide,swing",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "purpose": "perimeter",
+      "center": [
+        6,
+        1.7999999999999998,
+        12.01
+      ],
+      "size": [
+        12.002,
+        2.8,
+        0.02
+      ],
+      "yawClockwiseRadians": 3.141592653589793
+    },
+    {
+      "id": "perimeter:ground:0.00000000,10.50000000:0.00000000,12.00000000",
+      "ownerId": "room:ground:double-wall,french-wall,ground-w0,ground-w1,ground-w2,ground-w3,slide,swing",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "purpose": "perimeter",
+      "center": [
+        -0.01,
+        1.7999999999999998,
+        11.25
+      ],
+      "size": [
+        1.502,
+        2.8,
+        0.02
+      ],
+      "yawClockwiseRadians": -1.5707963267948966
+    },
+    {
+      "id": "perimeter:ground:0.00000000,10.50000000:0.00000000,9.00000000",
+      "ownerId": "room:ground:double-wall,french-wall,ground-w0,ground-w1,ground-w2,ground-w3,slide,swing",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "purpose": "perimeter",
+      "center": [
+        -0.01,
+        1.7999999999999998,
+        9.75
+      ],
+      "size": [
+        1.502,
+        2.8,
+        0.02
+      ],
+      "yawClockwiseRadians": -1.5707963267948966
+    },
+    {
+      "id": "perimeter:ground:0.00000000,6.00000000:0.00000000,9.00000000",
+      "ownerId": "room:ground:double-wall,french-wall,ground-w0,ground-w1,ground-w2,ground-w3,slide,swing",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "purpose": "perimeter",
+      "center": [
+        -0.01,
+        1.7999999999999998,
+        7.5
+      ],
+      "size": [
+        3.002,
+        2.8,
+        0.02
+      ],
+      "yawClockwiseRadians": -1.5707963267948966
+    },
+    {
+      "id": "perimeter:ground:0.00000000,4.00000000:0.00000000,6.00000000",
+      "ownerId": "room:ground:double-wall,french-wall,ground-w0,ground-w1,ground-w2,ground-w3,slide,swing",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "purpose": "perimeter",
+      "center": [
+        -0.01,
+        1.7999999999999998,
+        5
+      ],
+      "size": [
+        2.002,
+        2.8,
+        0.02
+      ],
+      "yawClockwiseRadians": -1.5707963267948966
+    },
+    {
+      "id": "perimeter:ground:0.00000000,0.00000000:0.00000000,4.00000000",
+      "ownerId": "room:ground:double-wall,french-wall,ground-w0,ground-w1,ground-w2,ground-w3,slide,swing",
+      "floorId": "ground",
+      "dynamic": false,
+      "kind": "box",
+      "purpose": "perimeter",
+      "center": [
+        -0.01,
+        1.7999999999999998,
+        2
+      ],
+      "size": [
+        4.002,
+        2.8,
+        0.02
+      ],
+      "yawClockwiseRadians": -1.5707963267948966
+    },
+    {
       "id": "wall:upper-w0:0:0",
       "ownerId": "upper-w0",
       "floorId": "upper",
@@ -2429,6 +2866,367 @@
         24,
         23
       ]
+    },
+    {
+      "id": "perimeter:upper:0.00000000,0.00000000:12.00000000,0.00000000",
+      "ownerId": "room:upper:upper-w0,upper-w1,upper-w2,upper-w3",
+      "floorId": "upper",
+      "dynamic": false,
+      "kind": "box",
+      "purpose": "perimeter",
+      "center": [
+        6,
+        4.8,
+        -0.01
+      ],
+      "size": [
+        12.002,
+        2.8,
+        0.02
+      ],
+      "yawClockwiseRadians": 0
+    },
+    {
+      "id": "perimeter:upper:12.00000000,0.00000000:12.11718750,0.75000000",
+      "ownerId": "room:upper:upper-w0,upper-w1,upper-w2,upper-w3",
+      "floorId": "upper",
+      "dynamic": false,
+      "kind": "box",
+      "purpose": "perimeter",
+      "center": [
+        12.068473870337511,
+        4.8,
+        0.3734562311972639
+      ],
+      "size": [
+        0.7611000659703897,
+        2.8,
+        0.02
+      ],
+      "yawClockwiseRadians": 1.4157995848709557
+    },
+    {
+      "id": "perimeter:upper:12.11718750,0.75000000:12.21875000,1.50000000",
+      "ownerId": "room:upper:upper-w0,upper-w1,upper-w2,upper-w3",
+      "floorId": "upper",
+      "dynamic": false,
+      "kind": "box",
+      "purpose": "perimeter",
+      "center": [
+        12.177878303679602,
+        4.8,
+        1.1236580812725538
+      ],
+      "size": [
+        0.7588453880458345,
+        2.8,
+        0.02
+      ],
+      "yawClockwiseRadians": 1.4361984126344298
+    },
+    {
+      "id": "perimeter:upper:12.21875000,1.50000000:12.30468750,2.25000000",
+      "ownerId": "room:upper:upper-w0,upper-w1,upper-w2,upper-w3",
+      "floorId": "upper",
+      "dynamic": false,
+      "kind": "box",
+      "purpose": "perimeter",
+      "center": [
+        12.27165374272973,
+        4.8,
+        1.8738616154163852
+      ],
+      "size": [
+        0.7569074472451904,
+        2.8,
+        0.02
+      ],
+      "yawClockwiseRadians": 1.456710547626737
+    },
+    {
+      "id": "perimeter:upper:12.30468750,2.25000000:12.37500000,3.00000000",
+      "ownerId": "room:upper:upper-w0,upper-w1,upper-w2,upper-w3",
+      "floorId": "upper",
+      "dynamic": false,
+      "kind": "box",
+      "purpose": "perimeter",
+      "center": [
+        12.349800092260592,
+        4.8,
+        2.6240665929130693
+      ],
+      "size": [
+        0.7552886881244467,
+        2.8,
+        0.02
+      ],
+      "yawClockwiseRadians": 1.477319545636307
+    },
+    {
+      "id": "perimeter:upper:12.37500000,3.00000000:12.42968750,3.75000000",
+      "ownerId": "room:upper:upper-w0,upper-w1,upper-w2,upper-w3",
+      "floorId": "upper",
+      "dynamic": false,
+      "kind": "box",
+      "purpose": "perimeter",
+      "center": [
+        12.412317271339061,
+        4.8,
+        3.3742727640690267
+      ],
+      "size": [
+        0.7539911719270713,
+        2.8,
+        0.02
+      ],
+      "yawClockwiseRadians": 1.4980084781909715
+    },
+    {
+      "id": "perimeter:upper:12.42968750,3.75000000:12.46875000,4.50000000",
+      "ownerId": "room:upper:upper-w0,upper-w1,upper-w2,upper-w3",
+      "floorId": "upper",
+      "dynamic": false,
+      "kind": "box",
+      "purpose": "perimeter",
+      "center": [
+        12.459205214164456,
+        4.8,
+        4.124479871658101
+      ],
+      "size": [
+        0.7530165636697037,
+        2.8,
+        0.02
+      ],
+      "yawClockwiseRadians": 1.5187600119856803
+    },
+    {
+      "id": "perimeter:upper:12.46875000,4.50000000:12.49218750,5.25000000",
+      "ownerId": "room:upper:upper-w0,upper-w1,upper-w2,upper-w3",
+      "floorId": "upper",
+      "dynamic": false,
+      "kind": "box",
+      "purpose": "perimeter",
+      "center": [
+        12.490463870760872,
+        4.8,
+        4.874687652476223
+      ],
+      "size": [
+        0.7523661215741619,
+        2.8,
+        0.02
+      ],
+      "yawClockwiseRadians": 1.5395564933646284
+    },
+    {
+      "id": "perimeter:upper:12.49218750,5.25000000:12.50000000,6.00000000",
+      "ownerId": "room:upper:upper-w0,upper-w1,upper-w2,upper-w3",
+      "floorId": "upper",
+      "dynamic": false,
+      "kind": "box",
+      "purpose": "perimeter",
+      "center": [
+        12.506093207509425,
+        4.8,
+        5.624895838984277
+      ],
+      "size": [
+        0.7520406890004367,
+        2.8,
+        0.02
+      ],
+      "yawClockwiseRadians": 1.560380036863927
+    },
+    {
+      "id": "perimeter:upper:12.49218750,6.75000000:12.50000000,6.00000000",
+      "ownerId": "room:upper:upper-w0,upper-w1,upper-w2,upper-w3",
+      "floorId": "upper",
+      "dynamic": false,
+      "kind": "box",
+      "purpose": "perimeter",
+      "center": [
+        12.506093207509425,
+        4.8,
+        6.375104161015723
+      ],
+      "size": [
+        0.7520406890004367,
+        2.8,
+        0.02
+      ],
+      "yawClockwiseRadians": 1.5812126167258664
+    },
+    {
+      "id": "perimeter:upper:12.46875000,7.50000000:12.49218750,6.75000000",
+      "ownerId": "room:upper:upper-w0,upper-w1,upper-w2,upper-w3",
+      "floorId": "upper",
+      "dynamic": false,
+      "kind": "box",
+      "purpose": "perimeter",
+      "center": [
+        12.490463870760872,
+        4.8,
+        7.125312347523777
+      ],
+      "size": [
+        0.7523661215741619,
+        2.8,
+        0.02
+      ],
+      "yawClockwiseRadians": 1.602036160225165
+    },
+    {
+      "id": "perimeter:upper:12.42968750,8.25000000:12.46875000,7.50000000",
+      "ownerId": "room:upper:upper-w0,upper-w1,upper-w2,upper-w3",
+      "floorId": "upper",
+      "dynamic": false,
+      "kind": "box",
+      "purpose": "perimeter",
+      "center": [
+        12.459205214164456,
+        4.8,
+        7.875520128341899
+      ],
+      "size": [
+        0.7530165636697037,
+        2.8,
+        0.02
+      ],
+      "yawClockwiseRadians": 1.622832641604113
+    },
+    {
+      "id": "perimeter:upper:12.37500000,9.00000000:12.42968750,8.25000000",
+      "ownerId": "room:upper:upper-w0,upper-w1,upper-w2,upper-w3",
+      "floorId": "upper",
+      "dynamic": false,
+      "kind": "box",
+      "purpose": "perimeter",
+      "center": [
+        12.412317271339061,
+        4.8,
+        8.625727235930974
+      ],
+      "size": [
+        0.7539911719270713,
+        2.8,
+        0.02
+      ],
+      "yawClockwiseRadians": 1.6435841753988218
+    },
+    {
+      "id": "perimeter:upper:12.30468750,9.75000000:12.37500000,9.00000000",
+      "ownerId": "room:upper:upper-w0,upper-w1,upper-w2,upper-w3",
+      "floorId": "upper",
+      "dynamic": false,
+      "kind": "box",
+      "purpose": "perimeter",
+      "center": [
+        12.349800092260592,
+        4.8,
+        9.375933407086931
+      ],
+      "size": [
+        0.7552886881244467,
+        2.8,
+        0.02
+      ],
+      "yawClockwiseRadians": 1.6642731079534863
+    },
+    {
+      "id": "perimeter:upper:12.21875000,10.50000000:12.30468750,9.75000000",
+      "ownerId": "room:upper:upper-w0,upper-w1,upper-w2,upper-w3",
+      "floorId": "upper",
+      "dynamic": false,
+      "kind": "box",
+      "purpose": "perimeter",
+      "center": [
+        12.27165374272973,
+        4.8,
+        10.126138384583616
+      ],
+      "size": [
+        0.7569074472451904,
+        2.8,
+        0.02
+      ],
+      "yawClockwiseRadians": 1.6848821059630563
+    },
+    {
+      "id": "perimeter:upper:12.11718750,11.25000000:12.21875000,10.50000000",
+      "ownerId": "room:upper:upper-w0,upper-w1,upper-w2,upper-w3",
+      "floorId": "upper",
+      "dynamic": false,
+      "kind": "box",
+      "purpose": "perimeter",
+      "center": [
+        12.177878303679602,
+        4.8,
+        10.876341918727446
+      ],
+      "size": [
+        0.7588453880458347,
+        2.8,
+        0.02
+      ],
+      "yawClockwiseRadians": 1.7053942409553635
+    },
+    {
+      "id": "perimeter:upper:12.00000000,12.00000000:12.11718750,11.25000000",
+      "ownerId": "room:upper:upper-w0,upper-w1,upper-w2,upper-w3",
+      "floorId": "upper",
+      "dynamic": false,
+      "kind": "box",
+      "purpose": "perimeter",
+      "center": [
+        12.068473870337511,
+        4.8,
+        11.626543768802737
+      ],
+      "size": [
+        0.7611000659703897,
+        2.8,
+        0.02
+      ],
+      "yawClockwiseRadians": 1.7257930687188376
+    },
+    {
+      "id": "perimeter:upper:0.00000000,12.00000000:12.00000000,12.00000000",
+      "ownerId": "room:upper:upper-w0,upper-w1,upper-w2,upper-w3",
+      "floorId": "upper",
+      "dynamic": false,
+      "kind": "box",
+      "purpose": "perimeter",
+      "center": [
+        6,
+        4.8,
+        12.01
+      ],
+      "size": [
+        12.002,
+        2.8,
+        0.02
+      ],
+      "yawClockwiseRadians": 3.141592653589793
+    },
+    {
+      "id": "perimeter:upper:0.00000000,0.00000000:0.00000000,12.00000000",
+      "ownerId": "room:upper:upper-w0,upper-w1,upper-w2,upper-w3",
+      "floorId": "upper",
+      "dynamic": false,
+      "kind": "box",
+      "purpose": "perimeter",
+      "center": [
+        -0.01,
+        4.8,
+        6
+      ],
+      "size": [
+        12.002,
+        2.8,
+        0.02
+      ],
+      "yawClockwiseRadians": -1.5707963267948966
     }
   ]
 }

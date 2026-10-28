@@ -410,7 +410,8 @@ export function drawDoorOnWall(cs: CanvasState, wall: Wall, door: Door): void {
   // Door leaves remain rigid, spanning the two curved-path jambs, as in 3D.
   if (path.chord.width > 0) drawStraightDoorOnWall(cs,
     { ...wall, start: path.chord.start, end: path.chord.end, curvePoint: undefined },
-    { ...door, width: path.chord.width, position: .5 }, false);
+    { ...door, width: path.chord.width, position: .5,
+      ...(door.leafConfiguration?.kind==='sliding'?{leafConfiguration:{...door.leafConfiguration,leaves:door.leafConfiguration.leaves.map(leaf=>({...leaf,width:leaf.width*path.chord.width/door.width,center:leaf.center*path.chord.width/door.width}))}}:{}) }, false);
 }
 
 function drawStraightDoorOnWall(cs: CanvasState, wall: Wall, door: Door, drawGap = true): void {
@@ -461,6 +462,19 @@ function drawStraightDoorOnWall(cs: CanvasState, wall: Wall, door: Door, drawGap
 
   const doorType = door.type || 'single';
 
+  if (door.leafConfiguration?.kind === 'sliding') {
+    for (const leaf of door.leafConfiguration.leaves) {
+      const x=s.x+(ux*leaf.center+nx*leaf.track)*zoom,y=s.y+(uy*leaf.center+ny*leaf.track)*zoom;
+      ctx.strokeStyle=leaf.motion==='fixed'?'#777':'#444';ctx.lineWidth=2.5;
+      ctx.beginPath();ctx.moveTo(x-ux*leaf.width*zoom/2,y-uy*leaf.width*zoom/2);ctx.lineTo(x+ux*leaf.width*zoom/2,y+uy*leaf.width*zoom/2);ctx.stroke();
+      if(leaf.motion==='slide'){
+        ctx.strokeStyle='#999';ctx.lineWidth=1;ctx.setLineDash([3,3]);
+        ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+ux*leaf.travel*zoom,y+uy*leaf.travel*zoom);ctx.stroke();ctx.setLineDash([]);
+      }
+    }
+    return;
+  }
+
   if (doorType === 'single' || doorType === 'pocket') {
     const r = door.width * zoom;
     const hingeX = s.x + ux * halfDoor * swingDir;
@@ -499,8 +513,9 @@ function drawStraightDoorOnWall(cs: CanvasState, wall: Wall, door: Door, drawGap
     ctx.fill();
 
   } else if (doorType === 'double' || doorType === 'french') {
-    const r = halfDoor;
     for (const side of [-1, 1] as const) {
+      const ratio=door.leafConfiguration?.kind==='paired'?door.leafConfiguration.firstLeafRatio:.5;
+      const r=door.width*zoom*(side===-1?ratio:1-ratio);
       const hx = s.x + ux * halfDoor * side;
       const hy = s.y + uy * halfDoor * side;
       const arcSwing = side === -1 ? swingDir : -swingDir;

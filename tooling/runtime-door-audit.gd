@@ -48,10 +48,16 @@ func _run() -> void:
 			var motion:Dictionary=door._motions[index];var body:PhysicsBody3D=motion["body"]
 			var actual:Transform3D=body.transform;var target:Transform3D=motion["open"];var closed:Transform3D=motion["closed"]
 			var complete:=_pose_close(actual,target);fully_open=fully_open and complete
-			leaves.append({"id":entity["interaction"]["leaves"][index]["id"],"fullyOpen":complete,
+			leaves.append({"id":body.get_meta("p2w_leaf_id"),"fullyOpen":complete,
 				"requestedTravel":closed.origin.distance_to(target.origin),"actualTravel":closed.origin.distance_to(actual.origin),
 				"requestedAngle":closed.basis.get_rotation_quaternion().angle_to(target.basis.get_rotation_quaternion()),"actualAngle":closed.basis.get_rotation_quaternion().angle_to(actual.basis.get_rotation_quaternion()),
 				"openPoseBlockers":_blockers(door,body,target),"nextPoseBlockers":_blockers(door,body,actual.interpolate_with(target,.05))})
+		for leaf in entity["interaction"]["leaves"]:
+			if leaf.get("fixed",false):
+				var body:PhysicsBody3D=built["leaf_nodes"][leaf["id"]]
+				var unchanged:bool=body.position.distance_to(Vector3(leaf["closedPose"]["center"][0],leaf["closedPose"]["center"][1],leaf["closedPose"]["center"][2]))<.00001
+				fully_open=fully_open and unchanged
+				leaves.append({"id":leaf["id"],"fixed":true,"unchanged":unchanged,"fullyOpen":unchanged,"requestedTravel":0,"actualTravel":0})
 		door.interact();await _frames(45)
 		var fully_closed:bool=not door._opened and not door._target_open
 		for motion in door._motions:fully_closed=fully_closed and _pose_close(motion["body"].transform,motion["closed"])

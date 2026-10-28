@@ -43,6 +43,14 @@ pending manual work. Preserve original failures and revised projection separatel
 then rerun the original checks. This does not change the default two observations
 or authorize extra provider requests in callers configured for two paid calls.
 
+The user's preferred error handoff is now
+[annotated native correction](references/correction-pass.md): retain source
+problems as located notes and an editable Project for manual Godot wall/opening
+correction, without a model repair pass. This handoff may continue the original
+furniture-only observation after a source preflight failure. Keep both raw
+observations frozen and do not report an annotated Project as a strict source
+pass. The strict source APIs and explicitly requested recovery workflow remain.
+
 ## Fresh validation workspace
 
 For a benchmark rerun, start from the original raster and create a new ignored directory before generating anything:
@@ -104,8 +112,11 @@ Before the furniture pass, run the shared source-consistency preflight:
 `NODE_ENV=production node tooling/plan2world-architecture.mjs preflight --input "$RUN_DIR/source-architecture.json" --source original.jpg --output "$RUN_DIR/preflight"`
 
 It checks source bounds and rejects duplicate/overlapping observed wall geometry
-without altering observations or freezing a final graph. Stop this execution if
-it fails; preserve the input and error. A pass does not accept opening hosts or
+without altering observations or freezing a final graph. Preserve the input and
+error if it fails. For the preferred annotated handoff, continue only the original
+furniture observation, then use `correct-plan2world-source.mjs` as described above.
+For a strict source-validation experiment, stop rather than treating it as a pass.
+A pass does not accept opening hosts or
 zone closure: those still require furniture and the final preparation below.
 
 Separate aperture presence, extent and operation. Keep a visibly established

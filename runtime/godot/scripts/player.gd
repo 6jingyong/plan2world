@@ -14,6 +14,7 @@ var _camera: Camera3D
 var _interaction_cast: ShapeCast3D
 
 func configure(profile: Dictionary, spawn: Vector3, yaw = null) -> void:
+	collision_mask=1|8
 	eye_height = float(profile.get("eyeHeight", 1.6))
 	radius = float(profile.get("radius", 0.28))
 	var speeds: Dictionary = profile.get("speeds", {})

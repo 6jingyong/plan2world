@@ -56,6 +56,45 @@ Plan2World turns a floor-plan raster into an editable browser home and an engine
 
 Core rule: **LLM observes; programs calculate and assemble.**
 
+### Annotated native correction
+
+The user now prefers source problems as located review notes, followed by manual
+wall/opening correction in Godot, rather than another model repair request. The
+desktop/portable correction path may continue its original two observations after a source
+preflight failure. Keep the raw observations and working-image identity in the
+canonical Project's authoring-only `architectureReview`; retain valid geometry,
+and mark unapplied/uncertain features without inventing their hosts. Strict source
+APIs remain available. Operational provider/file failures still fail normally.
+
+An incomplete canonical Project may open/save in the native 2D correction window
+without a compiled walkthrough. Shared TypeScript commands own wall addition,
+endpoint edits, exact splitting, opening attachment and room derivation. Godot
+only displays the read-only editor projection and submits explicit human edits.
+Do not split presentation triangles into another authoring model. The strict
+runtime compiler still owns floors, openings, collision and safe entry; commit a
+new world only after it compiles. Keep the previous world until then.
+
+Per the latest user policy, normal top-view work is ground, furniture and openings.
+Advanced wall correction starts disabled; every actually changed surviving wall
+(including moved junction neighbours and split segments) retains `authorModified`.
+Show these walls in amber in top view and protect repeat corrections unless the
+user explicitly enables marked-wall editing. This is current authoring metadata,
+not operation history; do not add product Undo/Redo.
+
+Accepted floor surfaces have default invisible outer air guards, including exposed
+paved ground. Derive their union perimeter in the shared runtime compiler; no
+internal seam barriers, outline hull, source-wall insertion or filling slab holes.
+`box.purpose: perimeter` blocks locomotion only, independently of actual door
+obstruction; native architectural air walls retain their existing full collision.
+Ground is an explicit canonical `Room.boundary`, edited in the same Godot world.
+Opening placement projects an explicitly picked host in shared code and stages
+a cancellable width/position/height preview. Godot does not own geometric acceptance.
+
+Door material (`wood`, `glass`, `steel`) is presentation, separate from opening
+motion. Appearance swaps must preserve the existing physics bodies, open state,
+player and other doors. Existing mechanical configurations remain compatible.
+See [native correction](docs/native-architecture-correction.md).
+
 ### Explicit source recovery
 
 The normal two-observation path and strict parsers remain unchanged. An explicitly
@@ -220,6 +259,11 @@ Use `schemas/plan2world-draft-v1.schema.json` and `docs/plan2world-draft-v1.md`.
   closed colliders as placement-only Areas, never walking bodies or inferred swing
   envelopes. Engines still handle live door obstruction. Leafless openings remain
   unreserved. Re-export older snapshots to apply the current compiler checks.
+- Invalid/overlapping native apertures block shared runtime artifact compilation
+  before presentation could omit the host wall. Keep invalid native backups
+  editable. Source semantic blocks (`imported_object`, `renderStyle: block`, no
+  custom model) stay selectable without arbitrary proxy walking collision;
+  authored replacements and legacy ordinary objects retain normal collision.
 - Validate/load a candidate outside the active SceneTree before swapping worlds
   and editable source. Reject mismatched present GLBs using the compiler digest;
   failed loads must retain the previous scene. Missing assets remain explicit
@@ -242,6 +286,12 @@ Use `schemas/plan2world-draft-v1.schema.json` and `docs/plan2world-draft-v1.md`.
 
 ## Product invariants
 
+- Selected furniture, doors and windows expose one compact Modify action. Reuse
+  the add catalog's category/search/thumbnail component for modification, bind
+  choices to that selected native object, and commit only after explicit apply
+  or accepted placement preview. Keep Add/Modify browse filters separate. Door
+  material and window presentation changes preserve physics/player state; native
+  opening geometry correction remains an explicit shared-core authoring command.
 - Keep 2D correction and browser 3D review/quick preview on the same native Project, then compile runtime artifacts from that Project.
 - The legacy browser FPS runtime is removed. Keep Three.js focused on authoring, review and quick preview. Do not reintroduce `ThreeViewer` into the target game/runtime layer with FPS controllers, runtime physics, door/furniture interaction state machines or equivalent engine responsibilities.
 - Keep Godot focused on runtime input, physics, interaction, animation, lighting/materials and future experience features. It must not redo AI reconstruction, room detection, wall inference or topology repair.

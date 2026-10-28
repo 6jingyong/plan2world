@@ -65,13 +65,17 @@ describe('shared native desktop reconstruction',()=>{
     await expect(runDesktopAiTask({...request,width:359},()=>{},fetcher)).rejects.toThrow('Original raster');
     expect(fetcher).not.toHaveBeenCalled();
   });
-  it('retains failed architecture evidence and never requests furniture after preflight failure',async()=>{
-    const {request}=await input(),bad={...architecture,walls:[...architecture.walls,architecture.walls[0]]};
-    const fetcher=vi.fn(async()=>new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify(bad)}}]})));
-    await expect(runDesktopAiTask(request,()=>{},fetcher)).rejects.toThrow();
-    expect(fetcher).toHaveBeenCalledTimes(1);
+  it('retains invalid architecture and both frozen observations, returning an annotated editable Project without a repair call',async()=>{
+    const {request}=await input(),bad={...architecture,walls:[...architecture.walls,{...architecture.walls[0],start:{x:0,y:1},end:{x:360,y:1}}]};
+    let pass=0;
+    const fetcher=vi.fn(async()=>new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify(pass++===0?bad:furnishing)}}]})));
+    const result=await runDesktopAiTask(request,()=>{},fetcher);
+    expect(result.ok).toBe(true);expect(result.correction).toBe(true);expect(result.issueCount).toBeGreaterThan(0);
+    expect(fetcher).toHaveBeenCalledTimes(2);
     expect(JSON.parse(await readFile(path.join(request.outputDirectory,'source-architecture.json'),'utf8'))).toEqual(bad);
-    expect((await readdir(request.outputDirectory)).sort()).toEqual(['architecture-freeze.json','source-architecture.json']);
+    expect(JSON.parse(await readFile(path.join(request.outputDirectory,'source-furnishing.json'),'utf8'))).toEqual(furnishing);
+    const project=readProject(JSON.parse(await readFile(result.projectPath,'utf8')));
+    expect(project.floors[0].walls).toHaveLength(5);expect(project.architectureReview!.sourceObservations).toContain('wall0');
     const receipt=JSON.parse(await readFile(path.join(request.outputDirectory,'architecture-freeze.json'),'utf8'));
     expect(receipt.modelId).toBe('fixture/vision');expect(receipt.promptSha256).toMatch(/^[a-f0-9]{64}$/);expect(receipt.observationSha256).toMatch(/^[a-f0-9]{64}$/);
   });

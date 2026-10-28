@@ -6,6 +6,7 @@ import { getFurnitureSize } from './furnitureCatalog';
 import { exportedFurnitureCategory, importedFurnitureCategory } from './furnitureCategories';
 import { packageError, safePackagePath } from './projectPackageZip';
 import { nativeItemDetails, withNativeDetails } from './itemDetails';
+import {resizeDoorLeaves} from './doorLeaves';
 
 type ObjectMap = Record<string, any>;
 export type { PackageMapping } from '$lib/models/types';
@@ -201,6 +202,10 @@ export function applyNativeEdits(source: Project, before: Project, after: Projec
         const existing = target[kind][position] ?? (originals.length === 1 ? originals[0] : undefined);
         const baseline: any = old.get(item.id) ?? (baselines.length === 1 ? baselines[0] : undefined);
         const updated = changedFields(existing, baseline, item);
+        if(kind==='doors'&&existing&&baseline&&existing.leafConfiguration){
+          if(baseline.type!==(item as any).type)delete updated.leafConfiguration;
+          else if(baseline.width!==(item as any).width)updated.leafConfiguration=resizeDoorLeaves(existing.leafConfiguration,updated.width/existing.width);
+        }
         if (kind === 'walls' && baseline && baseline.height !== (item as any).height) {
           if (updated.startHeight !== undefined) updated.startHeight = updated.height;
           if (updated.endHeight !== undefined) updated.endHeight = updated.height;

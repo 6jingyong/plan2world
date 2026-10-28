@@ -87,9 +87,13 @@ func _run():
 	_click(plan._ceiling_dialog.get_ok_button());await _idle()
 	# The authored fixture has an internal wall ending at (5,6): retain this
 	# rejection, then choose an actual clear location without editing the fixture.
-	_check(main._session.current()["projectPath"]==original_revision and plan._message.text.contains("overlaps"),"A ceiling light must not occupy the authored internal wall")
+	_check(controller.has_placement_preview() and not controller._preview_allowed(),"A light over the authored internal wall must have an invalid provisional preview")
+	controller.commit_move();await _idle()
+	_check(main._session.current()["projectPath"]==original_revision and plan._message.text.contains("blocked"),"A ceiling light must not occupy the authored internal wall")
 	controller._center=Vector2(5,7);controller.camera.global_transform=controller._top_pose()
-	_click(catalog.place);await _frames(3);_click(plan._ceiling_dialog.get_ok_button());await _idle()
+	var landing:=InputEventMouseMotion.new();landing.position=controller.camera.unproject_position(Vector3(5,3.3,7));root.push_input(landing,true)
+	_check(controller.has_placement_preview() and controller._preview_allowed(),"The same pending light must become valid after moving into clear space")
+	_mouse(landing.position,true);_mouse(landing.position,false);await _idle()
 	_check(main._session.current().get("selectedId")!=null,"Confirmed ceiling placement must commit: "+plan._message.text)
 	if main._session.current().get("selectedId")==null:main.free();paused=false;quit(1);return
 	var id:String=main._session.current()["selectedId"];var entity:=_item(id)
@@ -99,7 +103,7 @@ func _run():
 	_check(main._furniture_models.has(id) and main._furniture_models[id].get_meta("p2w_asset_ref")=="builtin:ceiling_light-v1","Ceiling fixture presentation must come from a packaged asset")
 	for area in controller._areas.get_children():
 		var item:Dictionary=controller._entities[area.get_meta("furniture_id")]
-		_check((area.collision_layer==2)==(item["floorId"]==controller.floor_id and item["movement"]["kind"]=="ceiling"),"Layer switching must filter native picking areas without altering physics")
+		_check((area.collision_layer==2)==(item["floorId"]==controller.floor_id and item.get("movement",{}).get("kind")=="ceiling"),"Layer switching must filter native picking areas, including openings, without altering physics")
 	await _capture("ceiling-layer")
 	var start:Vector3=controller._vec3(entity["position"])
 	_mouse(controller.camera.unproject_position(start),true)
