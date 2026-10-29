@@ -66,7 +66,8 @@ function edgeCoverage(start: DraftPoint, end: DraftPoint, trace: Pick<SourceWall
     const low = Math.max(0, Math.min(along(wall.start), along(wall.end))), high = Math.min(size, Math.max(along(wall.start), along(wall.end)));
     const a = along(wall.start), b = along(wall.end);
     const at = (t: number) => ({ x: wall.start.x + (wall.end.x - wall.start.x) * (t - a) / (b - a), y: wall.start.y + (wall.end.y - wall.start.y) * (t - a) / (b - a) });
-    if (across(at(low)) > tolerance || across(at(high)) > tolerance) return [];
+    const allowance = Math.max(tolerance, (wall.thicknessPx ?? 0) / 2);
+    if (across(at(low)) > allowance || across(at(high)) > allowance) return [];
     return high - low > 1e-6 ? [{ low, high, wallIndex }] : [];
   }).sort((a, b) => a.low - b.low);
   const gaps: [number, number][] = []; let to = 0;
@@ -92,7 +93,8 @@ function state(house: BareHouseV1, annotation: SourceAnnotationV1, zones: Source
     const region = a.regionIndices.length === 1 ? regions[a.regionIndices[0]] : undefined;
     const sourceArea = polygonAreaCm2(floorBoundaryPolygon(a.zone.boundary, []));
     const ratio = region ? region.areaPx2 / sourceArea : null;
-    const nativeSpans = { walls: house.walls.flatMap(w => wallPathSpans(w).map(s => ({ start: s.start, end: s.end }))) };
+    const nativeSpans = { walls: house.walls.flatMap(w => wallPathSpans(w).map(s => ({ start: s.start, end: s.end,
+      ...(w.thicknessPx === undefined ? {} : { thicknessPx: w.thicknessPx }) }))) };
     const unsupportedEdges = a.zone.boundary.flatMap((edge, ei) => {
       if (edge.kind === 'unknown') return [];
       const end = a.zone.boundary[(ei + 1) % a.zone.boundary.length].point;

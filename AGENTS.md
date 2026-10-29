@@ -58,6 +58,22 @@ Plan2World turns a floor-plan raster into an editable browser home and an engine
 
 Core rule: **LLM observes; programs calculate and assemble.**
 
+### Logical equivalence before construction facts
+
+The user explicitly prioritizes usable closure over deciding what a source wall
+really represents. Close parallel runs may become one effective thick wall even
+if they depict separate structural walls or a pipe chase. Do not require an LLM
+or human construction-fact confirmation for this equivalence.
+
+After furnishing freezes, shared authoring code may derive a bounded solid
+envelope, continue its local junctions and project contained openings before final
+closure/freeze. Preserve original observations and many-to-one wall provenance.
+Accept using native enclosure, functional-separation, anchor, aperture-width and
+doorway-clearance constraints. Protect traversable strips and explicit functional
+passages; preserve air/railing boundaries and legacy curves. This is distinct from
+the still-disabled whole-image raster fitting and never consumes read-only fitted
+lines. See [logical wall abstraction](docs/logical-wall-abstraction.md).
+
 ### Annotated native correction
 
 The user now prefers source problems as located review notes, followed by manual

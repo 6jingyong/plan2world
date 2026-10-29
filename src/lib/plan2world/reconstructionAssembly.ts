@@ -33,6 +33,8 @@ export interface ReconstructionAssemblyContext {
   sourceHeightPx?: number;
   /** Program-owned identity of the confirmed observation image; no geometry. */
   sourceImageSha256?: string;
+  /** Explicit ablation only; normal observed/furnished reconstruction uses logical envelopes. */
+  wallAbstraction?: 'preserve-source-lines' | 'close-parallel-v1';
   functionalZoneLabels?: { label: string; category: string; environment: 'indoor' | 'balcony' | 'outdoor'; position: DraftPoint }[];
 }
 
@@ -175,6 +177,7 @@ export function assemblePlan2WorldDraftWithReview(bareHouse: BareHouseV1, annota
   const origin = { x: Math.min(...points.map(item => item.x)), y: Math.min(...points.map(item => item.y)) };
   const convert = (item: DraftPoint): DraftPoint => ({ x: (item.x - origin.x) * cmPerPixel, y: (item.y - origin.y) * cmPerPixel });
   const walls = bareHouse.walls.map(wall => ({ id: wall.id, start: convert(wall.start), end: convert(wall.end),
+    ...(wall.thicknessPx === undefined ? {} : { thickness: wall.thicknessPx * cmPerPixel }),
     ...(wall.boundaryType ? { boundaryType: wall.boundaryType } : {}),
     // Editable product default, not a measured source height.
     ...(wall.boundaryType === 'railing' ? { height: 110 } : {}),

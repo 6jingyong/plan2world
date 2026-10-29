@@ -11,14 +11,16 @@ export interface BareHouseBoundaryRef {
 
 export interface SourceWallTraceV1 {
   schemaVersion: typeof SOURCE_WALL_TRACE_VERSION;
-  walls: { start: DraftPoint; end: DraftPoint; curvePoint?: DraftPoint; boundaryType?: DraftWall['boundaryType'] }[];
+  walls: { start: DraftPoint; end: DraftPoint; curvePoint?: DraftPoint; boundaryType?: DraftWall['boundaryType'];
+    /** Program-derived logical envelope width, in SOURCE pixels, not model evidence. */
+    thicknessPx?: number }[];
   doorGaps?: { from: DraftPoint; to: DraftPoint }[];
 }
 
 export interface BareHouseV1 {
   schemaVersion: typeof BARE_HOUSE_VERSION;
   sourceSchemaVersion: typeof SOURCE_WALL_TRACE_VERSION;
-  walls: { id: string; start: DraftPoint; end: DraftPoint; curvePoint?: DraftPoint; boundaryType?: DraftWall['boundaryType'] }[];
+  walls: { id: string; start: DraftPoint; end: DraftPoint; curvePoint?: DraftPoint; boundaryType?: DraftWall['boundaryType']; thicknessPx?: number }[];
   enclosures: { id: string; boundary: BareHouseBoundaryRef[] }[];
   sourceWallMap: Record<string, string[]>;
   junctions: { walls: string[]; point: DraftPoint; residualPx: number }[];
@@ -72,11 +74,14 @@ export function buildBareHouse(input: unknown): BareHouseV1 {
   if (!Array.isArray(trace.walls) || trace.walls.length === 0) throw new Error('trace.walls must be a non-empty array');
   const walls = trace.walls.map((raw: unknown, index: number) => {
     const item = record(raw, `trace.walls[${index}]`);
-    exactKeys(item, ['start', 'end', 'curvePoint', 'boundaryType'], `trace.walls[${index}]`);
+    exactKeys(item, ['start', 'end', 'curvePoint', 'boundaryType', 'thicknessPx'], `trace.walls[${index}]`);
     if (item.boundaryType !== undefined && !['solid', 'railing', 'air'].includes(item.boundaryType)) throw new Error('Unsupported boundary type');
+    if (item.thicknessPx !== undefined && finite(item.thicknessPx, 'thicknessPx') <= 0) throw new Error('thicknessPx must be positive');
     return {
       id: `w${index + 1}`,
       ...(item.boundaryType === undefined ? {} : { boundaryType: item.boundaryType }),
+      // The graph carries widths through splitting without interpreting units.
+      ...(item.thicknessPx === undefined ? {} : { thickness: item.thicknessPx }),
       start: point(item.start, `trace.walls[${index}].start`),
       end: point(item.end, `trace.walls[${index}].end`),
       ...(item.curvePoint === undefined ? {} : { curvePoint: point(item.curvePoint, `trace.walls[${index}].curvePoint`) }),
@@ -126,5 +131,6 @@ export function buildBareHouse(input: unknown): BareHouseV1 {
     if (overlap > 1e-6 && !conflicts.some(c => c.wallIds.includes(a.id) && c.wallIds.includes(b.id))) conflict('overlap', [a.id, b.id]);
   }
   if (conflicts.length) throw new WallGeometryConflictError(conflicts);
-  return { schemaVersion: BARE_HOUSE_VERSION, sourceSchemaVersion: SOURCE_WALL_TRACE_VERSION, ...normalized };
+  return { schemaVersion: BARE_HOUSE_VERSION, sourceSchemaVersion: SOURCE_WALL_TRACE_VERSION, ...normalized,
+    walls: normalized.walls.map(({ thickness, ...wall }) => ({ ...wall, ...(thickness === undefined ? {} : { thicknessPx: thickness }) })) };
 }
