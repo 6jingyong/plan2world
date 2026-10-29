@@ -29,6 +29,22 @@ async function input() {
   return {dir,image,pixels,request:{op:'reconstruct',apiKey:'fixture-private-key',model:'fixture/vision',imagePath,rasterPath,width:360,height:300,outputDirectory:path.join(dir,'result'),scaleHint:'360 cm'}};
 }
 describe('shared native desktop reconstruction',()=>{
+  it('offers leafless passages as explicit starts and retains the opening through native compilation',async()=>{
+    const {request}=await input();
+    const a={...architecture,openings:[{...architecture.openings[0],doorType:'opening',typeEvidence:'Visible leafless threshold.'}]};let pass=0;
+    const fetcher=vi.fn(async(url:string)=>url.endsWith('/endpoints')?new Response(JSON.stringify({data:{endpoints:[]}})):new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify(pass++===0?a:furnishing)}}]})));
+    const result=await runDesktopAiTask(request,()=>{},fetcher);
+    expect(result.ok).toBe(true);expect(result.floors[0].doors).toHaveLength(1);expect(pass).toBe(2);
+    const project=readProject(JSON.parse(await readFile(result.projectPath,'utf8'))),floor=project.floors[0];
+    expect(floor.entrance).toBeUndefined();expect(floor.doors[0].type).toBe('opening');
+    const out=await runDesktopAiTask({op:'entrance',projectPath:result.projectPath,floorId:floor.id,doorId:result.floors[0].doors[0].id,side:'left'});
+    const saved=readProject(JSON.parse(await readFile(out.projectPath,'utf8'))),runtime=compileRuntimeScene(saved);
+    expect(saved.floors[0].doors).toEqual(floor.doors);expect(saved.floors[0].walls).toEqual(floor.walls);
+    expect(runtime.floors[0].entranceDoorId).toBe(floor.doors[0].id);
+    expect(runtime.entities.find(e=>e.id===floor.doors[0].id)).toMatchObject({kind:'door',interaction:{kind:'none'}});
+    const before=JSON.stringify(saved);saved.floors[0].doors[0].width=40;
+    expect(()=>compileRuntimeScene(saved)).toThrow(/cannot fit|Invalid opening/);expect(before).not.toContain('apiKey');
+  });
   it('runs the same two-pass pipeline with original raster, freezes observations and saves canonical native data without credentials',async()=>{
     const {dir,image,pixels,request}=await input();let pass=0;
     const fetcher=vi.fn(async (_url:string,init:RequestInit)=>{

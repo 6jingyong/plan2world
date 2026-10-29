@@ -62,7 +62,7 @@ func _ready() -> void:
 	var start:=VBoxContainer.new();start.name="Start";_tabs.add_child(start)
 	start.add_child(UI.label("Choose where walkthrough begins",18))
 	_entrance_status=UI.label("",13);_entrance_status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;start.add_child(_entrance_status)
-	start.add_child(UI.label("Main door",13));_entrance_selector=OptionButton.new();_entrance_selector.name="CorrectionMainDoor";start.add_child(_entrance_selector)
+	start.add_child(UI.label("Main door or passage",13));_entrance_selector=OptionButton.new();_entrance_selector.name="CorrectionMainDoor";start.add_child(_entrance_selector)
 	_entrance_selector.item_selected.connect(func(_i:int):_preview_entrance())
 	_side=OptionButton.new();_side.name="CorrectionEntranceSide";_side.add_item("Inward arrow · left");_side.add_item("Inward arrow · right");start.add_child(_side)
 	_side.item_selected.connect(func(_i:int):_preview_entrance())
@@ -157,7 +157,7 @@ func _selection_controls() -> void:
 	find_child("DrawCorrectionWall",true,false).disabled=not _wall_permission.button_pressed
 	find_child("ApplyOpeningCorrection",true,false).disabled=_kind!="opening"
 	find_child("SetCorrectionEntrance",true,false).disabled=_entrance_selector.selected<=0
-	find_child("PreviewCorrectionEntrance",true,false).disabled=not _floor.get("openings",[]).any(func(o):return o["id"]==_id and o["kind"]=="door" and o["type"]!="opening")
+	find_child("PreviewCorrectionEntrance",true,false).disabled=not _floor.get("openings",[]).any(func(o):return o["id"]==_id and o["kind"]=="door")
 	find_child("ResolveCorrectionIssue",true,false).disabled=_kind!="issue"
 	find_child("RemoveCorrectionItem",true,false).disabled=not _kind in ["opening","furniture"]
 
@@ -185,10 +185,10 @@ func _choose_floor(index:int) -> void:
 	if tab==3:_sync_entrance()
 
 func _sync_entrance() -> void:
-	_entrance_selector.clear();_entrance_selector.add_item("Choose an existing door…");_entrance_selector.set_item_metadata(0,"")
+	_entrance_selector.clear();_entrance_selector.add_item("Choose an existing door or passage…");_entrance_selector.set_item_metadata(0,"")
 	var entrance=_floor.get("entrance")
 	for opening in _floor.get("openings",[]):
-		if opening["kind"]!="door" or opening["type"]=="opening":continue
+		if opening["kind"]!="door":continue
 		_entrance_selector.add_item(opening["id"]);_entrance_selector.set_item_metadata(_entrance_selector.item_count-1,opening["id"])
 		if entrance is Dictionary and entrance["doorId"]==opening["id"]:_entrance_selector.select(_entrance_selector.item_count-1)
 	_side.select(1 if entrance is Dictionary and entrance["side"]=="right" else 0)

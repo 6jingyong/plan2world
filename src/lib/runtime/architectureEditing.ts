@@ -151,7 +151,7 @@ export function applyArchitectureEditCommand(input: unknown, command: Architectu
       }
     }
   } else if (command.type === 'set-entrance') {
-    if (!floor.doors.some(d => d.id === command.id && d.type !== 'opening')) throw new Error('Choose an existing door as the main entrance.');
+    if (!floor.doors.some(d => d.id === command.id)) throw new Error('Choose an existing door or passage as the main entrance.');
     for (const f of project.floors) { delete f.entrance; delete f.walkthroughStart; }
     floor.entrance = { doorId: command.id, side: command.side };
   } else if (command.type === 'resolve-architecture-issue') {

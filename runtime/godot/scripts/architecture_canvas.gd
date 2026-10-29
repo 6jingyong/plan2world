@@ -107,7 +107,7 @@ func _gui_input(event:InputEvent) -> void:
 		_pointer=event.position
 		if entrance_picking:
 			for opening in floor.get("openings",[]):
-				if opening["kind"]=="door" and opening["type"]!="opening" and event.position.distance_to(_screen(opening["center"]))<13:selected.emit("opening",opening["id"]);accept_event();return
+				if opening["kind"]=="door" and event.position.distance_to(_screen(opening["center"]))<13:selected.emit("opening",opening["id"]);accept_event();return
 			return
 		if drawing and walls_enabled:
 			if _draft_start==null:_draft_start=_plan(event.position)

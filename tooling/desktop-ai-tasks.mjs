@@ -42,7 +42,7 @@ export async function runDesktopAiTask(request, emit = () => {}, fetcher = fetch
     await writeSessionFile(path.join(output, 'source-correction-audit.json'), JSON.stringify(reconstruction.audit, null, 2) + '\n');
     await writeSessionFile(path.join(output,'usage.json'),JSON.stringify(usage,null,2)+'\n');
     result = { projectPath, checkpointPath, usage, name: project.name, cost: usage.cost, assumptions: project.reconstruction?.assumptions || [], correction: reconstruction.issueCount > 0, issueCount: reconstruction.issueCount,
-      floors: project.floors.map(f => ({ id: f.id, name: f.name, wallCount: f.walls.length, furnitureCount: f.furniture.length, doors: f.doors.filter(d => d.type !== 'opening').map(d => {
+      floors: project.floors.map(f => ({ id: f.id, name: f.name, wallCount: f.walls.length, furnitureCount: f.furniture.length, doors: f.doors.map(d => {
         const wall = f.walls.find(w => w.id === d.wallId), background = f.backgroundImage;
         if (!wall) throw new Error('Source door has no authored wall.');
         const p = wallPointAt(wall, d.position), t = wallTangentAt(wall, d.position);
