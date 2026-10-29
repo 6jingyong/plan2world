@@ -6,6 +6,10 @@ import { prepareArchitectureStage, assembleFrozenArchitecture } from '$lib/plan2
 import { draftToProject } from '$lib/plan2world/draft';
 import { compileRuntimeScene } from '$lib/runtime/compileRuntimeScene';
 import { buildFloorClearance, hasClearanceAlongSegment } from '$lib/utils/floorClearance';
+import type { SourceFunctionalZone } from '$lib/plan2world/functionalZones';
+import { reconstructFloorPlanForCorrection } from '$lib/plan2world/correction';
+import { encodeRgbaPng } from '../tooling/png-raster.mjs';
+import { imageSha256 } from '$lib/plan2world/imagePreparation';
 
 const p = (x: number, y: number) => ({ x, y });
 const wall = (x: number, y: number, a: number, b: number) => ({ start: p(x, y), end: p(a, b) });
@@ -20,6 +24,11 @@ function fixture() {
       { kind: 'door', endpoints: [p(20, 120), p(20, 165)], evidence: 'Existing entry.', doorType: 'opening', typeEvidence: 'Leafless passage.' }],
     furniture: [{ sourceCategory: 'desk', position: p(150, 180) }] };
   return { trace, annotation };
+}
+function functionalZone(points: { x: number; y: number }[], position = p(200, 29)): SourceFunctionalZone {
+  return { label: 'marked functional space', category: 'storage', environment: 'indoor', position, decision: 'accept',
+    evidence: 'Explicit functional outline.', decisionBasis: 'A use constraint, not construction classification.',
+    boundary: points.map(point => ({ point, kind: 'wall', evidence: 'Observed functional extent.' })) };
 }
 
 describe('logical thick-wall abstraction without construction-fact classification', () => {
@@ -67,8 +76,98 @@ describe('logical thick-wall abstraction without construction-fact classificatio
     const { trace, annotation } = fixture(); annotation.furniture!.push({ sourceCategory: 'chair', position: p(200, 25) });
     const result = abstractCloseParallelWalls(trace, annotation, context);
     expect(result.review.accepted).toHaveLength(0);
-    expect(result.review.trials[0].status).toBe('logical-regression');
+    expect(result.review.trials[0].status).toBe('furnished-space-in-envelope');
     expect(result.normalizationInput).toEqual(trace);
+  });
+
+  it('protects a furnished strip even when the existing wall already covers its anchor', () => {
+    const { trace, annotation } = fixture(); trace.walls[1] = wall(38, 30, 405, 30);
+    annotation.furniture!.push({ sourceCategory: 'chair', position: p(200, 29) });
+    const before = JSON.stringify({ trace, annotation }), result = abstractCloseParallelWalls(trace, annotation, context);
+    expect(result.review.initialMetrics!.blocked[1]).toBe(true);
+    expect(result.review.accepted).toHaveLength(0);
+    expect(result.review.trials[0]).toMatchObject({ status: 'furnished-space-in-envelope',
+      protectedUses: [{ kind: 'furniture', sourcePath: 'furniture[1]', reason: 'position-in-strip' }] });
+    expect(result.normalizationInput).toEqual(trace);
+    expect(JSON.stringify({ trace, annotation })).toBe(before);
+  });
+
+  it('retains an unfurnished labelled strip even when its native assignment was already blocked', () => {
+    const { trace, annotation } = fixture(); trace.walls[1] = wall(38, 30, 405, 30); annotation.furniture = [];
+    const zone = functionalZone([p(100, 20), p(300, 20), p(300, 30), p(100, 30)]);
+    const result = abstractCloseParallelWalls(trace, annotation, context, [zone]);
+    expect(result.review.initialMetrics!.blocked[0]).toBe(true);
+    expect(result.review.accepted).toHaveLength(0);
+    expect(result.review.trials[0].status).toBe('functional-zone-in-envelope');
+  });
+
+  it('protects a pending functional mark without accepting its uncertain boundary or changing its decision', () => {
+    const { trace, annotation } = fixture(); trace.walls[1] = wall(38, 30, 405, 30);
+    const zone = { ...functionalZone([p(100, 20), p(300, 20), p(300, 30), p(100, 30)]), decision: 'uncertain' as const };
+    const result = abstractCloseParallelWalls(trace, annotation, context, [zone]);
+    expect(result.review.trials[0]).toMatchObject({ status: 'functional-zone-in-envelope', protectedUses: expect.arrayContaining([
+      { kind: 'functional-zone', sourcePath: 'functionalZones[0]', reason: 'position-in-strip', decision: 'uncertain' },
+    ]) });
+    expect(result.review.accepted).toHaveLength(0); expect(zone.decision).toBe('uncertain');
+  });
+
+  it('retains a labelled L-shaped arm even when its seed and furniture lie outside the strip', () => {
+    const { trace, annotation } = fixture(); trace.walls[1] = wall(38, 30, 405, 30);
+    const zone = functionalZone([p(100, 20), p(300, 20), p(300, 30), p(200, 30), p(200, 100), p(100, 100)], p(150, 70));
+    const result = abstractCloseParallelWalls(trace, annotation, context, [zone]);
+    expect(result.review.accepted).toHaveLength(0);
+    expect(result.review.trials[0].protectedUses).toContainEqual({ kind: 'functional-zone', sourcePath: 'functionalZones[0]', reason: 'marked-space-between-faces', decision: 'accept' });
+  });
+
+  it('allows compression beside one functional boundary and in a notch outside the marked polygon', () => {
+    const { trace, annotation } = fixture(); trace.walls[1] = wall(38, 30, 405, 30);
+    const room = functionalZone([p(20, 20), p(420, 20), p(420, 320), p(20, 320)], p(150, 180));
+    expect(abstractCloseParallelWalls(trace, annotation, context, [room]).review.accepted).toHaveLength(1);
+    const notch = functionalZone([p(50, 0), p(350, 0), p(350, 100), p(50, 100), p(50, 30), p(300, 30), p(300, 20), p(50, 20)], p(330, 70));
+    expect(abstractCloseParallelWalls(trace, annotation, context, [notch]).review.accepted).toHaveLength(1);
+    room.decision = 'reject'; room.position = p(200, 29);
+    expect(abstractCloseParallelWalls(trace, annotation, context, [room]).review.accepted).toHaveLength(1);
+  });
+
+  it('retains accepted transverse access even when it did not have a native host before merging', () => {
+    const { trace, annotation } = fixture(); trace.walls[1] = wall(38, 30, 405, 30);
+    annotation.openings!.push({ kind: 'door', endpoints: [p(200, 21), p(200, 29)], evidence: 'Access to the unoccupied strip.', doorType: 'opening', typeEvidence: 'Observed threshold.' });
+    const result = abstractCloseParallelWalls(trace, annotation, context);
+    expect(result.review.initialMetrics!.openings).toHaveLength(1);
+    expect(result.review.accepted).toHaveLength(0);
+    expect(result.review.trials[0]).toMatchObject({ status: 'observed-access-in-envelope', protectedUses: [{ kind: 'door', sourcePath: 'openings[2]', reason: 'transverse-access' }] });
+  });
+
+  it('keeps one shared room for an open furniture arrangement instead of enclosing each group', () => {
+    const { trace, annotation } = fixture(); annotation.furniture!.push({ sourceCategory: 'sofa', position: p(300, 180) });
+    const result = abstractCloseParallelWalls(trace, annotation, context);
+    expect(result.review.accepted).toHaveLength(1);
+    expect(result.review.finalMetrics!.sameRegion[0][1]).toBe(true);
+    expect(result.review.finalMetrics!.regionCount).toBe(1);
+    expect(result.normalizationInput.walls).toHaveLength(4);
+  });
+
+  it.each(['furniture', 'functional-arm', 'unhosted-access', 'empty'] as const)('applies use protection through the normal two-observation correction entry: %s', async mode => {
+    const { trace, annotation } = fixture(); trace.walls[1] = wall(38, 30, 405, 30);
+    const decision = { decision: 'accept', decisionBasis: 'Controlled source feature.', evidence: 'Controlled observation.' };
+    if (mode === 'furniture') annotation.furniture!.push({ sourceCategory: 'chair', position: p(200, 29) });
+    if (mode === 'unhosted-access') annotation.openings!.push({ kind: 'door', endpoints: [p(200, 21), p(200, 29)], evidence: 'Unresolved transverse access.', doorType: 'opening', typeEvidence: 'Leafless.' });
+    const architecture = { schemaVersion: 'source-architecture-v1', scaleEvidence: annotation.scaleEvidence,
+      walls: trace.walls.map((w, i) => ({ ...w, ...decision, label: `wall ${i}` })),
+      openings: annotation.openings!.map((o, i) => ({ ...o, ...decision, label: `opening ${i}` })),
+      ...(mode === 'functional-arm' ? { functionalZones: [functionalZone([p(100, 20), p(300, 20), p(300, 30), p(200, 30), p(200, 100), p(100, 100)], p(150, 70))] } : {}) };
+    const furnishing = { schemaVersion: 'source-furnishing-v1', furniture: annotation.furniture }, original = JSON.stringify({ architecture, furnishing });
+    const raster = { width: 500, height: 400, data: new Uint8Array(500 * 400 * 4).fill(255) };
+    const png = encodeRgbaPng(raster); let calls = 0;
+    const result = await reconstructFloorPlanForCorrection(async () => {
+      expect(calls).toBeLessThan(2); return calls++ === 0 ? architecture : furnishing;
+    }, { image: { width: raster.width, height: raster.height, dataUrl: 'data:image/png;base64,' + Buffer.from(png).toString('base64') }, sha256: await imageSha256(png), raster });
+    expect(calls).toBe(2); expect(result.partialImport).toBe(false); expect(result.audit.reviewCount).toBe(0);
+    expect(result.stage!.logicalWallReview!.usagePolicy).toBe('functional-use-before-wall-abstraction-v1');
+    expect(result.stage!.logicalWallReview!.accepted).toHaveLength(mode === 'empty' ? 1 : 0);
+    expect(result.stage!.centerlinePolicy).toBe('disabled');
+    expect(JSON.stringify({ architecture, furnishing })).toBe(original);
+    expect(result.audit.originalObservation).toEqual(architecture);
   });
 
   it('protects an accepted functional seed and an explicit unoccupied passage', () => {
@@ -104,6 +203,16 @@ describe('logical thick-wall abstraction without construction-fact classificatio
     expect(result.review.trials[0].status).toBe('functional-passage-in-envelope');
   });
 
+  it('preserves a legacy curved threshold that enters the strip while its endpoint chord stays outside', () => {
+    const { trace, annotation } = fixture(); trace.walls[1] = wall(38, 30, 405, 30);
+    const zone = functionalZone([p(100, 10), p(300, 10), p(300, 100), p(100, 100)], p(200, 70));
+    zone.boundary[0] = { ...zone.boundary[0], kind: 'passage', curvePoint: p(200, 60) };
+    const before = JSON.stringify(zone), result = abstractCloseParallelWalls(trace, annotation, context, [zone]);
+    expect(result.review.accepted).toHaveLength(0);
+    expect(result.review.trials[0].status).toBe('functional-passage-in-envelope');
+    expect(JSON.stringify(zone)).toBe(before);
+  });
+
   it('checks actual native wall width before filling a strip that a player could traverse', () => {
     const { trace, annotation } = fixture(); trace.walls[0].thicknessPx = .5;
     trace.walls[1] = { ...wall(20, 49.5, 420, 49.5), thicknessPx: .5 };
@@ -118,7 +227,7 @@ describe('logical thick-wall abstraction without construction-fact classificatio
     annotation.openings!.push({ kind: 'door', endpoints: [p(20, 21), p(20, 29)], evidence: 'Accepted transverse source aperture.' });
     const result = abstractCloseParallelWalls(trace, annotation, context);
     expect(result.review.accepted).toHaveLength(0);
-    expect(result.review.trials[0].reason).toBe('existing-opening-lost-or-resized');
+    expect(result.review.trials[0].status).toBe('observed-access-in-envelope');
   });
 
   it('keeps each usable doorway clear even when an alternative entrance preserves room connectivity', () => {

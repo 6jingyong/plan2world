@@ -6,6 +6,7 @@ import { analyzeFloor } from '$lib/utils/floorAnalysis';
 import { pointInPolygon } from '$lib/utils/hitTesting';
 import { buildFloorClearance, DEFAULT_CLEARANCE_RADIUS_CM, hasClearanceAlongSegment, resolveClearancePoint } from '$lib/utils/floorClearance';
 import { wallPointAt } from '$lib/utils/wallPath';
+import { reviewWallEnvelopeUse, WALL_ENVELOPE_USE_POLICY, type WallEnvelopeUse } from './wallEnvelopeUse';
 
 export const LOGICAL_WALL_POLICY = 'close-parallel-logical-envelope-v1' as const;
 type Wall = SourceWallTraceV1['walls'][number];
@@ -93,12 +94,12 @@ export function abstractCloseParallelWalls(input: SourceWallTraceV1, observed: S
   context: ReconstructionAssemblyContext = {}, zones: SourceFunctionalZone[] = []) {
   const scale = observed.scaleEvidence, factor = scale.realLengthCm / distance(...scale.endpoints);
   if (!Number.isFinite(factor) || factor <= 0) throw new Error('Logical wall abstraction requires positive uniform scale.');
-  const original = structuredClone(input), positions = [...(observed.furniture ?? []).map(f => f.position),
+  const positions = [...(observed.furniture ?? []).map(f => f.position),
     ...zones.filter(z => z.decision === 'accept').map(z => z.position)];
   let trace = structuredClone(input), annotation = structuredClone(observed);
   let origins = input.walls.map((_, i) => [i]);
   const accepted: { sourceWallIndices: number[]; absorbedWallIndices: number[]; thicknessPx: number; projectedOpenings: { index: number; before: DraftPoint[]; after: DraftPoint[] }[]; before: Metrics; after: Metrics }[] = [];
-  const trials: { sourceWallIndices: number[]; status: string; reason?: string; after?: Metrics }[] = [];
+  const trials: { sourceWallIndices: number[]; status: string; reason?: string; after?: Metrics; protectedUses?: WallEnvelopeUse[] }[] = [];
   // A 60cm baseline gap leaves <56cm of clear space with the current native
   // wall defaults. Never chain this bound across successive nearby pairs.
   const maxGap = Math.min(64, 60 / factor), groups: number[][] = [];
@@ -122,7 +123,7 @@ export function abstractCloseParallelWalls(input: SourceWallTraceV1, observed: S
   // quadratic anchor relations on the normal no-candidate path.
   if (!groups.length || positions.length > 256) return {
     normalizationInput: trace, annotation, bareHouse: buildBareHouse(trace), sourceWallOrigins: origins,
-    review: { policy: LOGICAL_WALL_POLICY, llmCalls: 0, sourceFactsConfirmed: false, maxBaselineGapPx: maxGap, maxBaselineGapCm: 60,
+    review: { policy: LOGICAL_WALL_POLICY, usagePolicy: WALL_ENVELOPE_USE_POLICY, llmCalls: 0, sourceFactsConfirmed: false, maxBaselineGapPx: maxGap, maxBaselineGapCm: 60,
       initialMetrics: null, finalMetrics: null, accepted, trials,
       budgetReached: input.walls.length > 512 || positions.length > 256, geometryChanged: false, normalizationInputIsProgramDerived: true,
       limitation: 'No eligible parallel group, or the bounded logical evaluation budget was exceeded. Source lines are retained.' },
@@ -146,20 +147,13 @@ export function abstractCloseParallelWalls(input: SourceWallTraceV1, observed: S
       const middle = (lower + upper) / 2, thicknessPx = upper - lower;
       const alongs = ws.flatMap(w => [f.along(w.start), f.along(w.end)]), from = Math.min(...alongs), to = Math.max(...alongs);
       const inBand = (p: DraftPoint) => f.across(p) >= low - 1e-6 && f.across(p) <= high + 1e-6 && f.along(p) >= from - 1e-6 && f.along(p) <= to + 1e-6;
-      const intersectsBand = (a: DraftPoint, b: DraftPoint) => {
-        let begin = 0, end = 1;
-        for (const [x, y, min, max] of [[f.along(a), f.along(b), from, to], [f.across(a), f.across(b), low, high]]) {
-          const d = y - x;
-          if (Math.abs(d) < 1e-9) { if (x < min || x > max) return false; continue; }
-          const ts = [(min - x) / d, (max - x) / d].sort((a, b) => a - b);
-          begin = Math.max(begin, ts[0]); end = Math.min(end, ts[1]);
-        }
-        return begin <= end + 1e-9;
-      };
-      // Explicit functional thresholds protect even an unoccupied narrow space.
-      if (zones.some(z => z.decision === 'accept' && z.boundary.some((b, i) => b.kind === 'passage'
-        && intersectsBand(b.point, z.boundary[(i + 1) % z.boundary.length].point)))) {
-        trials.push({ sourceWallIndices: group, status: 'functional-passage-in-envelope' }); continue;
+      const protectedUses = reviewWallEnvelopeUse(annotation, zones, trace.doorGaps,
+        { ...f, from, to, faces: ws.map(w => (f.across(w.start) + f.across(w.end)) / 2) });
+      if (protectedUses.length) {
+        const status = protectedUses.some(u => u.kind === 'passage') ? 'functional-passage-in-envelope'
+          : protectedUses.some(u => u.kind === 'furniture') ? 'furnished-space-in-envelope'
+          : protectedUses.some(u => u.kind === 'functional-zone') ? 'functional-zone-in-envelope' : 'observed-access-in-envelope';
+        trials.push({ sourceWallIndices: group, status, protectedUses }); continue;
       }
       const next = structuredClone(trace), nextAnnotation = structuredClone(annotation), removed = new Set(indices.slice(1));
       const absorbed = [...group];
@@ -197,7 +191,7 @@ export function abstractCloseParallelWalls(input: SourceWallTraceV1, observed: S
     } catch (error) { trials.push({ sourceWallIndices: group, status: 'invalid-trial', reason: String(error) }); }
   }
   return { normalizationInput: trace, annotation, bareHouse: current.house, sourceWallOrigins: origins, review: {
-    policy: LOGICAL_WALL_POLICY, llmCalls: 0, sourceFactsConfirmed: false, maxBaselineGapPx: maxGap, maxBaselineGapCm: 60,
+    policy: LOGICAL_WALL_POLICY, usagePolicy: WALL_ENVELOPE_USE_POLICY, llmCalls: 0, sourceFactsConfirmed: false, maxBaselineGapPx: maxGap, maxBaselineGapCm: 60,
     initialMetrics, finalMetrics: current.metrics, accepted, trials, budgetReached: groups.length > 24 || input.walls.length > 512,
     geometryChanged: accepted.length > 0, normalizationInputIsProgramDerived: true,
     limitation: 'Effective solid envelopes, not construction facts. Whole-image raster fitting remains disabled. Partial runs, broad gaps, changed functional separation, covered anchors and lost native doorway clearance are not accepted. Native doorway checks are not an engine walkthrough.' } };

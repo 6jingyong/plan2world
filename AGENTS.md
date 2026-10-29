@@ -74,6 +74,14 @@ passages; preserve air/railing boundaries and legacy curves. This is distinct fr
 the still-disabled whole-image raster fitting and never consumes read-only fitted
 lines. See [logical wall abstraction](docs/logical-wall-abstraction.md).
 
+Furniture and accepted/pending functional-use marks inside a candidate strip
+protect it BEFORE native before/after comparisons, even if an existing bad wall
+already covers the mark. A labelled narrow arm can be protected by its opposing
+functional boundaries without its seed lying there. Pending evidence stays
+pending; protection does not accept a room or source decision. Preserve observed
+transverse access even without a current native host. Absence of furniture alone
+does not authorize erasing a passage, nor does each furniture group require walls.
+
 ### Annotated native correction
 
 The user now prefers source problems as located review notes, followed by manual
