@@ -25,7 +25,7 @@ func run(request: Dictionary) -> Dictionary:
 	var process := OS.execute_with_pipe(program,PackedStringArray([script]),true)
 	if process.is_empty(): return {"ok":false,"error":"Could not start the AI authoring process."}
 	busy=true; _cancelled=false; _checkpoint_path="";_usage={};_process_id=process["pid"]; _pipe=process["stdio"]
-	_pipe.store_line(JSON.stringify(request)); _pipe.flush()
+	_pipe.store_line(JSON.stringify(request,"",true,true)); _pipe.flush()
 	_worker=Thread.new()
 	_worker.start(func():
 		while _pipe.get_error()==OK:

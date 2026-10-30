@@ -7,6 +7,7 @@ import { compileRuntimeArtifacts } from '$lib/runtime/runtimeArtifacts';
 import { compileRuntimeScene } from '$lib/runtime/compileRuntimeScene';
 import { projectPackageBytes, readProjectPackage } from '$lib/utils/projectPackageCodec';
 import { wallPointAt } from '$lib/utils/wallPath';
+import { spatialAuthoringPreview } from '$lib/runtime/spatialAuthoring';
 
 function fixture() {
   const p = createDefaultProject('Synthetic correction room'), f = p.floors[0];
@@ -18,6 +19,28 @@ function fixture() {
   return readProject(p);
 }
 describe('native architecture correction and independent door appearance', () => {
+  it('keeps omitted native opening fields exact during a partial dimension edit',()=>{
+    const p=fixture(),door=p.floors[0].doors[0];door.position=.10683760683760683;
+    const before=JSON.stringify(p);
+    const edited=applyNativeEditCommand(p,{type:'opening-update',floorId:'floor',id:'door',width:70}).project;
+    expect(edited.floors[0].doors[0]).toEqual({...door,width:70});
+    expect(edited.floors[0].walls).toEqual(p.floors[0].walls);expect(JSON.stringify(p)).toBe(before);
+  });
+  it('previews a partial opening change from its resolved canonical host and interval',()=>{
+    const p=fixture();p.floors[0].doors[0].position=.25123456789012346;
+    const before=JSON.stringify(p),opening=p.floors[0].doors[0];
+    const partial=spatialAuthoringPreview(p,{type:'opening-update',floorId:'floor',id:'door',height:211});
+    const full=spatialAuthoringPreview(p,{type:'opening-update',floorId:'floor',id:'door',wallId:opening.wallId,position:opening.position,width:opening.width,height:211});
+    expect(partial.center).toEqual(full.center);expect(partial.outline).toEqual(full.outline);
+    expect(JSON.stringify(p)).toBe(before);
+  });
+  it('keeps omitted wall endpoints and point components exact in partial edits',()=>{
+    const p=fixture(),w=p.floors[0].walls[0];w.start.x=.10683760683760683;
+    const height=applyNativeEditCommand(p,{type:'wall-update',floorId:'floor',id:'w0',height:281}).project.floors[0].walls[0];
+    expect(height.start).toEqual(w.start);expect(height.end).toEqual(w.end);expect(height.thickness).toBe(w.thickness);
+    const moved=applyNativeEditCommand(p,{type:'wall-update',floorId:'floor',id:'w0',start:{y:20},keepJunctions:false}).project.floors[0].walls[0];
+    expect(moved.start).toEqual({...w.start,y:20});expect(moved.end).toEqual(w.end);
+  });
   it('moves an exact junction, changes the derived floor, and preserves the input and source notes', async () => {
     const p=fixture(), before=JSON.stringify(p), source=p.architectureReview;
     const edited=applyNativeEditCommand(p,{type:'wall-update',floorId:'floor',id:'w0',start:{x:0,y:-100},end:{x:600,y:-100},thickness:15,height:280});

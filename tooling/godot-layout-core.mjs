@@ -49,7 +49,7 @@ async function run() {
         }
         await writeFile(path.join(output, 'scene.runtime.zip'), await serializeRuntimePackage(artifacts), { flag: 'wx' });
       }
-      await writeFile(responsePath, JSON.stringify({ ok: true, projectPath: path.join(output, 'project.json'), editor: nativeArchitectureEditor(project),
+      await writeFile(responsePath, JSON.stringify({ ok: true, projectPath: path.join(output, 'project.json'), editor: nativeArchitectureEditor(project, artifacts?.runtime),
         selectedId: edited.selectedId, walkthroughReady: !!artifacts, runtimeError,
         ...(artifacts ? { runtimePath: path.join(output, 'scene.runtime.json'), packagePath: path.join(output, 'scene.runtime.zip') } : {}) }));
       return;
@@ -77,7 +77,7 @@ async function run() {
     await writeFile(path.join(output, 'project.json'), JSON.stringify(project, null, 2) + '\n', { flag: 'wx' });
     await writeFile(path.join(output, 'scene.runtime.zip'), zip, { flag: 'wx' });
     await writeFile(responsePath, JSON.stringify({ ok: true, projectPath: path.join(output, 'project.json'), runtimePath: path.join(output, 'scene.runtime.json'), packagePath: path.join(output, 'scene.runtime.zip'), selectedId,
-      updateKind, authoring: nativeArchitectureEditor(project), doors: nativeDoorEditor(project), doorAppearances: nativeDoorAppearances(project), openings: nativeOpeningEditor(project), openingCatalog: nativeOpeningCatalog(), catalog: furnitureLayoutCatalog(project) }));
+      updateKind, authoring: nativeArchitectureEditor(project, artifacts.runtime), doors: nativeDoorEditor(project), doorAppearances: nativeDoorAppearances(project), openings: nativeOpeningEditor(project), openingCatalog: nativeOpeningCatalog(), catalog: furnitureLayoutCatalog(project) }));
   } catch (error) {
     await writeFile(responsePath, JSON.stringify({ ok: false, error: error instanceof Error ? error.message : String(error),
       ...(correctionPath && error instanceof RuntimeProjectError ? { recovery: { kind: 'edit-project', projectPath: correctionPath } } : {}) }));

@@ -89,7 +89,9 @@ func _execute(project_path: String, command: Dictionary, preview_only:=false, op
 	var file := FileAccess.open(request_path, FileAccess.WRITE)
 	if file == null:
 		return { "ok": false, "error": "Could not create the local editing session." }
-	file.store_string(JSON.stringify({ "op": operation if not operation.is_empty() else ("preview" if preview_only else ("open" if command.is_empty() else "command")), "projectPath": project_path, "command": command, "outputDirectory": stem }))
+	# Preserve complete native doubles, including unchanged fields carried by
+	# a partial edit. Godot's default JSON formatting keeps fewer digits.
+	file.store_string(JSON.stringify({ "op": operation if not operation.is_empty() else ("preview" if preview_only else ("open" if command.is_empty() else "command")), "projectPath": project_path, "command": command, "outputDirectory": stem }, "", true, true))
 	file.close()
 	busy = true
 	_worker = Thread.new()

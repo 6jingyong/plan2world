@@ -183,6 +183,25 @@ func run() -> void:
 	for entity in main._runtime_data["entities"]:
 		if entity["id"]==door_id:passage_entity=entity
 	check(main._runtime_data["floors"][0]["entranceDoorId"]==door_id and passage_entity.get("interaction",{}).get("kind")=="none","passage stays leafless after reopening instead of becoming a hinged door")
+	var clearance_source:=directory.path_join("clearance.project.json")
+	var clearance_hash:=FileAccess.get_sha256(clearance_source)
+	main._show_plan_editor(clearance_source);await idle()
+	var checks_editor=main._architecture_editor
+	var initial_notes:String=JSON.stringify(checks_editor._floor["issues"])
+	check(checks_editor._checks.item_count>0 and checks_editor._floor["currentChecks"]["status"]=="checked","current compiled door/wall overlap appears separately from source notes")
+	var finding:Dictionary=checks_editor._floor["currentChecks"]["findings"][0]
+	var warning_click:=InputEventMouseButton.new();warning_click.button_index=MOUSE_BUTTON_LEFT;warning_click.pressed=true;warning_click.position=checks_editor.canvas._screen(finding["position"])+Vector2(14,-14);checks_editor.canvas._gui_input(warning_click)
+	check(checks_editor._tabs.current_tab==4 and checks_editor._kind=="check" and checks_editor.find_child("ResolveCorrectionIssue",true,false).disabled,"located current finding cannot be acknowledged away as a historical source note")
+	checks_editor.find_child("ReviewCheckedOpening",true,false).pressed.emit()
+	check(checks_editor._tabs.current_tab==1 and checks_editor._id=="entry" and not checks_editor.canvas.walls_enabled,"current finding links to the normal opening controls without enabling wall edits")
+	await capture("door-clearance-before")
+	checks_editor._fields["width"].value=70;checks_editor._fields["position"].value=18
+	checks_editor.find_child("ApplyOpeningCorrection",true,false).pressed.emit();await idle()
+	check(checks_editor._checks.item_count==0 and JSON.stringify(checks_editor._floor["issues"])==initial_notes,"deliberate opening correction recomputes current overlap while preserving source notes")
+	var clearance_saved:=directory.path_join("clearance-corrected.project.json");check(checks_editor.session.save_project(clearance_saved)==OK,"save explicit opening correction")
+	checks_editor.discard_session();main._show_plan_editor(clearance_saved);await idle()
+	check(checks_editor._checks.item_count==0 and checks_editor._floor["openings"][0]["width"]==70,"current checks and corrected opening survive normal save/reopen")
+	check(FileAccess.get_sha256(clearance_source)==clearance_hash,"read-only checks never overwrite the source Project")
 	main.queue_free();await process_frame
 	if failures==0:print("PASS native architecture correction, real canvas editing, canonical save/reopen and appearance-only door swap")
 	quit(1 if failures else 0)

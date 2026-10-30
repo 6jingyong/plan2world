@@ -9,14 +9,18 @@ import { projectOntoWall } from '../utils/wallProjection';
 import { analyzeFloor } from '../utils/floorAnalysis';
 import { getFurnitureSize } from '../utils/furnitureCatalog';
 import { floorBoundaryProblem, polygonAreaCm2 } from '../utils/floorBoundary';
+import { compileRuntimeScene } from './compileRuntimeScene';
+import { compileArchitecturePresentation } from './architecturePresentation';
+import { reviewDoorGeometry, unavailableDoorGeometryReview } from './doorGeometryReview';
+import type { Plan2WorldRuntimeSceneV1 } from './types';
 
 export type ArchitectureEditCommand = (
   | { type: 'wall-add'; floorId: string; start: Point; end: Point; thickness?: number; height?: number }
-  | { type: 'wall-update'; floorId: string; id: string; start: Point; end: Point; thickness: number; height: number; keepJunctions?: boolean }
+  | { type: 'wall-update'; floorId: string; id: string; start?: Partial<Point>; end?: Partial<Point>; thickness?: number; height?: number; keepJunctions?: boolean }
   | { type: 'wall-remove'; floorId: string; id: string }
   | { type: 'wall-split'; floorId: string; id: string; at: number }
   | { type: 'opening-add'; floorId: string; wallId: string; position: number; width: number; kind: 'door' | 'window'; doorType?: Door['type']; material?: Door['material']; windowType?: import('../models/types').Window['type']; height?: number; sillHeight?: number }
-  | { type: 'opening-update'; floorId: string; id: string; wallId: string; position: number; width: number; height: number; sillHeight?:number; doorType?: Door['type']; swingDirection?: Door['swingDirection']; flipSide?: boolean }
+  | { type: 'opening-update'; floorId: string; id: string; wallId?: string; position?: number; width?: number; height?: number; sillHeight?:number; doorType?: Door['type']; swingDirection?: Door['swingDirection']; flipSide?: boolean }
   | { type: 'opening-remove'; floorId: string; id: string }
   | { type: 'set-entrance'; floorId: string; id: string; side: 'left' | 'right' }
   | { type: 'resolve-architecture-issue'; floorId: string; id: string; resolved: boolean }
@@ -68,7 +72,11 @@ export function applyArchitectureEditCommand(input: unknown, command: Architectu
     const c = command as Extract<ArchitectureEditCommand, { id: string }>, wall = floor.walls.find(w => w.id === c.id);
     if (!wall) throw new Error('Choose an existing wall segment.');
     if (command.type === 'wall-update') {
-      const start = point(command.start), end = point(command.end);
+      const patchPoint = (value: Partial<Point> | undefined, base: Point) => {
+        if (value !== undefined && (!value || typeof value !== 'object' || Array.isArray(value))) throw new Error('Use finite plan coordinates in centimetres.');
+        return point({ ...base, ...value });
+      };
+      const start = patchPoint(command.start, wall.start), end = patchPoint(command.end, wall.end);
       const oldHeight = wall.height, dx = start.x - wall.start.x, dy = start.y - wall.start.y;
       if (same(start, end)) throw new Error('A wall needs two different endpoints.');
       if (command.keepJunctions !== false) for (const adjacent of floor.walls) {
@@ -80,7 +88,7 @@ export function applyArchitectureEditCommand(input: unknown, command: Architectu
         if (same(adjacent.start, adjacent.end)) throw new Error('This move collapses an adjoining wall.');
       }
       if (wall.curvePoint && end.x - wall.end.x === dx && end.y - wall.end.y === dy) wall.curvePoint = { x: wall.curvePoint.x + dx, y: wall.curvePoint.y + dy };
-      Object.assign(wall, { start, end, thickness: positive(command.thickness), height: positive(command.height) });
+      Object.assign(wall, { start, end, thickness: command.thickness === undefined ? wall.thickness : positive(command.thickness), height: command.height === undefined ? wall.height : positive(command.height) });
       // A deliberate uniform height replaces endpoint taper only on this wall.
       if (wall.height !== oldHeight) wall.startHeight = wall.endHeight = wall.height;
     } else if (command.type === 'wall-remove') {
@@ -142,7 +150,12 @@ export function applyArchitectureEditCommand(input: unknown, command: Architectu
       if (floor.entrance?.doorId === command.id) delete floor.entrance;
       selectedId = null;
     } else {
-      Object.assign(opening, { wallId: command.wallId, position: command.position, width: positive(command.width), height: positive(command.height) });
+      // Omitted fields stay in the canonical Project. Do not round-trip them
+      // through a GUI JSON parser merely because another dimension changed.
+      if (command.wallId !== undefined) opening.wallId = command.wallId;
+      if (command.position !== undefined) opening.position = command.position;
+      if (command.width !== undefined) opening.width = positive(command.width);
+      if (command.height !== undefined) opening.height = positive(command.height);
       if ('sillHeight' in opening && command.sillHeight !== undefined) opening.sillHeight = command.sillHeight;
       if ('swingDirection' in opening) {
         if (command.doorType && command.doorType !== opening.type) { opening.type = command.doorType; delete opening.leafConfiguration; }
@@ -172,8 +185,21 @@ export function applyArchitectureEditCommand(input: unknown, command: Architectu
 
 /** Read-only native editor projection. Paths/IDs come from the shared core,
  * never from interpreting the presentation meshes in Godot. */
-export function nativeArchitectureEditor(project: Project) {
-  return { floors: project.floors.map(floor => ({ id: floor.id, name: floor.name,
+export function nativeArchitectureEditor(project: Project, runtime?: Plan2WorldRuntimeSceneV1) {
+  const checks = (() => {
+    try {
+      const scene = runtime ?? compileRuntimeScene(project);
+      // A raw scene is useful for read-only review when spawn/support fails,
+      // but invalid apertures must not acquire a misleading "checked" result.
+      if (!runtime && compileArchitecturePresentation(scene).diagnostics.some(d => d.code === 'invalid-opening' || d.code === 'overlapping-openings')) return unavailableDoorGeometryReview();
+      return reviewDoorGeometry(scene);
+    }
+    catch { return unavailableDoorGeometryReview(); }
+  })();
+  return { floors: project.floors.map(floor => {
+    const uncheckedDoorIds = checks.uncheckedDoorIds.filter(id => floor.doors.some(d => d.id === id));
+    return { id: floor.id, name: floor.name,
+    currentChecks: { ...checks, uncheckedDoorIds, status: checks.status === 'unavailable' ? 'unavailable' : uncheckedDoorIds.length ? 'partial' : 'checked', findings: checks.findings.filter(f => f.floorId === floor.id) },
     background: floor.backgroundImage ?? null,
     walls: floor.walls.map(w => {
       const points = wallPathSpans(w).flatMap((s, i) => i ? [s.end] : [s.start, s.end]);
@@ -188,5 +214,5 @@ export function nativeArchitectureEditor(project: Project) {
     entrance: floor.entrance ?? null,
     walkthroughStart: floor.walkthroughStart ?? null,
     issues: project.architectureReview?.issues.filter(i => i.floorId === floor.id) ?? [],
-  })) };
+  }; }) };
 }
