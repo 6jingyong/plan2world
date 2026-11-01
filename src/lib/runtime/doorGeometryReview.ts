@@ -18,7 +18,7 @@ const pairBudget = 250_000;
 
 /** Authoring-only findings from compiler primitives. Never repair geometry,
  * choose a swing side, reserve a sweep, or persist this as source evidence. */
-export function reviewDoorGeometry(scene: Plan2WorldRuntimeSceneV1) {
+export function reviewDoorGeometry(scene: Pick<Plan2WorldRuntimeSceneV1, 'entities' | 'colliders'>) {
   const architecturalOwners = new Set(scene.entities.filter(e => e.kind === 'wall' || e.kind === 'door').map(e => e.id));
   const boxes = scene.colliders.filter((c): c is RuntimeBoxCollider => c.kind === 'box' && c.purpose !== 'perimeter' && architecturalOwners.has(c.ownerId));
   const findings: DoorGeometryFinding[] = [], uncheckedDoorIds: string[] = [];

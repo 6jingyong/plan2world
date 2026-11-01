@@ -1,6 +1,6 @@
 import {describe,it,expect} from 'vitest';
 import {createDefaultProject} from '$lib/models/projectDefaults';
-import {compileRuntimeScene} from '$lib/runtime/compileRuntimeScene';
+import {compileRuntimeScene,compileDoorGeometry} from '$lib/runtime/compileRuntimeScene';
 import {nativeArchitectureEditor,applyArchitectureEditCommand} from '$lib/runtime/architectureEditing';
 import {reviewDoorGeometry} from '$lib/runtime/doorGeometryReview';
 import type {Wall} from '$lib/models/types';
@@ -14,6 +14,14 @@ function project(){
 }
 const review=(p:ReturnType<typeof project>)=>nativeArchitectureEditor(p).floors[0].currentChecks;
 describe('read-only current door/wall geometry findings',()=>{
+ it('uses the same compiler primitives before enclosure without claiming a floor or player route',()=>{
+  const p=project(),f=p.floors[0],runtime=compileRuntimeScene(p),geometry=compileDoorGeometry(f);
+  expect(geometry.entities).toEqual(runtime.entities);
+  expect(geometry.colliders).toEqual(runtime.colliders.filter(c=>c.kind==='box'&&c.purpose!=='perimeter'));
+  f.rooms.push({id:'invalid-surface',name:'Unresolved',walls:[],area:0,floorTexture:'hardwood',boundary:[]});
+  expect(()=>compileRuntimeScene(p)).toThrow();
+  expect(reviewDoorGeometry(compileDoorGeometry(f)).status).toBe('checked');
+ });
  it('locates actual closed-leaf intersections with an adjoining wall without changing native evidence or runtime',()=>{
   const p=project(),f=p.floors[0];f.walls.push(wall('junction',345,0,345,300));
   p.architectureReview={version:1,issues:[{id:'original-note',floorId:f.id,message:'Source uncertainty.',resolved:false}]};

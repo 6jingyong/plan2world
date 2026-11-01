@@ -1,84 +1,18 @@
 import { buildBareHouse, type SourceWallTraceV1 } from './bareHouse';
-import { draftToProject, type DraftPoint } from './draft';
-import { assemblePlan2WorldDraftWithReview, type ReconstructionAssemblyContext, type SourceAnnotationV1 } from './reconstructionAssembly';
+import type { DraftPoint } from './draft';
+import type { ReconstructionAssemblyContext, SourceAnnotationV1 } from './reconstructionAssembly';
+import { DEFAULT_CLEARANCE_RADIUS_CM } from '$lib/utils/floorClearance';
+import { evaluateLogicalGeometry, preservesLogicalGeometry } from './logicalGeometryConstraints';
 import type { SourceFunctionalZone } from './functionalZones';
-import { analyzeFloor } from '$lib/utils/floorAnalysis';
-import { pointInPolygon } from '$lib/utils/hitTesting';
-import { buildFloorClearance, DEFAULT_CLEARANCE_RADIUS_CM, hasClearanceAlongSegment, resolveClearancePoint } from '$lib/utils/floorClearance';
-import { wallPointAt } from '$lib/utils/wallPath';
 import { reviewWallEnvelopeUse, WALL_ENVELOPE_USE_POLICY, type WallEnvelopeUse } from './wallEnvelopeUse';
 
 export const LOGICAL_WALL_POLICY = 'close-parallel-logical-envelope-v1' as const;
 type Wall = SourceWallTraceV1['walls'][number];
+type Metrics = ReturnType<typeof evaluateLogicalGeometry>['metrics'];
 const distance = (a: DraftPoint, b: DraftPoint) => Math.hypot(a.x - b.x, a.y - b.y);
 const dot = (a: DraftPoint, b: DraftPoint) => a.x * b.x + a.y * b.y;
 const minus = (a: DraftPoint, b: DraftPoint) => ({ x: a.x - b.x, y: a.y - b.y });
 
-/** Evaluate rendered/collision geometry, not whether the source depicts masonry,
- * pipe chases or two structural walls. Source positions remain immutable. */
-function logicalState(trace: SourceWallTraceV1, annotation: SourceAnnotationV1,
-  context: ReconstructionAssemblyContext, positions: DraftPoint[]) {
-  const house = buildBareHouse(trace), assembled = assemblePlan2WorldDraftWithReview(house, annotation, context);
-  const floor = draftToProject(assembled.draft, new Date(0)).floors[0], analysis = analyzeFloor(floor);
-  const scale = annotation.scaleEvidence, factor = scale.realLengthCm / distance(...scale.endpoints);
-  const points = house.walls.flatMap(w => [w.start, w.end, ...(w.curvePoint ? [w.curvePoint] : [])]);
-  const origin = { x: Math.min(...points.map(p => p.x)), y: Math.min(...points.map(p => p.y)) };
-  const convert = (p: DraftPoint) => ({ x: (p.x - origin.x) * factor, y: (p.y - origin.y) * factor });
-  const world = buildFloorClearance({ ...floor, furniture: [] });
-  const regions = positions.map(p => analysis.rooms.flatMap((room, i) => pointInPolygon(convert(p), analysis.polygons.get(room.id) ?? [])
-    && !(analysis.holes.get(room.id) ?? []).some(h => pointInPolygon(convert(p), h)) ? [i] : []));
-  const blocked = positions.map(p => distance(convert(p), resolveClearancePoint(convert(p), world, .01)) > .001);
-  const adjacency = analysis.rooms.map(() => new Set<number>()), doorRegions = new Set<number>(), clearDoorIds: string[] = [];
-  for (const door of floor.doors) {
-    const host = floor.walls.find(w => w.id === door.wallId)!;
-    const center = wallPointAt(host, door.position), v = minus(host.end, host.start), length = distance(host.start, host.end);
-    const offset = host.thickness / 2 + DEFAULT_CLEARANCE_RADIUS_CM + 1;
-    const a = { x: center.x - v.y / length * offset, y: center.y + v.x / length * offset };
-    const b = { x: center.x + v.y / length * offset, y: center.y - v.x / length * offset };
-    if (door.width < DEFAULT_CLEARANCE_RADIUS_CM * 2 || !hasClearanceAlongSegment(a, b, world)) continue;
-    clearDoorIds.push(door.id);
-    const owners = analysis.rooms.flatMap((r, i) => r.walls.includes(host.id) ? [i] : []);
-    for (const i of owners) { doorRegions.add(i); for (const j of owners) adjacency[i].add(j); }
-  }
-  const connected = (a: number[], b: number[]) => {
-    const seen = new Set(a), queue = [...a];
-    for (let i = 0; i < queue.length; i++) for (const next of adjacency[queue[i]]) if (!seen.has(next)) { seen.add(next); queue.push(next); }
-    return b.some(i => seen.has(i));
-  };
-  const sameRegion = regions.map(a => regions.map(b => a.some(i => b.includes(i))));
-  const reachable = regions.map(a => regions.map(b => connected(a, b)));
-  const intervals = assembled.openingReview.sourceIntervals;
-  const overlaps = intervals.some((a, i) => intervals.slice(i + 1).some(b => {
-    if (a.wallId !== b.wallId) return false;
-    const wall = house.walls.find(w => w.id === a.wallId)!;
-    const u = minus(wall.end, wall.start), length = distance(wall.start, wall.end);
-    const along = (p: DraftPoint) => dot(minus(p, wall.start), u) / length;
-    const aa = a.projectedEndpoints.map(along), bb = b.projectedEndpoints.map(along);
-    return Math.min(Math.max(...aa), Math.max(...bb)) - Math.max(Math.min(...aa), Math.min(...bb)) > 1e-6;
-  }));
-  return { house, floor, metrics: { closed: regions.map(r => r.length > 0), blocked, sameRegion, reachable,
-    clearDoorIds,
-    entrances: regions.map(r => r.some(i => doorRegions.has(i))),
-    openings: intervals.map(i => ({ id: i.id as string, kind: i.kind as string, widthPx: i.widthPx as number })),
-    overlappingApertures: overlaps, regionCount: analysis.rooms.length } };
-}
-
-type Metrics = ReturnType<typeof logicalState>['metrics'];
-function preserves(before: Metrics, after: Metrics) {
-  if (after.overlappingApertures && !before.overlappingApertures) return 'overlapping-openings';
-  if (before.clearDoorIds.some(id => !after.clearDoorIds.includes(id))) return 'existing-door-clearance-lost';
-  for (const o of before.openings) if (!after.openings.some(n => n.id === o.id && n.kind === o.kind && Math.abs(n.widthPx - o.widthPx) <= 1e-5)) return 'existing-opening-lost-or-resized';
-  for (let i = 0; i < before.closed.length; i++) {
-    if (before.closed[i] && !after.closed[i]) return 'existing-enclosure-lost';
-    if (!before.blocked[i] && after.blocked[i]) return 'furniture-or-zone-seed-covered';
-    if (before.entrances[i] && !after.entrances[i]) return 'existing-entrance-clearance-lost';
-    for (let j = 0; j < i; j++) {
-      if (before.closed[i] && before.closed[j] && before.sameRegion[i][j] !== after.sameRegion[i][j]) return 'functional-separation-changed';
-      if (before.reachable[i][j] && !after.reachable[i][j]) return 'existing-traversal-lost';
-    }
-  }
-  return undefined;
-}
 
 function frame(w: Wall) {
   const length = distance(w.start, w.end), u = { x: (w.end.x - w.start.x) / length, y: (w.end.y - w.start.y) / length };
@@ -95,7 +29,7 @@ export function abstractCloseParallelWalls(input: SourceWallTraceV1, observed: S
   const scale = observed.scaleEvidence, factor = scale.realLengthCm / distance(...scale.endpoints);
   if (!Number.isFinite(factor) || factor <= 0) throw new Error('Logical wall abstraction requires positive uniform scale.');
   const positions = [...(observed.furniture ?? []).map(f => f.position),
-    ...zones.filter(z => z.decision === 'accept').map(z => z.position)];
+    ...zones.filter(z => z.decision !== 'reject').map(z => z.position)];
   let trace = structuredClone(input), annotation = structuredClone(observed);
   let origins = input.walls.map((_, i) => [i]);
   const accepted: { sourceWallIndices: number[]; absorbedWallIndices: number[]; thicknessPx: number; projectedOpenings: { index: number; before: DraftPoint[]; after: DraftPoint[] }[]; before: Metrics; after: Metrics }[] = [];
@@ -128,7 +62,7 @@ export function abstractCloseParallelWalls(input: SourceWallTraceV1, observed: S
       budgetReached: input.walls.length > 512 || positions.length > 256, geometryChanged: false, normalizationInputIsProgramDerived: true,
       limitation: 'No eligible parallel group, or the bounded logical evaluation budget was exceeded. Source lines are retained.' },
   };
-  let current = logicalState(trace, annotation, context, positions);
+  let current = evaluateLogicalGeometry(trace, annotation, context, positions, origins);
   const initialMetrics = current.metrics;
   for (const group of groups.slice(0, 24)) {
     try {
@@ -183,7 +117,7 @@ export function abstractCloseParallelWalls(input: SourceWallTraceV1, observed: S
       for (const gap of next.doorGaps ?? []) for (const endpoint of ['from', 'to'] as const) if (inBand(gap[endpoint])) gap[endpoint] = f.at(f.along(gap[endpoint]), middle);
       const nextOrigins = origins.map((o, i) => i === indices[0] ? [...new Set(absorbed)].sort((a, b) => a - b) : o).filter((_, i) => !removed.has(i));
       next.walls = next.walls.filter((_, i) => !removed.has(i));
-      const state = logicalState(next, nextAnnotation, context, positions), reason = preserves(current.metrics, state.metrics);
+      const state = evaluateLogicalGeometry(next, nextAnnotation, context, positions, nextOrigins), reason = preservesLogicalGeometry(current.metrics, state.metrics);
       if (reason) { trials.push({ sourceWallIndices: group, status: 'logical-regression', reason, after: state.metrics }); continue; }
       accepted.push({ sourceWallIndices: group, absorbedWallIndices: [...new Set(absorbed)], thicknessPx, projectedOpenings, before: current.metrics, after: state.metrics });
       trace = next; annotation = nextAnnotation; origins = nextOrigins; current = state;
