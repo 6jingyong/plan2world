@@ -71,10 +71,11 @@ export function resolveOpeningHost(
   const allowance = kind === 'window' ? Math.SQRT2 : 0;
   const candidates = [...walls.entries()].flatMap(([id, wall]) => {
     const projected = endpoints.map(source => projectOntoWall(source, wall));
-    if (projected.some(result => !result || result.distance > tolerance + allowance)) return [];
+    const band = kind === 'window' && containedWallBand(endpoints,wall);
+    if (!band && projected.some(result => !result || result.distance > tolerance + allowance)) return [];
     const distances = projected.map(result => result!.distance);
     const relaxed = Math.max(...distances) > tolerance;
-    if (relaxed) {
+    if (relaxed && !band) {
       const dx = wall.end.x - wall.start.x, dy = wall.end.y - wall.start.y;
       const ex = endpoints[1].x - endpoints[0].x, ey = endpoints[1].y - endpoints[0].y;
       if (wall.curvePoint || Math.abs(dx * ex + dy * ey) / Math.hypot(dx, dy) / Math.hypot(ex, ey) < Math.cos(Math.PI / 18)
@@ -87,7 +88,8 @@ export function resolveOpeningHost(
       maxResidual: Math.max(...distances),
       totalResidual: distances.reduce((sum, value) => sum + value, 0),
       preferred: id === preferredWallId,
-      resolution: relaxed ? 'bounded-pixel-projection' : 'within-projection-tolerance',
+      resolution: Math.max(...distances) > tolerance + allowance && band ? 'contained-logical-wall-band'
+        : relaxed ? 'bounded-pixel-projection' : 'within-projection-tolerance',
     }];
   });
   candidates.sort((a, b) =>
@@ -96,11 +98,29 @@ export function resolveOpeningHost(
     || a.totalResidual - b.totalResidual
     || a.id.localeCompare(b.id));
   const best = candidates[0];
+  if (best && !best.preferred && candidates.length > 1 && candidates.some(c => c.resolution === 'contained-logical-wall-band')) {
+    throw new Error('ambiguous window host inside logical wall bands; no automatic association');
+  }
   if (kind === 'window' && best && !best.preferred && candidates.some(other => other !== best
     && Math.abs(other.maxResidual - best.maxResidual) <= Math.SQRT2)) {
     throw new Error('ambiguous window host: multiple nearby wall segments; no automatic association');
   }
   return best;
+}
+
+/** An explicit program-derived solid envelope is geometry, not a wider nearest-
+ * line tolerance. Require the WHOLE parallel interval within its finite bounds;
+ * neither extend the host nor trim/rotate/resize the observed opening. */
+function containedWallBand(endpoints: DraftPoint[], wall: DraftWall & { thicknessPx?: number }) {
+  if (wall.curvePoint || !wall.thicknessPx || wall.boundaryType && wall.boundaryType !== 'solid') return false;
+  const dx=wall.end.x-wall.start.x,dy=wall.end.y-wall.start.y,length=Math.hypot(dx,dy);
+  const ex=endpoints[1].x-endpoints[0].x,ey=endpoints[1].y-endpoints[0].y;
+  if (!(length>0) || Math.abs(dx*ey-dy*ex)>1e-6*length) return false;
+  return endpoints.every(p=>{
+    const along=((p.x-wall.start.x)*dx+(p.y-wall.start.y)*dy)/length;
+    const across=Math.abs((p.x-wall.start.x)*dy-(p.y-wall.start.y)*dx)/length;
+    return along>=-1e-6 && along<=length+1e-6 && across<=wall.thicknessPx!/2+1e-6;
+  });
 }
 
 function nearestWallForPoint(source: DraftPoint, walls: Map<string, DraftWall>, tolerance: number) {
@@ -115,7 +135,7 @@ function nearestWallForPoint(source: DraftPoint, walls: Map<string, DraftWall>, 
 /** A window can span a junction introduced by functional subdivision. Retain
  * its entire observed interval across ONE uniquely identified original host.
  * This does not join unrelated walls, bridge gaps, relocate jambs or split doors. */
-function continuousWindowChain(endpoints: DraftPoint[], house: BareHouseV1, tolerance: number) {
+function continuousWindowChain(endpoints: DraftPoint[], house: BareHouseV1, tolerance: number, allowWallBand: boolean) {
   const byId = new Map(house.walls.map(w => [w.id, w]));
   const candidates = Object.entries(house.sourceWallMap).flatMap(([sourceWallId, ids]) => {
     if (ids.length < 2) return [];
@@ -129,7 +149,10 @@ function continuousWindowChain(endpoints: DraftPoint[], house: BareHouseV1, tole
     const across = (p: DraftPoint) => Math.abs((p.x - line.start.x) * dy - (p.y - line.start.y) * dx);
     const ex = endpoints[1].x - endpoints[0].x, ey = endpoints[1].y - endpoints[0].y;
     if (Math.abs(ex * dx + ey * dy) / Math.hypot(ex, ey) < Math.cos(Math.PI / 18)) return [];
-    if (endpoints.some(p => across(p) > tolerance + Math.SQRT2 || along(p) < 0 || along(p) > length)) return [];
+    const insideBand = allowWallBand && walls.every(w => w.thicknessPx && (!w.boundaryType || w.boundaryType === 'solid')
+      && [w.start,w.end].every(p=>across(p)<=1e-6))
+      && containedWallBand(endpoints,{ ...walls[0],...line,thicknessPx:Math.min(...walls.map(w=>w.thicknessPx!)) });
+    if (!insideBand && endpoints.some(p => across(p) > tolerance + Math.SQRT2 || along(p) < 0 || along(p) > length)) return [];
     if (walls.some(w => [w.start, w.end].some(p => across(p) > tolerance))) return [];
     const [low, high] = endpoints.map(along).sort((a, b) => a - b);
     const parts = walls.flatMap(wall => {
@@ -137,7 +160,7 @@ function continuousWindowChain(endpoints: DraftPoint[], house: BareHouseV1, tole
       if (b <= a || to - from <= 1e-6) return [];
       return [{ wallId: wall.id, endpoints: [wallPointAt(wall, (from - a) / (b - a)), wallPointAt(wall, (to - a) / (b - a))] as [DraftPoint, DraftPoint] }];
     });
-    return parts.length > 1 ? [{ sourceWallId, parts }] : [];
+    return parts.length > 1 ? [{ sourceWallId, parts, insideBand: insideBand && endpoints.some(p=>across(p)>tolerance+Math.SQRT2) }] : [];
   });
   if (candidates.length > 1) throw new Error('ambiguous continuous window host chain');
   return candidates[0];
@@ -193,9 +216,13 @@ export function deriveSourceOpenings(input: unknown): {
       if (preferredWallId && !walls.has(preferredWallId)) throw new Error(`unknown bare-house host wall ${preferredWallId}`);
       const host = resolveOpeningHost(endpoints, walls, tolerance, preferredWallId,
         trace.maxProjectionDistancePx === undefined ? item.kind : undefined);
+      if (host?.resolution === 'contained-logical-wall-band' && trace.allowWindowHostChains === true && !preferredWallId) {
+        const alternative = continuousWindowChain(endpoints,bareHouse,tolerance,true);
+        if (alternative && alternative.parts.some(p=>p.wallId!==host.id)) throw new Error('ambiguous window host: containing band and continuous host chain');
+      }
       if (!host) {
         const chain = item.kind === 'window' && trace.allowWindowHostChains === true && !preferredWallId
-          ? continuousWindowChain(endpoints, bareHouse, tolerance) : undefined;
+          ? continuousWindowChain(endpoints, bareHouse, tolerance, trace.maxProjectionDistancePx === undefined) : undefined;
         if (chain) {
           const fragments = deriveSourceOpenings({ cmPerPixel: scale, maxProjectionDistancePx: tolerance, bareHouse,
             openings: chain.parts.map((part, i) => ({ ...item, ...part, id: i === 0 ? id : `${id}~${i + 1}` })) });
@@ -209,7 +236,8 @@ export function deriveSourceOpenings(input: unknown): {
             outputIds: fragments.windows.map(w => w.id), wallIds: intervals.map(p => p.wallId), evidence: item.evidence, endpoints: orderedEndpoints,
             projectedEndpoints,
             projectionDistancesPx: orderedEndpoints.map((p, i) => Math.hypot(p.x - projectedEndpoints[i].x, p.y - projectedEndpoints[i].y)),
-            hostResolution: 'continuous-source-baseline-chain', widthPx: intervals.reduce((s, p) => s + p.widthPx, 0), segments: intervals });
+            hostResolution: chain.insideBand ? 'continuous-logical-wall-band-chain' : 'continuous-source-baseline-chain',
+            widthPx: intervals.reduce((s, p) => s + p.widthPx, 0), segments: intervals });
           continue;
         }
         const nearest = endpoints.map(source => nearestWallForPoint(source, walls, tolerance)?.id);
