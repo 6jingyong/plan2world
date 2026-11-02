@@ -81,6 +81,16 @@ Never relocate to a nearby floor, infer a slab or remove a visible object merely
 to pass. Newly unsupported anchors or incomplete checks prevent automatic use.
 Ordinary two-pass reconstruction and architecture-only feedback remain unchanged.
 
+An explicit `architecture-and-door-motion` feedback scope may locate closed-leaf
+and sampled-motion conflicts using compiler primitives and exact source-feature
+ownership. Collision is a question, not contrary visual evidence: default motion
+or frame representation may be responsible. Preserve unconfirmed source geometry;
+never shrink apertures or choose swing direction to clear a check. Candidate
+reprojection must retain checks for every accepted source door; newly introduced
+source-owned conflicts, unassembled doors, incomplete checks or unmapped ownership
+prevent automatic application. This remains one optional batch, not a desktop
+provider retry or an engine/walkthrough acceptance.
+
 ### Logical equivalence before construction facts
 
 The user explicitly prioritizes usable closure over deciding what a source wall

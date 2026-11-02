@@ -61,6 +61,54 @@
       "artistHTML": "<a href=\"//commons.wikimedia.org/wiki/User:Cedric_B.\" title=\"User:Cedric B.\">Cédric Boissière</a> (original French SVG); <a href=\"//commons.wikimedia.org/wiki/User:Bibi_Saint-Pol\" title=\"User:Bibi Saint-Pol\">Bibi Saint-Pol</a> (German translation)",
       "sourceFormat": "SVG official raster preview; no vector path geometry or semantic reference used",
       "screenedBeforeExtraction": true
+    },
+    {
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Kitchen_Remodel_Floor_Plan_Before.svg",
+      "rasterURL": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0f/Kitchen_Remodel_Floor_Plan_Before.svg/1280px-Kitchen_Remodel_Floor_Plan_Before.svg.png?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "sha256": "2ba6a40d8eb78cf4267593d917626e55675eb6db3476809ee30c0f816d7a2147",
+      "width": 1280,
+      "height": 1414,
+      "vectorGeometryInspected": false,
+      "id": "kitchen-before",
+      "cohort": "primary",
+      "reason": "Clear orthographic architectural drawing with readable wall bands, jambs, single/double leaf cues and sparse functional labels. Circulation arrows are annotations, not walls.",
+      "sampleFamily": "california-kitchen-remodel",
+      "license": "CC BY-SA 4.0",
+      "licenseURL": "https://creativecommons.org/licenses/by-sa/4.0",
+      "artistHTML": "<a href=\"//commons.wikimedia.org/wiki/User:Stilfehler\" title=\"User:Stilfehler\">Stilfehler</a>",
+      "screenedBeforeExtraction": true
+    },
+    {
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Kitchen_Remodel_Floor_Plan_After_1.svg",
+      "rasterURL": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/36/Kitchen_Remodel_Floor_Plan_After_1.svg/1280px-Kitchen_Remodel_Floor_Plan_After_1.svg.png?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "sha256": "53d35ee37ec69d1a272a84df7526ff511feb9f53aeb2e2b46a0eab6f77bdd66b",
+      "width": 1280,
+      "height": 1414,
+      "vectorGeometryInspected": false,
+      "id": "kitchen-after",
+      "cohort": "primary",
+      "reason": "Related post-remodel plan with the same clean building context but changed kitchen/pantry boundaries. Admission is based on pixels, before outcomes.",
+      "sampleFamily": "california-kitchen-remodel",
+      "license": "CC BY-SA 4.0",
+      "licenseURL": "https://creativecommons.org/licenses/by-sa/4.0",
+      "artistHTML": "<a href=\"//commons.wikimedia.org/wiki/User:Stilfehler\" title=\"User:Stilfehler\">Stilfehler</a>",
+      "screenedBeforeExtraction": true
+    },
+    {
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Apartment.png",
+      "rasterURL": "https://upload.wikimedia.org/wikipedia/commons/5/5a/Apartment.png?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+      "sha256": "2a5226566bd373f3fd28fc59c111aed82b92d8bd2a2004c423165a08a9153f2a",
+      "width": 506,
+      "height": 304,
+      "vectorGeometryInspected": false,
+      "id": "apartment-cad",
+      "cohort": "secondary-projection",
+      "reason": "Original is an extruded three-dimensional oblique/cutaway view, not a single-floor orthographic architectural raster. Deferred before any extraction despite its file title.",
+      "sampleFamily": "apartment-cutaway",
+      "license": "Public domain",
+      "licenseURL": null,
+      "artistHTML": "Jan Křivka",
+      "screenedBeforeExtraction": true
     }
   ]
 }

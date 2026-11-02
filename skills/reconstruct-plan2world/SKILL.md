@@ -71,6 +71,14 @@ first observation or permit automatic object movement, ground filling, global
 furniture edits or another review batch. Keep source uncertainty and missing
 ground distinct from false object identification.
 
+The explicit `architecture-and-door-motion` scope adds
+[door-geometry questions](references/visual-feedback-doors-pass.md) from exact
+compiler/source ownership. Check original jambs, aperture extents and adjoining
+boundaries without presuming the source is wrong. Default motion can be the
+limitation. Keep unknown and alternatives; do not shrink doors or remove visible
+walls to pass. New conflicts, missing accepted doors or incomplete ownership/checks
+prevent automatic use of a candidate. This adds no default observation or retry.
+
 ## Fresh validation workspace
 
 For a benchmark rerun, start from the original raster and create a new ignored directory before generating anything:

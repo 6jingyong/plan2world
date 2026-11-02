@@ -9,7 +9,7 @@ export async function runVisualFeedback(options){
  const root=fileURLToPath(new URL('../',import.meta.url));
  for(const key of ['architecture','furnishing','source','output'])if(!options[key])throw Error(`Missing --${key}`);
  if(options.mode&&!['ordinary','guided'].includes(options.mode))throw Error('Mode must be ordinary or guided.');
- if(options.scope&&!['architecture','architecture-and-furnishing'].includes(options.scope))throw Error('Scope must be architecture or architecture-and-furnishing.');
+ if(options.scope&&!['architecture','architecture-and-furnishing','architecture-and-door-motion'].includes(options.scope))throw Error('Scope must be architecture, architecture-and-furnishing or architecture-and-door-motion.');
  if(options.decision&&!options.request)throw Error('Applying a review requires its frozen --request.');
  const output=path.resolve(options.output);await mkdir(path.dirname(output),{recursive:true});await mkdir(output);
  const save=(name,value)=>writeFile(path.join(output,name),JSON.stringify(value,null,2)+'\n',{flag:'wx',mode:0o444});
@@ -61,6 +61,6 @@ export async function runVisualFeedback(options){
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
  const args=process.argv.slice(2),options={};
- for(let i=0;i<args.length;i+=2){const key=args[i]?.replace(/^--/,'');if(!['architecture','furnishing','source','output','mode','scope','request','decision','actor'].includes(key)||!args[i+1]||options[key])throw Error('Usage: --architecture file --furnishing file --source image --output NEW_DIRECTORY [--mode ordinary|guided] [--scope architecture|architecture-and-furnishing] [--decision answer --request frozen-request --actor label]');options[key]=args[i+1];}
+ for(let i=0;i<args.length;i+=2){const key=args[i]?.replace(/^--/,'');if(!['architecture','furnishing','source','output','mode','scope','request','decision','actor'].includes(key)||!args[i+1]||options[key])throw Error('Usage: --architecture file --furnishing file --source image --output NEW_DIRECTORY [--mode ordinary|guided] [--scope architecture|architecture-and-furnishing|architecture-and-door-motion] [--decision answer --request frozen-request --actor label]');options[key]=args[i+1];}
  try{console.log(JSON.stringify(await runVisualFeedback(options),null,2));}catch(e){console.error(e.message);process.exitCode=1;}
 }

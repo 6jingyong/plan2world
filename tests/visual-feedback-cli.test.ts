@@ -27,6 +27,27 @@ it('freezes local review packets, refuses overwrites and retains failed stale-re
  }finally{await rm(dir,{recursive:true,force:true});}
 },60000);
 
+it('routes compiled door conflicts through the explicit CLI scope and preserves unknown',async()=>{
+ const dir=await mkdtemp(path.join(tmpdir(),'p2w-doors-cli-'));
+ try{
+  const point=(x:number,y:number)=>({x,y}),d={decision:'accept',evidence:'Synthetic stroke.',decisionBasis:'Synthetic source control.'};
+  const architecture={schemaVersion:'source-architecture-v1',scaleEvidence:{kind:'provided_length',realLengthCm:100,endpoints:[point(20,20),point(120,20)],evidence:'Control.'},
+   walls:[[20,20,480,20],[480,20,480,380],[480,380,20,380],[20,380,20,20]].map(([x,y,a,b],i)=>({...d,label:`wall ${i}`,start:point(x,y),end:point(a,b)})),
+   openings:[{...d,label:'corner door',kind:'door',doorType:'single',typeEvidence:'Initial control.',endpoints:[point(20,380),point(100,380)]}]};
+  await writeFile(path.join(dir,'architecture.json'),JSON.stringify(architecture));await writeFile(path.join(dir,'furnishing.json'),JSON.stringify({schemaVersion:'source-furnishing-v1',furniture:[]}));
+  await writeFile(path.join(dir,'source.png'),Buffer.from(encodeRgbaPng({width:500,height:400,data:Buffer.alloc(500*400*4,255)})));
+  const args=['tooling/plan2world-visual-feedback.mjs','--architecture',path.join(dir,'architecture.json'),'--furnishing',path.join(dir,'furnishing.json'),'--source',path.join(dir,'source.png'),'--scope','architecture-and-door-motion'],env={...process.env,NODE_ENV:'production'};
+  execFileSync(process.execPath,[...args,'--output',path.join(dir,'packet')],{env,timeout:20000});
+  const request=JSON.parse(await readFile(path.join(dir,'packet/request.json'),'utf8'));
+  expect(request.schemaVersion).toBe('source-visual-feedback-v3');expect(request.doorReview.findings[0].openingPath).toBe('openings[0]');
+  await writeFile(path.join(dir,'answer.json'),JSON.stringify({schemaVersion:'source-visual-feedback-decision-v1',requestId:request.requestId,hypotheses:[],selected:null,unresolvedQuestions:['Source motion remains unresolved.']}));
+  execFileSync(process.execPath,[...args,'--request',path.join(dir,'packet/request.json'),'--decision',path.join(dir,'answer.json'),'--output',path.join(dir,'result')],{env,timeout:20000});
+  const audit=JSON.parse(await readFile(path.join(dir,'result/feedback-audit.json'),'utf8'));
+  expect(audit.status).toBe('pending');expect(audit.reviews).toBe(1);
+  expect(await readFile(path.join(dir,'result/project.json'))).toEqual(await readFile(path.join(dir,'result/baseline.project.json')));
+ }finally{await rm(dir,{recursive:true,force:true});}
+},60000);
+
 it('applies an explicit source-object review through the CLI and freezes its furniture projection',async()=>{
  const dir=await mkdtemp(path.join(tmpdir(),'p2w-support-cli-'));
  try{
