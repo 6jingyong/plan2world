@@ -29,9 +29,26 @@ async function input() {
   return {dir,image,pixels,request:{op:'reconstruct',apiKey:'fixture-private-key',model:'fixture/vision',imagePath,rasterPath,width:360,height:300,outputDirectory:path.join(dir,'result'),scaleHint:'360 cm'}};
 }
 describe('shared native desktop reconstruction',()=>{
+  it('offers leafless passages as explicit starts and retains the opening through native compilation',async()=>{
+    const {request}=await input();
+    const a={...architecture,openings:[{...architecture.openings[0],doorType:'opening',typeEvidence:'Visible leafless threshold.'}]};let pass=0;
+    const fetcher=vi.fn(async(url:string)=>url.endsWith('/endpoints')?new Response(JSON.stringify({data:{endpoints:[]}})):new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify(pass++===0?a:furnishing)}}]})));
+    const result=await runDesktopAiTask(request,()=>{},fetcher);
+    expect(result.ok).toBe(true);expect(result.floors[0].doors).toHaveLength(1);expect(pass).toBe(2);
+    const project=readProject(JSON.parse(await readFile(result.projectPath,'utf8'))),floor=project.floors[0];
+    expect(floor.entrance).toBeUndefined();expect(floor.doors[0].type).toBe('opening');
+    const out=await runDesktopAiTask({op:'entrance',projectPath:result.projectPath,floorId:floor.id,doorId:result.floors[0].doors[0].id,side:'left'});
+    const saved=readProject(JSON.parse(await readFile(out.projectPath,'utf8'))),runtime=compileRuntimeScene(saved);
+    expect(saved.floors[0].doors).toEqual(floor.doors);expect(saved.floors[0].walls).toEqual(floor.walls);
+    expect(runtime.floors[0].entranceDoorId).toBe(floor.doors[0].id);
+    expect(runtime.entities.find(e=>e.id===floor.doors[0].id)).toMatchObject({kind:'door',interaction:{kind:'none'}});
+    const before=JSON.stringify(saved);saved.floors[0].doors[0].width=40;
+    expect(()=>compileRuntimeScene(saved)).toThrow(/cannot fit|Invalid opening/);expect(before).not.toContain('apiKey');
+  });
   it('runs the same two-pass pipeline with original raster, freezes observations and saves canonical native data without credentials',async()=>{
     const {dir,image,pixels,request}=await input();let pass=0;
     const fetcher=vi.fn(async (_url:string,init:RequestInit)=>{
+      if(_url.endsWith('/endpoints'))return new Response(JSON.stringify({data:{endpoints:[]}}));
       const body=JSON.parse(init.body as string),prompt=body.messages[0].content[1].text;
       if(pass===0)expect(prompt).toContain('source-architecture-v1');
       else {expect(prompt).toContain('FROZEN_ARCHITECTURE_JSON:');expect(JSON.parse(await readFile(path.join(request.outputDirectory,'source-architecture.json'),'utf8'))).toEqual(architecture);}
@@ -41,7 +58,7 @@ describe('shared native desktop reconstruction',()=>{
     const events:unknown[]=[];
     const result=await runDesktopAiTask(request,(e:unknown)=>events.push(e),fetcher);
     expect(result.ok).toBe(true);expect(result.cost).toBe(.02);expect(result.floors[0].doors[0].sourcePoint[0]).toBeCloseTo(.5);expect(result.floors[0].doors[0].sourcePoint[1]).toBeCloseTo(0);
-    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(fetcher).toHaveBeenCalledTimes(3);
     let observed=0;
     const shared=await reconstructFloorPlanWithObserver(async()=>observed++===0?architecture:furnishing,{context:{sourceWidthPx:360,sourceHeightPx:300},raster:{width:360,height:300,data:pixels}},{scaleHint:'360 cm'});
     expect(JSON.parse(await readFile(path.join(request.outputDirectory,'draft.json'),'utf8'))).toEqual(shared.draft);
@@ -69,10 +86,10 @@ describe('shared native desktop reconstruction',()=>{
   it('retains invalid architecture and both frozen observations, returning an annotated editable Project without a repair call',async()=>{
     const {request}=await input(),bad={...architecture,walls:[...architecture.walls,{...architecture.walls[0],start:{x:0,y:1},end:{x:360,y:1}}]};
     let pass=0;
-    const fetcher=vi.fn(async()=>new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify(pass++===0?bad:furnishing)}}]})));
+    const fetcher=vi.fn(async(url:string)=>url.endsWith('/endpoints') ? new Response(JSON.stringify({data:{endpoints:[]}})) : new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify(pass++===0?bad:furnishing)}}]})));
     const result=await runDesktopAiTask(request,()=>{},fetcher);
     expect(result.ok).toBe(true);expect(result.correction).toBe(true);expect(result.issueCount).toBeGreaterThan(0);
-    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(fetcher).toHaveBeenCalledTimes(3);
     expect(JSON.parse(await readFile(path.join(request.outputDirectory,'source-architecture.json'),'utf8'))).toEqual(bad);
     expect(JSON.parse(await readFile(path.join(request.outputDirectory,'source-furnishing.json'),'utf8'))).toEqual(furnishing);
     const project=readProject(JSON.parse(await readFile(result.projectPath,'utf8')));
@@ -86,13 +103,14 @@ describe('shared native desktop reconstruction',()=>{
     expect(fetcher).not.toHaveBeenCalled();
     let pass=0;const working=await readFile(preparation.imagePath);
     const observe=vi.fn(async(_url:string,init:RequestInit)=>{
+      if(_url.endsWith('/endpoints'))return new Response(JSON.stringify({data:{endpoints:[]}}));
       const body=JSON.parse(init.body as string);
       expect(body.messages[0].content[0].image_url.url).toBe('data:image/png;base64,'+working.toString('base64'));
       return new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify(pass++===0?architecture:furnishing)}}]}));
     });
     const preparedRequest={...request,imagePath:preparation.imagePath,rasterPath:preparation.rasterPath,preparationManifestPath:preparation.manifestPath,originalImagePath:preparation.originalPath};
     const result=await runDesktopAiTask(preparedRequest,()=>{},observe);
-    expect(observe).toHaveBeenCalledTimes(2);
+    expect(observe).toHaveBeenCalledTimes(3);
     const project=readProject(JSON.parse(await readFile(result.projectPath,'utf8')));
     expect(project.floors[0].backgroundImage?.dataUrl).toBe('data:image/png;base64,'+working.toString('base64'));
     expect(project.reconstruction?.inputPreparation?.originalDataUrl).toBe('data:image/png;base64,'+image.toString('base64'));

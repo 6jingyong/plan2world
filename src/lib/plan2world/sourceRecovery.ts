@@ -7,6 +7,7 @@ import { floorBoundaryProblem, floorBoundaryPolygon } from '$lib/utils/floorBoun
 import { pointInPolygon } from '$lib/utils/hitTesting';
 import { imageSha256 } from './imagePreparation';
 import { projectOntoWall } from '$lib/utils/wallProjection';
+import { WallGeometryConflictError } from './bareHouse';
 
 type Wall = SourceArchitectureV1['walls'][number];
 type Stage = ReturnType<typeof prepareArchitectureStage>;
@@ -315,9 +316,9 @@ export class SourceRecoverySession {
       const match = /^functionalZones\[(\d+)\] (?:requires a simple source outline containing its seed|contains a collapsed edge)/.exec(message(e));
       let paths: SourcePath[] = [];
       if (match && obj(this.current) && Array.isArray(this.current.functionalZones)) paths = [`functionalZones[${Number(match[1])}]`];
-      else if (/^(?:Duplicate|Overlapping) normalized wall geometry:/.test(message(e)) && Array.isArray(this.current?.walls)) {
+      else if (e instanceof WallGeometryConflictError && Array.isArray(this.current?.walls)) {
         const indices = this.current.walls.flatMap((w: Wall, i: number) => w.decision === 'accept' ? [i] : []);
-        const ids = [...new Set([...message(e).matchAll(/\bw(\d+)(?:~\d+)?/g)].map(m => Number(m[1]) - 1))];
+        const ids = e.conflicts[0].sourceWallIds.map(id => Number(id.slice(1)) - 1);
         if (ids.length === 2 && ids.every(i => indices[i] !== undefined)) paths = ids.map(i => `walls[${indices[i]}]` as SourcePath);
       }
       if (!paths.length) this.stop(e);

@@ -63,6 +63,31 @@ it('evaluates two jointly necessary endpoint connections without furniture or an
   expect(stage.functionalZoneReview?.llmCalls).toBe(0);
 });
 
+it('rejects a joint closure that would bring a partition into a previously clear door leaf', () => {
+  const input = architecture(); input.walls.push(wall('divider', 100, 24, 100, 176));
+  input.openings.push({ ...entry, label: 'north jamb at divider', endpoints: [p(80,20),p(100,20)] });
+  const original = JSON.stringify(input), stage = prepareArchitectureStage(input, context, furnishing);
+  expect(stage.functionalZoneReview?.normalizationInput.walls[4].start).toEqual(p(100,24));
+  expect(stage.functionalZoneReview?.geometryConstraints.doorConflicts).toEqual(['d2:door-motion-overlap:source-wall-4']);
+  expect(stage.functionalZoneReview?.trials.some(t => t.reason === 'new-door-geometry-conflict')).toBe(true);
+  expect(stage.functionalZoneReview?.trialCount).toBeLessThanOrEqual(64);
+  expect(JSON.stringify(input)).toBe(original);
+});
+
+it('retains the source when the bounded joint search cannot examine every alternative', () => {
+  const input = architecture(); input.walls = outer(); input.openings = [];
+  input.functionalZones = [];
+  for (let x=40; x<=160; x+=10) {
+    input.walls.push(wall(`divider ${x}`,x,24,x,176));
+    input.functionalZones.push(zone(`strip ${x}`,[x+5,100],[[x,20,'wall'],[x+10,20,'wall'],[x+10,180,'wall'],[x,180,'wall']]));
+  }
+  const stage = prepareArchitectureStage(input,context,{schemaVersion:'source-furnishing-v1',furniture:[]});
+  expect(stage.functionalZoneReview?.budgetReached).toBe(true);
+  expect(stage.functionalZoneReview?.trials.some(t=>t.status==='candidate-search-budget-exceeded')).toBe(true);
+  expect(stage.functionalZoneReview?.accepted).toEqual([]);
+  expect(stage.functionalZoneReview?.trialCount).toBeLessThanOrEqual(64);
+});
+
 it('continues a supported run into a T-junction without dragging its non-collinear neighbour', () => {
   const input = architecture();
   input.walls.push(wall('horizontal divider', 20, 100, 176, 100), wall('existing return', 176, 100, 176, 140));
@@ -76,7 +101,7 @@ it('continues a supported run into a T-junction without dragging its non-colline
 
 it('closes an unfurnished balcony using invisible air boundaries and an editable low railing', () => {
   const input = architecture(); input.walls = [wall('shared facade', 20, 60, 180, 60), wall('e', 180, 60, 180, 180), wall('s', 180, 180, 20, 180), wall('w', 20, 180, 20, 60)];
-  input.openings = [{ ...entry, label: 'balcony sliding door', doorType: 'sliding', typeEvidence: 'Visible sliding track.', endpoints: [p(70, 60), p(130, 60)] }];
+  input.openings = [{ ...entry, label: 'balcony sliding door', doorType: 'sliding', typeEvidence: 'Visible sliding track.', endpoints: [p(90, 60), p(120, 60)] }];
   input.functionalZones = [zone('living', [80, 110], [[20, 60, 'wall'], [180, 60, 'wall'], [180, 180, 'wall'], [20, 180, 'wall']]),
     zone('balcony', [90, 40], [[20, 20, 'air'], [180, 20, 'railing'], [180, 60, 'wall'], [20, 60, 'air']], 'balcony')];
   const stage = prepareArchitectureStage(input, context, furnishing), draft = assembleFrozenArchitecture(stage, furnishing).draft;
@@ -87,6 +112,14 @@ it('closes an unfurnished balcony using invisible air boundaries and an editable
   expect(floor.rooms.find(r => r.name === 'balcony')?.roomType).toBe('outdoor');
   expect(buildFloorClearance(floor).obstacles.some(o => o.id.startsWith(`wall:${air[0].id}:`))).toBe(true);
   expect(draft.floors[0].doors![0].height).toBe(280);
+  // Preserve the former oversized sliding-motion control and its source-
+  // supported enclosure, while reporting the additional motion obstruction.
+  const wide = structuredClone(input);wide.openings[0].endpoints=[p(70,60),p(130,60)];
+  const reviewed = prepareArchitectureStage(wide,context,furnishing);
+  expect(reviewed.functionalZoneReview?.boundaryConstraintFinding).toBe('new-door-geometry-conflict');
+  expect(reviewed.functionalZoneReview?.allOpeningHostsResolved).toBe(true);
+  expect(reviewed.functionalZoneReview?.finalMetrics.resolvedZoneCount).toBe(2);
+  expect(assembleFrozenArchitecture(reviewed,furnishing).draft.floors[0].doors![0].width).toBe(600);
 });
 
 it('does not invent solid walls from an unsupported functional outline', () => {

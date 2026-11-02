@@ -337,7 +337,11 @@ export interface ReconstructionEvidence {
 
 export interface Project {
   /** Authoring review notes. Source records remain evidence, never live geometry. */
-  architectureReview?: { version: 1; sourceObservations?: string; workingImageSha256?: string; issues: { id: string; floorId: string; message: string; position?: Point; sourceRecord?: string; resolved: boolean }[] };
+  architectureReview?: { version: 1; sourceObservations?: string; workingImageSha256?: string; issues: {
+    id: string; floorId: string; message: string; position?: Point; sourceRecord?: string; resolved: boolean;
+    code?: string; phase?: 'observation' | 'preflight' | 'opening-hosts' | 'assembly';
+    category?: 'root' | 'blocked' | 'uncertain'; sourcePaths?: string[]; blockedBy?: string[];
+  }[] };
   reconstruction?: ReconstructionEvidence;
   customModels?: CustomModelDef[];
   attachmentNames?: Record<string, string>;

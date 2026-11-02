@@ -1,10 +1,10 @@
 import type { Plan2WorldRuntimeSceneV1, RuntimeBoxCollider, RuntimeVec2 } from './types';
 
-type BoxPose = Pick<RuntimeBoxCollider, 'center' | 'size' | 'yawClockwiseRadians'>;
+export type BoxPose = Pick<RuntimeBoxCollider, 'center' | 'size' | 'yawClockwiseRadians'>;
 
 /** Positive-volume overlap of the compiler's upright boxes. Touching faces are
  * allowed. This checks default poses only; engines own live door obstruction. */
-function overlaps(a: BoxPose, b: BoxPose): boolean {
+export function uprightBoxesOverlap(a: BoxPose, b: BoxPose): boolean {
   const epsilon = 1e-6;
   if (a.size.some(v => v <= 0) || b.size.some(v => v <= 0)) return false;
   if (Math.abs(a.center[1] - b.center[1]) >= (a.size[1] + b.size[1]) / 2 - epsilon) return false;
@@ -28,7 +28,7 @@ export function validateFurnitureDoorClearance(scene: Plan2WorldRuntimeSceneV1):
   for (const item of scene.entities) {
     if (item.kind !== 'furniture' || item.representation === 'source-marker') continue;
     for (const leaf of closedLeaves) {
-      if (overlaps({ center: item.position, size: item.size, yawClockwiseRadians: item.yawClockwiseRadians }, leaf)) {
+      if (uprightBoxesOverlap({ center: item.position, size: item.size, yawClockwiseRadians: item.yawClockwiseRadians }, leaf)) {
         throw new Error(`Furniture "${item.id}" overlaps the closed pose of door "${leaf.ownerId}" (leaf "${leaf.id}"). Correct the native furniture placement before runtime export.`);
       }
     }

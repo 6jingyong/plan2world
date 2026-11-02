@@ -89,6 +89,8 @@ func _draw() -> void:
 	for issue in floor.get("issues",[]):
 		if issue["resolved"] or not issue.has("position"):continue
 		var p:=_screen(issue["position"]);draw_circle(p,10,Color("b84b38"));draw_string(ThemeDB.fallback_font,p+Vector2(-2,5),"!",HORIZONTAL_ALIGNMENT_LEFT,-1,15,Color.WHITE)
+	for finding in floor.get("currentChecks",{}).get("findings",[]):
+		var p:=_screen(finding["position"])+Vector2(14,-14);draw_circle(p,10,Color("996238"));draw_string(ThemeDB.fallback_font,p+Vector2(-2,5),"!",HORIZONTAL_ALIGNMENT_LEFT,-1,15,Color.WHITE)
 	if _draft_start!=null:draw_line(_screen(_draft_start),_pointer,Color("397b67"),4,true)
 
 func _gui_input(event:InputEvent) -> void:
@@ -107,7 +109,7 @@ func _gui_input(event:InputEvent) -> void:
 		_pointer=event.position
 		if entrance_picking:
 			for opening in floor.get("openings",[]):
-				if opening["kind"]=="door" and opening["type"]!="opening" and event.position.distance_to(_screen(opening["center"]))<13:selected.emit("opening",opening["id"]);accept_event();return
+				if opening["kind"]=="door" and event.position.distance_to(_screen(opening["center"]))<13:selected.emit("opening",opening["id"]);accept_event();return
 			return
 		if drawing and walls_enabled:
 			if _draft_start==null:_draft_start=_plan(event.position)
@@ -121,6 +123,8 @@ func _gui_input(event:InputEvent) -> void:
 				if event.position.distance_to(_screen(wall[key]))<12:_wall=wall;_drag=key;_drag_origin=event.position;_drag_started=false;accept_event();return
 		for issue in floor.get("issues",[]):
 			if not issue["resolved"] and issue.has("position") and event.position.distance_to(_screen(issue["position"]))<12:selected.emit("issue",issue["id"]);accept_event();return
+		for finding in floor.get("currentChecks",{}).get("findings",[]):
+			if event.position.distance_to(_screen(finding["position"])+Vector2(14,-14))<12:selected.emit("check",finding["id"]);accept_event();return
 		for opening in floor.get("openings",[]):
 			if event.position.distance_to(_screen(opening["center"]))<13:selected.emit("opening",opening["id"]);accept_event();return
 		var best:="";var distance:=12.0

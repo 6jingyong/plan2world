@@ -23,15 +23,16 @@ async function input(){
  const imagePath=path.join(dir,'source.png'),rasterPath=path.join(dir,'source.rgba');await writeFile(imagePath,image);await writeFile(rasterPath,pixels);
  return {dir,request:{op:'reconstruct',apiKey:'fixture-secret-key',model:'fixture/vision',imagePath,rasterPath,width:360,height:300,scaleHint:'360 cm',outputDirectory:path.join(dir,'first')}};
 }
-function normal(){let count=0;return vi.fn(async()=>reply(count++===0?architecture:furnishing));}
+const capability=()=>new Response(JSON.stringify({data:{endpoints:[]}}));
+function normal(){let count=0;return vi.fn(async(url:string)=>url.endsWith('/endpoints')?capability():reply(count++===0?architecture:furnishing));}
 async function scan(dir:string):Promise<string>{let text='';for(const e of await readdir(dir,{withFileTypes:true})){const file=path.join(dir,e.name);text+=e.isDirectory()?await scan(file):await readFile(file,'utf8');}return text;}
 describe('durable desktop observations and reported usage',()=>{
  it('resumes only furnishing after provider failure and preserves the frozen architecture and failed cost',async()=>{
   const {dir,request}=await input();let count=0;
   request.model='  fixture/vision  ';
-  const first=vi.fn(async()=>count++===0?reply(architecture):new Response('private provider body',{status:503}));
+  const first=vi.fn(async(url:string)=>url.endsWith('/endpoints')?capability():count++===0?reply(architecture):new Response('private provider body',{status:503}));
   const failed=await runDesktopAiTask(request,()=>{},first);
-  expect(failed.ok).toBe(false);expect(first).toHaveBeenCalledTimes(2);expect(failed.error).not.toContain('private provider body');
+  expect(failed.ok).toBe(false);expect(first).toHaveBeenCalledTimes(3);expect(failed.error).not.toContain('private provider body');
   expect(failed.usage.requestsStarted).toBe(2);expect(failed.usage.cost).toBeNull();
   expect(failed.usage.stages[0].responseBytes).toBe(Buffer.byteLength(JSON.stringify(architecture)));
   expect(failed.usage.stages[0].usage.totalTokens).toBe(120);
@@ -50,7 +51,7 @@ describe('durable desktop observations and reported usage',()=>{
  });
  it('publishes inherited observations before advertising a resumed checkpoint, even if the task stops immediately',async()=>{
   const {dir,request}=await input();let count=0;
-  const failed=await runDesktopAiTask(request,()=>{},vi.fn(async()=>count++===0?reply(architecture):new Response('',{status:503})));
+  const failed=await runDesktopAiTask(request,()=>{},vi.fn(async(url:string)=>url.endsWith('/endpoints')?capability():count++===0?reply(architecture):new Response('',{status:503})));
   let checkpoint='';const fetcher=vi.fn();
   await expect(runDesktopAiTask({...request,op:'resume-reconstruction',checkpointPath:failed.checkpointPath,outputDirectory:path.join(dir,'interrupted-copy')},(e:any)=>{if(e.checkpoint){checkpoint=e.checkpoint;throw new Error('Synthetic stop at publication');}},fetcher)).rejects.toThrow('Synthetic stop');
   expect(fetcher).not.toHaveBeenCalled();
@@ -61,7 +62,7 @@ describe('durable desktop observations and reported usage',()=>{
  it('reassembles offline after a real output-write failure, with both observations retained and zero new requests',async()=>{
   const {dir,request}=await input();const fetcher=normal();
   const failed=await runDesktopAiTask(request,(e:any)=>{if(e.phase==='Assembling the editable Project…')mkdirSync(path.join(request.outputDirectory,'project.json'));},fetcher);
-  expect(failed.ok).toBe(false);expect(fetcher).toHaveBeenCalledTimes(2);
+  expect(failed.ok).toBe(false);expect(fetcher).toHaveBeenCalledTimes(3);
   const inspection=await runDesktopAiTask({op:'inspect-reconstruction',checkpointPath:failed.checkpointPath});expect(inspection.remainingRequests).toBe(0);
   const noFetch=vi.fn();const resumed=await runDesktopAiTask({op:'resume-reconstruction',checkpointPath:failed.checkpointPath,outputDirectory:path.join(dir,'offline')},()=>{},noFetch);
   expect(resumed.ok).toBe(true);expect(noFetch).not.toHaveBeenCalled();expect(resumed.cost).toBe(0);expect(resumed.usage.requestsStarted).toBe(0);
@@ -80,8 +81,8 @@ describe('durable desktop observations and reported usage',()=>{
   const fetcher=vi.fn();await expect(runDesktopAiTask(resume,()=>{},fetcher)).rejects.toThrow(/Saved task/);expect(fetcher).not.toHaveBeenCalled();
  });
  it('retains usage of a malformed model response without accepting it as a reusable observation',async()=>{
-  const {request}=await input();const fetcher=vi.fn(async()=>new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:'{invalid JSON'}}],usage:metrics})));
-  const failed=await runDesktopAiTask(request,()=>{},fetcher);expect(failed.ok).toBe(false);expect(fetcher).toHaveBeenCalledTimes(1);
+  const {request}=await input();const fetcher=vi.fn(async(url:string)=>url.endsWith('/endpoints')?capability():new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:'{invalid JSON'}}],usage:metrics})));
+  const failed=await runDesktopAiTask(request,()=>{},fetcher);expect(failed.ok).toBe(false);expect(fetcher).toHaveBeenCalledTimes(2);
   expect(failed.usage.stages[0]).toMatchObject({status:'failed',usage:{inputTokens:100,outputTokens:20,totalTokens:120,cachedTokens:40,reasoningTokens:5,cost:.003}});
   expect(failed.usage.cost).toBe(.003);
   const inspect=await runDesktopAiTask({op:'inspect-reconstruction',checkpointPath:failed.checkpointPath});expect(inspect.remainingRequests).toBe(2);
@@ -95,7 +96,7 @@ describe('durable desktop observations and reported usage',()=>{
  });
  it('keeps new tasks independent and frozen prompts/geometry unchanged across a zero-call replay',async()=>{
   const {dir,request}=await input();const first=await runDesktopAiTask(request,()=>{},normal());const fresh=normal();
-  await runDesktopAiTask({...request,outputDirectory:path.join(dir,'fresh')},()=>{},fresh);expect(fresh).toHaveBeenCalledTimes(2);
+  await runDesktopAiTask({...request,outputDirectory:path.join(dir,'fresh')},()=>{},fresh);expect(fresh).toHaveBeenCalledTimes(3);
   const noFetch=vi.fn();await runDesktopAiTask({op:'resume-reconstruction',checkpointPath:first.checkpointPath,outputDirectory:path.join(dir,'replay')},()=>{},noFetch);
   expect(noFetch).not.toHaveBeenCalled();expect(JSON.parse(await readFile(path.join(dir,'replay/draft.json'),'utf8'))).toEqual(JSON.parse(await readFile(path.join(dir,'first/draft.json'),'utf8')));
   expect(await readFile(path.join(dir,'first/source-furnishing.json'))).toEqual(await readFile(path.join(dir,'replay/source-furnishing.json')));
@@ -112,5 +113,30 @@ describe('durable desktop observations and reported usage',()=>{
   const a=await runDesktopAiTask({op:'entrance',projectPath:file,floorId:floor.id,doorId:'door',side:'left'}),b=await runDesktopAiTask({op:'entrance',projectPath:file,floorId:floor.id,doorId:'door',side:'right'});
   const saved=JSON.parse(await readFile(a.projectPath,'utf8'));expect(saved.floors[1].walkthroughStart).toBeUndefined();expect(saved.floors[0].entrance).toEqual({doorId:'door',side:'left'});
   expect(a.projectPath).not.toBe(b.projectPath);expect(await readFile(file,'utf8')).toBe(bytes);
+ });
+ it('binds schema selection to checkpoints and resumes with the saved contract without another lookup',async()=>{
+  const {dir,request}=await input();let posts=0;
+  const first=vi.fn(async(url:string)=>url.endsWith('/endpoints')?new Response(JSON.stringify({data:{endpoints:[{supported_parameters:['response_format','structured_outputs']}]}})):posts++===0?reply(architecture):new Response('',{status:503}));
+  const failed=await runDesktopAiTask(request,()=>{},first);
+  expect(failed.ok).toBe(false);expect(failed.usage.requestsStarted).toBe(2);
+  const checkpoint=JSON.parse(await readFile(failed.checkpointPath,'utf8'));expect(checkpoint.observationContract.format).toBe('json_schema');
+  expect(failed.usage.stages[0].schemaBytes).toBeGreaterThan(0);
+  const resumedFetch=vi.fn(async(_url:string,_init:RequestInit)=>reply(furnishing));
+  const resumed=await runDesktopAiTask({...request,op:'resume-reconstruction',checkpointPath:failed.checkpointPath,outputDirectory:path.join(dir,'schema-resume')},()=>{},resumedFetch);
+  expect(resumed.ok).toBe(true);expect(resumedFetch).toHaveBeenCalledTimes(1);
+  const body=JSON.parse(resumedFetch.mock.calls[0][1]!.body as string);
+  expect(body.response_format.json_schema.name).toBe('plan2world_furnishing_v1');expect(body.provider.require_parameters).toBe(true);
+  checkpoint.observationContract.schemaSha256='0'.repeat(64);await writeFile(failed.checkpointPath,JSON.stringify(checkpoint));
+  const noFetch=vi.fn();await expect(runDesktopAiTask({...request,op:'resume-reconstruction',checkpointPath:failed.checkpointPath,outputDirectory:path.join(dir,'bad-schema')},()=>{},noFetch)).rejects.toThrow('Saved task observation schema');expect(noFetch).not.toHaveBeenCalled();
+ });
+ it('reads legacy checkpoints as JSON objects and never silently upgrades them',async()=>{
+  const {dir,request}=await input();let posts=0;
+  const failed=await runDesktopAiTask(request,()=>{},vi.fn(async(url:string)=>url.endsWith('/endpoints')?capability():posts++===0?reply(architecture):new Response('',{status:503})));
+  for(const name of ['checkpoint.json','architecture-freeze.json','architecture-started.json','furnishing-started.json']){
+   const file=path.join(request.outputDirectory,name),value=JSON.parse(await readFile(file,'utf8'));delete value.observationContract;await writeFile(file,JSON.stringify(value));
+  }
+  const resumedFetch=vi.fn(async(_url:string,_init:RequestInit)=>reply(furnishing));
+  const resumed=await runDesktopAiTask({...request,op:'resume-reconstruction',checkpointPath:failed.checkpointPath,outputDirectory:path.join(dir,'legacy')},()=>{},resumedFetch);
+  expect(resumed.ok).toBe(true);expect(resumedFetch).toHaveBeenCalledTimes(1);expect(JSON.parse(resumedFetch.mock.calls[0][1]!.body as string).response_format).toEqual({type:'json_object'});
  });
 });

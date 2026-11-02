@@ -5,6 +5,7 @@ import { reviewSourceTopology } from './sourceTopologyReview';
 import { analyzeFloor } from '$lib/utils/floorAnalysis';
 import { pointInPolygon } from '$lib/utils/hitTesting';
 import { projectOntoWall } from '$lib/utils/wallProjection';
+import { evaluateLogicalGeometry, preservesLogicalGeometry } from './logicalGeometryConstraints';
 
 export const FURNITURE_CLOSURE_POLICY = 'furniture-guided-local-closure-v1' as const;
 type Endpoint = { wallIndex: number; endpoint: 'start' | 'end' };
@@ -121,6 +122,8 @@ export function closeWallsWithFurniture(trace: SourceWallTraceV1, annotation: So
   let normalizationInput = copyTrace(trace), bareHouse = buildBareHouse(trace);
   const limit = Math.min(reviewSourceTopology(bareHouse, context).warningRadiusPx, bareHouse.maxJunctionDistancePx * 3);
   let metrics = evaluateClosure(bareHouse, annotation, context);
+  const positions = (annotation.furniture ?? []).map(f => f.position);
+  let constraints = positions.length ? evaluateLogicalGeometry(normalizationInput, annotation, context, positions).metrics : undefined;
   const initialMetrics = metrics, accepted: { candidate: Candidate; before: typeof metrics; after: typeof metrics }[] = [];
   const evaluated: { candidate: Candidate; status: string; metrics?: typeof metrics; reason?: string }[] = [];
   const maxTrials = options.maxTrials ?? 128;
@@ -128,7 +131,7 @@ export function closeWallsWithFurniture(trace: SourceWallTraceV1, annotation: So
   let trials = 0, ambiguousGroups = 0;
   if ((annotation.furniture?.length ?? 0) > 0) while (trials < maxTrials && accepted.length < 12) {
     const candidates = candidateConnections(normalizationInput, original, bareHouse, annotation, context, limit);
-    const viable: { candidate: Candidate; metrics: typeof metrics; trace: SourceWallTraceV1; house: BareHouseV1 }[] = [];
+    const viable: { candidate: Candidate; metrics: typeof metrics; trace: SourceWallTraceV1; house: BareHouseV1; constraints: NonNullable<typeof constraints> }[] = [];
     for (const candidate of candidates) {
       if (trials++ >= maxTrials) break;
       const trial = copyTrace(normalizationInput);
@@ -152,13 +155,16 @@ export function closeWallsWithFurniture(trace: SourceWallTraceV1, annotation: So
         });
         if (exceedsBound) { evaluated.push({ candidate, status: 'normalization-exceeds-original-endpoint-bound' }); continue; }
         const next = evaluateClosure(house, annotation, context);
+        const nextConstraints = evaluateLogicalGeometry(trial, annotation, context, positions).metrics;
+        const constraintFailure = preservesLogicalGeometry(constraints!, nextConstraints, true);
         const preservesAnchors = metrics.closedAnchors.every((closed, index) => !closed || next.closedAnchors[index]);
         const improves = next.furnishedRegionsWithEntrance > metrics.furnishedRegionsWithEntrance;
-        const valid = preservesAnchors && improves && next.openingCount === metrics.openingCount
+        const valid = preservesAnchors && improves && !constraintFailure
           && next.overlappingAnchorCount <= metrics.overlappingAnchorCount
           && next.furnishedRegionsWithoutEntrance <= metrics.furnishedRegionsWithoutEntrance;
-        evaluated.push({ candidate, status: valid ? 'eligible' : 'no-safe-furnished-closure-gain', metrics: next });
-        if (valid) viable.push({ candidate, metrics: next, trace: trial, house });
+        evaluated.push({ candidate, status: valid ? 'eligible' : 'no-safe-furnished-closure-gain', metrics: next,
+          ...(constraintFailure ? { reason: constraintFailure } : {}) });
+        if (valid) viable.push({ candidate, metrics: next, trace: trial, house, constraints: nextConstraints });
       } catch (error) {
         evaluated.push({ candidate, status: 'invalid-normalization-or-opening-hosts', reason: error instanceof Error ? error.message : String(error) });
       }
@@ -176,7 +182,7 @@ export function closeWallsWithFurniture(trace: SourceWallTraceV1, annotation: So
     });
     if (!best) break;
     accepted.push({ candidate: best.candidate, before: metrics, after: best.metrics });
-    normalizationInput = best.trace; bareHouse = best.house; metrics = best.metrics;
+    normalizationInput = best.trace; bareHouse = best.house; metrics = best.metrics; constraints = best.constraints;
   }
   return { bareHouse, review: { policy: FURNITURE_CLOSURE_POLICY, maxEndpointMovementPx: limit,
     furnitureAnchorCount: annotation.furniture?.length ?? 0, initialMetrics, finalMetrics: metrics,

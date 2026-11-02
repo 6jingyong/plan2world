@@ -11,14 +11,16 @@ export interface BareHouseBoundaryRef {
 
 export interface SourceWallTraceV1 {
   schemaVersion: typeof SOURCE_WALL_TRACE_VERSION;
-  walls: { start: DraftPoint; end: DraftPoint; curvePoint?: DraftPoint; boundaryType?: DraftWall['boundaryType'] }[];
+  walls: { start: DraftPoint; end: DraftPoint; curvePoint?: DraftPoint; boundaryType?: DraftWall['boundaryType'];
+    /** Program-derived logical envelope width, in SOURCE pixels, not model evidence. */
+    thicknessPx?: number }[];
   doorGaps?: { from: DraftPoint; to: DraftPoint }[];
 }
 
 export interface BareHouseV1 {
   schemaVersion: typeof BARE_HOUSE_VERSION;
   sourceSchemaVersion: typeof SOURCE_WALL_TRACE_VERSION;
-  walls: { id: string; start: DraftPoint; end: DraftPoint; curvePoint?: DraftPoint; boundaryType?: DraftWall['boundaryType'] }[];
+  walls: { id: string; start: DraftPoint; end: DraftPoint; curvePoint?: DraftPoint; boundaryType?: DraftWall['boundaryType']; thicknessPx?: number }[];
   enclosures: { id: string; boundary: BareHouseBoundaryRef[] }[];
   sourceWallMap: Record<string, string[]>;
   junctions: { walls: string[]; point: DraftPoint; residualPx: number }[];
@@ -26,6 +28,21 @@ export interface BareHouseV1 {
   snappedEndpointCount: number;
   maxJunctionDistancePx: number;
   limitation: string;
+}
+
+export interface WallGeometryConflict {
+  kind: 'duplicate' | 'overlap';
+  wallIds: string[];
+  sourceWallIds: string[];
+}
+
+/** Keep source identity available to correction without parsing error prose. */
+export class WallGeometryConflictError extends Error {
+  constructor(public conflicts: WallGeometryConflict[]) {
+    const first = conflicts[0];
+    super(`${first.kind === 'duplicate' ? 'Duplicate' : 'Overlapping'} normalized wall geometry: ${first.wallIds.join(' and ')}. Review overlapping source-wall evidence before annotation.`);
+    this.name = 'WallGeometryConflictError';
+  }
 }
 
 function record(value: unknown, path: string): Record<string, any> {
@@ -57,11 +74,14 @@ export function buildBareHouse(input: unknown): BareHouseV1 {
   if (!Array.isArray(trace.walls) || trace.walls.length === 0) throw new Error('trace.walls must be a non-empty array');
   const walls = trace.walls.map((raw: unknown, index: number) => {
     const item = record(raw, `trace.walls[${index}]`);
-    exactKeys(item, ['start', 'end', 'curvePoint', 'boundaryType'], `trace.walls[${index}]`);
+    exactKeys(item, ['start', 'end', 'curvePoint', 'boundaryType', 'thicknessPx'], `trace.walls[${index}]`);
     if (item.boundaryType !== undefined && !['solid', 'railing', 'air'].includes(item.boundaryType)) throw new Error('Unsupported boundary type');
+    if (item.thicknessPx !== undefined && finite(item.thicknessPx, 'thicknessPx') <= 0) throw new Error('thicknessPx must be positive');
     return {
       id: `w${index + 1}`,
       ...(item.boundaryType === undefined ? {} : { boundaryType: item.boundaryType }),
+      // The graph carries widths through splitting without interpreting units.
+      ...(item.thicknessPx === undefined ? {} : { thickness: item.thicknessPx }),
       start: point(item.start, `trace.walls[${index}].start`),
       end: point(item.end, `trace.walls[${index}].end`),
       ...(item.curvePoint === undefined ? {} : { curvePoint: point(item.curvePoint, `trace.walls[${index}].curvePoint`) }),
@@ -85,12 +105,15 @@ export function buildBareHouse(input: unknown): BareHouseV1 {
   // splitting. Reject that evidence before a second model pass or native room
   // conversion; do not silently discard a wall or repair the generated output.
   const geometryIds = new Map<string, string>();
+  const conflicts: WallGeometryConflict[] = [];
+  const conflict = (kind: WallGeometryConflict['kind'], wallIds: string[]) => conflicts.push({ kind, wallIds,
+    sourceWallIds: Object.entries(normalized.sourceWallMap).filter(([, ids]) => ids.some(id => wallIds.includes(id))).map(([id]) => id) });
   const pointKey = (point: DraftPoint) => `${Math.round(point.x * 1e6)},${Math.round(point.y * 1e6)}`;
   for (const wall of normalized.walls) {
     const ends = [pointKey(wall.start), pointKey(wall.end)].sort();
     const key = JSON.stringify([ends, wall.curvePoint ? pointKey(wall.curvePoint) : null]);
     const previous = geometryIds.get(key);
-    if (previous) throw new Error(`Duplicate normalized wall geometry: ${previous} and ${wall.id}. Review overlapping source-wall evidence before annotation.`);
+    if (previous) conflict('duplicate', [previous, wall.id]);
     geometryIds.set(key, wall.id);
   }
   // Collinear source runs can overlap only partly when no third wall splits the
@@ -105,7 +128,9 @@ export function buildBareHouse(input: unknown): BareHouseV1 {
     if (offsets.some(point => Math.abs(dx * point.y - dy * point.x) / length > 1e-6)) continue;
     const positions = offsets.map(point => (dx * point.x + dy * point.y) / length);
     const overlap = Math.min(length, Math.max(...positions)) - Math.max(0, Math.min(...positions));
-    if (overlap > 1e-6) throw new Error(`Overlapping normalized wall geometry: ${a.id} and ${b.id}. Review shared source-wall evidence before annotation.`);
+    if (overlap > 1e-6 && !conflicts.some(c => c.wallIds.includes(a.id) && c.wallIds.includes(b.id))) conflict('overlap', [a.id, b.id]);
   }
-  return { schemaVersion: BARE_HOUSE_VERSION, sourceSchemaVersion: SOURCE_WALL_TRACE_VERSION, ...normalized };
+  if (conflicts.length) throw new WallGeometryConflictError(conflicts);
+  return { schemaVersion: BARE_HOUSE_VERSION, sourceSchemaVersion: SOURCE_WALL_TRACE_VERSION, ...normalized,
+    walls: normalized.walls.map(({ thickness, ...wall }) => ({ ...wall, ...(thickness === undefined ? {} : { thicknessPx: thickness }) })) };
 }

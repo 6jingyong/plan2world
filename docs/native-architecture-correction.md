@@ -18,7 +18,7 @@ operational errors.
 
 Use **Correct walls and openings…** from the scene menu, **Fix plan…** from plan view,
 or **Correct annotated plan…** after desktop reconstruction. The native correction
-window has Walls, Openings, Notes and Start tabs over the retained source image:
+window has Walls, Openings, Notes, Start and Checks tabs over the retained source image:
 
 If opening a valid Project for arrangement fails a geometry/entrance check, the
 scene menu offers **Open this Project for correction…** for that exact file.
@@ -118,3 +118,31 @@ use the shared core, and acceptance runs the full compiler again. Invalid openin
 remain unconfirmed, with the previous world and Project retained. Ground and
 aperture geometry rebuild the derived world; appearance-only changes retain
 existing player and door state. Source-error correction remains separately editable.
+
+## Current door geometry checks
+
+`nativeArchitectureEditor` exposes read-only `currentChecks` separately from the
+retained source `issues`. Reuse compiled wall and door boxes, full native closed
+poses, and explicit swing/slide contracts. Locate positive-volume overlaps with
+other walls and closed doors; sample prescribed motion at 1°/1cm. Respect the
+same connected-host exclusion as the engine and ignore locomotion-only perimeter
+guards. This scope excludes furniture, columns, simultaneous leaf motion and
+continuous engine sweeps. It is not a source or full door-motion acceptance test.
+
+The native Checks tab and brown markers link to ordinary opening controls.
+Findings recalculate after an edit/reopen; they cannot be acknowledged away or
+stored as historical source observations. Nothing repairs or narrows an opening,
+selects a swing side, reserves its sweep, or changes runtime artifacts. Original
+Notes and their explicit acknowledgement remain separate. Unsupported motion,
+the 250,000 pair-test budget and invalid/uncompiled apertures retain incomplete
+status, scoped to each floor. Unchecked geometry never receives a clear verdict.
+
+Native wall/opening updates accept partial fields and point components. Godot
+submits only deliberate changes, so untouched values stay in the shared core
+without a GUI parse/serialize round-trip (which can differ by one ULP). Full
+legacy update commands remain compatible.
+
+Native editing and optional authoring IPC also use full-precision JSON doubles.
+Transporting an unchanged 17-digit position during a height/width edit must not
+round it. Canonical saving still copies the shared core's Project; Godot does not
+reserialize authoring truth. The native regression exercises a 17-digit fixture.

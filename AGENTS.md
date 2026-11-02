@@ -58,6 +58,63 @@ Plan2World turns a floor-plan raster into an editable browser home and an engine
 
 Core rule: **LLM observes; programs calculate and assemble.**
 
+### Optional visual feedback experiment
+
+The user now explicitly authorizes a bounded visual/logic feedback study. Original
+observations remain immutable, while a new local interpretation may retract an
+initial accept with contrary image evidence. Use the optional correction feedback
+entry, retain alternatives/unknown and regenerate a NEW stage through the shared
+core. Never patch a frozen stage/draft or choose by warning reduction alone.
+Default browser/desktop calls remain two observations; only an explicit reviewer
+callback enables one extra batch. Compare ordinary/guided views at equal image
+budgets, retain negative arms and distinguish source ambiguity, method/context,
+program/contract and model-capability hypotheses. A single failure or an offline
+fixture does not establish model limitations. See `docs/visual-feedback.md`.
+
+The subsequent user instruction authorizes continued experiments without obvious
+regression. An explicit architecture-and-furnishing support-review scope may use
+compiler-owned point-support findings to reconsider only pinned conflicted source
+furniture. Contrary visual evidence may retract a false object or correct its
+observed point/category in a NEW interpretation. Keep the first furnishing,
+retracted records and source-index mapping; rerun the same closure/assembly.
+Never relocate to a nearby floor, infer a slab or remove a visible object merely
+to pass. Newly unsupported anchors or incomplete checks prevent automatic use.
+Ordinary two-pass reconstruction and architecture-only feedback remain unchanged.
+
+An explicit `architecture-and-door-motion` feedback scope may locate closed-leaf
+and sampled-motion conflicts using compiler primitives and exact source-feature
+ownership. Collision is a question, not contrary visual evidence: default motion
+or frame representation may be responsible. Preserve unconfirmed source geometry;
+never shrink apertures or choose swing direction to clear a check. Candidate
+reprojection must retain checks for every accepted source door; newly introduced
+source-owned conflicts, unassembled doors, incomplete checks or unmapped ownership
+prevent automatic application. This remains one optional batch, not a desktop
+provider retry or an engine/walkthrough acceptance.
+
+### Logical equivalence before construction facts
+
+The user explicitly prioritizes usable closure over deciding what a source wall
+really represents. Close parallel runs may become one effective thick wall even
+if they depict separate structural walls or a pipe chase. Do not require an LLM
+or human construction-fact confirmation for this equivalence.
+
+After furnishing freezes, shared authoring code may derive a bounded solid
+envelope, continue its local junctions and project contained openings before final
+closure/freeze. Preserve original observations and many-to-one wall provenance.
+Accept using native enclosure, functional-separation, anchor, aperture-width and
+doorway-clearance constraints. Protect traversable strips and explicit functional
+passages; preserve air/railing boundaries and legacy curves. This is distinct from
+the still-disabled whole-image raster fitting and never consumes read-only fitted
+lines. See [logical wall abstraction](docs/logical-wall-abstraction.md).
+
+Furniture and accepted/pending functional-use marks inside a candidate strip
+protect it BEFORE native before/after comparisons, even if an existing bad wall
+already covers the mark. A labelled narrow arm can be protected by its opposing
+functional boundaries without its seed lying there. Pending evidence stays
+pending; protection does not accept a room or source decision. Preserve observed
+transverse access even without a current native host. Absence of furniture alone
+does not authorize erasing a passage, nor does each furniture group require walls.
+
 ### Annotated native correction
 
 The user now prefers source problems as located review notes, followed by manual
@@ -117,6 +174,8 @@ An aperture-only host hypothesis needs actual source confirmation and spans only
 the accepted aperture. No native IDs or host matching are reviewer responsibilities.
 Default browser/desktop callers have no reviewer and no extra paid request.
 See [source recovery](docs/source-recovery.md).
+
+Correction-only partial import may retain individually validated openings and furniture after a failed source stage. Preserve disputed walls and block dependent/ambiguous apertures; do not run closure or invent rooms on incomplete evidence. Structured diagnostics and checkpoint-bound provider schemas are authoring-only. See [source reliability](docs/source-reliability.md).
 
 ## Furnished-space enclosure prior
 
@@ -191,13 +250,24 @@ Never compensate for a deterministic bug with prompt instructions. Never hand-ed
 
 ## Fresh validation
 
+Primary reconstruction validation now starts with clean, CAD-like architectural
+plans: crisp consistent strokes, sparse unobscuring labels, readable boundaries
+and apertures, and no obvious internally contradictory annotations. Concave,
+oblique, multi-room and furnished plans remain eligible; clean does not mean
+simple. Screen/freeze eligibility from the raster BEFORE extraction and keep
+every admitted failure in the result. Hand sketches, poor scans, known annotation
+contradictions and simplified visitor diagrams are secondary/deferred cases;
+retain their evidence/regressions without using them as the main quality gate.
+This is a validation priority, not a production image-upload rejection rule.
+See `docs/clean-plan-validation.md` and the identity-only clean-source manifest.
+
 Every image-quality rerun starts from the original raster and a new ignored directory:
 
 `.plan2world-validation/runs/<run-id>/<sample-id>/`
 
 Do not use an older run as input. Do not write generated wall traces, annotations, drafts, overlays or reports under `tests/fixtures`.
 
-`tests/fixtures/real-floorplans/reconstruction-corpus/manifest.json` contains source identity only. Human source references live separately under `tests/evaluation/plan2world/source-references/` and may be read only after the fresh wall evidence, Bare House, annotations, draft and source overlay are generated and frozen.
+`tests/fixtures/real-floorplans/web-source-manifest.json` contains public source identity and attribution only. Human source references live separately under `tests/evaluation/plan2world/source-references/` and may be read only after the fresh wall evidence, Bare House, annotations, draft and source overlay are generated and frozen. Missing independent references remain `not_run`.
 
 Historical runs and development diaries belong in Git history, not the active tree.
 Per user instruction, retain the compact versioned experiment ledger at

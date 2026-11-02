@@ -2,6 +2,7 @@ import {describe,it,expect,vi} from 'vitest';
 import {reconstructFloorPlanForCorrection} from '$lib/plan2world/correction';
 import {readProject} from '$lib/utils/projectValidation';
 import {encodeRgbaPng} from '../tooling/png-raster.mjs';
+import {parseSourceArchitecture} from '$lib/plan2world/architecture';
 
 const p=(x:number,y:number)=>({x,y}),e={decision:'accept',evidence:'Synthetic line',decisionBasis:'Synthetic observation'};
 const architecture=()=>({schemaVersion:'source-architecture-v1',scaleEvidence:{kind:'provided_length',realLengthCm:600,endpoints:[p(0,0),p(100,0)],evidence:'Synthetic scale'},
@@ -52,5 +53,58 @@ describe('annotated source correction without another model call',()=>{
     const a=architecture();(a.walls[0] as any).wallId='invalid-provider-native-field';
     const out=await reconstructFloorPlanForCorrection(vi.fn().mockResolvedValueOnce(a).mockResolvedValueOnce(furnishing),source());
     expect(out.project.floors[0].walls).toHaveLength(3);expect(out.project.architectureReview!.sourceObservations).toContain('invalid-provider-native-field');
+  });
+  it('isolates an illegal door kind and retains independently validated doors and windows without making a draft',async()=>{
+    const a:any=architecture();a.openings.push({...a.openings[0],label:'window',kind:'window',endpoints:[p(100,20),p(100,40)]},
+      {...a.openings[0],label:'bad door',kind:'sliding-door',endpoints:[p(60,100),p(80,100)]});
+    const original=JSON.stringify(a),observe=vi.fn().mockResolvedValueOnce(a).mockResolvedValueOnce(furnishing);
+    expect(()=>parseSourceArchitecture(a)).toThrow('kind must be door/window');
+    const out=await reconstructFloorPlanForCorrection(observe,source());
+    expect(out.partialImport).toBe(true);expect(out.draft).toBeUndefined();expect(out.project.floors[0].rooms).toHaveLength(0);
+    expect(out.project.floors[0].doors).toHaveLength(1);expect(out.project.floors[0].windows).toHaveLength(1);
+    expect(out.project.reconstruction!.assumptions.some(a=>a.includes('door operation is unresolved'))).toBe(true);
+    expect(out.diagnostics.filter(d=>d.category==='root')).toHaveLength(1);
+    expect(out.features.filter(f=>f.kind==='opening').map(f=>f.status)).toEqual(['retained','retained','invalid']);
+    expect(out.features.filter(f=>f.kind==='opening').map(f=>f.hostAssessed===true)).toEqual([true,true,false]);
+    expect(out.project.architectureReview!.sourceObservations).toContain(original);expect(JSON.stringify(a)).toBe(original);
+    expect(observe).toHaveBeenCalledTimes(2);expect(out.audit.reviewCount).toBe(0);
+    expect(readProject(JSON.parse(JSON.stringify(out.project))).architectureReview).toEqual(out.project.architectureReview);
+  });
+  it('keeps disputed walls visible and isolates only dependent apertures',async()=>{
+    const a:any=architecture();a.walls.push({...a.walls[0],label:'disputed',start:p(0,1),end:p(100,1)});
+    a.openings.push({...a.openings[0],label:'independent',endpoints:[p(100,25),p(100,45)]});
+    const out=await reconstructFloorPlanForCorrection(vi.fn().mockResolvedValueOnce(a).mockResolvedValueOnce(furnishing),source());
+    expect(out.project.floors[0].walls).toHaveLength(5);expect(out.project.floors[0].doors).toHaveLength(1);
+    expect(out.features.find(f=>f.path==='openings[0]')).toMatchObject({status:'blocked',hostAssessed:false});
+    expect(out.features.find(f=>f.path==='openings[1]')).toMatchObject({status:'retained',hostAssessed:true});
+    const blocked=out.diagnostics.find(d=>d.code==='opening-blocked')!;
+    expect(blocked.category).toBe('blocked');expect(blocked.blockedBy.length).toBeGreaterThan(0);
+    expect(blocked.blockedBy.every(id=>out.diagnostics.some(d=>d.id===id&&d.code==='wall-overlap'))).toBe(true);
+  });
+  it('does not allow partial zone or furnishing failures to remove independently valid features',async()=>{
+    const a:any=architecture();a.functionalZones=[{...e,label:'bad zone',category:'living',environment:'indoor',position:p(50,50),boundary:[]}];
+    const f={...furnishing,furniture:[...furnishing.furniture,{sourceCategory:'invented-cat',position:p(25,25)}]};
+    const out=await reconstructFloorPlanForCorrection(vi.fn().mockResolvedValueOnce(a).mockResolvedValueOnce(f),source());
+    expect(out.project.floors[0].doors).toHaveLength(1);expect(out.project.floors[0].furniture).toHaveLength(1);expect(out.project.floors[0].rooms).toHaveLength(0);
+    expect(out.diagnostics.filter(d=>d.code==='invalid-record').map(d=>d.sourcePaths[0])).toEqual(['functionalZones[0]','furniture[1]']);
+  });
+  it('blocks ambiguous doors and overlapping apertures in a partial projection',async()=>{
+    const a:any=architecture();a.walls.push({...a.walls[0],start:p(0,6),end:p(100,6)});
+    a.openings[0].endpoints=[p(20,3),p(40,3)];a.openings.push({...a.openings[0],kind:'invalid'});
+    const out=await reconstructFloorPlanForCorrection(vi.fn().mockResolvedValueOnce(a).mockResolvedValueOnce(furnishing),source());
+    expect(out.project.floors[0].doors).toHaveLength(0);expect(out.diagnostics.some(d=>d.code==='ambiguous-host')).toBe(true);
+    a.openings[0].endpoints=[p(20,0),p(40,0)];a.openings.push({...a.openings[0],label:'overlapping',endpoints:[p(30,0),p(50,0)]});
+    const overlap=await reconstructFloorPlanForCorrection(vi.fn().mockResolvedValueOnce(a).mockResolvedValueOnce(furnishing),source());
+    expect(overlap.project.floors[0].doors).toHaveLength(0);expect(overlap.diagnostics.some(d=>d.code==='overlapping-apertures')).toBe(true);
+  });
+  it('keeps unknown wall impact global and rejects bad scale or source identity',async()=>{
+    const a:any=architecture();a.walls.push({...a.walls[0],start:{x:'unknown',y:0}});
+    const out=await reconstructFloorPlanForCorrection(vi.fn().mockResolvedValueOnce(a).mockResolvedValueOnce(furnishing),source());
+    expect(out.project.floors[0].walls).toHaveLength(4);expect(out.project.floors[0].doors).toHaveLength(0);
+    expect(out.features.find(f=>f.kind==='opening')).toMatchObject({status:'blocked',hostAssessed:false});
+    a.scaleEvidence.realLengthCm=-1;
+    const invalid=await reconstructFloorPlanForCorrection(vi.fn().mockResolvedValueOnce(a).mockResolvedValueOnce(furnishing),source());
+    expect(invalid.project.floors[0].walls).toHaveLength(0);expect(invalid.diagnostics.some(d=>d.code==='unknown-scale')).toBe(true);
+    await expect(reconstructFloorPlanForCorrection(vi.fn().mockResolvedValueOnce(architecture()),{...source(),sha256:'wrong'})).rejects.toThrow('SHA-256');
   });
 });

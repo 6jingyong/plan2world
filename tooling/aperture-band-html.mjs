@@ -1,0 +1,29 @@
+/** @param {{source:{dataUrl:string,width:number,height:number},observations:any,review:any}} data */
+export function apertureBandHtml(data) {
+  const payload = JSON.stringify(data).replace(/</g, '\\u003c');
+  return `<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>门窗与墙带诊断</title>
+<style>body{font:15px system-ui;background:#f5f6f8;color:#193047;margin:24px}main{max-width:1400px;margin:auto}select,button{font:inherit;padding:8px;margin:6px 6px 6px 0}canvas{display:block;width:100%;height:auto;max-height:600px;object-fit:contain;background:white;border:1px solid #b5c1cb}section{background:white;padding:16px;margin:16px 0}table{border-collapse:collapse}td,th{border:1px solid #ccd3dc;padding:8px;text-align:left}.warning{color:#98570b}#detail{image-rendering:pixelated;max-height:400px}</style>
+<main><h1>门窗与墙带诊断<span class="warning"> · 未应用</span></h1><p>橙色为局部墙带假设，蓝色为冻结源观察中的墙线，绿色为冻结门窗位置。原工程及其后续人工修改保持不变。局部线条相似不能证明它一定是墙或门窗。</p><p id="summary"></p>
+<select id="opening" aria-label="选择门窗记录"></select><button id="original">仅原图</button><button id="overlay">显示观察与未应用候选</button><canvas id="overview" aria-label="完整原图与诊断"></canvas>
+<section><h2 id="label"></h2><canvas id="detail" aria-label="局部原像素与候选"></canvas><p id="status"></p><table id="metrics"></table><p id="reason"></p></section></main>
+<script id="data" type="application/json">${payload}</script><script>
+const data=JSON.parse(document.getElementById('data').textContent),r=data.review,select=document.getElementById('opening'),img=new Image();let overlays=true;
+const count=status=>r.audits.filter(a=>a.status===status).length;document.getElementById('summary').textContent='开口 '+r.audits.length+'；未应用墙带候选 '+count('unapproved-wall-band')+'；多解 '+count('ambiguous-wall-bands')+'；证据不足 '+count('insufficient-evidence')+'；非法记录 '+count('invalid-observation')+'。没有执行自动修墙、宿主改绑或模型修复请求。';
+for(const [i,a]of r.audits.entries()){const o=document.createElement('option');o.value=String(i);o.textContent=a.sourcePath+' · '+a.label+' · '+a.status;select.append(o);}select.value=String(Math.max(0,r.audits.findIndex(a=>a.status==='unapproved-wall-band')));
+const finite=p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.y);
+function draw(canvas,box,a){canvas.width=Math.ceil(box.w);canvas.height=Math.ceil(box.h);const c=canvas.getContext('2d');c.clearRect(0,0,canvas.width,canvas.height);c.drawImage(img,box.x,box.y,box.w,box.h,0,0,box.w,box.h);if(!overlays)return;
+const path=(points,color,width,closed=false)=>{if(!points.every(finite))return;c.strokeStyle=color;c.lineWidth=width;c.beginPath();points.forEach((p,i)=>i?c.lineTo(p.x-box.x,p.y-box.y):c.moveTo(p.x-box.x,p.y-box.y));if(closed){c.closePath();c.fillStyle='#ef9c242e';c.fill();}c.stroke();};
+for(const w of data.observations.walls||[])if(w.decision==='accept'&&finite(w.start)&&finite(w.end)){if(w.curvePoint&&finite(w.curvePoint)){c.strokeStyle='#1670bf';c.lineWidth=2;c.beginPath();c.moveTo(w.start.x-box.x,w.start.y-box.y);c.quadraticCurveTo(w.curvePoint.x-box.x,w.curvePoint.y-box.y,w.end.x-box.x,w.end.y-box.y);c.stroke();}else path([w.start,w.end],'#1670bf',2);}
+if(a){for(const band of a.candidates){path(band.polygon,'#e89300',2,true);if(a.endpoints?.length===2){const [p,q]=a.endpoints,len=Math.hypot(q.x-p.x,q.y-p.y),ux=(q.x-p.x)/len,uy=(q.y-p.y)/len;const at=(t,n)=>({x:p.x+ux*t-uy*n,y:p.y+uy*t+ux*n});for(const t of band.jambPositionsPx||[])path([at(t,band.low),at(t,band.high)],'#b15b00',2);}}if(a.endpoints)path(a.endpoints,'#008c55',4);}}
+function show(){const a=r.audits[Number(select.value)];draw(document.getElementById('overview'),{x:0,y:0,w:data.source.width,h:data.source.height},a);
+const points=a?.endpoints||[],pad=points.length===2?Math.min(110,Math.max(24,Math.hypot(points[1].x-points[0].x,points[1].y-points[0].y)*.6)):30;
+const x=points.length?Math.max(0,Math.min(...points.map(p=>p.x))-pad):0,y=points.length?Math.max(0,Math.min(...points.map(p=>p.y))-pad):0;
+const right=points.length?Math.min(data.source.width,Math.max(...points.map(p=>p.x))+pad):data.source.width,bottom=points.length?Math.min(data.source.height,Math.max(...points.map(p=>p.y))+pad):data.source.height;
+draw(document.getElementById('detail'),{x,y,w:Math.max(1,right-x),h:Math.max(1,bottom-y)},a);
+document.getElementById('label').textContent=a?a.sourcePath+' · '+a.label:'没有可检查的门窗';document.getElementById('status').textContent=a?'诊断：'+a.status+'；原始墙线匹配（非工程验收）：'+(a.existingHostStatus||'未检查'):'';
+document.getElementById('reason').textContent=(a?.reason||'')+' '+r.limitation;const table=document.getElementById('metrics');table.replaceChildren();
+for(const t of a?.thresholds||[]){const tr=document.createElement('tr');for(const v of ['对比度 '+t.contrast,'两侧轮廓段 '+t.faceRuns.length,'满足局部证据的墙带 '+t.bands.length,t.truncated?'候选过多，未判断':(t.rejectedBands||[]).flatMap(b=>b.reasons).filter((s,i,a)=>a.indexOf(s)===i).join(', ')]){const td=document.createElement('td');td.textContent=v;tr.append(td);}table.append(tr);}
+for(const b of a?.candidates||[]){const tr=document.createElement('tr');const length=a.endpoints?Math.hypot(a.endpoints[1].x-a.endpoints[0].x,a.endpoints[1].y-a.endpoints[0].y):0;for(const v of ['未应用：'+b.style,b.interpretation,'门窗到墙带中部距离 '+b.midpointResidualPx.toFixed(2)+' px',b.wallRelations.map(w=>w.sourcePath+' '+w.relation).join(', '),'框边相对原两端偏移 '+b.jambPositionsPx[0].toFixed(1)+' / '+(b.jambPositionsPx[1]-length).toFixed(1)+' px']){const td=document.createElement('td');td.textContent=v;tr.append(td);}table.append(tr);}}
+select.addEventListener('change',show);document.getElementById('original').addEventListener('click',()=>{overlays=false;show();});document.getElementById('overlay').addEventListener('click',()=>{overlays=true;show();});img.onload=show;img.src=data.source.dataUrl;
+</script></html>`;
+}

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createHash } from 'node:crypto';
-import { authorizeOpenRouter, connectOpenRouter, observeOpenRouter } from '../tooling/desktop-openrouter.mjs';
+import { authorizeOpenRouter, connectOpenRouter, observeOpenRouter, resolveObservationContract, makeObservationContract } from '../tooling/desktop-openrouter.mjs';
+import { observationResponseSchema } from '$lib/plan2world/observationSchema';
 
 const key = 'fixture-only-key';
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
@@ -88,5 +89,37 @@ describe('native desktop OpenRouter account boundary', () => {
     const fetcher = vi.fn(async () => json({ choices:[{finish_reason:'length',message:{content:key}}] }));
     await expect(observeOpenRouter({apiKey:key,model:'vision/b'},{dataUrl:'data:image/png;base64,aA=='},'Observe',fetcher)).rejects.toThrow('did not complete');
     expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+  it.each([['supported',['response_format','structured_outputs'],'json_schema'],['partial',['response_format'],'json_object'],['unknown',null,'json_object']] as const)('selects the %s endpoint contract before paid work',async(_name,parameters,format)=>{
+    const fetcher=vi.fn(async(_url:string,_init:RequestInit)=>json({data:{endpoints:parameters?[{supported_parameters:parameters}]:[]}}));
+    const contract=await resolveObservationContract({apiKey:key,model:'vision/b'},fetcher);
+    expect(contract.format).toBe(format);expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(fetcher.mock.calls[0][0]).toBe('https://openrouter.ai/api/v1/models/vision/b/endpoints');
+    expect(fetcher.mock.calls[0][1]?.method).toBe('GET');
+  });
+  it('falls back only before inference when capability lookup fails',async()=>{
+    const fetcher=vi.fn(async()=>json({},503));
+    expect((await resolveObservationContract({apiKey:key,model:'vision/b'},fetcher)).format).toBe('json_object');
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+  it('sends the stage schema with required-parameter routing and never retries rejected paid schemas',async()=>{
+    const fetcher=vi.fn(async(_url:string,_init:RequestInit)=>json({},400)),contract=makeObservationContract('json_schema');
+    await expect(observeOpenRouter({apiKey:key,model:'vision/b',observationStage:'architecture',observationContract:contract},{dataUrl:'data:image/png;base64,aA=='},'Observe',fetcher)).rejects.toThrow('HTTP 400');
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(fetcher.mock.calls[0][1]!.body as string)).toMatchObject({response_format:{type:'json_schema',json_schema:observationResponseSchema('architecture')},provider:{require_parameters:true}});
+    const tampered={...contract,schemaSha256:'0'.repeat(64)};
+    await expect(observeOpenRouter({apiKey:key,model:'vision/b',observationStage:'furnishing',observationContract:tampered},{dataUrl:'data:image/png;base64,aA=='},'Observe',fetcher)).rejects.toThrow('schema changed');
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+  it('uses strict object variants, finite pixel numbers, exact opening kinds and the current furniture vocabulary',()=>{
+    function inspect(value:any){
+      if(value?.type==='object'){expect(value.additionalProperties).toBe(false);expect(value.required).toEqual(Object.keys(value.properties));}
+      if(Array.isArray(value))value.forEach(inspect);else if(value&&typeof value==='object')Object.values(value).forEach(inspect);
+    }
+    for(const stage of ['architecture','furnishing'] as const)inspect(observationResponseSchema(stage).schema);
+    const architecture=observationResponseSchema('architecture').schema;
+    expect(architecture.properties.openings.items.anyOf.every((s:any)=>s.properties.kind.enum.every((k:string)=>['door','window'].includes(k)))).toBe(true);
+    expect(JSON.stringify(architecture)).not.toContain('curvePoint');expect(JSON.stringify(architecture)).not.toContain('"null"');
+    expect(observationResponseSchema('furnishing').schema.properties.furniture.items.properties.sourceCategory.enum).toContain('chair');
   });
 });

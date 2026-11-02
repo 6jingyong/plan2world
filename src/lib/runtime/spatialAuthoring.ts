@@ -42,12 +42,14 @@ export function spatialAuthoringPreview(input:unknown, request:SpatialRequest) {
   let outline:Point[]=[];
   let center:Point|undefined;
   if(command.type==='opening-add'||command.type==='opening-update') {
-    const floor=edited.project.floors.find(f=>f.id===command.floorId)!,wall=floor.walls.find(w=>w.id===command.wallId)!;
-    const profile=wallPathProfile(wall),distance=profile.distanceAt(command.position);
-    center=wallPointAt(wall,command.position);
+    const floor=edited.project.floors.find(f=>f.id===command.floorId)!;
+    const opening=[...floor.doors,...floor.windows].find(o=>o.id===edited.selectedId)!;
+    const wall=floor.walls.find(w=>w.id===opening.wallId)!;
+    const profile=wallPathProfile(wall),distance=profile.distanceAt(opening.position);
+    center=wallPointAt(wall,opening.position);
     // Sample the actual path, retaining curved walls and its native distance scale.
     const atDistance=(target:number)=>{let lo=0,hi=1;for(let i=0;i<40;i++){const t=(lo+hi)/2;if(profile.distanceAt(t)<target)lo=t;else hi=t;}return wallPointAt(wall,(lo+hi)/2);};
-    outline=Array.from({length:17},(_,i)=>atDistance(distance-command.width/2+command.width*i/16));
+    outline=Array.from({length:17},(_,i)=>atDistance(distance-opening.width/2+opening.width*i/16));
   }else if(command.type==='floor-area-add'||command.type==='floor-area-update')outline=command.points;
   return {command,outline,...(center?{center}:{}),selectedId:edited.selectedId,valid:true};
 }

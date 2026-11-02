@@ -1,6 +1,7 @@
 import { randomBytes, createHash, timingSafeEqual } from 'node:crypto';
 import { createServer } from 'node:http';
 import { observationUsage } from './observation-usage.mjs';
+import { observationResponseSchema } from '../src/lib/plan2world/observationSchema';
 
 const api = 'https://openrouter.ai/api/v1';
 const jsonLimit = 24 * 1024 * 1024;
@@ -96,12 +97,47 @@ export async function authorizeOpenRouter(onAuthorize, fetcher = fetch, signal, 
   }
 }
 
-/** @param {{apiKey:string,model:string}} config @param {{dataUrl:string}} image
+/** Resolve once per task, before paid observation. Unknown capabilities retain
+ * the legacy contract; a paid failure never triggers an automatic second call.
+ * @param {{apiKey:string,model:string}} config @param {ProviderFetch} [fetcher] */
+export async function resolveObservationContract(config, fetcher = fetch) {
+  let supported = false;
+  try {
+    const modelPath = config.model.trim().split('/').map(encodeURIComponent).join('/');
+    const result = await openRouterRequest(`models/${modelPath}/endpoints`, config.apiKey, null, fetcher, AbortSignal.timeout(10_000));
+    supported = Array.isArray(result?.data?.endpoints) && result.data.endpoints.some((/** @type {any} */ e) =>
+      Array.isArray(e.supported_parameters) && e.supported_parameters.includes('structured_outputs') && e.supported_parameters.includes('response_format'));
+  } catch { /* Capability lookup is optional, never a paid retry. */ }
+  return makeObservationContract(supported ? 'json_schema' : 'json_object');
+}
+
+/** Versioned request semantics, deliberately independent of Project/runtime.
+ * @param {'json_schema'|'json_object'} format */
+export function makeObservationContract(format) {
+  if (!['json_schema', 'json_object'].includes(format)) throw new Error('Saved task response format is unsupported. No request was sent.');
+  const schemas = format === 'json_schema' ? {
+    architecture: observationResponseSchema('architecture'), furnishing: observationResponseSchema('furnishing'),
+  } : null;
+  return { version: 'plan2world-observation-request-v1', format, schemaSha256: schemas ? createHash('sha256').update(JSON.stringify(schemas)).digest('hex') : null };
+}
+
+/** @param {ReturnType<typeof makeObservationContract>} contract @param {'architecture'|'furnishing'} stage */
+export function observationSchemaBytes(contract, stage) {
+  return contract.format === 'json_schema' ? Buffer.byteLength(JSON.stringify(observationResponseSchema(stage))) : 0;
+}
+
+/** @param {{apiKey:string,model:string,observationStage?:'architecture'|'furnishing',observationContract?:ReturnType<typeof makeObservationContract>}} config @param {{dataUrl:string}} image
  * @param {string} prompt @param {ProviderFetch} [fetcher] */
 export async function observeOpenRouter(config, image, prompt, fetcher = fetch, onResponse = async (/** @type {any} */ _response) => {}) {
   if (!config.apiKey || !config.model?.trim()) throw new Error('Connect OpenRouter and select a vision model first.');
+  const contract = config.observationContract ?? makeObservationContract('json_object');
+  if (JSON.stringify(contract) !== JSON.stringify(makeObservationContract(contract.format))) throw new Error('Saved task observation schema changed. No request was sent.');
+  if (contract.format === 'json_schema' && !config.observationStage) throw new Error('An observation stage is required for structured output.');
+  const responseFormat = contract.format === 'json_schema'
+    ? { type: 'json_schema', json_schema: observationResponseSchema(/** @type {'architecture'|'furnishing'} */ (config.observationStage)) } : { type: 'json_object' };
   const result = await openRouterRequest('chat/completions', config.apiKey, {
-    model: config.model.trim(), stream: false, response_format: { type: 'json_object' },
+    model: config.model.trim(), stream: false, response_format: responseFormat,
+    ...(contract.format === 'json_schema' ? { provider: { require_parameters: true } } : {}),
     messages: [{ role: 'user', content: [{ type: 'image_url', image_url: { url: image.dataUrl } }, { type: 'text', text: prompt }] }],
   }, fetcher);
   const choice = result?.choices?.[0];

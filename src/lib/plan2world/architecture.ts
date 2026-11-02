@@ -7,6 +7,7 @@ import { rasterSamplingBounds } from './rasterBackground';
 import { refineRasterWindows, continueRasterWalls, refineWindowsAtNormalizedJunctions } from './rasterArchitecture';
 import { sourceRelativeGeometry } from './sourceRelativeGeometry';
 import { parseFunctionalZones, closeWallsWithFunctionalZones, type SourceFunctionalZone } from './functionalZones';
+import { abstractCloseParallelWalls } from './logicalWallAbstraction';
 import { assemblePlan2WorldDraftWithReview, parseSourceAnnotation, SOURCE_ANNOTATION_VERSION, type ReconstructionAssemblyContext, type SourceAnnotationV1 } from './reconstructionAssembly';
 
 export const SOURCE_ARCHITECTURE_VERSION = 'source-architecture-v1' as const;
@@ -148,6 +149,7 @@ export function prepareArchitectureStage(input: unknown, context: Reconstruction
   const architecture = parseSourceArchitecture(input);
   const furnishingEvidence = furnishingInput === undefined ? undefined : parseSourceFurnishing(furnishingInput, architecture.scaleEvidence);
   const sourceContext = { ...context };
+  if (sourceContext.wallAbstraction !== undefined && !['preserve-source-lines', 'close-parallel-v1'].includes(sourceContext.wallAbstraction)) throw new Error('Unsupported logical wall abstraction policy.');
   if (architecture.functionalZones) sourceContext.functionalZoneLabels = architecture.functionalZones.filter(zone => zone.decision === 'accept')
     .map(({ label, category, environment, position }) => ({ label, category, environment, position }));
   assertSourceBounds(architecture, context, furnishingEvidence?.furniture.map(item => item.position));
@@ -172,11 +174,18 @@ export function prepareArchitectureStage(input: unknown, context: Reconstruction
   const windowRefinement = rasterEvidence ? refineRasterWindows(wallTrace, annotationBase, sourceContext, rasterEvidence) : undefined;
   if (windowRefinement) annotationBase = windowRefinement.annotation;
   const guidingAnnotation = { ...annotationBase, furniture: furnishingEvidence?.furniture ?? [] };
-  const rasterContinuation = rasterEvidence && furnishingEvidence ? continueRasterWalls(wallTrace, guidingAnnotation, sourceContext, rasterEvidence) : undefined;
-  const programTrace = rasterContinuation?.normalizationInput ?? wallTrace;
+  // Logical equivalence is authorized independently of construction semantics.
+  // Run only once furniture is frozen, with source observations left untouched.
+  const logical = furnishingEvidence && sourceContext.wallAbstraction !== 'preserve-source-lines'
+    ? abstractCloseParallelWalls(wallTrace, guidingAnnotation, sourceContext, architecture.functionalZones) : undefined;
+  const logicalTrace = logical?.normalizationInput ?? wallTrace;
+  const programAnnotation = logical?.annotation ?? guidingAnnotation;
+  annotationBase = { ...programAnnotation, furniture: [] };
+  const rasterContinuation = rasterEvidence && furnishingEvidence ? continueRasterWalls(logicalTrace, programAnnotation, sourceContext, rasterEvidence) : undefined;
+  const programTrace = rasterContinuation?.normalizationInput ?? logicalTrace;
   const functional = architecture.functionalZones === undefined ? undefined
-    : closeWallsWithFunctionalZones(programTrace, guidingAnnotation, architecture.functionalZones, sourceContext);
-  const closure = furnishingEvidence && !functional ? closeWallsWithFurniture(programTrace, guidingAnnotation, sourceContext) : undefined;
+    : closeWallsWithFunctionalZones(programTrace, programAnnotation, architecture.functionalZones, sourceContext);
+  const closure = furnishingEvidence && !functional ? closeWallsWithFurniture(programTrace, programAnnotation, sourceContext) : undefined;
   const bareHouse = functional?.bareHouse ?? closure?.bareHouse ?? buildBareHouse(programTrace);
   if (functional) annotationBase = { ...functional.annotation, furniture: [] };
   const normalizedWindows = rasterEvidence ? refineWindowsAtNormalizedJunctions(bareHouse, annotationBase, sourceContext, rasterEvidence) : undefined;
@@ -184,8 +193,11 @@ export function prepareArchitectureStage(input: unknown, context: Reconstruction
   const sourceTopologyReview = reviewSourceTopology(bareHouse, sourceContext, architecture.junctions.filter(junction => junction.decision === 'accept'));
   const assembled = assemblePlan2WorldDraftWithReview(bareHouse, annotationBase, sourceContext);
   let wallIndex = 0, doorIndex = 0, windowIndex = 0;
-  const wallAudit = architecture.walls.map((wall, index) => ({ candidate: index + 1, ...wall,
-    normalizedWallIds: wall.decision === 'accept' ? bareHouse.sourceWallMap[`w${++wallIndex}`] : [] }));
+  const wallAudit = architecture.walls.map((wall, index) => {
+    const source = wall.decision === 'accept' ? wallIndex++ : -1;
+    const program = logical ? logical.sourceWallOrigins.findIndex(indices => indices.includes(source)) : source;
+    return { candidate: index + 1, ...wall, normalizedWallIds: source < 0 ? [] : bareHouse.sourceWallMap[`w${program + 1}`] ?? [] };
+  });
   const openingAudit = architecture.openings.map((opening, index) => {
     const outputId = opening.decision === 'accept' ? opening.kind === 'door' ? `d${++doorIndex}` : `win${++windowIndex}` : undefined;
     const interval = assembled.openingReview.sourceIntervals.find(item => item.id === outputId);
@@ -200,6 +212,7 @@ export function prepareArchitectureStage(input: unknown, context: Reconstruction
     ...(sourceContext.sourceWidthPx && sourceContext.sourceHeightPx ? { relativeGeometry:
       sourceRelativeGeometry(bareHouse.walls, sourceContext.sourceWidthPx, sourceContext.sourceHeightPx) } : {}),
     annotationBase, architectureDraft: assembled.draft, wallAudit, openingAudit, sourceTopologyReview,
+    ...(logical?.review.trials.length || logical?.review.budgetReached ? { logicalWallReview: logical.review } : {}),
     ...(rasterEvidence ? { rasterEvidence, windowRefinementReview: windowRefinement!.review,
       normalizedWindowReview: normalizedWindows!.review,
       ...(rasterContinuation ? { rasterContinuationReview: rasterContinuation.review } : {}) } : {}),

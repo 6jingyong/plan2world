@@ -24,6 +24,8 @@ var _entrance_selector:OptionButton
 var _entrance_status:Label
 var _message:Label
 var _issues:ItemList
+var _checks:ItemList
+var _check_status:Label
 var _apply:Button
 var _save:FileDialog
 var _buttons:Array=[]
@@ -49,7 +51,7 @@ func _ready() -> void:
 	canvas=CANVAS.new();canvas.name="CorrectionCanvas";canvas.size_flags_horizontal=Control.SIZE_EXPAND_FILL;canvas.size_flags_vertical=Control.SIZE_EXPAND_FILL;body.add_child(canvas)
 	canvas.selected.connect(_select)
 	canvas.wall_drawn.connect(func(a:Dictionary,b:Dictionary):_command({"type":"wall-add","start":a,"end":b,"thickness":_fields["thickness"].value,"height":_fields["height"].value}))
-	canvas.wall_modified.connect(func(id:String,a:Dictionary,b:Dictionary):_command({"type":"wall-update","id":id,"start":a,"end":b,"thickness":_fields["thickness"].value,"height":_fields["height"].value}))
+	canvas.wall_modified.connect(func(id:String,a:Dictionary,b:Dictionary):_update_wall(id,a,b,_fields["thickness"].value,_fields["height"].value))
 	var scroll:=ScrollContainer.new();scroll.custom_minimum_size.x=330;scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED;body.add_child(scroll)
 	_tabs=TabContainer.new();_tabs.name="CorrectionTabs";_tabs.use_hidden_tabs_for_min_size=false;_tabs.size_flags_horizontal=Control.SIZE_EXPAND_FILL;scroll.add_child(_tabs)
 	var panel:=VBoxContainer.new();panel.name="Walls";_tabs.add_child(panel)
@@ -62,7 +64,7 @@ func _ready() -> void:
 	var start:=VBoxContainer.new();start.name="Start";_tabs.add_child(start)
 	start.add_child(UI.label("Choose where walkthrough begins",18))
 	_entrance_status=UI.label("",13);_entrance_status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;start.add_child(_entrance_status)
-	start.add_child(UI.label("Main door",13));_entrance_selector=OptionButton.new();_entrance_selector.name="CorrectionMainDoor";start.add_child(_entrance_selector)
+	start.add_child(UI.label("Main door or passage",13));_entrance_selector=OptionButton.new();_entrance_selector.name="CorrectionMainDoor";start.add_child(_entrance_selector)
 	_entrance_selector.item_selected.connect(func(_i:int):_preview_entrance())
 	_side=OptionButton.new();_side.name="CorrectionEntranceSide";_side.add_item("Inward arrow · left");_side.add_item("Inward arrow · right");start.add_child(_side)
 	_side.item_selected.connect(func(_i:int):_preview_entrance())
@@ -76,7 +78,7 @@ func _ready() -> void:
 	_spin_fields(openings,[["position","Opening at %"],["width","Opening width"],["opening_height","Opening height"]])
 	_fields["thickness"].value=15;_fields["height"].value=280;_fields["split"].value=50;_fields["position"].value=50;_fields["width"].value=90;_fields["opening_height"].value=210
 	_add_button(panel,"Apply wall","ApplyWallCorrection",func():
-		if _kind=="wall":_command({"type":"wall-update","id":_id,"start":{"x":_fields["start_x"].value,"y":_fields["start_y"].value},"end":{"x":_fields["end_x"].value,"y":_fields["end_y"].value},"thickness":_fields["thickness"].value,"height":_fields["height"].value}))
+		if _kind=="wall":_update_wall(_id,{"x":_fields["start_x"].value,"y":_fields["start_y"].value},{"x":_fields["end_x"].value,"y":_fields["end_y"].value},_fields["thickness"].value,_fields["height"].value))
 	_add_button(panel,"Split selected wall","SplitCorrectionWall",func():if _kind=="wall":_command({"type":"wall-split","id":_id,"at":_fields["split"].value/100}))
 	_add_button(panel,"Remove selected wall","RemoveCorrectionWall",func():if _kind=="wall":_command({"type":"wall-remove","id":_id}))
 	openings.add_child(UI.label("Doors and windows",18));_items=OptionButton.new();_items.name="CorrectionOpening";openings.add_child(_items)
@@ -97,6 +99,14 @@ func _ready() -> void:
 	notes.add_child(UI.label("Source review notes",18));_issues=ItemList.new();_issues.name="CorrectionIssues";_issues.custom_minimum_size.y=230;notes.add_child(_issues)
 	_issues.item_selected.connect(func(i:int):_select("issue",_floor["issues"][i]["id"]))
 	_add_button(notes,"Mark selected note reviewed","ResolveCorrectionIssue",func():if _kind=="issue":_command({"type":"resolve-architecture-issue","id":_id,"resolved":true}))
+	var checks:=VBoxContainer.new();checks.name="Checks";_tabs.add_child(checks)
+	checks.add_child(UI.label("Current door checks",18))
+	_check_status=UI.label("",13);_check_status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;checks.add_child(_check_status)
+	_checks=ItemList.new();_checks.name="CurrentGeometryChecks";_checks.custom_minimum_size.y=230;checks.add_child(_checks)
+	_checks.item_selected.connect(func(i:int):_select("check",_floor["currentChecks"]["findings"][i]["id"]))
+	_add_button(checks,"Review this opening…","ReviewCheckedOpening",func():
+		for finding in _floor.get("currentChecks",{}).get("findings",[]):
+			if finding["id"]==_id:_select("opening",finding["openingId"]);break)
 	_message=UI.label("",13);_message.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;_message.custom_minimum_size.y=42;root.add_child(_message)
 	_save=FileDialog.new();_save.name="SaveCorrectedProject";_save.access=FileDialog.ACCESS_FILESYSTEM;_save.file_mode=FileDialog.FILE_MODE_SAVE_FILE;_save.filters=PackedStringArray(["*.json ; Editable Project"]);_save.use_native_dialog=true;add_child(_save)
 	_save.file_selected.connect(func(path:String):_message.text="Project saved." if session.save_project(path)==OK else "Could not save the Project.")
@@ -136,6 +146,7 @@ func _load_project(path:String) -> void:
 	session.accept(result,true);_source_path=path;_kind="";_id="";_refresh()
 	if not session.current()["editor"]["floors"].any(func(f):return f.get("entrance")!=null or f.get("walkthroughStart")!=null):_tabs.current_tab=3
 	elif _floor["issues"].any(func(issue):return not issue["resolved"]):_tabs.current_tab=2
+	elif not _floor.get("currentChecks",{}).get("findings",[]).is_empty():_tabs.current_tab=4
 
 func _set_busy(value:bool) -> void:
 	canvas.mouse_filter=Control.MOUSE_FILTER_IGNORE if value else Control.MOUSE_FILTER_STOP
@@ -157,8 +168,9 @@ func _selection_controls() -> void:
 	find_child("DrawCorrectionWall",true,false).disabled=not _wall_permission.button_pressed
 	find_child("ApplyOpeningCorrection",true,false).disabled=_kind!="opening"
 	find_child("SetCorrectionEntrance",true,false).disabled=_entrance_selector.selected<=0
-	find_child("PreviewCorrectionEntrance",true,false).disabled=not _floor.get("openings",[]).any(func(o):return o["id"]==_id and o["kind"]=="door" and o["type"]!="opening")
+	find_child("PreviewCorrectionEntrance",true,false).disabled=not _floor.get("openings",[]).any(func(o):return o["id"]==_id and o["kind"]=="door")
 	find_child("ResolveCorrectionIssue",true,false).disabled=_kind!="issue"
+	find_child("ReviewCheckedOpening",true,false).disabled=_kind!="check"
 	find_child("RemoveCorrectionItem",true,false).disabled=not _kind in ["opening","furniture"]
 
 func _refresh() -> void:
@@ -174,21 +186,29 @@ func _choose_floor(index:int) -> void:
 	for wall in _floor["walls"]:_wall_selector.add_item(wall["id"]+(" · corrected / protected" if wall.get("authorModified",false) else ""));_host_selector.add_item(wall["id"])
 	for opening in _floor["openings"]:_items.add_item(opening["id"]+" · "+opening["kind"])
 	for issue in _floor["issues"]:_issues.add_item(("✓ " if issue["resolved"] else "! ")+issue["message"]);_issues.set_item_tooltip(_issues.item_count-1,issue["message"])
+	_checks.clear()
+	var current:Dictionary=_floor.get("currentChecks",{})
+	for finding in current.get("findings",[]):_checks.add_item("! "+finding["message"]);_checks.set_item_tooltip(_checks.item_count-1,finding["message"])
+	_check_status.text="Current wall/door collisions; source notes are retained separately. Results update after edits. Engine motion and routes still need checking."
+	if current.get("status")=="unavailable":_check_status.text=current["message"]
+	elif current.get("status")=="partial":_check_status.text+=" Some doors were not fully checked."
+	elif current.get("findings",[]).is_empty():_check_status.text="No overlap found by the current wall/door check. Engine motion and routes still need checking."
 	canvas.configure(_floor,_id)
 	_sync_entrance()
 	if _kind.is_empty() and not _floor["issues"].is_empty():_tabs.current_tab=2
 	if _kind=="wall" and _floor["walls"].any(func(w):return w["id"]==_id):_select(_kind,_id)
 	elif _kind=="opening" and _floor["openings"].any(func(o):return o["id"]==_id):_select(_kind,_id)
 	elif _kind=="issue" and _floor["issues"].any(func(i):return i["id"]==_id):_select(_kind,_id)
+	elif _kind=="check" and current.get("findings",[]).any(func(i):return i["id"]==_id):_select(_kind,_id)
 	elif not _floor["walls"].is_empty():_select("wall",_floor["walls"][0]["id"])
 	_tabs.current_tab=tab
 	if tab==3:_sync_entrance()
 
 func _sync_entrance() -> void:
-	_entrance_selector.clear();_entrance_selector.add_item("Choose an existing door…");_entrance_selector.set_item_metadata(0,"")
+	_entrance_selector.clear();_entrance_selector.add_item("Choose an existing door or passage…");_entrance_selector.set_item_metadata(0,"")
 	var entrance=_floor.get("entrance")
 	for opening in _floor.get("openings",[]):
-		if opening["kind"]!="door" or opening["type"]=="opening":continue
+		if opening["kind"]!="door":continue
 		_entrance_selector.add_item(opening["id"]);_entrance_selector.set_item_metadata(_entrance_selector.item_count-1,opening["id"])
 		if entrance is Dictionary and entrance["doorId"]==opening["id"]:_entrance_selector.select(_entrance_selector.item_count-1)
 	_side.select(1 if entrance is Dictionary and entrance["side"]=="right" else 0)
@@ -235,6 +255,11 @@ func _select(kind:String,id:String) -> void:
 		_tabs.current_tab=2
 		for i in range(_floor["issues"].size()):
 			if _floor["issues"][i]["id"]==id:_issues.select(i);_message.text=_floor["issues"][i]["message"]
+	elif kind=="check":
+		_tabs.current_tab=4
+		var findings:Array=_floor.get("currentChecks",{}).get("findings",[])
+		for i in range(findings.size()):
+			if findings[i]["id"]==id:_checks.select(i);_message.text=findings[i]["message"]
 
 func _add_opening(kind:String) -> void:
 	if _host_selector.selected<0:return
@@ -242,10 +267,34 @@ func _add_opening(kind:String) -> void:
 
 func _apply_opening() -> void:
 	if _kind!="opening" or _host_selector.selected<0:return
-	var position:float=_fields["position"].value/100
 	for opening in _floor["openings"]:
-		if opening["id"]==_id and _fields["position"].value==opening["position"]*100:position=opening["position"]
-	_command({"type":"opening-update","id":_id,"wallId":_floor["walls"][_host_selector.selected]["id"],"position":position,"width":_fields["width"].value,"height":_fields["opening_height"].value,"doorType":_door_type.get_selected_metadata(),"swingDirection":"right" if _hinge.selected==0 else "left","flipSide":_flip.button_pressed})
+		if opening["id"]!=_id:continue
+		var command:Dictionary={"type":"opening-update","id":_id}
+		var host:String=_floor["walls"][_host_selector.selected]["id"]
+		if host!=opening["wallId"]:command["wallId"]=host
+		if _fields["position"].value!=opening["position"]*100:command["position"]=_fields["position"].value/100
+		if _fields["width"].value!=opening["width"]:command["width"]=_fields["width"].value
+		if _fields["opening_height"].value!=opening["height"]:command["height"]=_fields["opening_height"].value
+		if opening["kind"]=="door":
+			if _door_type.get_selected_metadata()!=opening["type"]:command["doorType"]=_door_type.get_selected_metadata()
+			var hinge:String="right" if _hinge.selected==0 else "left"
+			if hinge!=opening["swingDirection"]:command["swingDirection"]=hinge
+			if _flip.button_pressed!=opening["flipSide"]:command["flipSide"]=_flip.button_pressed
+		_command(command);return
+
+func _update_wall(id:String,start:Dictionary,finish:Dictionary,thickness:float,height:float) -> void:
+	for wall in _floor["walls"]:
+		if wall["id"]!=id:continue
+		var command:Dictionary={"type":"wall-update","id":id}
+		for key in ["start","end"]:
+			var target:Dictionary=start if key=="start" else finish
+			var changed:Dictionary={}
+			for axis in ["x","y"]:
+				if target[axis]!=wall[key][axis]:changed[axis]=target[axis]
+			if not changed.is_empty():command[key]=changed
+		if thickness!=wall["thickness"]:command["thickness"]=thickness
+		if height!=wall["height"]:command["height"]=height
+		_command(command);return
 
 func _command(command:Dictionary) -> void:
 	if session.busy or _floor.is_empty():return

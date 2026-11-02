@@ -130,7 +130,7 @@ describe('furniture-guided local wall closure before architecture freeze', () =>
     expect(result.review.normalizationInput.walls.slice(0, 4)).toEqual(trace.walls.slice(0, 4));
   });
 
-  it('retains an ambiguous corner when two nearby boundary choices have the same furnished-region gain', () => {
+  it('rejects both nearby boundary choices before ranking when each would cover a furniture anchor', () => {
     const { trace, annotation } = input(); trace.walls.pop();
     trace.walls.push({ start: { x: 0, y: 5 }, end: { x: 235, y: 5 } },
       { start: { x: 235, y: 5 }, end: { x: 235, y: 200 } });
@@ -145,7 +145,8 @@ describe('furniture-guided local wall closure before architecture freeze', () =>
       { kind: 'door', endpoints: [{ x: 100, y: 200 }, { x: 130, y: 200 }], evidence: 'South entry.' },
     ];
     const result = closeWallsWithFurniture(trace, annotation, context);
-    expect(result.review.ambiguousCandidates).toBeGreaterThan(0);
+    expect(result.review.evaluated).toHaveLength(2);
+    expect(result.review.evaluated.every(e => e.reason === 'furniture-or-zone-seed-covered')).toBe(true);
     expect(result.review.accepted).toEqual([]);
   });
 });

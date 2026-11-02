@@ -5,7 +5,7 @@ import { MAX_FLOOR_PLAN_IMAGE_BYTES } from '../src/lib/plan2world/vision';
 import { PLAN2WORLD_RECONSTRUCTION_INSTRUCTIONS_VERSION, buildArchitectureInstructions } from '../src/lib/plan2world/reconstructionInstructions';
 import { reconstructFloorPlanForCorrection } from '../src/lib/plan2world/correction';
 import { readPreparedImageEvidence } from './prepare-floorplan-image.mjs';
-import { observeOpenRouter } from './desktop-openrouter.mjs';
+import { observeOpenRouter, resolveObservationContract, makeObservationContract, observationSchemaBytes } from './desktop-openrouter.mjs';
 import { observationUsage, summarizeObservationUsage } from './observation-usage.mjs';
 import { safeDesktopError } from './desktop-ai-errors.mjs';
 
@@ -50,6 +50,8 @@ async function readInput(request) {
 async function loadCheckpoint(checkpointPath) {
   const checkpoint = JSON.parse(await readFile(checkpointPath, 'utf8')), directory = path.dirname(path.resolve(checkpointPath));
   if (checkpoint.schemaVersion !== version || checkpoint.identity?.instructionsVersion !== PLAN2WORLD_RECONSTRUCTION_INSTRUCTIONS_VERSION) throw new Error('Saved task version changed. Start a new task; no request was sent.');
+  const observationContract = checkpoint.observationContract ?? makeObservationContract('json_object');
+  if (JSON.stringify(observationContract) !== JSON.stringify(makeObservationContract(observationContract.format))) throw new Error('Saved task observation schema changed. No request was sent.');
   const input = checkpoint.input;
   if (!input || typeof input !== 'object') throw new Error('Saved task input is incomplete. No request was sent.');
   /** @type {any} */ const request = { model:checkpoint.identity.modelId,scaleHint:checkpoint.identity.scaleHint,width:checkpoint.identity.width,height:checkpoint.identity.height,sourceName:checkpoint.sourceName };
@@ -67,6 +69,7 @@ async function loadCheckpoint(checkpointPath) {
     if (frozen) {
       const receipt = JSON.parse(frozen.toString('utf8')), observation = await readFile(path.join(directory, `source-${stage}.json`));
       if (JSON.stringify(receipt.identity) !== JSON.stringify(context.identity) || receipt.stage !== stage || receipt.observationSha256 !== digest(observation)) throw new Error('Saved task observation changed or is incomplete. No request was sent.');
+      if (JSON.stringify(receipt.observationContract ?? makeObservationContract('json_object')) !== JSON.stringify(observationContract)) throw new Error('Saved task response format changed. No request was sent.');
       cached[stage] = { text:observation.toString('utf8'),value:JSON.parse(observation.toString('utf8')),receipt };
     }
     const started = await optional(path.join(directory, `${stage}-started.json`));
@@ -75,17 +78,18 @@ async function loadCheckpoint(checkpointPath) {
     const reused = await optional(path.join(directory, `${stage}-reused.json`));
     if (started) {
       const entry = JSON.parse(started.toString('utf8'));
+      if (JSON.stringify(entry.observationContract ?? makeObservationContract('json_object')) !== JSON.stringify(observationContract)) throw new Error('Saved task request contract changed. No request was sent.');
       const returned=response?JSON.parse(response.toString('utf8')):null;
       usage.push({ stage,requestId:entry.requestId,status:failed ? 'failed' : cached[stage] ? 'complete' : response ? 'responded' : 'started',
-        promptBytes:byteCount(entry.promptBytes),responseBytes:byteCount(returned?.responseBytes),imageBytes:byteCount(entry.imageBytes),
+        promptBytes:byteCount(entry.promptBytes),schemaBytes:byteCount(entry.schemaBytes),responseBytes:byteCount(returned?.responseBytes),imageBytes:byteCount(entry.imageBytes),
         usage:returned ? observationUsageFromReceipt(returned.usage) : observationUsage(null) });
     } else if (reused) {
       const previous=JSON.parse(reused.toString('utf8'));
-      usage.push({stage,status:'reused',promptBytes:byteCount(previous.promptBytes),responseBytes:byteCount(previous.responseBytes),imageBytes:byteCount(previous.imageBytes),usage:observationUsageFromReceipt(previous.usage)});
+      usage.push({stage,status:'reused',promptBytes:byteCount(previous.promptBytes),schemaBytes:byteCount(previous.schemaBytes),responseBytes:byteCount(previous.responseBytes),imageBytes:byteCount(previous.imageBytes),usage:observationUsageFromReceipt(previous.usage)});
     }
   }
   if (cached.furnishing && !cached.architecture) throw new Error('Saved task furniture has no frozen architecture. No request was sent.');
-  return { context,cached,usage,directory,checkpoint };
+  return { context,cached,usage,directory,checkpoint,observationContract };
 }
 /** Validate stored numeric metadata before it reaches native UI.
  * @param {any} value */
@@ -135,6 +139,7 @@ export async function runDesktopReconstruction(request, emit, fetcher) {
   const remaining = stages.filter(s => !loaded?.cached[s]);
   if (remaining.length && (!request.apiKey || !request.model?.trim())) throw new Error('Connect OpenRouter and select the saved model before continuing.');
   const output = path.resolve(request.outputDirectory); await mkdir(output); await mkdir(path.join(output,'input'));
+  const observationContract = loaded?.observationContract ?? await resolveObservationContract({ apiKey:request.apiKey,model:context.identity.modelId }, fetcher);
   /** @type {any} */ const input = {imagePath:'input/working'+path.extname(context.request.imagePath).toLowerCase(),rasterPath:'input/working.rgba'};
   await writeSessionFile(path.join(output,input.imagePath),context.bytes); await writeSessionFile(path.join(output,input.rasterPath),context.pixels);
   if (context.manifestBytes) {
@@ -152,7 +157,7 @@ export async function runDesktopReconstruction(request, emit, fetcher) {
     const prior=loaded?.usage.find(e=>e.stage===stage);
     await writeJSON(path.join(output,`${stage}-reused.json`),{...prior,stage,status:'reused',usage:prior?.usage??observationUsage(null)});
   }
-  await writeJSON(checkpointPath,{schemaVersion:version,identity:context.identity,input,sourceName:context.source.image.name,
+  await writeJSON(checkpointPath,{schemaVersion:version,identity:context.identity,observationContract,input,sourceName:context.source.image.name,
     ...(loaded ? {previousCheckpoint:path.resolve(request.checkpointPath)} : {})});
   emit({checkpoint:checkpointPath});
   /** @type {any[]} */ const entries=[];
@@ -168,11 +173,11 @@ export async function runDesktopReconstruction(request, emit, fetcher) {
         entries.push(reuse);publishUsage();
         return saved.value;
       }
-      const entry={stage,requestId:randomUUID(),status:'started',promptBytes:Buffer.byteLength(prompt),responseBytes:/** @type {number|null} */(null),imageBytes:context.bytes.byteLength,usage:observationUsage(null)};
+      const entry={stage,requestId:randomUUID(),status:'started',observationContract,promptBytes:Buffer.byteLength(prompt),schemaBytes:observationSchemaBytes(observationContract,/** @type {'architecture'|'furnishing'} */ (stage)),responseBytes:/** @type {number|null} */(null),imageBytes:context.bytes.byteLength,usage:observationUsage(null)};
       entries.push(entry);await writeJSON(path.join(output,`${stage}-started.json`),entry);publishUsage();
       emit({phase:stage==='architecture'?'Observing architecture (1/2)…':'Observing furniture (2/2)…'});
       try {
-        const observed=await observeOpenRouter(request,context.source.image,prompt,fetcher,async response=>{
+        const observed=await observeOpenRouter({...request,model:context.identity.modelId,observationContract,observationStage:/** @type {'architecture'|'furnishing'} */ (stage)},context.source.image,prompt,fetcher,async response=>{
           entry.usage=response.usage;entry.status='responded';
           entry.responseBytes=response.content===null?null:Buffer.byteLength(response.content);
           if(response.content!==null)await writeSessionFile(path.join(output,`${stage}-response.txt`),response.content);
@@ -180,7 +185,7 @@ export async function runDesktopReconstruction(request, emit, fetcher) {
         });
         const text=JSON.stringify(observed.value,null,2)+'\n';
         await writeSessionFile(path.join(output,`source-${stage}.json`),text);
-        await writeJSON(path.join(output,`${stage}-freeze.json`),{...context.identity,identity:context.identity,stage,promptSha256:digest(prompt),observationSha256:digest(text)});
+        await writeJSON(path.join(output,`${stage}-freeze.json`),{...context.identity,identity:context.identity,observationContract,stage,promptSha256:digest(prompt),observationSha256:digest(text)});
         entry.status='complete';publishUsage();return observed.value;
       }catch(error){entry.status='failed';await writeJSON(path.join(output,`${stage}-failed.json`),{...entry,error:safeDesktopError(error,request.apiKey)});publishUsage();throw error;}
     },context.source,{scaleHint:context.identity.scaleHint});

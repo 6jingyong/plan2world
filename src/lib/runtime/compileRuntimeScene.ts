@@ -104,6 +104,30 @@ interface AdjacentFloors {
   below: RuntimeStairTarget | null;
 }
 
+/** Shared compiler primitives for architectural checks, even before a floor is
+ * enclosed. This does not compile or certify floor surfaces/player routes. */
+export function compileDoorGeometry(floor: Floor, elevationCm = 0) {
+  const entities: RuntimeEntity[] = [], colliders: RuntimeCollider[] = [];
+  const walls = new Map<string, RuntimeWallEntity>();
+  for (const wall of floor.walls) {
+    const entity: RuntimeWallEntity = {
+      id: wall.id, floorId: floor.id, kind: 'wall',
+      path: { start: point2(wall.start), end: point2(wall.end), ...(wall.curvePoint ? { control: point2(wall.curvePoint) } : {}) },
+      thickness: m(wall.thickness), startHeight: m(getWallStartHeight(wall)), endHeight: m(getWallEndHeight(wall)),
+      boundaryType: wall.boundaryType ?? 'solid', visible: wall.boundaryType !== 'air',
+    };
+    walls.set(wall.id, entity); entities.push(entity);
+    colliders.push(...compileWallColliders(floor, elevationCm, wall));
+  }
+  for (const door of floor.doors) {
+    const wall = walls.get(door.wallId);
+    if (!wall) continue;
+    const result = compileRuntimeDoor(floor.id, m(elevationCm), door, wall);
+    entities.push(result.entity); colliders.push(...result.colliders);
+  }
+  return { entities, colliders };
+}
+
 function compileFloor(
   floor: Floor,
   elevationCm: number,
@@ -119,32 +143,7 @@ function compileFloor(
       throw new Error(`Cannot compile runtime floor "${floor.id}" room "${room.id}": invalid or unresolved native boundary. Correct it in the native Project.`);
     }
   }
-  const entities: RuntimeEntity[] = [];
-  const colliders: RuntimeCollider[] = [];
-
-  const walls = new Map<string, RuntimeWallEntity>();
-  for (const wall of floor.walls) {
-    const entity: RuntimeWallEntity = {
-      id: wall.id, floorId: floor.id, kind: 'wall',
-      path: { start: point2(wall.start), end: point2(wall.end), ...(wall.curvePoint ? { control: point2(wall.curvePoint) } : {}) },
-      thickness: m(wall.thickness),
-      startHeight: m(getWallStartHeight(wall)),
-      endHeight: m(getWallEndHeight(wall)),
-      boundaryType: wall.boundaryType ?? 'solid',
-      visible: wall.boundaryType !== 'air',
-    };
-    walls.set(wall.id, entity);
-    entities.push(entity);
-    colliders.push(...compileWallColliders(floor, elevationCm, wall));
-  }
-
-  for (const door of floor.doors) {
-    const wall = walls.get(door.wallId);
-    if (!wall) continue;
-    const result = compileRuntimeDoor(floor.id, m(elevationCm), door, wall);
-    entities.push(result.entity);
-    colliders.push(...result.colliders);
-  }
+  const { entities, colliders } = compileDoorGeometry(floor, elevationCm);
 
   for (const win of floor.windows) {
     const wall = floor.walls.find(wall => wall.id === win.wallId);

@@ -51,6 +51,34 @@ furniture-only observation after a source preflight failure. Keep both raw
 observations frozen and do not report an annotated Project as a strict source
 pass. The strict source APIs and explicitly requested recovery workflow remain.
 
+An explicitly enabled [visual feedback experiment](references/visual-feedback-pass.md)
+can use structural contradictions to request ONE bounded local reinspection after
+the two initial observations. Keep the original observations immutable, but allow
+their first accepted interpretation to be revised with contrary visual evidence.
+Preserve up to three hypotheses and unknown; reassemble each as a new version.
+Do not select by warning count or change scale/furniture to make a hypothesis pass.
+The shared correction entry accepts an optional fourth feedback argument; normal
+callers still make exactly two observations. The local `source:feedback` command
+prepares/applies recorded answers without a provider request. Compare baseline,
+ordinary and structure-guided reinspection with the same images and review budget;
+one failure alone cannot establish model incapability or a defective method.
+
+An explicit `architecture-and-furnishing` scope additionally applies
+[source-object support review](references/visual-feedback-support-pass.md).
+Compiler-conflicted furnishing records may be reconsidered from original pixels,
+with contrary evidence and original-index provenance. This does not unfreeze the
+first observation or permit automatic object movement, ground filling, global
+furniture edits or another review batch. Keep source uncertainty and missing
+ground distinct from false object identification.
+
+The explicit `architecture-and-door-motion` scope adds
+[door-geometry questions](references/visual-feedback-doors-pass.md) from exact
+compiler/source ownership. Check original jambs, aperture extents and adjoining
+boundaries without presuming the source is wrong. Default motion can be the
+limitation. Keep unknown and alternatives; do not shrink doors or remove visible
+walls to pass. New conflicts, missing accepted doors or incomplete ownership/checks
+prevent automatic use of a candidate. This adds no default observation or retry.
+
 ## Fresh validation workspace
 
 For a benchmark rerun, start from the original raster and create a new ignored directory before generating anything:

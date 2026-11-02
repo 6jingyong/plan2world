@@ -9,6 +9,7 @@ import { floorBoundaryPolygon, floorBoundaryProblem, polygonAreaCm2 } from '$lib
 import { projectOntoWall } from '$lib/utils/wallProjection';
 import { wallPathSpans, wallPointAt, wallPathProfile } from '$lib/utils/wallPath';
 import { wallPathCoverage } from '$lib/utils/wallPathCoverage';
+import { evaluateLogicalGeometry, preservesLogicalGeometry } from './logicalGeometryConstraints';
 
 export const FUNCTIONAL_ZONE_POLICY = 'functional-zones-logical-closure-v1';
 export type ZoneEdgeKind = 'wall' | 'window' | 'passage' | 'railing' | 'air' | 'unknown';
@@ -66,7 +67,8 @@ function edgeCoverage(start: DraftPoint, end: DraftPoint, trace: Pick<SourceWall
     const low = Math.max(0, Math.min(along(wall.start), along(wall.end))), high = Math.min(size, Math.max(along(wall.start), along(wall.end)));
     const a = along(wall.start), b = along(wall.end);
     const at = (t: number) => ({ x: wall.start.x + (wall.end.x - wall.start.x) * (t - a) / (b - a), y: wall.start.y + (wall.end.y - wall.start.y) * (t - a) / (b - a) });
-    if (across(at(low)) > tolerance || across(at(high)) > tolerance) return [];
+    const allowance = Math.max(tolerance, (wall.thicknessPx ?? 0) / 2);
+    if (across(at(low)) > allowance || across(at(high)) > allowance) return [];
     return high - low > 1e-6 ? [{ low, high, wallIndex }] : [];
   }).sort((a, b) => a.low - b.low);
   const gaps: [number, number][] = []; let to = 0;
@@ -92,7 +94,8 @@ function state(house: BareHouseV1, annotation: SourceAnnotationV1, zones: Source
     const region = a.regionIndices.length === 1 ? regions[a.regionIndices[0]] : undefined;
     const sourceArea = polygonAreaCm2(floorBoundaryPolygon(a.zone.boundary, []));
     const ratio = region ? region.areaPx2 / sourceArea : null;
-    const nativeSpans = { walls: house.walls.flatMap(w => wallPathSpans(w).map(s => ({ start: s.start, end: s.end }))) };
+    const nativeSpans = { walls: house.walls.flatMap(w => wallPathSpans(w).map(s => ({ start: s.start, end: s.end,
+      ...(w.thicknessPx === undefined ? {} : { thicknessPx: w.thicknessPx }) }))) };
     const unsupportedEdges = a.zone.boundary.flatMap((edge, ei) => {
       if (edge.kind === 'unknown') return [];
       const end = a.zone.boundary[(ei + 1) % a.zone.boundary.length].point;
@@ -206,11 +209,24 @@ export function closeWallsWithFunctionalZones(input: SourceWallTraceV1, observed
     }
     return { annotation: { ...observed, openings }, audits };
   };
-  let derived = derivedFor(house), metrics = state(house, derived.annotation, zones, context);
+  const protectedPositions = [...(observed.furniture ?? []).map(f => f.position),
+    ...allZones.filter(z => z.decision !== 'reject').map(z => z.position)];
+  let derived = derivedFor(house);
+  let boundaryConstraintFinding: string | undefined;
+  if (JSON.stringify(trace) !== JSON.stringify(original)) {
+    const before = evaluateLogicalGeometry(original,observed,context,protectedPositions).metrics;
+    const after = evaluateLogicalGeometry(trace,derived.annotation,context,protectedPositions).metrics;
+    // These are accepted source boundaries, not speculative endpoint repairs.
+    // Retain their geometry and report conflicts; discarding a whole observed
+    // enclosure to hide door motion problems can also discard valid floors.
+    boundaryConstraintFinding = preservesLogicalGeometry(before,after,true);
+  }
+  let metrics = state(house, derived.annotation, zones, context);
+  let constraints = evaluateLogicalGeometry(trace, derived.annotation, context, protectedPositions).metrics;
   const afterLogicalBoundaries = metrics;
   const accepted: { moves: unknown[]; beforeResolved: number; afterResolved: number }[] = [];
   const trials: { sourcePoints: DraftPoint[]; status: string; beforeResolved: number; afterResolved?: number; reason?: string }[] = [];
-  let trialCount = 0;
+  let trialCount = 0, candidateBudgetReached = false;
   while (trialCount < 64 && accepted.length < 12) {
     const candidates = reviewFurnitureClosureCandidates(trace, derived.annotation, context, candidateReference).candidates
       // Extending one observed run can create a T-junction at an existing
@@ -224,13 +240,31 @@ export function closeWallsWithFunctionalZones(input: SourceWallTraceV1, observed
       .filter(c => c.endpoints.every(e => e.wallIndex < original.walls.length)
         && zones.some(z => z.boundary.some(b => b.kind !== 'passage' && distance(b.point, c.to) <= limit * 2)));
     const groups = [...candidates.map(c => [c])];
-    for (let i = 0; i < candidates.length && groups.length < 64; i++) for (let j = i + 1; j < candidates.length && groups.length < 64; j++) {
+    const remaining = 64-trialCount;
+    // One extra group detects truncation. Never select a prefix winner when
+    // an unexamined alternative could change the result or reveal a tie.
+    for (let i = 0; i < candidates.length && groups.length <= remaining; i++) for (let j = i + 1; j < candidates.length && groups.length <= remaining; j++) {
       if (distance(candidates[i].from, candidates[j].from) > 1e-6) groups.push([candidates[i], candidates[j]]);
     }
-    let best: { trace: SourceWallTraceV1; house: BareHouseV1; metrics: typeof metrics; derived: typeof derived; moves: typeof groups[number] } | undefined;
+    if (groups.length > remaining) {
+      candidateBudgetReached = true;
+      trials.push({sourcePoints:[],status:'candidate-search-budget-exceeded',beforeResolved:metrics.resolvedZoneCount});
+      break;
+    }
+    let best: { trace: SourceWallTraceV1; house: BareHouseV1; metrics: typeof metrics; derived: typeof derived; moves: typeof groups[number]; constraints: typeof constraints } | undefined;
     let ambiguous = false;
     for (const moves of groups) {
       if (trialCount++ >= 64) break;
+      // Two choices for the same endpoint cannot be a joint move. Previously
+      // iteration order silently chose the last target in such a group.
+      const targets = new Map<string, DraftPoint>();
+      let conflicting = false;
+      for (const move of moves) for (const e of move.endpoints) {
+        const key = `${e.wallIndex}:${e.endpoint}`, previous = targets.get(key);
+        if (previous && distance(previous, move.to) > 1e-6) conflicting = true;
+        targets.set(key, move.to);
+      }
+      if (conflicting) { trials.push({ sourcePoints: moves.map(m => m.from), status: 'conflicting-endpoint-targets', beforeResolved: metrics.resolvedZoneCount }); continue; }
       const trial = structuredClone(trace);
       for (const c of moves) for (const e of c.endpoints) trial.walls[e.wallIndex][e.endpoint] = { ...c.to };
       const crossed = trial.walls.some((w, i) => i < original.walls.length && ((observed.furniture ?? []).some(f =>
@@ -242,17 +276,18 @@ export function closeWallsWithFunctionalZones(input: SourceWallTraceV1, observed
       if (crossed || collapsedOrFlipped) continue;
       try {
         const nextHouse = buildBareHouse(trial), nextDerived = derivedFor(nextHouse), next = state(nextHouse, nextDerived.annotation, zones, context);
-        const observedCount = assemblePlan2WorldDraftWithReview(nextHouse, observed, context).openingReview.sourceIntervals.length;
-        const originalCount = assemblePlan2WorldDraftWithReview(house, observed, context).openingReview.sourceIntervals.length;
+        const nextConstraints = evaluateLogicalGeometry(trial, nextDerived.annotation, context, protectedPositions).metrics;
+        const constraintFailure = preservesLogicalGeometry(constraints, nextConstraints, true);
         const improves = next.resolvedZoneCount > metrics.resolvedZoneCount || next.resolvedZoneCount === metrics.resolvedZoneCount && next.uncoveredBoundaryPx < metrics.uncoveredBoundaryPx - 1e-6;
         const valid = improves && next.closedZoneCount >= metrics.closedZoneCount
-          && metrics.closedAnchors.every((closed, i) => !closed || next.closedAnchors[i]) && observedCount === originalCount
+          && metrics.closedAnchors.every((closed, i) => !closed || next.closedAnchors[i]) && !constraintFailure
           && nextDerived.audits.every(a => a.status !== 'unresolved-logical-host')
           && metrics.zones.every((z, i) => !z.resolved || next.zones[i].resolved);
-        trials.push({ sourcePoints: moves.map(m => m.from), status: valid ? 'eligible-zone-separation-gain' : 'no-safe-functional-gain', beforeResolved: metrics.resolvedZoneCount, afterResolved: next.resolvedZoneCount });
+        trials.push({ sourcePoints: moves.map(m => m.from), status: valid ? 'eligible-zone-separation-gain' : 'no-safe-functional-gain', beforeResolved: metrics.resolvedZoneCount, afterResolved: next.resolvedZoneCount,
+          ...(constraintFailure ? { reason: constraintFailure } : {}) });
         if (valid && (!best || next.resolvedZoneCount > best.metrics.resolvedZoneCount
           || next.resolvedZoneCount === best.metrics.resolvedZoneCount && next.uncoveredBoundaryPx < best.metrics.uncoveredBoundaryPx - 1e-6)) {
-          best = { trace: trial, house: nextHouse, metrics: next, derived: nextDerived, moves }; ambiguous = false;
+          best = { trace: trial, house: nextHouse, metrics: next, derived: nextDerived, moves, constraints: nextConstraints }; ambiguous = false;
         } else if (valid && best && next.resolvedZoneCount === best.metrics.resolvedZoneCount && Math.abs(next.uncoveredBoundaryPx - best.metrics.uncoveredBoundaryPx) <= 1e-6
           && moves.some(move => best!.moves.some(other => move.endpoints.some(e => other.endpoints.some(o => e.wallIndex === o.wallIndex && e.endpoint === o.endpoint))
             && distance(move.to, other.to) > 1e-6))) ambiguous = true;
@@ -263,7 +298,7 @@ export function closeWallsWithFunctionalZones(input: SourceWallTraceV1, observed
       break;
     }
     accepted.push({ moves: best.moves, beforeResolved: metrics.resolvedZoneCount, afterResolved: best.metrics.resolvedZoneCount });
-    trace = best.trace; house = best.house; derived = best.derived; metrics = best.metrics;
+    trace = best.trace; house = best.house; derived = best.derived; metrics = best.metrics; constraints = best.constraints;
   }
   const openingResult = assemblePlan2WorldDraftWithReview(house, derived.annotation, context).openingReview;
   const unresolvedDerivedOpenings = derived.audits.filter(a => a.status === 'unresolved-logical-host');
@@ -272,7 +307,9 @@ export function closeWallsWithFunctionalZones(input: SourceWallTraceV1, observed
     policy: FUNCTIONAL_ZONE_POLICY, llmCalls: 0, maxEndpointMovementPx: limit, acceptedZoneCount: zones.length,
     initialMetrics, afterLogicalBoundaries, finalMetrics: metrics, boundaryChanges, derivedPassages: derived.audits,
     unresolvedDerivedOpenings, allOpeningHostsResolved: openingResult.sourceIntervals.length === totalExpectedOpenings,
+    ...(boundaryConstraintFinding ? { boundaryConstraintFinding } : {}),
     accepted, trials, trialCount: Math.min(trialCount, 64), normalizationInput: trace, normalizationInputIsProgramDerived: true,
+    geometryConstraints: constraints, budgetReached: candidateBudgetReached || trialCount >= 64 || accepted.length >= 12,
     closureRule: 'All accepted functional zones, including balconies, require a closed logical boundary. Passage baselines remain traversable; railing/air edges close native faces without becoming opaque full-height walls.',
     limitation: 'Function outlines remain uncertain observations. No new solid wall is invented; unknown, ambiguous noncoincident paths and unsupported entrances stay review findings. Evidenced curves retain their native path. Distinct zone seeds and approximate area consistency are constraints, not source ground truth.' } };
 }
