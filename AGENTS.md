@@ -91,6 +91,15 @@ source-owned conflicts, unassembled doors, incomplete checks or unmapped ownersh
 prevent automatic application. This remains one optional batch, not a desktop
 provider retry or an engine/walkthrough acceptance.
 
+The explicit `unified-structure` / v4 scope applies support, source-owned door,
+aperture preservation and shared native logical-use guards to EVERY candidate.
+Keep resolved functional zones and positive closure/traversal evidence, without
+treating an unproven route as a missing entrance. Default full-span sliding
+motion-only findings are program assumptions, not automatic image retries.
+Incomplete checks preserve candidates; request hashes bind stable source-owned
+assessment facts, not generated floor/room IDs. Keep v1/v2/v3 and the default
+two observations unchanged. See `docs/unified-structural-review.md`.
+
 ### Logical equivalence before construction facts
 
 The user explicitly prioritizes usable closure over deciding what a source wall

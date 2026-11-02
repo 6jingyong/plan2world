@@ -1,3 +1,4 @@
+import type { Floor } from '../models/types';
 import { buildBareHouse, type SourceWallTraceV1 } from './bareHouse';
 import { draftToProject, type DraftPoint } from './draft';
 import { assemblePlan2WorldDraftWithReview, type ReconstructionAssemblyContext, type SourceAnnotationV1 } from './reconstructionAssembly';
@@ -18,15 +19,47 @@ const minus = (a: DraftPoint, b: DraftPoint) => ({ x: a.x - b.x, y: a.y - b.y })
 export function evaluateLogicalGeometry(trace: SourceWallTraceV1, annotation: SourceAnnotationV1,
   context: ReconstructionAssemblyContext, positions: DraftPoint[], sourceOrigins = trace.walls.map((_, i) => [i])) {
   const house = buildBareHouse(trace), assembled = assemblePlan2WorldDraftWithReview(house, annotation, context);
-  const floor = draftToProject(assembled.draft, new Date(0)).floors[0], analysis = analyzeFloor(floor);
+  const floor = draftToProject(assembled.draft, new Date(0)).floors[0];
   const scale = annotation.scaleEvidence, factor = scale.realLengthCm / distance(...scale.endpoints);
   const points = house.walls.flatMap(w => [w.start, w.end, ...(w.curvePoint ? [w.curvePoint] : [])]);
   const origin = { x: Math.min(...points.map(p => p.x)), y: Math.min(...points.map(p => p.y)) };
   const convert = (p: DraftPoint) => ({ x: (p.x - origin.x) * factor, y: (p.y - origin.y) * factor });
+  const use = evaluateNativeLogicalUse(floor, positions.map(convert));
+  const intervals = assembled.openingReview.sourceIntervals;
+  // Use actual fragments on each native host, including chain windows. Comparing
+  // just aggregate source intervals misses a conflict on the second fragment.
+  const apertureSpans = [...floor.doors, ...floor.windows].map(o => {
+    const wall = floor.walls.find(w => w.id === o.wallId)!;
+    const path = wallPathProfile(wall), center = path.distanceAt(o.position);
+    return { id: o.id, wallId: o.wallId, low: center-o.width/2, high: center+o.width/2, length: path.length };
+  });
+  const overlapPairs = apertureSpans.flatMap((a, i) => apertureSpans.slice(i+1).flatMap(b =>
+    a.wallId === b.wallId && Math.min(a.high,b.high)-Math.max(a.low,b.low)>1e-6 ? [[a.id,b.id].sort().join('|')] : []));
+  const validApertures = apertureSpans.every(a => a.low >= -1e-6 && a.high <= a.length+1e-6 && a.high > a.low);
+  const doorReview = (() => {
+    try { return validApertures && !overlapPairs.length ? reviewDoorGeometry(compileDoorGeometry(floor)) : unavailableDoorGeometryReview(); }
+    catch { return unavailableDoorGeometryReview(); }
+  })();
+  const owners = new Map(Object.entries(house.sourceWallMap).flatMap(([source, ids]) =>
+    ids.map(id => [id, sourceOrigins[Number(source.slice(1))-1] ?? []] as const)));
+  const doorConflicts = doorReview.findings.flatMap(f => f.blockerIds.flatMap(id =>
+    (owners.has(id) ? owners.get(id)!.map(i => `source-wall-${i}`) : [`door-${id}`])
+      .map(owner => `${f.openingId}:${f.code}:${owner}`))).sort();
+  return { house, floor, metrics: { closed: use.closed, blocked: use.blocked, sameRegion: use.sameRegion, reachable: use.reachable,
+    clearDoorIds: use.clearDoorIds, entrances: use.entrances,
+    openings: intervals.map(i => ({ id: i.id as string, kind: i.kind as string, widthPx: i.widthPx as number })),
+    overlappingApertures: overlapPairs.length > 0, overlapPairs,
+    doorCheckStatus: doorReview.status, doorConflicts, regionCount: use.regionCount } };
+}
+
+/** Read-only native enclosure/use checks. Positive direct-clearance/door-link
+ * evidence is preserved; an unproven path is not a missing-door verdict. */
+export function evaluateNativeLogicalUse(floor: Floor, positions: DraftPoint[]) {
+  const analysis = analyzeFloor(floor);
   const world = buildFloorClearance({ ...floor, furniture: [] });
-  const regions = positions.map(p => analysis.rooms.flatMap((room, i) => pointInPolygon(convert(p), analysis.polygons.get(room.id) ?? [])
-    && !(analysis.holes.get(room.id) ?? []).some(h => pointInPolygon(convert(p), h)) ? [i] : []));
-  const blocked = positions.map(p => distance(convert(p), resolveClearancePoint(convert(p), world, .01)) > .001);
+  const regions = positions.map(p => analysis.rooms.flatMap((room, i) => pointInPolygon(p, analysis.polygons.get(room.id) ?? [])
+    && !(analysis.holes.get(room.id) ?? []).some(h => pointInPolygon(p, h)) ? [i] : []));
+  const blocked = positions.map(p => distance(p, resolveClearancePoint(p, world, .01)) > .001);
   const adjacency = analysis.rooms.map(() => new Set<number>()), doorRegions = new Set<number>(), clearDoorIds: string[] = [];
   const doorwaySides: { point: DraftPoint; regions: number[] }[] = [];
   for (const door of floor.doors) {
@@ -53,34 +86,11 @@ export function evaluateLogicalGeometry(trace: SourceWallTraceV1, annotation: So
   // unclosed endpoint gap. Protect actual direct clearance or explicit door
   // links between distinct faces, rather than that false topology shortcut.
   const reachable = regions.map((a, i) => regions.map((b, j) =>
-    a.some(r => b.includes(r)) ? hasClearanceAlongSegment(convert(positions[i]), convert(positions[j]), world) : connected(a, b)));
-  const intervals = assembled.openingReview.sourceIntervals;
-  // Use actual fragments on each native host, including chain windows. Comparing
-  // just aggregate source intervals misses a conflict on the second fragment.
-  const apertureSpans = [...floor.doors, ...floor.windows].map(o => {
-    const wall = floor.walls.find(w => w.id === o.wallId)!;
-    const path = wallPathProfile(wall), center = path.distanceAt(o.position);
-    return { id: o.id, wallId: o.wallId, low: center-o.width/2, high: center+o.width/2, length: path.length };
-  });
-  const overlapPairs = apertureSpans.flatMap((a, i) => apertureSpans.slice(i+1).flatMap(b =>
-    a.wallId === b.wallId && Math.min(a.high,b.high)-Math.max(a.low,b.low)>1e-6 ? [[a.id,b.id].sort().join('|')] : []));
-  const validApertures = apertureSpans.every(a => a.low >= -1e-6 && a.high <= a.length+1e-6 && a.high > a.low);
-  const doorReview = (() => {
-    try { return validApertures && !overlapPairs.length ? reviewDoorGeometry(compileDoorGeometry(floor)) : unavailableDoorGeometryReview(); }
-    catch { return unavailableDoorGeometryReview(); }
-  })();
-  const owners = new Map(Object.entries(house.sourceWallMap).flatMap(([source, ids]) =>
-    ids.map(id => [id, sourceOrigins[Number(source.slice(1))-1] ?? []] as const)));
-  const doorConflicts = doorReview.findings.flatMap(f => f.blockerIds.flatMap(id =>
-    (owners.has(id) ? owners.get(id)!.map(i => `source-wall-${i}`) : [`door-${id}`])
-      .map(owner => `${f.openingId}:${f.code}:${owner}`))).sort();
-  return { house, floor, metrics: { closed: regions.map(r => r.length > 0), blocked, sameRegion, reachable,
-    clearDoorIds,
+    a.some(r => b.includes(r)) ? hasClearanceAlongSegment(positions[i], positions[j], world) : connected(a, b)));
+  return { closed: regions.map(r => r.length > 0), blocked, sameRegion, reachable, clearDoorIds,
     entrances: regions.map((r,i) => doorwaySides.some(side => side.regions.length > 0 &&
-      (r.some(id => side.regions.includes(id)) ? hasClearanceAlongSegment(convert(positions[i]),side.point,world) : connected(r,side.regions)))),
-    openings: intervals.map(i => ({ id: i.id as string, kind: i.kind as string, widthPx: i.widthPx as number })),
-    overlappingApertures: overlapPairs.length > 0, overlapPairs,
-    doorCheckStatus: doorReview.status, doorConflicts, regionCount: analysis.rooms.length } };
+      (r.some(id => side.regions.includes(id)) ? hasClearanceAlongSegment(positions[i],side.point,world) : connected(r,side.regions)))),
+    regionCount: analysis.rooms.length };
 }
 
 type Metrics = ReturnType<typeof evaluateLogicalGeometry>['metrics'];
@@ -91,6 +101,12 @@ export function preservesLogicalGeometry(before: Metrics, after: Metrics, allowN
   for (const o of before.openings) if (!after.openings.some(n => n.id === o.id && n.kind === o.kind && Math.abs(n.widthPx - o.widthPx) <= 1e-5)) return 'existing-opening-lost-or-resized';
   if (before.doorCheckStatus !== 'checked' || after.doorCheckStatus !== 'checked') return 'door-geometry-check-incomplete';
   if (after.doorConflicts.some(key => !before.doorConflicts.includes(key))) return 'new-door-geometry-conflict';
+  return preservesLogicalUse(before, after, allowNewSeparation);
+}
+
+export type LogicalUseMetrics = ReturnType<typeof evaluateNativeLogicalUse>;
+export function preservesLogicalUse(before: Pick<LogicalUseMetrics, 'closed'|'blocked'|'sameRegion'|'reachable'|'entrances'>,
+  after: Pick<LogicalUseMetrics, 'closed'|'blocked'|'sameRegion'|'reachable'|'entrances'>, allowNewSeparation = false) {
   for (let i = 0; i < before.closed.length; i++) {
     if (before.closed[i] && !after.closed[i]) return 'existing-enclosure-lost';
     if (!before.blocked[i] && after.blocked[i]) return 'furniture-or-zone-seed-covered';

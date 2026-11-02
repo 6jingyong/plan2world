@@ -71,3 +71,14 @@ Chromium4项为本轮新执行；不借这些检查宣称引擎开门或全屋�
 1,977测试或播放器验收作为本轮新执行。证据：
 `.plan2world-validation/runs/20261102-clean-cad-cohort/`的`cohort-freeze.json`、
 `clean-comparison.json`、两图freeze/评估/叠加及`completion.json`。
+
+
+## P30新增来源与执行范围
+
+提取前又筛定三张主图（Floor plan2、T PLUS小户型、Bubungan住宅）及两张次要
+示意图（维也纳校舍轮廓、Chemtou博物馆总览）。仅Floor plan2已完成本轮首次
+观察与程序对照，其余待执行，不把入组视为测试通过。实际JPEG为516×282，
+API声称的缩略图尺寸不作为输入尺寸；原图及API响应均保留。
+
+详情与当前执行分母见[统一结构复查](unified-structural-review.md)。原始七条待审
+及三处门冲突保留；不因结果修改分组，也不将这张小幅扫描的模糊端点解释为模型瓶颈。

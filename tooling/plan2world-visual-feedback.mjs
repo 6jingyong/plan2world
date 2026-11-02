@@ -9,7 +9,7 @@ export async function runVisualFeedback(options){
  const root=fileURLToPath(new URL('../',import.meta.url));
  for(const key of ['architecture','furnishing','source','output'])if(!options[key])throw Error(`Missing --${key}`);
  if(options.mode&&!['ordinary','guided'].includes(options.mode))throw Error('Mode must be ordinary or guided.');
- if(options.scope&&!['architecture','architecture-and-furnishing','architecture-and-door-motion'].includes(options.scope))throw Error('Scope must be architecture, architecture-and-furnishing or architecture-and-door-motion.');
+ if(options.scope&&!['architecture','architecture-and-furnishing','architecture-and-door-motion','unified-structure'].includes(options.scope))throw Error('Scope must be architecture, architecture-and-furnishing, architecture-and-door-motion or unified-structure.');
  if(options.decision&&!options.request)throw Error('Applying a review requires its frozen --request.');
  const output=path.resolve(options.output);await mkdir(path.dirname(output),{recursive:true});await mkdir(output);
  const save=(name,value)=>writeFile(path.join(output,name),JSON.stringify(value,null,2)+'\n',{flag:'wx',mode:0o444});
@@ -40,10 +40,20 @@ export async function runVisualFeedback(options){
   }
   const feedback=result.visualFeedback,request=feedback.request;
   let motionContext;
-  if(options.scope==='architecture-and-door-motion'){
+  if(options.scope==='architecture-and-door-motion'||options.scope==='unified-structure'){
    const {inspectFeedbackMotionContext}=await server.ssrLoadModule('/src/lib/plan2world/visualFeedbackMotion.ts');
    const bind=value=>({sourceSha256:source.sha256,projectContentSha256:value.audit.correction.projectContentSha256,review:inspectFeedbackMotionContext(value)});
    await save('baseline.motion-context.json',bind(baseline));motionContext=bind(result);await save('motion-context.json',motionContext);
+  }
+  if(options.scope==='unified-structure'){
+   await save('baseline.structural-review.json',{sourceSha256:source.sha256,projectContentSha256:baseline.audit.correction.projectContentSha256,review:feedback.structuralReview});
+   // Keep selected retraction mappings in the audit; candidate files carry the
+   // compact furnishing projection before source indices are restored.
+   const selected=candidates.find(c=>c.index===feedback.selected);
+   const review=feedback.status==='revised'&&selected
+    ?feedback.candidates.find(c=>c.index===selected.index)?.structuralReview
+    :feedback.structuralReview;
+   await save('structural-review.json',{sourceSha256:source.sha256,projectContentSha256:result.audit.correction.projectContentSha256,review});
   }
   await save('feedback-audit.json',feedback);await save('feedback-audit-snapshots.json',audits);await save('project.json',result.project);await save('correction-audit.json',result.audit);
   if(result.draft)await save('draft.json',result.draft);if(result.stage)await save('architecture-stage.json',result.stage);
@@ -68,6 +78,6 @@ export async function runVisualFeedback(options){
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
  const args=process.argv.slice(2),options={};
- for(let i=0;i<args.length;i+=2){const key=args[i]?.replace(/^--/,'');if(!['architecture','furnishing','source','output','mode','scope','request','decision','actor'].includes(key)||!args[i+1]||options[key])throw Error('Usage: --architecture file --furnishing file --source image --output NEW_DIRECTORY [--mode ordinary|guided] [--scope architecture|architecture-and-furnishing|architecture-and-door-motion] [--decision answer --request frozen-request --actor label]');options[key]=args[i+1];}
+ for(let i=0;i<args.length;i+=2){const key=args[i]?.replace(/^--/,'');if(!['architecture','furnishing','source','output','mode','scope','request','decision','actor'].includes(key)||!args[i+1]||options[key])throw Error('Usage: --architecture file --furnishing file --source image --output NEW_DIRECTORY [--mode ordinary|guided] [--scope architecture|architecture-and-furnishing|architecture-and-door-motion|unified-structure] [--decision answer --request frozen-request --actor label]');options[key]=args[i+1];}
  try{console.log(JSON.stringify(await runVisualFeedback(options),null,2));}catch(e){console.error(e.message);process.exitCode=1;}
 }

@@ -22,13 +22,13 @@ const indexOf=(path:string)=>/^furniture\[(0|[1-9]\d*)\]$/.exec(path);
 
 /** Use actual compiler floor triangles and exact source-feature ownership, never
  * parse an exception or infer source indices from generated native entity IDs. */
-export function inspectFeedbackSupport(result:SourceCorrectionResult,furnishing:unknown,architecture:SourceArchitectureV1) {
+export function inspectFeedbackSupport(result:SourceCorrectionResult,furnishing:unknown,architecture:SourceArchitectureV1,
+  runtime = () => compileRuntimeScene(result.project)) {
   const review:FeedbackSupportReview={status:'not-assessed',findings:[],unmappedEntityIds:[]};
   const diagnostics:SourceDiagnostic[]=[];
   try {
     const parsed=parseSourceFurnishing(furnishing,architecture.scaleEvidence);
-    const runtime=compileRuntimeScene(result.project);
-    for(const finding of furnitureSupportFindings(runtime)) {
+    for(const finding of furnitureSupportFindings(runtime())) {
       if(finding.code!=='source-marker-no-floor')continue;
       const matches=result.features.filter(f=>f.kind==='furniture'&&f.nativeIds.includes(finding.entityId));
       const match=matches.length===1?indexOf(matches[0].path):null;
@@ -52,7 +52,7 @@ export function reviseFeedbackFurnishing(input:unknown,architecture:SourceArchit
   const original=parseSourceFurnishing(input,architecture.scaleEvidence),rows=structuredClone(original.furniture);
   const indices=rows.map((_,i)=>i),retracted=new Set<number>(),seen=new Set<string>();
   if(changes===undefined)return {furnishing:original,indices,retractedPaths:[] as string[]};
-  if(request.schemaVersion!=='source-visual-feedback-v2'||!Array.isArray(changes)||changes.length>8)throw new Error('Furniture revisions need the explicit support-review scope.');
+  if(!['source-visual-feedback-v2','source-visual-feedback-v4'].includes(request.schemaVersion)||!Array.isArray(changes)||changes.length>8)throw new Error('Furniture revisions need the explicit support-review scope.');
   const local=(v:unknown)=>sourcePoints(v).every(p=>request.regions.some(g=>p.x>=g.contextBox[0]&&p.x<=g.contextBox[2]&&p.y>=g.contextBox[1]&&p.y<=g.contextBox[3]));
   for(const change of changes){
     if(!change||typeof change!=='object'||Array.isArray(change)||Object.keys(change).some(k=>!['path','action','evidence','value'].includes(k)))throw new Error('Invalid furniture source revision fields.');

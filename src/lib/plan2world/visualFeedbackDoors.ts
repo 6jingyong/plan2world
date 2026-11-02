@@ -17,11 +17,12 @@ export interface FeedbackDoorReview {
 /** Compiler primitives locate a question; they do not establish source error.
  * Exact feature ownership survives splitting/merging; native ID spelling never
  * supplies a source index. The runtime and original observations stay untouched. */
-export function inspectFeedbackDoors(result: SourceCorrectionResult, architecture: SourceArchitectureV1) {
+export function inspectFeedbackDoors(result: SourceCorrectionResult, architecture: SourceArchitectureV1,
+  runtime = () => compileRuntimeScene(result.project)) {
   const review: FeedbackDoorReview = { status: 'not-assessed', findings: [], unmappedEntityIds: [], uncheckedDoorIds: [], unassessedOpeningPaths: [] };
   const diagnostics: SourceDiagnostic[] = [];
   try {
-    const scene = compileRuntimeScene(result.project), check = reviewDoorGeometry(scene);
+    const scene = runtime(), check = reviewDoorGeometry(scene);
     review.unassessedOpeningPaths = architecture.openings.flatMap((opening, index) => {
       if (opening.decision !== 'accept' || opening.kind !== 'door') return [];
       const path = `openings[${index}]`, feature = result.features.find(f => f.path === path && f.kind === 'opening');
