@@ -71,6 +71,16 @@ budgets, retain negative arms and distinguish source ambiguity, method/context,
 program/contract and model-capability hypotheses. A single failure or an offline
 fixture does not establish model limitations. See `docs/visual-feedback.md`.
 
+The subsequent user instruction authorizes continued experiments without obvious
+regression. An explicit architecture-and-furnishing support-review scope may use
+compiler-owned point-support findings to reconsider only pinned conflicted source
+furniture. Contrary visual evidence may retract a false object or correct its
+observed point/category in a NEW interpretation. Keep the first furnishing,
+retracted records and source-index mapping; rerun the same closure/assembly.
+Never relocate to a nearby floor, infer a slab or remove a visible object merely
+to pass. Newly unsupported anchors or incomplete checks prevent automatic use.
+Ordinary two-pass reconstruction and architecture-only feedback remain unchanged.
+
 ### Logical equivalence before construction facts
 
 The user explicitly prioritizes usable closure over deciding what a source wall

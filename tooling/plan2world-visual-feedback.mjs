@@ -9,6 +9,7 @@ export async function runVisualFeedback(options){
  const root=fileURLToPath(new URL('../',import.meta.url));
  for(const key of ['architecture','furnishing','source','output'])if(!options[key])throw Error(`Missing --${key}`);
  if(options.mode&&!['ordinary','guided'].includes(options.mode))throw Error('Mode must be ordinary or guided.');
+ if(options.scope&&!['architecture','architecture-and-furnishing'].includes(options.scope))throw Error('Scope must be architecture or architecture-and-furnishing.');
  if(options.decision&&!options.request)throw Error('Applying a review requires its frozen --request.');
  const output=path.resolve(options.output);await mkdir(path.dirname(output),{recursive:true});await mkdir(output);
  const save=(name,value)=>writeFile(path.join(output,name),JSON.stringify(value,null,2)+'\n',{flag:'wx',mode:0o444});
@@ -30,9 +31,9 @@ export async function runVisualFeedback(options){
   if(options.decision){const bytes=await readFile(path.resolve(options.decision));answer=JSON.parse(bytes);expected=JSON.parse(await readFile(path.resolve(options.request),'utf8'));await writeFile(path.join(output,'answer-original.json'),bytes,{flag:'wx',mode:0o444});}
   const candidates=[],audits=[];
   let result;
-  try{result=await applyVisualFeedback(baseline,observations,source,{}, {mode:options.mode??'guided',actor:options.actor??(answer?'frozen-review-answer':'none'),
+  try{result=await applyVisualFeedback(baseline,observations,source,{}, {mode:options.mode??'guided',scope:options.scope??'architecture',actor:options.actor??(answer?'frozen-review-answer':'none'),
    ...(answer?{review:async request=>{if(JSON.stringify(request)!==JSON.stringify(expected))throw Error('Frozen request does not match current source, interpretation, mode or instructions.');return answer;}}:{}),
-   onAudit:a=>audits.push(a),onCandidate:(index,architecture,result)=>candidates.push({index,architecture,result})});}
+   onAudit:a=>audits.push(a),onCandidate:(index,architecture,result,furnishing)=>candidates.push({index,architecture,result,furnishing})});}
   catch(error){
    if(error.audit){await save('feedback-audit.json',error.audit);await save('feedback-audit-snapshots.json',audits);}
    await save('failure.json',{name:error.name,message:error.message,baselinePreserved:true,automaticRetries:0});throw error;
@@ -40,7 +41,7 @@ export async function runVisualFeedback(options){
   const feedback=result.visualFeedback,request=feedback.request;
   await save('feedback-audit.json',feedback);await save('feedback-audit-snapshots.json',audits);await save('project.json',result.project);await save('correction-audit.json',result.audit);
   if(result.draft)await save('draft.json',result.draft);if(result.stage)await save('architecture-stage.json',result.stage);
-  for(const c of candidates){const folder=`candidate-${c.index}`;await mkdir(path.join(output,folder));await save(folder+'/architecture.json',c.architecture);await save(folder+'/project.json',c.result.project);await save(folder+'/audit.json',c.result.audit);if(c.result.stage)await save(folder+'/stage.json',c.result.stage);}
+  for(const c of candidates){const folder=`candidate-${c.index}`;await mkdir(path.join(output,folder));await save(folder+'/architecture.json',c.architecture);await save(folder+'/furnishing.json',c.furnishing);await save(folder+'/project.json',c.result.project);await save(folder+'/audit.json',c.result.audit);if(c.result.stage)await save(folder+'/stage.json',c.result.stage);}
   const images=[];
   if(request){await save('request.json',request);await writeFile(path.join(output,'prompt.txt'),buildVisualFeedbackInstructions(request),{flag:'wx',mode:0o444});
    for(const region of request.regions)for(const role of ['context','focus']){
@@ -49,7 +50,7 @@ export async function runVisualFeedback(options){
    }
   }
   const provenance={source:{file:imageFile,sha256:source.sha256,width:raster.width,height:raster.height},observations:{architectureSha256:hash(architectureBytes),furnishingSha256:hash(furnishingBytes)},images,
-   mode:options.mode??'guided',reviewAnswersReplayed:answer?1:0,actualProviderRequests:0,providerUsage:null,
+   mode:options.mode??'guided',scope:options.scope??'architecture',reviewAnswersReplayed:answer?1:0,actualProviderRequests:0,providerUsage:null,
    attribution:'undetermined; compare outcomes and independent visual evidence, not warning counts alone',
    instructionSha256:request?.instructionSha256,promptBytes:request?Buffer.byteLength(buildVisualFeedbackInstructions(request)):0};
   await save('provenance.json',provenance);
@@ -60,6 +61,6 @@ export async function runVisualFeedback(options){
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
  const args=process.argv.slice(2),options={};
- for(let i=0;i<args.length;i+=2){const key=args[i]?.replace(/^--/,'');if(!['architecture','furnishing','source','output','mode','request','decision','actor'].includes(key)||!args[i+1]||options[key])throw Error('Usage: --architecture file --furnishing file --source image --output NEW_DIRECTORY [--mode ordinary|guided] [--decision answer --request frozen-request --actor label]');options[key]=args[i+1];}
+ for(let i=0;i<args.length;i+=2){const key=args[i]?.replace(/^--/,'');if(!['architecture','furnishing','source','output','mode','scope','request','decision','actor'].includes(key)||!args[i+1]||options[key])throw Error('Usage: --architecture file --furnishing file --source image --output NEW_DIRECTORY [--mode ordinary|guided] [--scope architecture|architecture-and-furnishing] [--decision answer --request frozen-request --actor label]');options[key]=args[i+1];}
  try{console.log(JSON.stringify(await runVisualFeedback(options),null,2));}catch(e){console.error(e.message);process.exitCode=1;}
 }

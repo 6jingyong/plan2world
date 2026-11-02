@@ -1,4 +1,4 @@
-import { parseSourceArchitecture } from './architecture';
+import { parseSourceArchitecture, parseSourceFurnishing } from './architecture';
 import { reprojectSourceObservations, type SourceCorrectionResult } from './correction';
 import { imageSha256 } from './imagePreparation';
 import { sourcePoints, type SourceDiagnostic } from './sourceDiagnostics';
@@ -7,15 +7,18 @@ import type { SourceFloorPlanImage } from './sourceBackground';
 import type { SourceRasterPixels } from './rasterWallContinuation';
 import type { ReconstructionOptions } from './reconstructionInstructions';
 import guide from '../../../skills/reconstruct-plan2world/references/visual-feedback-pass.md?raw';
+import supportGuide from '../../../skills/reconstruct-plan2world/references/visual-feedback-support-pass.md?raw';
+import { inspectFeedbackSupport, reviseFeedbackFurnishing, remapFeedbackFurniturePaths, type FeedbackSupportReview, type FeedbackFurnitureChange } from './visualFeedbackSupport';
 
 export const VISUAL_FEEDBACK_POLICY = 'source-visual-feedback-v1' as const;
+export const SUPPORT_FEEDBACK_POLICY = 'source-visual-feedback-v2' as const;
 type Box = [number, number, number, number];
 type Interpretation = ReturnType<typeof parseSourceArchitecture>;
 type Source = { image: SourceFloorPlanImage; sha256: string; raster?: SourceRasterPixels };
 type Observations = { architecture: unknown; furnishing: unknown };
-type Path = `walls[${number}]` | `openings[${number}]` | `functionalZones[${number}]` | `junctions[${number}]`;
+type Path = `walls[${number}]` | `openings[${number}]` | `functionalZones[${number}]` | `junctions[${number}]` | `furniture[${number}]`;
 export interface VisualFeedbackRequest {
-  schemaVersion: typeof VISUAL_FEEDBACK_POLICY;
+  schemaVersion: typeof VISUAL_FEEDBACK_POLICY | typeof SUPPORT_FEEDBACK_POLICY;
   requestId: string;
   mode: 'ordinary' | 'guided';
   source: { sha256: string; width: number; height: number };
@@ -25,6 +28,7 @@ export interface VisualFeedbackRequest {
   regions: { id: string; focusBox: Box; contextBox: Box; questions: string[] }[];
   records: { path: Path; value: unknown }[];
   anchors: { kind: 'wall' | 'opening' | 'furnishing'; evidence: unknown }[];
+  supportReview?: { status: FeedbackSupportReview['status']; findings: {path:string;position:{x:number;y:number};sourceRecord:unknown}[]; unmappedCount:number; error?:string };
   maxHypotheses: 3;
   maxReviews: 1;
 }
@@ -35,6 +39,7 @@ interface Hypothesis {
   changes: { path: Path; value: unknown }[];
   additionalWalls?: unknown[];
   additionalOpenings?: unknown[];
+  furnitureChanges?: FeedbackFurnitureChange[];
 }
 export interface VisualFeedbackDecision {
   schemaVersion: 'source-visual-feedback-decision-v1';
@@ -44,7 +49,7 @@ export interface VisualFeedbackDecision {
   unresolvedQuestions: string[];
 }
 export interface VisualFeedbackAudit {
-  policy: typeof VISUAL_FEEDBACK_POLICY;
+  policy: VisualFeedbackRequest['schemaVersion'];
   status: 'not-needed' | 'not-reviewable' | 'pending' | 'invalid-response' | 'revised' | 'unchanged' | 'review-failed';
   reviews: number;
   actor: string;
@@ -52,7 +57,10 @@ export interface VisualFeedbackAudit {
   answer?: unknown;
   deferredDiagnosticIds: string[];
   candidates: { index: number; label: string; visualSupport: string; status: 'validated' | 'invalid'; error?: string;
-    interpretationSha256?: string; projectContentSha256?: string; partialImport?: boolean; issueCount?: number }[];
+    interpretationSha256?: string; projectContentSha256?: string; partialImport?: boolean; issueCount?: number;
+    furnishingSha256?:string; furnitureSourceIndices?:number[]; retractedFurniturePaths?:string[];
+    supportReview?:FeedbackSupportReview; introducedSupportPaths?:string[] }[];
+  supportReview?: FeedbackSupportReview;
   selected?: number | null;
   reason?: string;
   originalObservationSha256: string;
@@ -63,10 +71,11 @@ export interface VisualFeedbackAudit {
 }
 export interface VisualFeedbackOptions {
   mode?: VisualFeedbackRequest['mode'];
+  scope?: 'architecture' | 'architecture-and-furnishing';
   actor?: string;
   review?: (request: VisualFeedbackRequest, source: Source) => Promise<unknown>;
   onAudit?: (audit: VisualFeedbackAudit) => void;
-  onCandidate?: (index: number, architecture: Interpretation, result: SourceCorrectionResult) => void;
+  onCandidate?: (index: number, architecture: Interpretation, result: SourceCorrectionResult, furnishing: unknown) => void;
 }
 export class VisualFeedbackOperationalError extends Error {
   constructor(message: string, public audit: VisualFeedbackAudit, public baseline: SourceCorrectionResult) {
@@ -87,11 +96,13 @@ function at(architecture: Interpretation,path: string) {
   if (!rows || index >= rows.length) throw new Error('Source record does not exist.');
   return { rows,index,value:rows[index] };
 }
-const visualCodes = new Set(['wall-overlap','ambiguous-host','unresolved-host','uncertain-wall','uncertain-opening','uncertain-zone','unresolved-zone']);
-const priority = (d: SourceDiagnostic) => d.code==='wall-overlap' ? 0 : d.code==='unresolved-host'||d.code==='ambiguous-host' ? 1 : 2;
+const visualCodes = new Set(['wall-overlap','ambiguous-host','unresolved-host','uncertain-wall','uncertain-opening','uncertain-zone','unresolved-zone','source-marker-no-floor']);
+const priority = (d: SourceDiagnostic) => d.code==='source-marker-no-floor' ? -1 : d.code==='wall-overlap' ? 0 : d.code==='unresolved-host'||d.code==='ambiguous-host' ? 1 : 2;
 function structuralQuestion(d:SourceDiagnostic) {
   const location=d.sourcePaths.join(', ');
-  const question=d.code==='wall-overlap'
+  const question=d.code==='source-marker-no-floor'
+    ? 'The observed object point has no supporting compiler floor. Inspect whether the symbol is actually this object, whether its point is correct, or whether surrounding ground/boundary evidence is missing. Text, stairs or shafts are not automatically furniture or usable ground. Keep alternatives or unknown; do not relocate to the nearest floor or add ground to pass.'
+    : d.code==='wall-overlap'
     ? 'Two source wall records overlap after normalization. Inspect duplication, alignment and distinct structural/furnishing roles; either source record or the program representation can be wrong.'
     : d.code==='unresolved-host'||d.code==='ambiguous-host'
     ? 'This observed aperture interval does not associate uniquely with a current baseline. Which visible framing, jambs or boundary support it, if any? Reconsider either the aperture or baseline interpretation.'
@@ -104,16 +115,21 @@ function structuralQuestion(d:SourceDiagnostic) {
 /** Locate questions, not desired corrections. Windows can supply nearby parallel
  * baseline CONTEXT; neither that context nor its acceptance proves a true host. */
 export async function buildVisualFeedbackRequest(baseline: SourceCorrectionResult, observations: Observations, source: Source,
-  mode: VisualFeedbackRequest['mode'] = 'guided'): Promise<{request?:VisualFeedbackRequest;deferredDiagnosticIds:string[];reason?:string}> {
+  mode: VisualFeedbackRequest['mode'] = 'guided', scope: VisualFeedbackOptions['scope'] = 'architecture'): Promise<{request?:VisualFeedbackRequest;deferredDiagnosticIds:string[];reason?:string;supportReview?:FeedbackSupportReview}> {
   let architecture: Interpretation;
   try { architecture = parseSourceArchitecture(baseline.audit.programProjection); }
   catch { return { deferredDiagnosticIds:baseline.diagnostics.map(d=>d.id),reason:'Malformed source contract requires input correction, not a visual retry.' }; }
   const width=source.image.width,height=source.image.height;
+  const support=scope==='architecture-and-furnishing'?inspectFeedbackSupport(baseline,observations.furnishing,architecture):undefined;
+  const diagnostics=[...baseline.diagnostics,...(support?.diagnostics??[])];
+  const furnishingRows=scope==='architecture-and-furnishing'&&support?.review.status==='assessed'
+    ?parseSourceFurnishing(observations.furnishing,architecture.scaleEvidence).furniture:[];
+  const sourceRecordAt=(path:string)=>path.startsWith('furniture[')?furnishingRows[Number(/^furniture\[(\d+)\]$/.exec(path)?.[1])]:at(architecture,path).value;
   const padded = (b:Box,pad:number):Box => [Math.max(0,Math.floor(b[0]-pad)),Math.max(0,Math.floor(b[1]-pad)),Math.min(width,Math.ceil(b[2]+pad)),Math.min(height,Math.ceil(b[3]+pad))];
-  const candidates=baseline.diagnostics.filter(d=>visualCodes.has(d.code)&&d.sourcePaths.length).sort((a,b)=>priority(a)-priority(b)||a.id.localeCompare(b.id));
+  const candidates=diagnostics.filter(d=>visualCodes.has(d.code)&&d.sourcePaths.length).sort((a,b)=>priority(a)-priority(b)||a.id.localeCompare(b.id));
   const groups: { focus:Box;diagnostics:SourceDiagnostic[] }[]=[];
   for(const diagnostic of candidates){
-    const records=diagnostic.sourcePaths.flatMap(path=>{try{return[at(architecture,path).value];}catch{return[];}});
+    const records=diagnostic.sourcePaths.flatMap(path=>{try{return[sourceRecordAt(path)];}catch{return[];}});
     const context=[...records];
     for(const record of records){
       const o=record as any;if(!['door','window'].includes(o?.kind)||!Array.isArray(o.endpoints))continue;
@@ -133,16 +149,23 @@ export async function buildVisualFeedbackRequest(baseline: SourceCorrectionResul
   }
   const selected=groups.filter(g=>(g.focus[2]-g.focus[0])*(g.focus[3]-g.focus[1])<=width*height*.35).slice(0,3);
   const selectedIds=new Set(selected.flatMap(g=>g.diagnostics.map(d=>d.id)));
-  const deferredDiagnosticIds=baseline.diagnostics.filter(d=>!selectedIds.has(d.id)).map(d=>d.id);
-  if(!selected.length)return{deferredDiagnosticIds,reason:candidates.length?'The structural question exceeds the bounded local review scope.':'No localized visual contradiction; operational/native-motion issues do not trigger image retries.'};
+  const deferredDiagnosticIds=diagnostics.filter(d=>!selectedIds.has(d.id)).map(d=>d.id);
+  if(!selected.length)return{deferredDiagnosticIds,...(support?{supportReview:support.review}:{}),reason:candidates.length?'The structural question exceeds the bounded local review scope.':'No localized visual contradiction; operational/native-motion issues do not trigger image retries.'};
   const regions=selected.map((g,i)=>({id:`region-${i+1}`,focusBox:g.focus,contextBox:padded(g.focus,Math.min(192,Math.max(64,Math.min(width,height)*.05))),
-    questions:mode==='ordinary'?['Reinspect the visible architecture in this region. Keep unsupported interpretations uncertain.']:
+    questions:mode==='ordinary'?[scope==='architecture-and-furnishing'?'Reinspect the visible architecture and objects in this region. Keep unsupported interpretations uncertain.':'Reinspect the visible architecture in this region. Keep unsupported interpretations uncertain.']:
       g.diagnostics.map(structuralQuestion)}));
   const pinned=selected.flatMap(g=>g.diagnostics.flatMap(d=>d.sourcePaths));
-  const all=(['walls','openings','functionalZones','junctions'] as const).flatMap(kind=>(architecture[kind]??[]).map((value,index)=>({path:`${kind}[${index}]` as Path,value})));
+  const all=[...(['walls','openings','functionalZones','junctions'] as const).flatMap(kind=>(architecture[kind]??[]).map((value,index)=>({path:`${kind}[${index}]` as Path,value}))),
+    ...furnishingRows.map((value,index)=>({path:`furniture[${index}]` as Path,value}))];
   const recordPriority=(r:typeof all[number])=>{
     if(pinned.includes(r.path))return 0;
     const box=bounds(r.value)!;
+    if(scope==='architecture-and-furnishing'){
+      // A broad, lower-priority zone must not crowd out walls around the
+      // compiler-conflicted point merely because their indices sort later.
+      const region=regions.findIndex(g=>intersects(box,g.contextBox));
+      return 1+region*4+(r.path.startsWith('walls[')?0:r.path.startsWith('openings[')?1:r.path.startsWith('furniture[')?2:3);
+    }
     if(r.path.startsWith('walls[')&&regions.some(g=>intersects(box,g.focusBox)))return 1;
     if(r.path.startsWith('openings[')&&regions.some(g=>intersects(box,g.focusBox)))return 2;
     return r.path.startsWith('walls[')?3:4;
@@ -154,13 +177,14 @@ export async function buildVisualFeedbackRequest(baseline: SourceCorrectionResul
     ...architecture.openings.filter(o=>o.decision==='accept').slice(0,3).map(o=>({kind:'opening' as const,evidence:o})),
     ...((observations.furnishing as any)?.furniture??[]).filter((f:any)=>regions.some(g=>f.position&&inside(f.position,g.contextBox))).slice(0,8).map((f:any)=>({kind:'furnishing' as const,evidence:f})),
   ];
-  const body={schemaVersion:VISUAL_FEEDBACK_POLICY,mode,source:{sha256:source.sha256,width,height},
-    interpretationSha256:await hash(architecture),furnishingSha256:await hash(observations.furnishing),instructionSha256:await hash(guide),regions,records,anchors,maxHypotheses:3 as const,maxReviews:1 as const};
-  return{request:{...body,requestId:await hash(body)},deferredDiagnosticIds};
+  const body={schemaVersion:scope==='architecture-and-furnishing'?SUPPORT_FEEDBACK_POLICY:VISUAL_FEEDBACK_POLICY,mode,source:{sha256:source.sha256,width,height},
+    interpretationSha256:await hash(architecture),furnishingSha256:await hash(observations.furnishing),instructionSha256:await hash(scope==='architecture-and-furnishing'?`${guide}\n${supportGuide}`:guide),regions,records,anchors,maxHypotheses:3 as const,maxReviews:1 as const,
+    ...(support?{supportReview:{status:support.review.status,findings:support.review.findings.map(({path,position,sourceRecord})=>({path,position,sourceRecord})),unmappedCount:support.review.unmappedEntityIds.length,...(support.review.error?{error:support.review.error}:{})}}:{})};
+  return{request:{...body,requestId:await hash(body)},deferredDiagnosticIds,...(support?{supportReview:support.review}:{})};
 }
 
 export function buildVisualFeedbackInstructions(request: VisualFeedbackRequest) {
-  return `${guide}\n\nSOURCE_VISUAL_REVIEW_REQUEST_JSON:\n${JSON.stringify(request)}`;
+  return `${guide}${request.schemaVersion===SUPPORT_FEEDBACK_POLICY?`\n${supportGuide}`:''}\n\nSOURCE_VISUAL_REVIEW_REQUEST_JSON:\n${JSON.stringify(request)}`;
 }
 
 /** Lossless local pixels with explicit offsets. Adapters encode these as images;
@@ -185,7 +209,7 @@ function response(value:any,request:VisualFeedbackRequest):VisualFeedbackDecisio
 }
 
 function revisedInterpretation(original:Interpretation,h:any,request:VisualFeedbackRequest) {
-  exactObject(h,['label','visualSupport','evidence','changes','additionalWalls','additionalOpenings']);
+  exactObject(h,['label','visualSupport','evidence','changes','additionalWalls','additionalOpenings',...(request.schemaVersion===SUPPORT_FEEDBACK_POLICY?['furnitureChanges']:[])]);
   if(typeof h.label!=='string'||!h.label.trim()||typeof h.evidence!=='string'||!h.evidence.trim()||!['clear','partial','unclear'].includes(h.visualSupport)||!Array.isArray(h.changes)||h.changes.length>24)throw new Error('Hypothesis requires explicit visual support and bounded source changes.');
   const next=structuredClone(original),seen=new Set<string>();
   const local=(points:ReturnType<typeof sourcePoints>)=>points.every(p=>request.regions.some(g=>inside(p,g.contextBox)));
@@ -223,9 +247,10 @@ function revisedInterpretation(original:Interpretation,h:any,request:VisualFeedb
  * the normal core; no runtime/draft patching, score-based winner or model retry. */
 export async function applyVisualFeedback(baseline:SourceCorrectionResult,observations:Observations,source:Source,
   options:ReconstructionOptions,feedback:VisualFeedbackOptions):Promise<SourceCorrectionResult&{visualFeedback:VisualFeedbackAudit}> {
-  const packet=await buildVisualFeedbackRequest(baseline,observations,source,feedback.mode);
-  const audit:VisualFeedbackAudit={policy:VISUAL_FEEDBACK_POLICY,status:packet.request?'pending':baseline.issueCount?'not-reviewable':'not-needed',reviews:0,actor:feedback.actor??'unspecified',
+  const packet=await buildVisualFeedbackRequest(baseline,observations,source,feedback.mode,feedback.scope);
+  const audit:VisualFeedbackAudit={policy:feedback.scope==='architecture-and-furnishing'?SUPPORT_FEEDBACK_POLICY:VISUAL_FEEDBACK_POLICY,status:packet.request?'pending':baseline.issueCount||packet.supportReview?.status==='not-assessed'||packet.supportReview?.findings.length||packet.supportReview?.unmappedEntityIds.length?'not-reviewable':'not-needed',reviews:0,actor:feedback.actor??'unspecified',
     ...(packet.request?{request:packet.request}:{}),deferredDiagnosticIds:packet.deferredDiagnosticIds,candidates:[],originalObservationSha256:await hash(observations.architecture),
+    ...(packet.supportReview?{supportReview:packet.supportReview}:{}),
     originalObservations:structuredClone(observations),baselineProjectContentSha256:baseline.audit.correction.projectContentSha256,attribution:'undetermined',
     limitation:'Interpretation versions and structural outcomes are not source ground truth. One failure does not distinguish model capability, context/prompt method, program limits or ambiguous source. No independent source verdict or automatic winner.'};
   const emit=()=>feedback.onAudit?.(structuredClone(audit));
@@ -237,30 +262,48 @@ export async function applyVisualFeedback(baseline:SourceCorrectionResult,observ
   audit.answer=structuredClone(raw);let decision:VisualFeedbackDecision;
   try{decision=response(raw,packet.request);}catch(e){audit.status='invalid-response';audit.reason=message(e);emit();return{...baseline,visualFeedback:audit};}
   audit.selected=decision.selected;
-  const versions=new Map<number,{architecture:Interpretation;result:SourceCorrectionResult}>();
+  const versions=new Map<number,{architecture:Interpretation;result:SourceCorrectionResult;furnishing:unknown;indices:number[];supportEligible:boolean}>();
   for(const [index,h] of decision.hypotheses.entries()){
     let architecture:Interpretation,result:SourceCorrectionResult;
+    let furnishing=observations.furnishing,indices:number[]=[],retractedPaths:string[]=[];
+    let supportReview:FeedbackSupportReview|undefined,introducedSupportPaths:string[]=[];
     try{
       architecture=revisedInterpretation(parseSourceArchitecture(baseline.audit.programProjection),h,packet.request);
-      result=await reprojectSourceObservations({architecture,furnishing:observations.furnishing},source,options);
+      if(packet.request.schemaVersion===SUPPORT_FEEDBACK_POLICY){
+        const revised=reviseFeedbackFurnishing(observations.furnishing,architecture,h.furnitureChanges,packet.request);
+        furnishing=revised.furnishing;indices=revised.indices;retractedPaths=revised.retractedPaths;
+      }
+      result=await reprojectSourceObservations({architecture,furnishing},source,options);
+      if(packet.request.schemaVersion===SUPPORT_FEEDBACK_POLICY){
+        supportReview=inspectFeedbackSupport(result,furnishing,architecture).review;
+        supportReview.findings=supportReview.findings.map(f=>({...f,path:`furniture[${indices[Number(/^furniture\[(\d+)\]$/.exec(f.path)![1])]}]`}));
+        const existing=new Set(packet.supportReview?.findings.map(f=>f.path));
+        introducedSupportPaths=supportReview.findings.filter(f=>!existing.has(f.path)).map(f=>f.path);
+        result=remapFeedbackFurniturePaths(result,indices,retractedPaths);
+        result.audit.correction.projectContentSha256=await hash(result.project);
+      }
     }catch(e){audit.candidates.push({index,label:typeof h?.label==='string'?h.label:'invalid hypothesis',visualSupport:h?.visualSupport??'unknown',status:'invalid',error:message(e)});continue;}
-    audit.candidates.push({index,label:h.label,visualSupport:h.visualSupport,status:'validated',interpretationSha256:await hash(architecture),projectContentSha256:result.audit.correction.projectContentSha256,partialImport:result.partialImport,issueCount:result.issueCount});
-    versions.set(index,{architecture,result});
-    try{feedback.onCandidate?.(index,structuredClone(architecture),structuredClone(result));}
+    const supportEligible=!supportReview||supportReview.status==='assessed'&&supportReview.unmappedEntityIds.length===0&&introducedSupportPaths.length===0;
+    audit.candidates.push({index,label:h.label,visualSupport:h.visualSupport,status:'validated',interpretationSha256:await hash(architecture),projectContentSha256:result.audit.correction.projectContentSha256,partialImport:result.partialImport,issueCount:result.issueCount,
+      ...(supportReview?{supportReview,introducedSupportPaths,furnishingSha256:await hash(furnishing),furnitureSourceIndices:indices,retractedFurniturePaths:retractedPaths}:{})});
+    versions.set(index,{architecture,result,furnishing,indices,supportEligible});
+    try{feedback.onCandidate?.(index,structuredClone(architecture),structuredClone(result),structuredClone(furnishing));}
     catch(e){audit.status='review-failed';audit.reason=message(e);emit();throw new VisualFeedbackOperationalError(message(e),structuredClone(audit),baseline);}
   }
   const selected=decision.selected===null?undefined:versions.get(decision.selected),hypothesis=decision.selected===null?undefined:decision.hypotheses[decision.selected];
-  if(!selected||hypothesis?.visualSupport!=='clear'){
-    audit.status='pending';audit.reason='No explicitly selected, clear, in-scope interpretation. Preserve alternatives and the current source.';emit();return{...baseline,visualFeedback:audit};
+  if(!selected||hypothesis?.visualSupport!=='clear'||!selected.supportEligible){
+    audit.status='pending';audit.reason=selected&&!selected.supportEligible?'The selected interpretation introduces unsupported source anchors or its support check is incomplete. Preserve the candidate without applying it.':'No explicitly selected, clear, in-scope interpretation. Preserve alternatives and the current source.';emit();return{...baseline,visualFeedback:audit};
   }
-  const changed=await hash(selected.architecture)!==packet.request.interpretationSha256;
+  const furnishingChanged=packet.request.schemaVersion===SUPPORT_FEEDBACK_POLICY&&await hash(selected.furnishing)!==await hash(parseSourceFurnishing(observations.furnishing,selected.architecture.scaleEvidence));
+  const changed=await hash(selected.architecture)!==packet.request.interpretationSha256||furnishingChanged;
   if(!changed){audit.status='unchanged';emit();return{...baseline,visualFeedback:audit};}
   // Evidence remains authoring-only and retains the FIRST architecture, even
   // when its initial accept/uncertain/reject interpretation is revised.
   const result=selected.result,project=structuredClone(result.project);
   project.architectureReview={...(project.architectureReview??{version:1 as const,issues:[]}),workingImageSha256:source.sha256,
-    sourceObservations:JSON.stringify({...observations,visualFeedback:{policy:VISUAL_FEEDBACK_POLICY,requestId:packet.request.requestId,
-      originalObservationSha256:audit.originalObservationSha256,interpretationSha256:await hash(selected.architecture),hypothesis}})};
+    sourceObservations:JSON.stringify({...observations,visualFeedback:{policy:packet.request.schemaVersion,requestId:packet.request.requestId,
+      originalObservationSha256:audit.originalObservationSha256,interpretationSha256:await hash(selected.architecture),hypothesis,
+      ...(packet.request.schemaVersion===SUPPORT_FEEDBACK_POLICY?{furnishingProjection:selected.furnishing,furnitureSourceIndices:selected.indices}:{})}})};
   const projectContentSha256=await hash(project);audit.status='revised';emit();
   return{...result,project,audit:{...result.audit,correction:{...result.audit.correction,projectContentSha256}},visualFeedback:audit};
 }

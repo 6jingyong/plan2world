@@ -52,7 +52,17 @@ export function anchorSupported(point:RuntimeVec2,triangles:Polygon[]):boolean {
   });
 }
 
-export function validateFurnitureSupport(scene:Plan2WorldRuntimeSceneV1):void {
+export interface FurnitureSupportFinding {
+  code:'source-marker-no-floor'|'furniture-footprint-no-floor';
+  entityId:string;
+  floorId:string;
+  position:RuntimeVec2;
+  message:string;
+}
+
+/** Read-only compiler findings. Keep validation fail-fast while allowing an
+ * explicit authoring review to collect all unsupported source anchors. */
+export function* furnitureSupportFindings(scene:Plan2WorldRuntimeSceneV1):Generator<FurnitureSupportFinding> {
   const supports=new Map<string,Polygon[]>();
   for(const floor of scene.floors){
     const owners=new Set(floor.rooms.map(room=>room.id)),triangles:Polygon[]=[];
@@ -68,9 +78,18 @@ export function validateFurnitureSupport(scene:Plan2WorldRuntimeSceneV1):void {
   for(const item of scene.entities){
     if(item.kind!=='furniture'||item.movement.kind!=='floor'||item.size[0]<=0||item.size[2]<=0)continue;
     if(item.representation==='source-marker'){
-      if(!anchorSupported([item.position[0],item.position[2]],supports.get(item.floorId)??[]))throw new Error(`Source marker "${item.id}" has no floor at its observed position on floor "${item.floorId}". Review its position or the authored ground; do not infer furniture dimensions from the marker block.`);
+      if(!anchorSupported([item.position[0],item.position[2]],supports.get(item.floorId)??[]))yield {
+        code:'source-marker-no-floor',entityId:item.id,floorId:item.floorId,position:[item.position[0],item.position[2]],
+        message:`Source marker "${item.id}" has no floor at its observed position on floor "${item.floorId}". Review its position or the authored ground; do not infer furniture dimensions from the marker block.`};
       continue;
     }
-    if(!footprintSupported(furnitureFootprint(item),supports.get(item.floorId)??[]))throw new Error(`Furniture "${item.id}" is not fully supported by floor "${item.floorId}". Keep its entire footprint clear of floor holes and outside edges.`);
+    if(!footprintSupported(furnitureFootprint(item),supports.get(item.floorId)??[]))yield {
+      code:'furniture-footprint-no-floor',entityId:item.id,floorId:item.floorId,position:[item.position[0],item.position[2]],
+      message:`Furniture "${item.id}" is not fully supported by floor "${item.floorId}". Keep its entire footprint clear of floor holes and outside edges.`};
   }
+}
+
+export function validateFurnitureSupport(scene:Plan2WorldRuntimeSceneV1):void {
+  const first=furnitureSupportFindings(scene).next();
+  if(!first.done)throw new Error(first.value.message);
 }

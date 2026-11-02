@@ -26,3 +26,26 @@ it('freezes local review packets, refuses overwrites and retains failed stale-re
   expect(await readFile(path.join(dir,'architecture.json'),'utf8')).toBe(original);
  }finally{await rm(dir,{recursive:true,force:true});}
 },60000);
+
+it('applies an explicit source-object review through the CLI and freezes its furniture projection',async()=>{
+ const dir=await mkdtemp(path.join(tmpdir(),'p2w-support-cli-'));
+ try{
+  const point=(x:number,y:number)=>({x,y}),d={decision:'accept',evidence:'Synthetic stroke.',decisionBasis:'Synthetic source control.'};
+  const architecture={schemaVersion:'source-architecture-v1',scaleEvidence:{kind:'provided_length',realLengthCm:100,endpoints:[point(20,20),point(120,20)],evidence:'Control.'},
+   walls:[[20,20,480,20],[480,20,480,380],[480,380,20,380],[20,380,20,20]].map(([x,y,a,b],i)=>({...d,label:`wall ${i}`,start:point(x,y),end:point(a,b)})),
+   openings:[{...d,label:'entry',kind:'door',doorType:'opening',typeEvidence:'Threshold.',endpoints:[point(20,120),point(20,200)]}]};
+  const furnishing={schemaVersion:'source-furnishing-v1',furniture:[{sourceCategory:'chair',position:point(250,200)},{sourceCategory:'sink',position:point(490,80)}]};
+  await writeFile(path.join(dir,'architecture.json'),JSON.stringify(architecture));await writeFile(path.join(dir,'furnishing.json'),JSON.stringify(furnishing));
+  await writeFile(path.join(dir,'source.png'),Buffer.from(encodeRgbaPng({width:500,height:400,data:Buffer.alloc(500*400*4,255)})));
+  const args=['tooling/plan2world-visual-feedback.mjs','--architecture',path.join(dir,'architecture.json'),'--furnishing',path.join(dir,'furnishing.json'),'--source',path.join(dir,'source.png'),'--scope','architecture-and-furnishing'];
+  const env={...process.env,NODE_ENV:'production'};
+  execFileSync(process.execPath,[...args,'--output',path.join(dir,'packet')],{env,timeout:20000});
+  const request=JSON.parse(await readFile(path.join(dir,'packet/request.json'),'utf8'));
+  expect(request.schemaVersion).toBe('source-visual-feedback-v2');expect(request.supportReview.findings[0].path).toBe('furniture[1]');
+  await writeFile(path.join(dir,'answer.json'),JSON.stringify({schemaVersion:'source-visual-feedback-decision-v1',requestId:request.requestId,hypotheses:[{label:'Text, not a fixture',visualSupport:'clear',evidence:'Synthetic source control.',changes:[],furnitureChanges:[{path:'furniture[1]',action:'retract',evidence:'Synthetic text cue.'}]}],selected:0,unresolvedQuestions:[]}));
+  execFileSync(process.execPath,[...args,'--request',path.join(dir,'packet/request.json'),'--decision',path.join(dir,'answer.json'),'--output',path.join(dir,'result')],{env,timeout:20000});
+  const original=JSON.parse(await readFile(path.join(dir,'result/furnishing-original.json'),'utf8')),candidate=JSON.parse(await readFile(path.join(dir,'result/candidate-0/furnishing.json'),'utf8')),audit=JSON.parse(await readFile(path.join(dir,'result/feedback-audit.json'),'utf8'));
+  expect(original).toEqual(furnishing);expect(candidate.furniture).toHaveLength(1);expect(audit.status).toBe('revised');expect(audit.candidates[0].furnitureSourceIndices).toEqual([0]);
+  const provenance=JSON.parse(await readFile(path.join(dir,'result/provenance.json'),'utf8'));expect(provenance.actualProviderRequests).toBe(0);expect(provenance.reviewAnswersReplayed).toBe(1);
+ }finally{await rm(dir,{recursive:true,force:true});}
+},60000);

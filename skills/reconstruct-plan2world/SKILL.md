@@ -63,6 +63,14 @@ prepares/applies recorded answers without a provider request. Compare baseline,
 ordinary and structure-guided reinspection with the same images and review budget;
 one failure alone cannot establish model incapability or a defective method.
 
+An explicit `architecture-and-furnishing` scope additionally applies
+[source-object support review](references/visual-feedback-support-pass.md).
+Compiler-conflicted furnishing records may be reconsidered from original pixels,
+with contrary evidence and original-index provenance. This does not unfreeze the
+first observation or permit automatic object movement, ground filling, global
+furniture edits or another review batch. Keep source uncertainty and missing
+ground distinct from false object identification.
+
 ## Fresh validation workspace
 
 For a benchmark rerun, start from the original raster and create a new ignored directory before generating anything:
