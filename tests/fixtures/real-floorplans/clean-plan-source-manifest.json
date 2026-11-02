@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "plan2world-clean-source-identities-v1",
+  "selectionPolicy": "docs/clean-plan-validation.md",
+  "sources": [
+    {
+      "id": "residential-vector",
+      "cohort": "primary",
+      "reason": "Crisp thick architectural lines, sparse/no annotation, orthographic concave polygonal plan. Visible stairs and unspecified doorway operation remain legitimate uncertainty.",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:HouseFlrPlan.svg",
+      "rasterURL": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b8/HouseFlrPlan.svg/1280px-HouseFlrPlan.svg.png?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "sha256": "94bb6d379fd7f1e6b2bab2799b9fbea72e387ff7f1ee7d035a67be06b2a15628",
+      "width": 1280,
+      "height": 885,
+      "license": "GPL",
+      "licenseURL": "http://www.gnu.org/licenses/gpl.html",
+      "artistHTML": "<div style=\"display:inline-block;padding:0 3px;background-color:#BDC\"><a href=\"//commons.wikimedia.org/wiki/File:HouseFlrPlan.JPG\" title=\"File:HouseFlrPlan.JPG\"><b>Original: </b></a></div> <div style=\"display:inline-block;padding:3px 0;\"><a href=\"https://en.wikipedia.org/wiki/User:MrDrew508\" class=\"extiw\" title=\"en:User:MrDrew508\">MrDrew508</a></div> <div style=\"display:inline-block;padding:0 3px;background-color:#CCF\">Vector: </div> <div style=\"display:inline-block;\"><a href=\"//commons.wikimedia.org/wiki/User:Malyszkz\" title=\"User:Malyszkz\">Malyszkz</a></div>",
+      "sourceFormat": "SVG official raster preview; no vector path geometry or semantic reference used",
+      "screenedBeforeExtraction": true
+    },
+    {
+      "id": "office-vector",
+      "cohort": "primary",
+      "reason": "Clean digital office drawing with sparse labels, framed glazing and distinct furniture fill; open-plan layout and furniture-edge roles must be retained.",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Office_plane.svg",
+      "rasterURL": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f6/Office_plane.svg/1280px-Office_plane.svg.png?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "sha256": "83fc417497be9e70df66541b612ee927964c2ac0c9d541cb04280f73d1b83bf1",
+      "width": 1280,
+      "height": 1959,
+      "license": "CC0",
+      "licenseURL": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+      "artistHTML": "<a href=\"//commons.wikimedia.org/wiki/User:Wilfredor\" class=\"mw-redirect\" title=\"User:Wilfredor\">Wilfredor</a>",
+      "sourceFormat": "SVG official raster preview; no vector path geometry or semantic reference used",
+      "screenedBeforeExtraction": true
+    },
+    {
+      "id": "museum-paros",
+      "cohort": "secondary-schematic",
+      "reason": "Clean colored visitor diagram, but large semantic labels and simplified room connections rather than detailed architectural jamb/framing information.",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Plan_Archaeological_Museum_of_Paros-en.svg",
+      "rasterURL": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1a/Plan_Archaeological_Museum_of_Paros-en.svg/1280px-Plan_Archaeological_Museum_of_Paros-en.svg.png?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "sha256": "4776fd6fbb1de59b80016278d943d6304a4fa20c51d0fe3019fd02ccc48b5108",
+      "width": 1280,
+      "height": 782,
+      "license": "CC BY-SA 3.0",
+      "licenseURL": "https://creativecommons.org/licenses/by-sa/3.0",
+      "artistHTML": "<a href=\"//commons.wikimedia.org/wiki/User:Cedric_B.\" title=\"User:Cedric B.\">Cédric Boissière</a> (original French SVG); <a href=\"//commons.wikimedia.org/wiki/User:Bibi_Saint-Pol\" title=\"User:Bibi Saint-Pol\">Bibi Saint-Pol</a> (English translation)",
+      "sourceFormat": "SVG official raster preview; no vector path geometry or semantic reference used",
+      "screenedBeforeExtraction": true
+    },
+    {
+      "id": "museum-olympia",
+      "cohort": "secondary-schematic",
+      "reason": "Clean visitor diagram with large room/topic labels and abstracted connections; keep separate from CAD-like architectural primary cohort.",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Plan_Archaeological_Museum_of_Olympia-de.svg",
+      "rasterURL": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/be/Plan_Archaeological_Museum_of_Olympia-de.svg/1280px-Plan_Archaeological_Museum_of_Olympia-de.svg.png?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "sha256": "8bbfacfb3c45df0cf22f5d982fe12d8260e06503df767de73fdec85df54f64e0",
+      "width": 1280,
+      "height": 1522,
+      "license": "CC BY-SA 3.0",
+      "licenseURL": "https://creativecommons.org/licenses/by-sa/3.0",
+      "artistHTML": "<a href=\"//commons.wikimedia.org/wiki/User:Cedric_B.\" title=\"User:Cedric B.\">Cédric Boissière</a> (original French SVG); <a href=\"//commons.wikimedia.org/wiki/User:Bibi_Saint-Pol\" title=\"User:Bibi Saint-Pol\">Bibi Saint-Pol</a> (German translation)",
+      "sourceFormat": "SVG official raster preview; no vector path geometry or semantic reference used",
+      "screenedBeforeExtraction": true
+    }
+  ]
+}

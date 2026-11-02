@@ -240,6 +240,17 @@ Never compensate for a deterministic bug with prompt instructions. Never hand-ed
 
 ## Fresh validation
 
+Primary reconstruction validation now starts with clean, CAD-like architectural
+plans: crisp consistent strokes, sparse unobscuring labels, readable boundaries
+and apertures, and no obvious internally contradictory annotations. Concave,
+oblique, multi-room and furnished plans remain eligible; clean does not mean
+simple. Screen/freeze eligibility from the raster BEFORE extraction and keep
+every admitted failure in the result. Hand sketches, poor scans, known annotation
+contradictions and simplified visitor diagrams are secondary/deferred cases;
+retain their evidence/regressions without using them as the main quality gate.
+This is a validation priority, not a production image-upload rejection rule.
+See `docs/clean-plan-validation.md` and the identity-only clean-source manifest.
+
 Every image-quality rerun starts from the original raster and a new ignored directory:
 
 `.plan2world-validation/runs/<run-id>/<sample-id>/`
