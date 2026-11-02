@@ -10,6 +10,7 @@ import type { Plan2WorldDraft } from './draft';
 import { projectSourceForCorrection } from './correctionProjection';
 import { isSourcePoint as isPoint, sourceDiagnostic, type SourceDiagnostic, type SourceFeatureOutcome } from './sourceDiagnostics';
 import { imageSha256 } from './imagePreparation';
+import type { VisualFeedbackOptions, VisualFeedbackAudit } from './visualFeedback';
 
 const errorMessage = (e: unknown) => e instanceof Error ? e.message : String(e);
 
@@ -17,6 +18,48 @@ const errorMessage = (e: unknown) => e instanceof Error ? e.message : String(e);
  * file and image-identity errors remain operational failures. The returned
  * canonical Project is editable even if a strict walkthrough cannot compile yet. */
 export async function reconstructFloorPlanForCorrection(
+  observe: (prompt: string) => Promise<unknown>,
+  source: { image: SourceFloorPlanImage; sha256: string; raster?: SourceRasterPixels },
+  options?: ReconstructionOptions,
+) : Promise<SourceCorrectionResult>;
+export async function reconstructFloorPlanForCorrection(
+  observe: (prompt: string) => Promise<unknown>,
+  source: { image: SourceFloorPlanImage; sha256: string; raster?: SourceRasterPixels },
+  options: ReconstructionOptions,
+  feedback: VisualFeedbackOptions,
+) : Promise<SourceCorrectionResult & { visualFeedback: VisualFeedbackAudit }>;
+export async function reconstructFloorPlanForCorrection(
+  observe: (prompt: string) => Promise<unknown>,
+  source: { image: SourceFloorPlanImage; sha256: string; raster?: SourceRasterPixels },
+  options: ReconstructionOptions = {},
+  feedback?: VisualFeedbackOptions,
+) {
+  if (!feedback) return reconstructCorrectionBase(observe, source, options);
+  const observations: unknown[] = [];
+  const baseline = await reconstructCorrectionBase(async prompt => {
+    const value = await observe(prompt); observations.push(structuredClone(value)); return value;
+  }, source, options);
+  const { applyVisualFeedback } = await import('./visualFeedback');
+  return applyVisualFeedback(baseline, { architecture: observations[0], furnishing: observations[1] }, source, options, feedback);
+}
+
+export type SourceCorrectionResult = Awaited<ReturnType<typeof reconstructCorrectionBase>>;
+
+/** Reuse the real preparation/closure/assembly path without observing again.
+ * Caller supplies immutable observations explicitly; no checkpoint auto-reuse. */
+export async function reprojectSourceObservations(
+  observations: { architecture: unknown; furnishing: unknown },
+  source: { image: SourceFloorPlanImage; sha256: string; raster?: SourceRasterPixels },
+  options: ReconstructionOptions = {},
+) {
+  let stage = 0;
+  return reconstructCorrectionBase(async () => {
+    if (stage >= 2) throw new Error('Unexpected observation during source reprojection.');
+    return structuredClone(stage++ === 0 ? observations.architecture : observations.furnishing);
+  }, source, options);
+}
+
+async function reconstructCorrectionBase(
   observe: (prompt: string) => Promise<unknown>,
   source: { image: SourceFloorPlanImage; sha256: string; raster?: SourceRasterPixels },
   options: ReconstructionOptions = {},

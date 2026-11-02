@@ -58,6 +58,19 @@ Plan2World turns a floor-plan raster into an editable browser home and an engine
 
 Core rule: **LLM observes; programs calculate and assemble.**
 
+### Optional visual feedback experiment
+
+The user now explicitly authorizes a bounded visual/logic feedback study. Original
+observations remain immutable, while a new local interpretation may retract an
+initial accept with contrary image evidence. Use the optional correction feedback
+entry, retain alternatives/unknown and regenerate a NEW stage through the shared
+core. Never patch a frozen stage/draft or choose by warning reduction alone.
+Default browser/desktop calls remain two observations; only an explicit reviewer
+callback enables one extra batch. Compare ordinary/guided views at equal image
+budgets, retain negative arms and distinguish source ambiguity, method/context,
+program/contract and model-capability hypotheses. A single failure or an offline
+fixture does not establish model limitations. See `docs/visual-feedback.md`.
+
 ### Logical equivalence before construction facts
 
 The user explicitly prioritizes usable closure over deciding what a source wall

@@ -29,6 +29,7 @@
 		"image:prepare": "node tooling/plan2world-prepare-image.mjs",
 		"source:evaluate": "node tooling/evaluate-plan2world-source.mjs",
 		"source:apertures": "node tooling/review-plan2world-apertures.mjs",
+		"source:feedback": "node tooling/plan2world-visual-feedback.mjs",
 		"runtime:player": "node tooling/runtime-player-build.mjs",
 		"build:render-lab": "vite build --config tooling/render-lab-site/vite.config.ts"
 	},

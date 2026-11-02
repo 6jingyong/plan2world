@@ -17,6 +17,12 @@ change snapping, alter scale/furniture or add construction from room labels.
 Cancelled/merged observations and their evidence remain in the original record and
 audit. Ordinary strict entry points keep their existing behavior.
 
+The newer [bounded visual-feedback experiment](visual-feedback.md) is a separate
+explicit correction entry. It retains immutable originals while allowing a new,
+source-supported local interpretation to retract an initially accepted feature
+and preserve alternatives/unknown. The stricter recovery contract below remains
+unchanged; neither path adds a default model request.
+
 ## Shared reconstruction API
 
 `reconstructFloorPlanWithObserver(observe, source, options, recoveryOptions)` and
