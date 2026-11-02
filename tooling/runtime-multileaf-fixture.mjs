@@ -25,6 +25,15 @@ export async function runtimeMultileafProject() {
     floor.doors.push({id,wallId:`host-${id}`,position:.5,width,height:220,type:id==='unequal'?'double':id==='pocket'?'pocket':'sliding',swingDirection:'left',flipSide:false,
       leafConfiguration:id==='unequal'?{kind:'paired',firstLeafRatio:.3}:{kind:'sliding',leaves}});
   }
+  // Authored hinge clearance controls, unrelated to any real-plan observation.
+  // The clear leaf has a 9cm jamb offset beside a 12cm return; rotation clears
+  // it, whereas translating an unrotated leaf along its centre chord can collide.
+  for(const [id,x,blocked] of [['corner-clear',100,false],['corner-blocked',700,true]]){
+    floor.walls.push({id:`host-${id}`,start:{x:x+400,y:250},end:{x,y:250},thickness:12,height:300,color:'#ccc'},
+      {id:`return-${id}`,start:{x,y:100},end:{x,y:250},thickness:12,height:300,color:'#ccc'});
+    floor.doors.push({id,wallId:`host-${id}`,position:(400-49)/400,width:80,height:220,type:'single',swingDirection:'left',flipSide:false});
+    if(blocked)floor.walls.push({id:'hinge-sweep-blocker',start:{x:x+40,y:200},end:{x:x+70,y:200},thickness:12,height:300,color:'#ccc'});
+  }
   return project;
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){

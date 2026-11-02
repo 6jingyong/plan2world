@@ -13,12 +13,12 @@ var _duration := 0.45
 func configure_swing(body: AnimatableBody3D, open_delta_radians: float) -> void:
 	var opened := body.transform
 	opened.basis = Basis(Vector3.UP, open_delta_radians) * opened.basis
-	_motions.append({ "body": body, "closed": body.transform, "open": opened })
+	_motions.append({ "kind": "swing", "body": body, "closed": body.transform, "open": opened })
 
 func configure_slide(body: AnimatableBody3D, axis: Vector3, travel: float) -> void:
 	var opened := body.transform
 	opened.origin += axis * travel
-	_motions.append({ "body": body, "closed": body.transform, "open": opened })
+	_motions.append({ "kind": "slide", "body": body, "closed": body.transform, "open": opened })
 
 func interact(_actor: Node = null) -> void:
 	if _busy or _motions.is_empty(): return
@@ -69,13 +69,17 @@ func _poses_clear(poses: Array[Transform3D], exclusions: Array[RID]) -> bool:
 		query.margin = 0.0
 		if not get_world_3d().direct_space_state.intersect_shape(query, 1).is_empty():
 			return false
-		# A translating panel cannot jump over a thin obstacle between frames.
 		var finish := query.transform
-		query.transform = body.global_transform * collider.transform
-		query.motion = finish.origin-query.transform.origin
-		if not query.motion.is_zero_approx():
-			var cast := get_world_3d().direct_space_state.cast_motion(query)
-			if cast[1] < 1.0-.000001: return false
+		# Translation casts hold the box orientation fixed. A hinge's offset
+		# collider centre also moves, but that cast is not its rotation arc and
+		# can hit a return that every sampled rotating pose clears. Hinges use
+		# the bounded angular substeps above; sliding panels retain swept checks.
+		if motion["kind"] == "slide":
+			query.transform = body.global_transform * collider.transform
+			query.motion = finish.origin-query.transform.origin
+			if not query.motion.is_zero_approx():
+				var cast := get_world_3d().direct_space_state.cast_motion(query)
+				if cast[1] < 1.0-.000001: return false
 		boxes.append({"pose":finish,"size":shape.size})
 	# Moving leaves are excluded from world queries only because they must be
 	# compared at the SAME candidate time. Fixed panels remain real obstacles.

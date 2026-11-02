@@ -59,6 +59,12 @@ Project各自的旧/新runtime JSON/GLB字节一致。1,988单测/225文件、�
 
 ## 接口与使用
 
+P29在v3离线CLI旁增加**人类报告用**`baseline.motion-context.json`与
+`motion-context.json`，解释当前冲突推拉门使用整跨度默认还是显式面板、实际编译扇宽/
+行程，并绑定原图/Project SHA。说明不进入模型request或源观察，旧v1/v2/v3请求与
+冻结回答保持；它不自动选择两扇配置。真实引擎的旋转误阻挡另在适配器修复，见
+[运动与合并说明](hinged-motion-and-merge.md)。
+
 `reconstructFloorPlanForCorrection(observe, source, options, feedback)`的可选第四参数
 为`VisualFeedbackOptions`：`mode`、`actor`、`review(request, source)`、`onAudit`、
 `onCandidate`。前三参数的默认路径保持原样。`reprojectSourceObservations`只回放
