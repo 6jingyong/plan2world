@@ -180,7 +180,10 @@ export async function buildVisualFeedbackRequest(baseline: SourceCorrectionResul
   if(!selected.length)return{deferredDiagnosticIds,...(unified?{structuralReview:unified.report}:{}),...(support?{supportReview:support.review}:{}),...(doors?{doorReview:doors.review}:{}),reason:candidates.length?'The structural question exceeds the bounded local review scope.':doors?'No source-mapped local contradiction; incomplete or unmapped door checks remain pending.':'No localized visual contradiction; operational/native-motion issues do not trigger image retries.'};
   const regions=selected.map((g,i)=>({id:`region-${i+1}`,focusBox:g.focus,contextBox:padded(g.focus,Math.min(192,Math.max(64,Math.min(width,height)*.05))),
     questions:mode==='ordinary'?[withFurniture?'Reinspect the visible architecture and objects in this region. Keep unsupported interpretations uncertain.':'Reinspect the visible architecture in this region. Keep unsupported interpretations uncertain.']:
-      g.diagnostics.map(structuralQuestion)}));
+      // Native splits can repeat the exact same source question. Keep every
+      // diagnostic/guard identity, but do not ask the reviewer the same text
+      // twice. Legacy scopes retain their frozen request representation.
+      unified?[...new Set(g.diagnostics.map(structuralQuestion))]:g.diagnostics.map(structuralQuestion)}));
   const pinned=selected.flatMap(g=>g.diagnostics.flatMap(d=>d.sourcePaths));
   const all=[...(['walls','openings','functionalZones','junctions'] as const).flatMap(kind=>(architecture[kind]??[]).map((value,index)=>({path:`${kind}[${index}]` as Path,value}))),
     ...furnishingRows.map((value,index)=>({path:`furniture[${index}]` as Path,value}))];

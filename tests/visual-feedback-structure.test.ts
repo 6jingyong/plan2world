@@ -22,6 +22,20 @@ const hypothesis=(changes:unknown[]=[],extra={})=>({label:'Source-supported cont
 const answer=(r:VisualFeedbackRequest,h:unknown[],selected:number|null=0)=>({schemaVersion:'source-visual-feedback-decision-v1',requestId:r.requestId,hypotheses:h,selected,unresolvedQuestions:[]});
 
 describe('optional unified structural feedback',()=>{
+  it('compacts identical source questions from native fragments while preserving their checks and source context',async()=>{
+    const o=control();o.architecture.walls.push({...d,label:'internal divider',start:p(250,20),end:p(250,380)});
+    o.architecture.openings[0].endpoints=[p(250,300),p(250,380)];o.furnishing.furniture[0].position=p(350,200);
+    const base=await reprojectSourceObservations(o,source());
+    const legacy=(await buildVisualFeedbackRequest(base,o,source(),'guided','architecture-and-door-motion')).request!;
+    const guided=await buildVisualFeedbackRequest(base,o,source(),'guided',scope.scope);
+    const ordinary=(await buildVisualFeedbackRequest(base,o,source(),'ordinary',scope.scope)).request!;
+    expect(legacy.regions[0].questions.length).toBeGreaterThan(1);
+    expect(guided.structuralReview!.doors.findings.length).toBeGreaterThan(1);
+    expect(guided.request!.regions[0].questions).toEqual([...new Set(legacy.regions[0].questions)]);
+    expect(guided.request!.structuralReview!.selectedDiagnosticIds).toHaveLength(guided.structuralReview!.doors.findings.length);
+    expect(guided.request!.records).toEqual(ordinary.records);expect(guided.request!.anchors).toEqual(ordinary.anchors);
+    expect(guided.request!.regions.map(r=>[r.focusBox,r.contextBox])).toEqual(ordinary.regions.map(r=>[r.focusBox,r.contextBox]));
+  });
   it('preserves the default two observations and requires explicit scope',async()=>{
     const o=control(),observe=vi.fn().mockResolvedValueOnce(o.architecture).mockResolvedValueOnce(o.furnishing),review=vi.fn();
     const result=await reconstructFloorPlanForCorrection(observe,source(),{},{review});
