@@ -22,6 +22,7 @@ const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const input = async path => { if (!path) throw new Error('Missing required input path.'); const bytes = await readFile(resolve(path)); return { value: JSON.parse(bytes), sha256: hash(bytes), path: resolve(path) }; };
 try {
   const { preflightArchitectureObservation, prepareArchitectureStage, assembleFrozenArchitecture } = await server.ssrLoadModule('/src/lib/plan2world/architecture.ts');
+  const { inspectStructureEvidence } = await server.ssrLoadModule('/src/lib/plan2world/structureEvidence.ts');
   let outputs, provenance;
   if (command === 'prepare' || command === 'preflight') {
     const source = await input(options.input);
@@ -39,6 +40,7 @@ try {
         observationsChanged: false, openingHostsEvaluated: false, finalClosureEvaluated: false,
         acceptedWallCount: architecture.walls.filter(item => item.decision === 'accept').length,
         acceptedOpeningCount: architecture.openings.filter(item => item.decision === 'accept').length } };
+      if (architecture.structureEvidence!==undefined) outputs['source-structure-evidence-review.json']=inspectStructureEvidence(architecture,{width:context.sourceWidthPx,height:context.sourceHeightPx});
       provenance = { command, architecture: { path: source.path, sha256: source.sha256 },
         ...(raster ? { sourceRaster: { path: resolve(options.source), sha256: hash(sourceBytes) } } : {}), sourceContext: context };
     } else {
@@ -48,6 +50,7 @@ try {
         'decision-audit.json': { walls: stage.wallAudit, openings: stage.openingAudit, junctions: stage.architecture.junctions, functionalZones: stage.architecture.functionalZones ?? [] },
         'source-topology-review.json': stage.sourceTopologyReview,
         'centerline-policy.json': { mode: stage.centerlinePolicy, diagnostics: 'explicit-read-only-command' } };
+      if (stage.architecture.structureEvidence!==undefined) outputs['source-structure-evidence-review.json']=inspectStructureEvidence(stage.architecture,{width:context.sourceWidthPx,height:context.sourceHeightPx});
       if (stage.relativeGeometry) outputs['relative-geometry.json'] = stage.relativeGeometry;
       if (stage.closureReview) outputs['furniture-closure-review.json'] = stage.closureReview;
       if (stage.functionalZoneReview) outputs['functional-zone-review.json'] = stage.functionalZoneReview;

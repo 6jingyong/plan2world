@@ -24,6 +24,13 @@ Plan2World turns a floor-plan raster into an editable browser home and an engine
 
 - The direct Skill records `source-architecture-v1` in original image pixels,
   including concise visual evidence, decisions and uncertain/rejected candidates.
+- Optional `structureEvidence` retains bounded first-observation anchors and
+  competing interpretations using source-record references. Treat it as advisory
+  authoring evidence, not a second geometry or a selected answer. Validate it
+  separately: malformed hints become notes without discarding valid architecture.
+  Reindex references when existing exact wall union changes rows, preserving the
+  original and audit. Keep it through browser draft calibration/import and native
+  save; runtime ignores it. See `docs/early-structure-evidence.md`.
 - Wall evidence `source-wall-trace-v1` is projected from that observation by code.
 - User geometry policy: new reconstruction and native authoring default to straight
   polygon segments, including modest polygon approximations of rounded outlines.

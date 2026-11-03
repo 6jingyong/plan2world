@@ -118,6 +118,14 @@ observation is added. See the [experiment ledger](../../docs/observation-experim
 
 ## A. Observe architecture once
 
+Start with a few high-information architectural anchors and retain competing
+interpretations of concrete ambiguous regions using the optional bounded
+`structureEvidence` field in `architecture-pass.md`. Keep the first evidence
+historical, use source row references rather than duplicate geometry, and leave
+uncertain features unconfirmed. This stays inside the same observation; logical
+closure still runs only after furnishing. Optional v4 feedback can consume these
+early questions without an extra default pass or a warning-count winner.
+
 Use the unchanged source raster and emit `source-architecture-v1` as defined in
 `architecture-pass.md`: functional zones, walls, windows, doors, sliding doors and scale evidence
 together, with concise visible cues, decisions, decision bases and uncertainties.

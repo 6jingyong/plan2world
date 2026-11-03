@@ -14,6 +14,7 @@
   import FloorPlanImagePreparation from './FloorPlanImagePreparation.svelte';
   import type { PreparedBrowserFloorPlan } from '$lib/plan2world/imagePreparationBrowser';
   import { buildReconstructionTrace } from '$lib/plan2world/reconstructionTrace';
+  import { attachStructureEvidence, type StructureObservationSnapshot } from '$lib/plan2world/structureEvidenceAuthoring';
   import {
     calibratePlan2WorldDraft,
     summarizePlan2WorldDraft,
@@ -43,6 +44,7 @@
   let focusedIssueKey = $state('');
   let controller: AbortController | null = null;
   let draft = $state<Plan2WorldDraft | null>(null);
+  let sourceStructure = $state<StructureObservationSnapshot | undefined>(undefined);
   let observationReview = $state<ReconstructionObservationReview | null>(null);
   let sourceImage = $state<SourceFloorPlanImage | null>(null);
   let calibrationPoints = $state<NormalizedImagePoint[]>([]);
@@ -79,6 +81,7 @@
 
   function resetReview() {
     draft = null;
+    sourceStructure = undefined;
     observationReview = null;
     sourceImage = null;
     showTrace = true;
@@ -136,6 +139,7 @@
         controller.signal,
       );
       draft = result.draft;
+      sourceStructure = result.sourceStructure;
       observationReview = result.observationReview;
       status = 'Reconstruction ready for review.';
     } catch (cause) {
@@ -185,7 +189,7 @@
     busy = true;
     controller = new AbortController();
     try {
-      const candidate = draftToProjectWithSourceBackground(draft, $state.snapshot(sourceImage));
+      const candidate = attachStructureEvidence(draftToProjectWithSourceBackground(draft, $state.snapshot(sourceImage)),$state.snapshot(sourceStructure),sourceImage);
       if (candidate.reconstruction && observationReview) {
         candidate.reconstruction.observationReview = structuredClone($state.snapshot(observationReview));
       }

@@ -12,6 +12,12 @@ import { inspectPlan2WorldDraftGeometry, inspectProjectGeometry, type DraftGeome
 import { sourceBackgroundForDraft, type SourceFloorPlanImage } from './sourceBackground';
 
 export interface TracePoint { x: number; y: number }
+
+/** Forward use of the saved source registration; no fitting or geometry edit. */
+export function sourcePixelToPlanPoint(point: TracePoint, source: {width:number;height:number}, background: BackgroundImage): TracePoint {
+  const angle=background.rotation*Math.PI/180,x=(point.x-source.width/2)*background.scale,y=(point.y-source.height/2)*background.scale;
+  return {x:background.position.x+Math.cos(angle)*x-Math.sin(angle)*y,y:background.position.y+Math.sin(angle)*x+Math.cos(angle)*y};
+}
 export interface ReconstructionTraceWall {
   id: string;
   start: TracePoint;

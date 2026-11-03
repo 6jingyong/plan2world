@@ -13,6 +13,7 @@ import { inspectFeedbackSupport, reviseFeedbackFurnishing, remapFeedbackFurnitur
 import { inspectFeedbackDoors, doorConflictKeys, type FeedbackDoorReview } from './visualFeedbackDoors';
 import { inspectStructuralReview, compareStructuralReviews, structuralReviewBinding, sourceVisualQuestionCodes, type StructuralReview } from './structuralReview';
 import structuralGuide from '../../../skills/reconstruct-plan2world/references/visual-feedback-structure-pass.md?raw';
+import { inspectStructureEvidence, type StructureEvidence } from './structureEvidence';
 
 export const VISUAL_FEEDBACK_POLICY = 'source-visual-feedback-v1' as const;
 export const SUPPORT_FEEDBACK_POLICY = 'source-visual-feedback-v2' as const;
@@ -33,10 +34,11 @@ export interface VisualFeedbackRequest {
   instructionSha256: string;
   regions: { id: string; focusBox: Box; contextBox: Box; questions: string[] }[];
   records: { path: Path; value: unknown }[];
-  anchors: { kind: 'wall' | 'opening' | 'furnishing'; evidence: unknown }[];
+  anchors: { kind: 'wall' | 'opening' | 'furnishing' | 'feature'; evidence: unknown }[];
   supportReview?: { status: FeedbackSupportReview['status']; findings: {path:string;position:{x:number;y:number};sourceRecord:unknown}[]; unmappedCount:number; error?:string };
   doorReview?: FeedbackDoorReview;
   structuralReview?: { status: StructuralReview['status']; assessmentSha256: string; deferredAnchorCount: number; selectedDiagnosticIds: string[] };
+  structureEvidence?: StructureEvidence;
   maxHypotheses: 3;
   maxReviews: 1;
 }
@@ -110,11 +112,13 @@ function at(architecture: Interpretation,path: string) {
 }
 const visualCodes = sourceVisualQuestionCodes;
 const isDoorConflict = (d: SourceDiagnostic) => d.code==='door-closed-overlap'||d.code==='door-motion-overlap';
-const priority = (d: SourceDiagnostic) => d.code==='source-marker-no-floor'||isDoorConflict(d) ? -1 : d.code==='wall-overlap' ? 0 : d.code==='unresolved-host'||d.code==='ambiguous-host' ? 1 : 2;
+const priority = (d: SourceDiagnostic) => d.code==='source-marker-no-floor'||isDoorConflict(d)||d.code==='structure-question' ? -1 : d.code==='wall-overlap' ? 0 : d.code==='unresolved-host'||d.code==='ambiguous-host' ? 1 : 2;
 function structuralQuestion(d:SourceDiagnostic) {
   const location=d.sourcePaths.join(', ');
   const question=isDoorConflict(d)
     ? 'The current closed leaf or sampled prescribed motion meets an adjoining wall or another closed door. Inspect visible jambs, aperture extent, leaf/panel cues and adjoining boundaries. Default hinge/swing side or the program motion representation may be responsible even when the source aperture is correct. Do not shrink an opening, remove a visible wall or change operation just to clear the check; retain alternatives or unknown.'
+    : d.code==='structure-question'
+    ? `The first observation retained competing interpretations: ${(d.sourceRecord as any)?.conflict}. Reinspect their visible evidence against the global anchors. Preserve alternatives or unknown; no candidate was selected by the first observation.`
     : d.code==='source-marker-no-floor'
     ? 'The observed object point has no supporting compiler floor. Inspect whether the symbol is actually this object, whether its point is correct, or whether surrounding ground/boundary evidence is missing. Text, stairs or shafts are not automatically furniture or usable ground. Keep alternatives or unknown; do not relocate to the nearest floor or add ground to pass.'
     : d.code==='wall-overlap'
@@ -136,6 +140,7 @@ export async function buildVisualFeedbackRequest(baseline: SourceCorrectionResul
   catch { return { deferredDiagnosticIds:baseline.diagnostics.map(d=>d.id),reason:'Malformed source contract requires input correction, not a visual retry.' }; }
   const width=source.image.width,height=source.image.height;
   const unified=scope==='unified-structure'?inspectStructuralReview(baseline,architecture,observations.furnishing,source.image):undefined;
+  const initialEvidence=unified?inspectStructureEvidence(architecture,source.image).evidence:undefined;
   const withFurniture=scope==='architecture-and-furnishing'||!!unified;
   const legacySupport=scope==='architecture-and-furnishing'?inspectFeedbackSupport(baseline,observations.furnishing,architecture):undefined;
   const legacyDoors=scope==='architecture-and-door-motion'?inspectFeedbackDoors(baseline,architecture):undefined;
@@ -146,14 +151,14 @@ export async function buildVisualFeedbackRequest(baseline: SourceCorrectionResul
     ?parseSourceFurnishing(observations.furnishing,architecture.scaleEvidence).furniture:[];
   const sourceRecordAt=(path:string)=>path.startsWith('furniture[')?furnishingRows[Number(/^furniture\[(\d+)\]$/.exec(path)?.[1])]:at(architecture,path).value;
   const padded = (b:Box,pad:number):Box => [Math.max(0,Math.floor(b[0]-pad)),Math.max(0,Math.floor(b[1]-pad)),Math.min(width,Math.ceil(b[2]+pad)),Math.min(height,Math.ceil(b[3]+pad))];
-  const candidates=diagnostics.filter(d=>visualCodes.has(d.code)&&d.sourcePaths.length).sort((a,b)=>priority(a)-priority(b)||a.id.localeCompare(b.id));
+  const candidates=diagnostics.filter(d=>(visualCodes.has(d.code)||unified&&d.code==='structure-question')&&d.sourcePaths.length).sort((a,b)=>priority(a)-priority(b)||a.id.localeCompare(b.id));
   const groups: { focus:Box;diagnostics:SourceDiagnostic[] }[]=[];
   for(const diagnostic of candidates){
     const records=diagnostic.sourcePaths.flatMap(path=>{try{return[sourceRecordAt(path)];}catch{return[];}});
     // A long blocker is relevant context, not the extent of the local doubt.
-    const context=isDoorConflict(diagnostic)?[diagnostic.sourceRecord]:[...records];
+    const context=isDoorConflict(diagnostic)||diagnostic.code==='structure-question'?[diagnostic.sourceRecord]:[...records];
     for(const record of records){
-      if(isDoorConflict(diagnostic))break;
+      if(isDoorConflict(diagnostic)||diagnostic.code==='structure-question')break;
       const o=record as any;if(!['door','window'].includes(o?.kind)||!Array.isArray(o.endpoints))continue;
       const [a,b]=o.endpoints,dx=b.x-a.x,dy=b.y-a.y;
       const near=architecture.walls.filter(w=>w.decision!=='reject'&&!w.curvePoint).map(w=>{
@@ -195,13 +200,16 @@ export async function buildVisualFeedbackRequest(baseline: SourceCorrectionResul
   const records=all.filter(r=>{const b=bounds(r.value);return b&&regions.some(g=>intersects(b,g.contextBox));})
     .sort((a,b)=>recordPriority(a)-recordPriority(b)||a.path.localeCompare(b.path)).slice(0,24);
   const anchors:VisualFeedbackRequest['anchors']=[
-    ...architecture.walls.filter(w=>w.decision==='accept').sort((a,b)=>Math.hypot(b.end.x-b.start.x,b.end.y-b.start.y)-Math.hypot(a.end.x-a.start.x,a.end.y-a.start.y)).slice(0,3).map(w=>({kind:'wall' as const,evidence:w})),
-    ...architecture.openings.filter(o=>o.decision==='accept').slice(0,3).map(o=>({kind:'opening' as const,evidence:o})),
+    ...(initialEvidence?.anchors.length?initialEvidence.anchors.filter(a=>(at(architecture,a.path).value as any)?.decision==='accept').map(a=>({kind:(a.path.startsWith('openings[')?'opening':a.path.startsWith('walls[')?'wall':'feature') as 'wall'|'opening'|'feature',evidence:{...a,observation:at(architecture,a.path).value}})):[
+      ...architecture.walls.filter(w=>w.decision==='accept').sort((a,b)=>Math.hypot(b.end.x-b.start.x,b.end.y-b.start.y)-Math.hypot(a.end.x-a.start.x,a.end.y-a.start.y)).slice(0,3).map(w=>({kind:'wall' as const,evidence:w})),
+      ...architecture.openings.filter(o=>o.decision==='accept').slice(0,3).map(o=>({kind:'opening' as const,evidence:o})),
+    ]),
     ...((observations.furnishing as any)?.furniture??[]).filter((f:any)=>regions.some(g=>f.position&&inside(f.position,g.contextBox))).slice(0,8).map((f:any)=>({kind:'furnishing' as const,evidence:f})),
   ];
   const body={schemaVersion:unified?STRUCTURAL_FEEDBACK_POLICY:scope==='architecture-and-furnishing'?SUPPORT_FEEDBACK_POLICY:doors?DOOR_FEEDBACK_POLICY:VISUAL_FEEDBACK_POLICY,mode,source:{sha256:source.sha256,width,height},
     interpretationSha256:await hash(architecture),furnishingSha256:await hash(observations.furnishing),instructionSha256:await hash(unified?`${guide}\n${structuralGuide}`:scope==='architecture-and-furnishing'?`${guide}\n${supportGuide}`:doors?`${guide}\n${doorGuide}`:guide),regions,records,anchors,maxHypotheses:3 as const,maxReviews:1 as const,
     ...(unified?{structuralReview:{status:unified.report.status,assessmentSha256:await hash(structuralReviewBinding(unified.report)),deferredAnchorCount:unified.report.deferredAnchorPaths.length,selectedDiagnosticIds:[...selectedIds]}}:doors?{doorReview:doors.review}:{}),
+    ...(initialEvidence?{structureEvidence:{...initialEvidence,questions:initialEvidence.questions.filter((_,i)=>selectedIds.has(`structure-question-${i+1}`))}}:{}),
     ...(support?{supportReview:{status:support.review.status,findings:support.review.findings.filter(f=>!unified||records.some(r=>r.path===f.path)).map(({path,position,sourceRecord})=>({path,position,sourceRecord})),unmappedCount:support.review.unmappedEntityIds.length,...(!unified&&support.review.error?{error:support.review.error}:{})}}:{})};
   return{request:{...body,requestId:await hash(body)},deferredDiagnosticIds,...(unified?{structuralReview:unified.report}:{}),...(support?{supportReview:support.review}:{}),...(doors?{doorReview:doors.review}:{})};
 }

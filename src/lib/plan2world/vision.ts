@@ -74,6 +74,7 @@ export interface FloorPlanReconstructionResult {
   draft: Plan2WorldDraft;
   observationReview: ReconstructionObservationReview;
   recoveryAudit?: SourceRecoveryAudit;
+  sourceStructure?: import('./structureEvidenceAuthoring').StructureObservationSnapshot;
 }
 
 export async function reconstructFloorPlanImage(
@@ -109,5 +110,7 @@ export async function reconstructFloorPlanWithObserver(
   const stage = session ? await session.prepare(furnishing, source.raster) : prepareArchitectureStage(architecture, source.context, furnishing, source.raster);
   assertArchitectureHostsResolved(stage);
   return { draft: assembleFrozenArchitecture(stage, furnishing).draft,
-    observationReview: summarizeArchitectureObservation(stage), ...(session ? { recoveryAudit: session.audit } : {}) };
+    observationReview: summarizeArchitectureObservation(stage), ...(session ? { recoveryAudit: session.audit } : {}),
+    ...(architectureInput&&typeof architectureInput==='object'&&'structureEvidence' in architectureInput
+      ?{sourceStructure:{architecture:structuredClone(architectureInput),furnishing:structuredClone(furnishing),sourceSha256:source.context.sourceImageSha256}}:{}) };
 }

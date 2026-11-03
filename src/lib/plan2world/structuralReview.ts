@@ -85,6 +85,7 @@ export function inspectStructuralReview(result: SourceCorrectionResult, architec
     }
   } catch (error) { report.errors.push(error instanceof Error ? error.message : String(error)); }
   const diagnostics = [...result.diagnostics, ...support.diagnostics, ...doors.diagnostics];
+  const initialQuestionPaths=new Set(diagnostics.filter(d=>d.code==='structure-question').flatMap(d=>d.sourcePaths));
   const visualDiagnostics: SourceDiagnostic[] = [];
   for (const diagnostic of diagnostics) {
     // A default full-span sliding panel can fail mechanically while the drawn
@@ -93,10 +94,13 @@ export function inspectStructuralReview(result: SourceCorrectionResult, architec
     const native = finding ? result.project.floors.flatMap(f=>f.doors).find(d=>d.id===finding.entityId) : undefined;
     const defaultSlide = diagnostic.code === 'door-motion-overlap' && native
       && ['sliding','pocket'].includes(native.type) && native.leafConfiguration?.kind !== 'sliding';
-    const route = defaultSlide ? 'program-assumption' : diagnostic.category === 'blocked' || !diagnostic.sourcePaths.length
-      || !sourceVisualQuestionCodes.has(diagnostic.code) ? 'deferred' : 'visual';
+    const coveredByQuestion=['uncertain-wall','uncertain-opening','uncertain-zone'].includes(diagnostic.code)
+      && diagnostic.sourcePaths.length>0 && diagnostic.sourcePaths.every(path=>initialQuestionPaths.has(path));
+    const route = defaultSlide ? 'program-assumption' : coveredByQuestion || diagnostic.category === 'blocked' || !diagnostic.sourcePaths.length
+      || !(sourceVisualQuestionCodes.has(diagnostic.code)||diagnostic.code==='structure-question') ? 'deferred' : 'visual';
     report.routes.push({diagnosticId:diagnostic.id,route,reason:defaultSlide
       ? 'Motion-only conflict under the default full-span panel; inspect native configuration before requesting more image evidence.'
+      : coveredByQuestion ? 'Covered by the retained first-observation local question; preserve the generic finding in the audit.'
       : route==='deferred' ? 'Dependent or unmapped finding; preserve its root question and audit.' : 'Localized source evidence can distinguish interpretations.'});
     if (route === 'visual') visualDiagnostics.push(diagnostic);
   }

@@ -33,6 +33,9 @@ export interface SourceArchitectureV1 {
   junctions: (EvidenceDecision & { position: DraftPoint })[];
   assumptions: string[];
   functionalZones?: SourceFunctionalZone[];
+  /** Optional advisory evidence; validate independently so a malformed hint
+   * cannot discard valid architecture in the annotated correction workflow. */
+  structureEvidence?: unknown;
 }
 
 function record(value: unknown, path: string): Record<string, any> {
@@ -70,7 +73,7 @@ function decision(value: Record<string, any>, path: string): EvidenceDecision {
  */
 export function parseSourceArchitecture(input: unknown): SourceArchitectureV1 {
   const root = record(input, 'architecture');
-  exactKeys(root, ['schemaVersion', 'scaleEvidence', 'walls', 'openings', 'doorGaps', 'junctions', 'assumptions', 'functionalZones'], 'architecture');
+  exactKeys(root, ['schemaVersion', 'scaleEvidence', 'walls', 'openings', 'doorGaps', 'junctions', 'assumptions', 'functionalZones', 'structureEvidence'], 'architecture');
   if (root.schemaVersion !== SOURCE_ARCHITECTURE_VERSION) throw new Error(`architecture requires ${SOURCE_ARCHITECTURE_VERSION}`);
   const walls = array(root.walls, 'architecture.walls').map((raw, index) => {
     const path = `architecture.walls[${index}]`, wall = record(raw, path);
@@ -103,7 +106,8 @@ export function parseSourceArchitecture(input: unknown): SourceArchitectureV1 {
   return { schemaVersion: SOURCE_ARCHITECTURE_VERSION, scaleEvidence: annotation.scaleEvidence, walls,
     openings: candidates.map((item, index) => ({ ...annotation.openings![index], ...item.audit })),
     doorGaps, junctions, assumptions: annotation.assumptions ?? [],
-    ...(root.functionalZones === undefined ? {} : { functionalZones: parseFunctionalZones(root.functionalZones) }) };
+    ...(root.functionalZones === undefined ? {} : { functionalZones: parseFunctionalZones(root.functionalZones) }),
+    ...(root.structureEvidence === undefined ? {} : { structureEvidence: structuredClone(root.structureEvidence) }) };
 }
 
 export function parseSourceFurnishing(input: unknown, scaleEvidence: SourceAnnotationV1['scaleEvidence']) {

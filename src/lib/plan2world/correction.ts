@@ -11,6 +11,7 @@ import { projectSourceForCorrection } from './correctionProjection';
 import { isSourcePoint as isPoint, sourceDiagnostic, type SourceDiagnostic, type SourceFeatureOutcome } from './sourceDiagnostics';
 import { imageSha256 } from './imagePreparation';
 import type { VisualFeedbackOptions, VisualFeedbackAudit } from './visualFeedback';
+import { inspectStructureEvidence, structureQuestionDiagnostics } from './structureEvidence';
 
 const errorMessage = (e: unknown) => e instanceof Error ? e.message : String(e);
 
@@ -146,10 +147,16 @@ async function reconstructCorrectionBase(
       status: z.decision === 'reject' ? 'rejected' : z.decision === 'uncertain' ? 'uncertain' : stage!.functionalZoneReview?.finalMetrics.zones.find(s => s.label === z.label)?.resolved ? 'retained' : 'not-assessed', nativeIds: [], blockedBy: [] })));
     features.push(...floor.furniture.map((f, i): SourceFeatureOutcome => ({ path: `furniture[${i}]`, kind: 'furniture', status: 'retained', nativeIds: [f.id], blockedBy: [] })));
   }
+  const evidence=inspectStructureEvidence(raw,{width:source.image.width,height:source.image.height});
+  if (evidence.evidence) diagnostics.push(...structureQuestionDiagnostics(evidence.evidence));
+  if (evidence.status==='invalid') issue(`Initial structural evidence needs correction: ${evidence.error}`,raw?.structureEvidence,undefined,'invalid-structure-evidence',['structureEvidence']);
+  for (const change of session.audit.changes.filter(c=>c.kind==='invalid-structure-evidence')) {
+    issue(`Initial structural evidence needs correction: ${(change.after as {error?:string}).error}`,change.before,undefined,'invalid-structure-evidence',['structureEvidence']);
+  }
   for (const f of features) if (!f.blockedBy.length && f.status !== 'retained' && f.status !== 'rejected') f.blockedBy = diagnostics.filter(d => d.sourcePaths.includes(f.path)).map(d => d.id);
   for (const d of diagnostics) issues.push({ id: d.id, floorId: floor.id, message: d.message, code: d.code, phase: d.phase, category: d.category, sourcePaths: d.sourcePaths, blockedBy: d.blockedBy,
     ...(d.position ? { position: sourcePoint(d.position) } : {}), ...(d.sourceRecord === undefined ? {} : { sourceRecord: JSON.stringify(d.sourceRecord) }), resolved: false });
-  if (issues.length) {
+  if (issues.length || evidence.status==='valid') {
     project.architectureReview = { version: 1, issues, sourceObservations: JSON.stringify({ architecture: original, furnishing }), workingImageSha256: source.sha256 };
   }
   const canonical = readProject(project);

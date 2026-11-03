@@ -47,6 +47,50 @@ confidence numbers, calculated dimensions, wall host IDs, room topology or scene
 fields. Evidence and decision bases are short factual summaries of visible cues,
 not private internal deliberation.
 
+## Whole-plan anchors and unresolved interpretations
+
+Use a few clear anchors to orient the observation: the outer boundary, continuous
+long walls, distinct jambs, balconies, stairs or columns. Then interpret ambiguous
+local marks in that overall context. A line-looking mark alone is not proof of a
+wall. Check whether its proposed role agrees with visible thresholds, adjoining
+boundaries and open arrangements; a logical expectation is not image evidence.
+Never invent a divider or entrance to make a room plausible.
+
+In this SAME architectural observation, optionally retain `structureEvidence`:
+
+```json
+{
+  "schemaVersion":"source-structure-evidence-v1",
+  "anchors":[{"path":"walls[0]","role":"outline","evidence":"Continuous exterior stroke through both visible corners."}],
+  "questions":[{
+    "paths":["openings[0]"],"region":[180,70,270,130],
+    "conflict":"The threshold is visible but its operation is ambiguous.",
+    "alternatives":[
+      {"label":"hinged door","evidence":"A faint curved mark could be a swing arc."},
+      {"label":"leafless passage","evidence":"No separate leaf is clearly distinguishable."}
+    ]
+  }]
+}
+```
+
+This object is one optional field of `source-architecture-v1`, not another
+response/stage. Use zero to six anchors and zero to three questions; do not pad
+the lists when the source is clear. Each question references one to four existing
+records and retains two or three distinct alternatives, their brief visible cues,
+the conflict and one small source-pixel box `[left, top, right, bottom]`.
+Anchor roles are `outline`/`long-wall` for walls, `opening` for openings, or
+`feature` for a functional zone/junction. Prefer accepted, clear anchors. Paths
+refer to this response's array rows, never native IDs or assigned hosts. Reuse
+their coordinates; do not duplicate wall geometry or extract furniture here.
+
+Keep genuinely uncertain structural records `uncertain`. Where only operation
+is unknown, preserve a supported aperture and leave operation unspecified.
+There is no selected alternative or confidence score. These are concise source
+evidence summaries, not a private reasoning transcript. Programs retain them,
+check geometry after furnishing, and may ask one bounded local review. A future
+correction can overturn an initial anchor with contrary visual evidence; the
+first evidence remains historical, not a permanent correctness assertion.
+
 ## Consistent decisions
 
 - `accept`: visible architectural evidence supports the observed feature.

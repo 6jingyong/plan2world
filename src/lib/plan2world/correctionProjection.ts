@@ -24,7 +24,8 @@ export function projectSourceForCorrection(raw: unknown, furnishing: unknown, im
     try {
       if (!Array.isArray(raw.walls) || !Array.isArray(raw.openings)) throw new Error('Architecture requires walls and openings arrays');
       for (const key of collections) if (raw[key] !== undefined && !Array.isArray(raw[key])) throw new Error(`${key} must be an array`);
-      base = parseSourceArchitecture({ ...raw, walls: [], openings: [], doorGaps: [], junctions: [],
+      const {structureEvidence: _advisory, ...envelope}=raw;
+      base = parseSourceArchitecture({ ...envelope, walls: [], openings: [], doorGaps: [], junctions: [],
         ...(raw.functionalZones === undefined ? {} : { functionalZones: [] }) });
       bounded(base.scaleEvidence);
       const factor = base.scaleEvidence.realLengthCm / Math.hypot(base.scaleEvidence.endpoints[1].x - base.scaleEvidence.endpoints[0].x, base.scaleEvidence.endpoints[1].y - base.scaleEvidence.endpoints[0].y);

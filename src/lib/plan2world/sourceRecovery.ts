@@ -8,12 +8,13 @@ import { pointInPolygon } from '$lib/utils/hitTesting';
 import { imageSha256 } from './imagePreparation';
 import { projectOntoWall } from '$lib/utils/wallProjection';
 import { WallGeometryConflictError } from './bareHouse';
+import { inspectStructureEvidence, remapStructureEvidence } from './structureEvidence';
 
 type Wall = SourceArchitectureV1['walls'][number];
 type Stage = ReturnType<typeof prepareArchitectureStage>;
 type SourcePath = `walls[${number}]` | `openings[${number}]` | `functionalZones[${number}]`;
 export interface SourceRecoveryChange {
-  kind: 'sliding-kind-alias' | 'zero-area-outline-spur' | 'coincident-wall-union' | 'observed-jamb-gap' | 'reviewed-source-revision';
+  kind: 'sliding-kind-alias' | 'zero-area-outline-spur' | 'coincident-wall-union' | 'observed-jamb-gap' | 'reviewed-source-revision' | 'structure-evidence-remap' | 'invalid-structure-evidence';
   paths: string[];
   before: unknown;
   after: unknown;
@@ -146,7 +147,14 @@ function coalesceWalls(architecture: SourceArchitectureV1, changes: SourceRecove
     indices.slice(1).forEach(i => omitted.add(i));
     changes.push({ kind: 'coincident-wall-union', paths: indices.map(i => `walls[${i}]`), before, after: geometry(first) });
   }
+  const evidence=inspectStructureEvidence(architecture).evidence;
   architecture.walls = walls.filter((_, i) => !omitted.has(i));
+  if (evidence && omitted.size) {
+    const kept=walls.flatMap((_,i)=>omitted.has(i)?[]:[i]);
+    const mapped=remapStructureEvidence(evidence,walls.map((_,i)=>kept.indexOf(find(i))));
+    architecture.structureEvidence=mapped;
+    changes.push({kind:'structure-evidence-remap',paths:['structureEvidence'],before:evidence,after:structuredClone(mapped)});
+  }
 }
 
 /** Only bridge an accepted DOOR between unique, exactly collinear opposing
@@ -224,7 +232,8 @@ export class SourceRecoverySession {
       const expanded = resolveSourcePointReferenceTransport(input, { width: this.ledger.source.width, height: this.ledger.source.height });
       input = expanded.architectureInput; this.ledger.pointReferenceAudit = expanded.audit;
     }
-    if (pointsIn(input).some(p => p.x < 0 || p.y < 0 || p.x > this.ledger.source.width || p.y > this.ledger.source.height)) {
+    const geometryInput=obj(input)?Object.fromEntries(Object.entries(input).filter(([key])=>key!=='structureEvidence')):input;
+    if (pointsIn(geometryInput).some(p => p.x < 0 || p.y < 0 || p.x > this.ledger.source.width || p.y > this.ledger.source.height)) {
       throw new Error('Architecture evidence lies outside the original source raster.');
     }
     if (obj(input) && Array.isArray(input.openings)) input.openings.forEach((o: any, i: number) => {
@@ -235,6 +244,11 @@ export class SourceRecoverySession {
     if (obj(input)) normalizeOutlines(input, this.ledger.changes);
     this.current = input;
     const architecture = parseSourceArchitecture(input);
+    const evidence=inspectStructureEvidence(architecture,{width:this.ledger.source.width,height:this.ledger.source.height});
+    if (evidence.status==='invalid') {
+      this.ledger.changes.push({kind:'invalid-structure-evidence',paths:['structureEvidence'],before:structuredClone(architecture.structureEvidence),after:{omitted:true,error:evidence.error}});
+      delete architecture.structureEvidence;
+    } else if (evidence.evidence) architecture.structureEvidence=evidence.evidence;
     coalesceWalls(architecture, this.ledger.changes);
     this.current = architecture;
     return preflightArchitectureObservation(architecture, this.context);

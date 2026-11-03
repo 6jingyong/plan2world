@@ -1,10 +1,12 @@
 import { listenTestProvider } from '../fixtures/ai-provider';
 import { expect, test } from '@playwright/test';
 import { createFloorPlanAIProvider, type FloorPlanProviderRequest } from '../fixtures/floorplan-ai-provider';
+import { readFile } from 'node:fs/promises';
 
 let providerURL: string;
 let requests: FloorPlanProviderRequest[] = [];
-const provider = createFloorPlanAIProvider(request => requests.push(request));
+const firstEvidence={schemaVersion:'source-structure-evidence-v1',anchors:[{path:'walls[0]',role:'outline',evidence:'Declared clear browser control boundary.'}],questions:[]};
+const provider = createFloorPlanAIProvider(request => requests.push(request),undefined,{structureEvidence:firstEvidence});
 
 test.describe.configure({ timeout: 180_000 });
 test.beforeAll(async () => { providerURL = await listenTestProvider(provider); });
@@ -71,6 +73,7 @@ test('image upload reaches the provider, pauses for review, then opens the edita
   expect(annotationPrompt).toContain('source-furnishing-v1');
   expect(annotationPrompt).toContain('FROZEN_ARCHITECTURE_JSON:');
   expect(JSON.parse(annotationPrompt.split('FROZEN_ARCHITECTURE_JSON:\n')[1]).functionalZones).toHaveLength(1);
+  expect(JSON.parse(annotationPrompt.split('FROZEN_ARCHITECTURE_JSON:\n')[1]).structureEvidence).toEqual(firstEvidence);
   expect(annotationPrompt).not.toContain('Return ONLY one plan2world-draft-v1');
 
   await page.getByRole('button', { name: 'Open editable home', exact: true }).click();
@@ -92,6 +95,12 @@ test('image upload reaches the provider, pauses for review, then opens the edita
   await expect(review.getByRole('img', { name: 'Source floor plan', exact: true })).toBeVisible();
   expect(requests).toHaveLength(2);
   await review.getByRole('button', { name: 'Close reconstruction review', exact: true }).click();
+
+  await page.getByRole('button',{name:'Export',exact:true}).click();
+  const downloading=page.waitForEvent('download');await page.getByRole('button',{name:'Download JSON',exact:true}).click();
+  const saved=JSON.parse(await readFile((await(await downloading).path())!,'utf8'));
+  expect(JSON.parse(saved.architectureReview.sourceObservations).architecture.structureEvidence).toEqual(firstEvidence);
+  expect(requests).toHaveLength(2);
 
   await page.getByRole('button', { name: '3D', exact: true }).click();
   const canvas = page.getByRole('region', { name: '3D floor plan viewer' }).locator('canvas').first();
